@@ -27,7 +27,7 @@ Want help understanding a new codebase? Need to add a new feature? Refactor exis
 ## Install
 
 If you just want to use Mentat, use one of these methods to install it:
-- PyPI: coming soon!
+- PyPI: `python -m pip install mentat-ai`
 - Github: `python -m pip install git+https://github.com/biobootloader/mentat.git`
 
 If you are more adventurous and would like to use and edit Mentat, try this:
