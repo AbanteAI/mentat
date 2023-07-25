@@ -18,33 +18,33 @@ Want help understanding a new codebase? Need to add a new feature? Refactor exis
 
 # 🍿 Example Videos
 
-See the videos on twitter: https://twitter.com/bio_bootloader/status/1683906735248125955
-
-Or on YouTube:
-- intro (2 min): www.youtube.com/watch?v=lODjaWclwpY
-- explaining and editing Llama2.c (3 min): www.youtube.com/watch?v=qSyTWMFOjPs
-- more Mentat features (4 min): www.youtube.com/watch?v=YJLDIqq8k2A
+See the videos on [Twitter](https://twitter.com/bio_bootloader/status/1683906735248125955) or YouTube:
+- [Intro (2 min)](https://www.youtube.com/watch?v=lODjaWclwpY)
+- [Explaining and editing Llama2.c (3 min)](https://www.youtube.com/watch?v=qSyTWMFOjPs)
+- [More Mentat features (4 min)](https://www.youtube.com/watch?v=YJLDIqq8k2A)
 
 # ⚙️ Setup
 
 ## Install
 
-If you just want to use Mentat, use one of these methods to install it:
+Before installing, it's suggested that you create a virtual environment to install it in:
+
+```
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Note that you'll have to have activated the virtual environment to run mentat if you install it there.
+
+There are then 3 install methods. The first two will just let you run it:
 - PyPI: `python -m pip install mentat-ai`
 - Github: `python -m pip install git+https://github.com/biobootloader/mentat.git`
 
-If you are more adventurous and would like to use and edit Mentat, try this:
+The third option is useful if you'd also like to modify Mentat's code, as well as run it:
+
 ```
-# Clone the repo
 git clone https://github.com/biobootloader/mentat.git
 cd mentat
-
-# optionally, set up a virtual environment to install it in
-# if you do this, you'll only be able to run mentat while it's activated
-python -m venv .venv
-source .venv/bin/activate
-
-pip install -r requirements.txt
 
 # install with pip in editable mode:
 pip install -e .
@@ -60,7 +60,7 @@ You'll need to have API access to GPT-4 to run Mentat. There are a few options t
 
 ## Configuration
 
-For custom configuration options see [here](docs/configuration.md)
+For custom configuration options see [configuration.md](docs/configuration.md)
 
 
 # 🚀 Usage
