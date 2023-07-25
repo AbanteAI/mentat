@@ -1,0 +1,12 @@
+__pycache__
+.venv
+venv
+tags
+*.egg-info
+.env
+.ropeproject
+.vscode
+benchmark_results
+.idea
+build
+

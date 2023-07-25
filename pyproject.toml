@@ -1,0 +1,6 @@
+[tool.isort]
+profile = "black"
+known_first_party = "mentat"
+
+[tool.ruff]
+line-length = 120
