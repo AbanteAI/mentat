@@ -18,6 +18,9 @@ Want help understanding a new codebase? Need to add a new feature? Refactor exis
 
 # 🍿 Example Videos
 
+See the videos on twitter: https://twitter.com/bio_bootloader/status/1683906735248125955
+
+Or on YouTube:
 - intro (2 min): www.youtube.com/watch?v=lODjaWclwpY
 - explaining and editing Llama2.c (3 min): www.youtube.com/watch?v=qSyTWMFOjPs
 - more Mentat features (4 min): www.youtube.com/watch?v=YJLDIqq8k2A
