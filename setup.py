@@ -7,8 +7,8 @@ def read_requirements(file):
 
 
 setup(
-    name="mentat",
-    version="0.1.0",
+    name="mentat-ai",
+    version="0.1.1",
     packages=find_packages(),
     install_requires=read_requirements("requirements.txt"),
     package_data={
