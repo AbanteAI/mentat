@@ -48,6 +48,8 @@ default_filetype_include_list = [
     ".m",       # objective-c
     ".sh",      # shell scripts
     ".f",       # fortran
+    ".jsx",     # javascript react
+    ".tsx",     # typescript react
 ]
 default_filetype_exclude_list = []
 # fmt: on
