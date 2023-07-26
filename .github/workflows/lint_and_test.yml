@@ -3,7 +3,7 @@
 
 name: lint and test
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   ruff-black-isort:
