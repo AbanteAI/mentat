@@ -33,7 +33,7 @@ def run(paths: Iterable[str]):
     cost_tracker = CostTracker()
     try:
         loop(paths, cost_tracker)
-    except KeyboardInterrupt as e:
+    except (EOFError, KeyboardInterrupt) as e:
         print(e)
     finally:
         cost_tracker.display_total_cost()
