@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import sys
 from typing import Iterable
 
 from termcolor import cprint
@@ -25,6 +26,10 @@ def run_cli():
 
 
 def run(paths: Iterable[str]):
+    if sys.version_info < (3, 10):
+        print("Error: Python version 3.10 or higher is required.")
+        return
+
     os.makedirs(mentat_dir_path, exist_ok=True)
     setup_logging()
     setup_api_key()
