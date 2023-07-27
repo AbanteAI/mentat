@@ -7,7 +7,6 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
 
-import git
 from termcolor import cprint
 
 from .change_conflict_resolution import (
@@ -209,7 +208,6 @@ class CodeFileManager:
         self.non_text_file_paths = []
         self.file_paths = []
 
-        repo = git.Repo(self.git_root)
         for path in paths:
             path = Path(path)
             if path.is_file():
@@ -217,10 +215,10 @@ class CodeFileManager:
             elif path.is_dir():
                 nonignored_files = set(
                     filter(
-                        lambda p: p != "" and not p.startswith(".git"),
+                        lambda p: p != "",
                         subprocess.check_output(
                             # -c shows cached (regular) files, -o shows other (untracked/ new) files
-                            ["git", "ls-files", "-c", "-o"],
+                            ["git", "ls-files", "-c", "-o", "--exclude-standard"],
                             cwd=path,
                             text=True,
                         ).split("\n"),
@@ -246,7 +244,6 @@ class CodeFileManager:
                     ),
                 )
                 path_set.update(text_files)
-        repo.close()
         self.file_paths = list(path_set)
 
     def _read_file(self, abs_path) -> Iterable[str]:
