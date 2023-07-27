@@ -309,7 +309,7 @@ class CodeFileManager:
         rel_path = changes[0].file
         abs_path = os.path.join(self.git_root, rel_path)
         new_code_lines = self.file_lines[abs_path].copy()
-        if new_code_lines != self._read_file(rel_path):
+        if new_code_lines != self._read_file(abs_path):
             logging.info(f"File '{rel_path}' changed while generating changes")
             cprint(
                 (
