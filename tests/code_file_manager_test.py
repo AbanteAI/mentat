@@ -12,8 +12,10 @@ config = ConfigManager()
 
 def test_path_gitignoring(temp_testbed):
     gitignore_path = ".gitignore"
-    ignored_path = "ignored_file.txt"
-    nonignored_path = "nonignored_file.txt"
+    testing_dir_path = "git_testing_dir"
+    os.makedirs(testing_dir_path)
+    ignored_path = os.path.join(testing_dir_path, "ignored_file.txt")
+    nonignored_path = os.path.join(testing_dir_path, "nonignored_file.txt")
     with open(gitignore_path, "a") as gitignore_file:
         gitignore_file.write("\nignored_file.txt\nnonignored_file.txt")
     with open(ignored_path, "w") as ignored_file:
@@ -21,14 +23,13 @@ def test_path_gitignoring(temp_testbed):
     with open(nonignored_path, "w") as nonignored_file:
         nonignored_file.write("I am not ignored")
 
-    os.makedirs("git_testing_dir")
     in_dir_path = os.path.join("git_testing_dir", "in_dir.txt")
     with open(in_dir_path, "w") as in_dir_file:
         in_dir_file.write("I am in a directory")
 
     # Gets all non-git-ignored files inside directory
     # Doesn't get git-ignored files unless specifically asked for
-    paths = ["git_testing_dir", "nonignored_file.txt"]
+    paths = ["git_testing_dir", "git_testing_dir/nonignored_file.txt"]
     code_file_manager = CodeFileManager(paths, user_input_manager=None, config=config)
 
     expected_file_paths = [
