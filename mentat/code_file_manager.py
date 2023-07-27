@@ -219,7 +219,10 @@ class CodeFileManager:
                     filter(
                         lambda p: p != "" and not p.startswith(".git"),
                         subprocess.check_output(
-                            ["git", "ls-files", "."], cwd=path, text=True
+                            # -c shows cached (regular) files, -o shows other (untracked/ new) files
+                            ["git", "ls-files", "-c", "-o"],
+                            cwd=path,
+                            text=True,
                         ).split("\n"),
                     )
                 )
