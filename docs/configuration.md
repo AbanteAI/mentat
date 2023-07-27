@@ -22,25 +22,11 @@ Determines which file types inside of a directory will be automatically included
 }
 ```
 
-### Filepath Include and Exclude list
-Optional lists of regex patterns that determin which files or directories will be included 
-or excluded from context. Either or both lists can be provided. If the file path matches 
-both an inclusion rule and an exclusion rule, the exclusion rule always wins (including 
-for example filetype exclusion wins over filepath inclusion).
+### File Exclude Glob list
+List of [glob patterns](https://docs.python.org/3/library/glob.html) that will exclude all files from context that it matches starting from the given directory.
 ```
 {
-    "filepath-include-only-these-regex-patterns": [".*/include_this"],
-    "filepath-exclude-these-regex-patterns": [".*/exclude_this"]
-}
-```
-
-### Disable .gitignore processing
-There is currently an issue where large projects can overwhelm the test for .gitignore exclusion. This option
-disables .gitignore testing to support working with those larger projects. Default is false, which
-allows mentat to make use of git ignore testing.
-```
-{
-    "do-not-check-git-ignored": true,
+    "file-exclude-glob-list": ["**/exclude_this.*"]
 }
 ```
 

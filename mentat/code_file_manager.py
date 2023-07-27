@@ -1,8 +1,8 @@
+import glob
 import logging
 import math
 import mimetypes
 import os
-import re
 import subprocess
 from collections import defaultdict
 from pathlib import Path
@@ -178,8 +178,9 @@ class CodeFileManager:
         for file_type in config.filetype_exclude_list():
             mimetypes.types_map.pop(file_type, None)
 
+        self.config = config
         self.git_root = _get_shared_git_root_for_paths(paths)
-        self._set_file_paths(config, paths)
+        self._set_file_paths(paths)
         self.user_input_manager = user_input_manager
 
         if self.file_paths:
@@ -195,7 +196,7 @@ class CodeFileManager:
             self.git_root,
         )
 
-    def _set_file_paths(self, config: ConfigManager, paths: Iterable[str] = None) -> None:
+    def _set_file_paths(self, paths: Iterable[str] = None) -> None:
         invalid_paths = []
         for path in paths:
             if not os.path.exists(path):
@@ -211,31 +212,32 @@ class CodeFileManager:
         self.non_text_file_paths = []
         self.file_paths = []
 
-        def _any_regex(path, patterns, value_if_empty):
-            if not patterns:
-                return value_if_empty
-            return any(bool(re.match(pattern, path)) for pattern in patterns)
-
         for path in paths:
             path = Path(path)
             if path.is_file():
                 path_set.add(os.path.realpath(path))
             elif path.is_dir():
                 all_files = set(pathspec.util.iter_tree_files(path, follow_links=False))
-                if config.do_not_check_git_ignore():
-                    ignored_by_git = []
-                else:
-                    repo = git.Repo(self.git_root)
-                    ignored_by_git = repo.ignored(*all_files)
-                    repo.close()
-                git_folder_files = list(filter(lambda p: p.startswith(".git"), all_files))
-                files_with_optionally_excluded_paths = list(filter(lambda p: _any_regex(p, config.filepath_exclude_these_regex_patterns(), False), all_files))
-                files_lacking_optionally_included_paths = list(filter(lambda p: not _any_regex(p, config.filepath_include_only_these_regex_patterns(), True), all_files))
+
+                repo = git.Repo(self.git_root)
+                ignored_by_git = repo.ignored(*all_files)
+                repo.close()
+                git_folder_files = list(
+                    filter(lambda p: p.startswith(".git"), all_files)
+                )
+                glob_excluded_files = list(
+                    file
+                    for glob_path in self.config.file_exclude_glob_list()
+                    # If the user puts a / at the beginning, it will try to look in root directory
+                    for file in glob.glob(
+                        pathname=glob_path.lstrip("/"),
+                        root_dir=path,
+                        recursive=True,
+                    )
+                )
+
                 ignore_files = set(
-                    ignored_by_git
-                    + git_folder_files
-                    + files_with_optionally_excluded_paths
-                    + files_lacking_optionally_included_paths
+                    ignored_by_git + git_folder_files + glob_excluded_files
                 )
                 nonignored_files = all_files - ignore_files
                 non_text_files = filter(
