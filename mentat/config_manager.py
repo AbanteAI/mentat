@@ -37,11 +37,20 @@ class ConfigManager:
     def filetype_exclude_list(self) -> list[str]:
         return self._get_key("filetype-exclude-list")
 
-    def _get_key(self, key: str):
+    def filepath_include_only_these_regex_patterns(self) -> list[str]:
+        return self._get_key("filepath-include-only-these-regex-patterns", False)
+    
+    def filepath_exclude_these_regex_patterns(self) -> list[str]:
+        return self._get_key("filepath-exclude-these-regex-patterns", False)
+
+    def do_not_check_git_ignore(self) -> bool:
+        return self._get_key("do-not-check-git-ignore", False)
+
+    def _get_key(self, key: str, is_required = True):
         if key in self.user_config:
             return self.user_config[key]
         elif key in self.default_config:
             return self.default_config[key]
-        else:
+        elif is_required:
             logging.error(f"No value for config key {key} found")
-            return None
+        return None
