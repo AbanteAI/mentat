@@ -82,8 +82,8 @@ def test_glob_exclude(mocker, temp_testbed):
     mocker.patch.object(ConfigManager, "file_exclude_glob_list", new=mock_glob_exclude)
     mock_glob_exclude.side_effect = [["glob_test/**/*.py"]]
 
-    glob_exclude_path = "glob_test/bagel/apple/exclude_me.py"
-    glob_include_path = "glob_test/bagel/apple/include_me.ts"
+    glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
+    glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
     os.makedirs(os.path.dirname(glob_exclude_path), exist_ok=True)
     with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am excluded")
