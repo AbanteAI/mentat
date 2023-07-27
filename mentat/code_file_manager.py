@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Iterable
 
 import git
-import pathspec
 from termcolor import cprint
 
 from .change_conflict_resolution import (
@@ -210,19 +209,20 @@ class CodeFileManager:
         self.non_text_file_paths = []
         self.file_paths = []
 
+        repo = git.Repo(self.git_root)
         for path in paths:
             path = Path(path)
             if path.is_file():
                 path_set.add(os.path.realpath(path))
             elif path.is_dir():
-                all_files = set(pathspec.util.iter_tree_files(path, follow_links=False))
-                repo = git.Repo(self.git_root)
-                ignore_files = set(
-                    repo.ignored(*all_files)
-                    + list(filter(lambda p: p.startswith(".git"), all_files))
+                nonignored_files = set(
+                    filter(
+                        lambda p: p != "" and not p.startswith(".git"),
+                        subprocess.check_output(
+                            ["git", "ls-files", "."], cwd=path, text=True
+                        ).split("\n"),
+                    )
                 )
-                repo.close()
-                nonignored_files = all_files - ignore_files
                 non_text_files = filter(
                     lambda f: not _is_file_text(
                         os.path.realpath(os.path.join(path, f))
@@ -243,6 +243,7 @@ class CodeFileManager:
                     ),
                 )
                 path_set.update(text_files)
+        repo.close()
         self.file_paths = list(path_set)
 
     def _read_file(self, abs_path) -> Iterable[str]:
