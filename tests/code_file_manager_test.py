@@ -12,9 +12,10 @@ config = ConfigManager()
 
 def test_path_gitignoring(temp_testbed):
     gitignore_path = ".gitignore"
-    os.makedirs("git_testing_dir")
-    ignored_path = "git_testing_dir/ignored_file.txt"
-    nonignored_path = "git_testing_dir/nonignored_file.txt"
+    testing_dir_path = "git_testing_dir"
+    os.makedirs(testing_dir_path)
+    ignored_path = os.path.join(testing_dir_path, "ignored_file.txt")
+    nonignored_path = os.path.join(testing_dir_path, "nonignored_file.txt")
     with open(gitignore_path, "a") as gitignore_file:
         gitignore_file.write("\nignored_file.txt\nnonignored_file.txt")
     with open(ignored_path, "w") as ignored_file:
