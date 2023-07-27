@@ -8,6 +8,7 @@ def read_requirements(file):
 
 setup(
     name="mentat-ai",
+    python_requires=">=3.10",
     version="0.1.2",
     packages=find_packages(),
     install_requires=read_requirements("requirements.txt"),
