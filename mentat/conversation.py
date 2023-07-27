@@ -1,10 +1,7 @@
-import openai
-from termcolor import cprint
-
 from .code_change import CodeChange
 from .code_file_manager import CodeFileManager
 from .config_manager import ConfigManager
-from .llm_api import CostTracker, choose_model, count_tokens
+from .llm_api import CostTracker, check_model_availability, choose_model, count_tokens
 from .parsing import run_async_stream_and_parse_llm_response
 from .prompts import system_prompt
 
@@ -13,22 +10,8 @@ class Conversation:
     def __init__(self, config: ConfigManager, cost_tracker: CostTracker):
         self.messages = []
         self.add_system_message(system_prompt)
-        self.allow_32k = config.allow_32k()
         self.cost_tracker = cost_tracker
-
-        if self.allow_32k:
-            # check if user actually has access to gpt-4-32k
-            available_models = [x["id"] for x in openai.Model.list()["data"]]
-            if "gpt-4-32k-0314" not in available_models:
-                cprint(
-                    (
-                        "You set ALLOW_32K to true, but your openAI API key doesn't"
-                        " have access to gpt-4-32k-0314. To remove this warning, set"
-                        " ALLOW_32K to false until you have access."
-                    ),
-                    "yellow",
-                )
-                self.allow_32k = False
+        self.allow_32k = check_model_availability(config.allow_32k())
 
     def add_system_message(self, message: str):
         self.messages.append({"role": "system", "content": message})
