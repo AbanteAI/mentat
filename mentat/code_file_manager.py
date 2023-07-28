@@ -216,7 +216,10 @@ class CodeFileManager:
                 path_set.add(os.path.realpath(path))
             elif path.is_dir():
                 non_git_ignored_files = set(
-                    filter(
+                    # git returns / seperated paths even on windows, convert so we can remove
+                    # glob_excluded_files, which have windows paths on windows
+                    os.path.normpath(path)
+                    for path in filter(
                         lambda p: p != "",
                         subprocess.check_output(
                             # -c shows cached (regular) files, -o shows other (untracked/ new) files
@@ -236,8 +239,6 @@ class CodeFileManager:
                         recursive=True,
                     )
                 )
-                if glob_excluded_files:
-                    assert False, (non_git_ignored_files, glob_excluded_files)
                 nonignored_files = non_git_ignored_files - glob_excluded_files
 
                 non_text_files = filter(
