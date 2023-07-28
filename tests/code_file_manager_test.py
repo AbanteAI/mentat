@@ -42,12 +42,14 @@ def test_path_gitignoring(temp_testbed):
     )
 
 
-def test_ignore_non_text_files():
+def test_ignore_non_text_files(temp_testbed):
     image_file_path = "image.jpg"
     with open(image_file_path, "w") as image_file:
         image_file.write("I am an image")
     code_file_manager = CodeFileManager(["./"], user_input_manager=None, config=config)
-    assert image_file_path not in code_file_manager.file_paths
+    assert (
+        os.path.join(temp_testbed, image_file_path) not in code_file_manager.file_paths
+    )
 
 
 def test_no_paths_given(temp_testbed):
@@ -74,3 +76,27 @@ def test_two_git_roots_given():
             ["./", "git_testing_dir"], user_input_manager=None, config=config
         )
     assert e_info.type == SystemExit
+
+
+def test_glob_exclude(mocker, temp_testbed):
+    # Makes sure glob exclude config works
+    mock_glob_exclude = mocker.MagicMock()
+    mocker.patch.object(ConfigManager, "file_exclude_glob_list", new=mock_glob_exclude)
+    mock_glob_exclude.side_effect = [[os.path.join("glob_test", "**", "*.py")]]
+
+    glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
+    glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
+    os.makedirs(os.path.dirname(glob_exclude_path), exist_ok=True)
+    with open(glob_exclude_path, "w") as glob_exclude_file:
+        glob_exclude_file.write("I am excluded")
+    os.makedirs(os.path.dirname(glob_include_path), exist_ok=True)
+    with open(glob_include_path, "w") as glob_include_file:
+        glob_include_file.write("I am included")
+
+    code_file_manager = CodeFileManager(["."], user_input_manager=None, config=config)
+    print(code_file_manager.file_paths)
+    assert (
+        os.path.join(temp_testbed, glob_exclude_path)
+        not in code_file_manager.file_paths
+    )
+    assert os.path.join(temp_testbed, glob_include_path) in code_file_manager.file_paths

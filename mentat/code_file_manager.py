@@ -1,3 +1,4 @@
+import glob
 import logging
 import math
 import mimetypes
@@ -175,6 +176,7 @@ class CodeFileManager:
         for file_type in config.filetype_exclude_list():
             mimetypes.types_map.pop(file_type, None)
 
+        self.config = config
         self.git_root = _get_shared_git_root_for_paths(paths)
         self._set_file_paths(paths)
         self.user_input_manager = user_input_manager
@@ -213,8 +215,11 @@ class CodeFileManager:
             if path.is_file():
                 path_set.add(os.path.realpath(path))
             elif path.is_dir():
-                nonignored_files = set(
-                    filter(
+                non_git_ignored_files = set(
+                    # git returns / seperated paths even on windows, convert so we can remove
+                    # glob_excluded_files, which have windows paths on windows
+                    os.path.normpath(path)
+                    for path in filter(
                         lambda p: p != "",
                         subprocess.check_output(
                             # -c shows cached (regular) files, -o shows other (untracked/ new) files
@@ -224,6 +229,18 @@ class CodeFileManager:
                         ).split("\n"),
                     )
                 )
+                glob_excluded_files = set(
+                    file
+                    for glob_path in self.config.file_exclude_glob_list()
+                    # If the user puts a / at the beginning, it will try to look in root directory
+                    for file in glob.glob(
+                        pathname=glob_path.lstrip("/"),
+                        root_dir=path,
+                        recursive=True,
+                    )
+                )
+                nonignored_files = non_git_ignored_files - glob_excluded_files
+
                 non_text_files = filter(
                     lambda f: not _is_file_text(
                         os.path.realpath(os.path.join(path, f))

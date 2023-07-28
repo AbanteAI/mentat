@@ -22,6 +22,14 @@ Determines which file types inside of a directory will be automatically included
 }
 ```
 
+### File Exclude Glob list
+List of [glob patterns](https://docs.python.org/3/library/glob.html) that will exclude all files from context that it matches starting from the given directory.
+```
+{
+    "file-exclude-glob-list": ["**/exclude_this.*"]
+}
+```
+
 ### Input Style
 A list of key-value pairs defining a custom [Pygment Style](https://pygments.org/docs/styledevelopment/) to style the Mentat prompt.
 ```

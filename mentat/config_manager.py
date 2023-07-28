@@ -37,11 +37,14 @@ class ConfigManager:
     def filetype_exclude_list(self) -> list[str]:
         return self._get_key("filetype-exclude-list")
 
+    def file_exclude_glob_list(self) -> list[str]:
+        return self._get_key("file-exclude-glob-list")
+
     def _get_key(self, key: str):
         if key in self.user_config:
             return self.user_config[key]
         elif key in self.default_config:
             return self.default_config[key]
         else:
-            logging.error(f"No value for config key {key} found")
+            logging.warning(f"No value for config key {key} found")
             return None
