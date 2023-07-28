@@ -8,8 +8,6 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
 
-import git
-import pathspec
 from termcolor import cprint
 
 from .change_conflict_resolution import (
@@ -217,15 +215,18 @@ class CodeFileManager:
             if path.is_file():
                 path_set.add(os.path.realpath(path))
             elif path.is_dir():
-                all_files = set(pathspec.util.iter_tree_files(path, follow_links=False))
-
-                repo = git.Repo(self.git_root)
-                ignored_by_git = repo.ignored(*all_files)
-                repo.close()
-                git_folder_files = list(
-                    filter(lambda p: p.startswith(".git"), all_files)
+                non_git_ignored_files = set(
+                    filter(
+                        lambda p: p != "",
+                        subprocess.check_output(
+                            # -c shows cached (regular) files, -o shows other (untracked/ new) files
+                            ["git", "ls-files", "-c", "-o", "--exclude-standard"],
+                            cwd=path,
+                            text=True,
+                        ).split("\n"),
+                    )
                 )
-                glob_excluded_files = list(
+                glob_excluded_files = set(
                     file
                     for glob_path in self.config.file_exclude_glob_list()
                     # If the user puts a / at the beginning, it will try to look in root directory
@@ -235,11 +236,8 @@ class CodeFileManager:
                         recursive=True,
                     )
                 )
+                nonignored_files = non_git_ignored_files - glob_excluded_files
 
-                ignore_files = set(
-                    ignored_by_git + git_folder_files + glob_excluded_files
-                )
-                nonignored_files = all_files - ignore_files
                 non_text_files = filter(
                     lambda f: not _is_file_text(
                         os.path.realpath(os.path.join(path, f))
@@ -326,7 +324,7 @@ class CodeFileManager:
         rel_path = changes[0].file
         abs_path = os.path.join(self.git_root, rel_path)
         new_code_lines = self.file_lines[abs_path].copy()
-        if new_code_lines != self._read_file(rel_path):
+        if new_code_lines != self._read_file(abs_path):
             logging.info(f"File '{rel_path}' changed while generating changes")
             cprint(
                 (

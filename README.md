@@ -34,6 +34,7 @@ See more videos on [Twitter](https://twitter.com/bio_bootloader/status/168390673
 Before installing, it's suggested that you create a virtual environment to install it in:
 
 ```
+# Python 3.10 or higher is required
 python3 -m venv .venv
 source .venv/bin/activate
 ```

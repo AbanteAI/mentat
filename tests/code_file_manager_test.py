@@ -12,32 +12,34 @@ config = ConfigManager()
 
 def test_path_gitignoring(temp_testbed):
     gitignore_path = ".gitignore"
-    ignored_path = "ignored_file.txt"
-    nonignored_path = "nonignored_file.txt"
-    with open(gitignore_path, "a") as gitignore_file:
-        gitignore_file.write("\nignored_file.txt\nnonignored_file.txt")
-    with open(ignored_path, "w") as ignored_file:
-        ignored_file.write("I am ignored")
-    with open(nonignored_path, "w") as nonignored_file:
-        nonignored_file.write("I am not ignored")
+    testing_dir_path = "git_testing_dir"
+    os.makedirs(testing_dir_path)
 
-    os.makedirs("git_testing_dir")
-    in_dir_path = os.path.join("git_testing_dir", "in_dir.txt")
-    with open(in_dir_path, "w") as in_dir_file:
-        in_dir_file.write("I am in a directory")
+    # create 3 files, 2 ignored in gitignore, 1 not
+    ignored_file_path_1 = os.path.join(testing_dir_path, "ignored_file_1.txt")
+    ignored_file_path_2 = os.path.join(testing_dir_path, "ignored_file_2.txt")
+    non_ignored_file_path = os.path.join(testing_dir_path, "non_ignored_file.txt")
 
-    # Gets all non-git-ignored files inside directory
-    # Doesn't get git-ignored files unless specifically asked for
-    paths = ["git_testing_dir", "nonignored_file.txt"]
+    with open(gitignore_path, "w") as gitignore_file:
+        gitignore_file.write("ignored_file_1.txt\nignored_file_2.txt")
+
+    for file_path in [ignored_file_path_1, ignored_file_path_2, non_ignored_file_path]:
+        with open(file_path, "w") as file:
+            file.write("I am a file")
+
+    # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
+    paths = [testing_dir_path, ignored_file_path_2]
     code_file_manager = CodeFileManager(paths, user_input_manager=None, config=config)
 
     expected_file_paths = [
-        os.path.join(temp_testbed, nonignored_path),
-        os.path.join(temp_testbed, in_dir_path),
+        os.path.join(temp_testbed, ignored_file_path_2),
+        os.path.join(temp_testbed, non_ignored_file_path),
     ]
 
     case = TestCase()
-    case.assertCountEqual(expected_file_paths, code_file_manager.file_paths)
+    case.assertListEqual(
+        sorted(expected_file_paths), sorted(code_file_manager.file_paths)
+    )
 
 
 def test_ignore_non_text_files(temp_testbed):

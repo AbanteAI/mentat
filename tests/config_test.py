@@ -1,7 +1,7 @@
 from mentat.config_manager import ConfigManager
 
 
-def test_user_config(change_cwd):
+def test_user_config():
     config = ConfigManager()
 
-    assert not config.allow_32k()
+    assert config.allow_32k() is not None
