@@ -236,6 +236,8 @@ class CodeFileManager:
                         recursive=True,
                     )
                 )
+                if glob_excluded_files:
+                    assert False, (non_git_ignored_files, glob_excluded_files)
                 nonignored_files = non_git_ignored_files - glob_excluded_files
 
                 non_text_files = filter(
