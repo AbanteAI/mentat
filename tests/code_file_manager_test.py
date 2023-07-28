@@ -82,7 +82,7 @@ def test_glob_exclude(mocker, temp_testbed):
     # Makes sure glob exclude config works
     mock_glob_exclude = mocker.MagicMock()
     mocker.patch.object(ConfigManager, "file_exclude_glob_list", new=mock_glob_exclude)
-    mock_glob_exclude.side_effect = [["glob_test/**/*.py"]]
+    mock_glob_exclude.side_effect = [[os.path.join("glob_test", "**", "*.py")]]
 
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
@@ -93,7 +93,7 @@ def test_glob_exclude(mocker, temp_testbed):
     with open(glob_include_path, "w") as glob_include_file:
         glob_include_file.write("I am included")
 
-    code_file_manager = CodeFileManager(["./"], user_input_manager=None, config=config)
+    code_file_manager = CodeFileManager(["."], user_input_manager=None, config=config)
     print(code_file_manager.file_paths)
     assert (
         os.path.join(temp_testbed, glob_exclude_path)
