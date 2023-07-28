@@ -57,6 +57,36 @@ def count_tokens(message: str) -> int:
     return len(tiktoken.encoding_for_model("gpt-4").encode(message))
 
 
+def check_model_availability(allow_32k: bool) -> bool:
+    available_models = [x["id"] for x in openai.Model.list()["data"]]
+    if allow_32k:
+        # check if user has access to gpt-4-32k
+        if "gpt-4-32k-0314" not in available_models:
+            cprint(
+                (
+                    "You set ALLOW_32K to true, but your OpenAI API key doesn't"
+                    " have access to gpt-4-32k-0314. To remove this warning, set"
+                    " ALLOW_32K to false until you have access."
+                ),
+                "yellow",
+            )
+            allow_32k = False
+
+    if not allow_32k:
+        # check if user has access to gpt-4
+        if "gpt-4-0314" not in available_models:
+            cprint(
+                (
+                    "Sorry, but your OpenAI API key doesn't have access to gpt-4-0314,"
+                    " which is currently required to run Mentat."
+                ),
+                "red",
+            )
+            raise KeyboardInterrupt
+
+    return allow_32k
+
+
 def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
     prompt_token_count = 0
     tokenizer = tiktoken.encoding_for_model("gpt-4")
