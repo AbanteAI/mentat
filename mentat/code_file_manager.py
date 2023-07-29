@@ -203,8 +203,8 @@ class CodeFileManager:
             cprint("Git project: ", "green", end="")
         cprint(os.path.split(self.git_root)[1], "blue")
         _print_path_tree(
-            _build_path_tree(self.file_paths + self.non_text_file_paths, self.git_root),
-            self.non_text_file_paths,
+            _build_path_tree(self.file_paths + self.non_code_file_paths, self.git_root),
+            self.non_code_file_paths,
             _get_paths_with_git_diffs(self.git_root),
             self.git_root,
         )
@@ -221,7 +221,7 @@ class CodeFileManager:
             print("Exiting...")
             exit()
 
-        self.non_text_file_paths = set()
+        self.non_code_file_paths = set()
         self.file_paths = set()
 
         for path in paths:
@@ -267,7 +267,7 @@ class CodeFileManager:
                     )
                 )
 
-                self.non_text_file_paths.update(
+                self.non_code_file_paths.update(
                     filter(
                         lambda f: not _is_file_code(f),
                         nonignored_files,
@@ -279,7 +279,7 @@ class CodeFileManager:
                         nonignored_files,
                     )
                 )
-        self.non_text_file_paths = list(self.non_text_file_paths)
+        self.non_code_file_paths = list(self.non_code_file_paths)
         self.file_paths = list(self.file_paths)
 
     def _read_file(self, abs_path) -> Iterable[str]:
@@ -305,11 +305,11 @@ class CodeFileManager:
             if git_diff_output:
                 code_message.append("Current git diff for this file:")
                 code_message.append(f"{git_diff_output}")
-        if self.non_text_file_paths:
+        if self.non_code_file_paths:
             code_message.append("\nOther files:\n")
             code_message.extend(
                 os.path.relpath(path, self.git_root)
-                for path in self.non_text_file_paths
+                for path in self.non_code_file_paths
             )
         return "\n".join(code_message)
 
