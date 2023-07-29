@@ -106,7 +106,6 @@ class CodeFileManager:
             exit()
 
         self.file_paths = set()
-
         for path in paths:
             path = Path(path)
             if path.is_file():
@@ -119,21 +118,10 @@ class CodeFileManager:
                     raise KeyboardInterrupt
                 self.file_paths.add(os.path.realpath(path))
             elif path.is_dir():
-                non_git_ignored_files = get_non_gitignored_files(path)
-                glob_excluded_files = set(
-                    file
-                    for glob_path in self.config.file_exclude_glob_list()
-                    # If the user puts a / at the beginning, it will try to look in root directory
-                    for file in glob.glob(
-                        pathname=glob_path.lstrip("/"),
-                        root_dir=path,
-                        recursive=True,
-                    )
-                )
                 nonignored_files = set(
                     map(
                         lambda f: os.path.realpath(os.path.join(path, f)),
-                        non_git_ignored_files - glob_excluded_files,
+                        get_non_gitignored_files(path),
                     )
                 )
 
@@ -143,7 +131,18 @@ class CodeFileManager:
                         nonignored_files,
                     )
                 )
-        self.file_paths = list(self.file_paths)
+
+        glob_excluded_files = set(
+            os.path.join(self.git_root, file)
+            for glob_path in self.config.file_exclude_glob_list()
+            # If the user puts a / at the beginning, it will try to look in root directory
+            for file in glob.glob(
+                pathname=glob_path,
+                root_dir=self.git_root,
+                recursive=True,
+            )
+        )
+        self.file_paths = list(self.file_paths - glob_excluded_files)
 
     def _read_file(self, abs_path) -> Iterable[str]:
         with open(abs_path, "r") as f:

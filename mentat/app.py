@@ -1,4 +1,5 @@
 import argparse
+import glob
 import logging
 import os
 from typing import Iterable
@@ -20,9 +21,20 @@ def run_cli():
     parser = argparse.ArgumentParser(
         description="Run conversation with command line args"
     )
-    parser.add_argument("paths", nargs="*", help="Paths to directories or files")
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        help="Space separated list of file paths, directory paths, or glob patterns",
+    )
     paths = parser.parse_args().paths
-    run(paths)
+    run(expand_paths(paths))
+
+
+def expand_paths(paths: Iterable[str]) -> Iterable[str]:
+    globbed_paths = set()
+    for path in paths:
+        globbed_paths.update(glob.glob(pathname=path, recursive=True))
+    return globbed_paths
 
 
 def run(paths: Iterable[str]):
