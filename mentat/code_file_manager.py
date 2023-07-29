@@ -216,7 +216,7 @@ class CodeFileManager:
                 path_set.add(os.path.realpath(path))
             elif path.is_dir():
                 non_git_ignored_files = set(
-                    # git returns / seperated paths even on windows, convert so we can remove
+                    # git returns / separated paths even on windows, convert so we can remove
                     # glob_excluded_files, which have windows paths on windows
                     os.path.normpath(path)
                     for path in filter(
