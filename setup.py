@@ -9,7 +9,9 @@ def read_requirements(file):
         return f.read().splitlines()
 
 
-long_description = Path(os.path.join(Path(__file__).parent, "README.md")).read_text()
+readme_path = os.path.join(Path(__file__).parent, "README.md")
+with open(readme_path, "r", encoding="utf-8") as f:
+    long_description = f.read()
 
 setup(
     name="mentat-ai",
