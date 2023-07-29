@@ -100,3 +100,48 @@ def test_glob_exclude(mocker, temp_testbed):
         not in code_file_manager.file_paths
     )
     assert os.path.join(temp_testbed, glob_include_path) in code_file_manager.file_paths
+
+
+def test_code_file_checking(temp_testbed):
+    # Makes sure non 'code' files aren't automatically picked up unless we request them
+    noncode_path = "iamnotcode.notcode"
+    noncode_path_requested = "iamalsonotcode.notcode"
+    with open(noncode_path, "w") as f:
+        f.write("I am an innocent non-code file!")
+    with open(noncode_path_requested, "w") as f:
+        f.write("I am an innocent non-code file that has been requested by the user!")
+
+    paths = ["./", noncode_path_requested]
+    code_file_manager = CodeFileManager(paths, user_input_manager=None, config=config)
+
+    assert (
+        os.path.join(temp_testbed, noncode_path_requested)
+        in code_file_manager.file_paths
+    )
+    assert os.path.join(temp_testbed, noncode_path) not in code_file_manager.file_paths
+    assert (
+        os.path.join(temp_testbed, noncode_path)
+        in code_file_manager.non_code_file_paths
+    )
+
+
+def test_text_encoding_checking(temp_testbed):
+    # Makes sure we don't include non text encoded files, and we quit if user gives us one
+    nontext_path = "iamnottext.py"
+    with open(nontext_path, "wb") as f:
+        # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
+        f.write(bytearray([0x81]))
+
+    paths = ["./"]
+    code_file_manager = CodeFileManager(paths, user_input_manager=None, config=config)
+    assert os.path.join(temp_testbed, nontext_path) not in code_file_manager.file_paths
+
+    with pytest.raises(KeyboardInterrupt) as e_info:
+        nontext_path_requested = "iamalsonottext.py"
+        with open(nontext_path_requested, "wb") as f:
+            # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
+            f.write(bytearray([0x81]))
+
+        paths = [nontext_path_requested]
+        _ = CodeFileManager(paths, user_input_manager=None, config=config)
+    assert e_info.type == KeyboardInterrupt

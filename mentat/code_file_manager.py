@@ -153,9 +153,24 @@ def _print_path_tree(tree, non_text_files, changed_files, cur_path, prefix=""):
             _print_path_tree(tree[key], non_text_files, changed_files, cur, new_prefix)
 
 
-def _is_file_text(file_name):
-    file_type, encoding = mimetypes.guess_type(file_name)
-    return file_type and file_type.split("/")[0] == "text"
+def _is_file_text_encoded(file_path):
+    try:
+        # The ultimate filetype test
+        with open(file_path) as f:
+            f.read()
+        return True
+    except UnicodeDecodeError:
+        return False
+
+
+def _is_file_code(file_path):
+    file_type, encoding = mimetypes.guess_type(file_path)
+    return (
+        file_type
+        and file_type.split("/")[0] == "text"
+        and encoding is None
+        and _is_file_text_encoded(file_path)
+    )
 
 
 class CodeFileManager:
@@ -188,8 +203,8 @@ class CodeFileManager:
             cprint("Git project: ", "green", end="")
         cprint(os.path.split(self.git_root)[1], "blue")
         _print_path_tree(
-            _build_path_tree(self.file_paths + self.non_text_file_paths, self.git_root),
-            self.non_text_file_paths,
+            _build_path_tree(self.file_paths + self.non_code_file_paths, self.git_root),
+            self.non_code_file_paths,
             _get_paths_with_git_diffs(self.git_root),
             self.git_root,
         )
@@ -206,14 +221,20 @@ class CodeFileManager:
             print("Exiting...")
             exit()
 
-        path_set = set()
-        self.non_text_file_paths = []
-        self.file_paths = []
+        self.non_code_file_paths = set()
+        self.file_paths = set()
 
         for path in paths:
             path = Path(path)
             if path.is_file():
-                path_set.add(os.path.realpath(path))
+                if not _is_file_text_encoded(path):
+                    logging.info(f"File path {path} is not text encoded.")
+                    cprint(
+                        f"Filepath {path} is not text encoded.",
+                        "light_yellow",
+                    )
+                    raise KeyboardInterrupt
+                self.file_paths.add(os.path.realpath(path))
             elif path.is_dir():
                 non_git_ignored_files = set(
                     # git returns / separated paths even on windows, convert so we can remove
@@ -239,29 +260,27 @@ class CodeFileManager:
                         recursive=True,
                     )
                 )
-                nonignored_files = non_git_ignored_files - glob_excluded_files
-
-                non_text_files = filter(
-                    lambda f: not _is_file_text(
-                        os.path.realpath(os.path.join(path, f))
-                    ),
-                    nonignored_files,
-                )
-                self.non_text_file_paths.extend(
+                nonignored_files = set(
                     map(
                         lambda f: os.path.realpath(os.path.join(path, f)),
-                        non_text_files,
+                        non_git_ignored_files - glob_excluded_files,
                     )
                 )
-                text_files = filter(
-                    _is_file_text,
-                    map(
-                        lambda f: os.path.realpath(os.path.join(path, f)),
+
+                self.non_code_file_paths.update(
+                    filter(
+                        lambda f: not _is_file_code(f),
                         nonignored_files,
-                    ),
+                    )
                 )
-                path_set.update(text_files)
-        self.file_paths = list(path_set)
+                self.file_paths.update(
+                    filter(
+                        _is_file_code,
+                        nonignored_files,
+                    )
+                )
+        self.non_code_file_paths = list(self.non_code_file_paths)
+        self.file_paths = list(self.file_paths)
 
     def _read_file(self, abs_path) -> Iterable[str]:
         with open(abs_path, "r") as f:
@@ -286,11 +305,11 @@ class CodeFileManager:
             if git_diff_output:
                 code_message.append("Current git diff for this file:")
                 code_message.append(f"{git_diff_output}")
-        if self.non_text_file_paths:
+        if self.non_code_file_paths:
             code_message.append("\nOther files:\n")
             code_message.extend(
                 os.path.relpath(path, self.git_root)
-                for path in self.non_text_file_paths
+                for path in self.non_code_file_paths
             )
         return "\n".join(code_message)
 
