@@ -349,10 +349,8 @@ class CodeFileManager:
         if new_code_lines != self._read_file(abs_path):
             logging.info(f"File '{rel_path}' changed while generating changes")
             cprint(
-                (
-                    f"File '{rel_path}' changed while generating; current file changes"
-                    " will be erased. Continue?"
-                ),
+                f"File '{rel_path}' changed while generating; current file changes"
+                " will be erased. Continue?",
                 color="light_yellow",
             )
             if not self.user_input_manager.ask_yes_no(default_yes=False):

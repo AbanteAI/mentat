@@ -25,10 +25,8 @@ def setup_api_key():
         openai.Model.list()  # Test the API key
     except openai.error.AuthenticationError:
         cprint(
-            (
-                "No valid OpenAI api key detected.\nEither place your key into a .env"
-                " file or export it as an environment variable."
-            ),
+            "No valid OpenAI api key detected.\nEither place your key into a .env"
+            " file or export it as an environment variable.",
             "red",
         )
         sys.exit(0)
@@ -63,11 +61,9 @@ def check_model_availability(allow_32k: bool) -> bool:
         # check if user has access to gpt-4-32k
         if "gpt-4-32k-0314" not in available_models:
             cprint(
-                (
-                    "You set ALLOW_32K to true, but your OpenAI API key doesn't"
-                    " have access to gpt-4-32k-0314. To remove this warning, set"
-                    " ALLOW_32K to false until you have access."
-                ),
+                "You set ALLOW_32K to true, but your OpenAI API key doesn't"
+                " have access to gpt-4-32k-0314. To remove this warning, set"
+                " ALLOW_32K to false until you have access.",
                 "yellow",
             )
             allow_32k = False
@@ -76,10 +72,8 @@ def check_model_availability(allow_32k: bool) -> bool:
         # check if user has access to gpt-4
         if "gpt-4-0314" not in available_models:
             cprint(
-                (
-                    "Sorry, but your OpenAI API key doesn't have access to gpt-4-0314,"
-                    " which is currently required to run Mentat."
-                ),
+                "Sorry, but your OpenAI API key doesn't have access to gpt-4-0314,"
+                " which is currently required to run Mentat.",
                 "red",
             )
             raise KeyboardInterrupt
@@ -107,12 +101,10 @@ def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
                 )
         else:
             cprint(
-                (
-                    "Warning: gpt-4-0314 has a maximum context length of 8192 tokens."
-                    " If you have access to gpt-4-32k-0314, set allow-32k to `true` in"
-                    f" `{os.path.join(mentat_dir_path, user_config_file_name)}` to use"
-                    " it. Attempting to run with gpt-4-0314:"
-                ),
+                "Warning: gpt-4-0314 has a maximum context length of 8192 tokens."
+                " If you have access to gpt-4-32k-0314, set allow-32k to `true` in"
+                f" `{os.path.join(mentat_dir_path, user_config_file_name)}` to use"
+                " it. Attempting to run with gpt-4-0314:",
                 "yellow",
             )
     return model, prompt_token_count
