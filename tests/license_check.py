@@ -9,7 +9,6 @@ library_exceptions = [
     "tiktoken",
 ]
 accepted_licenses = [
-    "BSD License",
     "Apache Software License",
     "MIT License",
     "Mozilla Public License 2.0 (MPL 2.0)",
@@ -32,7 +31,7 @@ def main():
                         " if this license is valid, add it to the accepted licenses"
                         " list"
                     )
-    print("It's an older package list, sir, but it checks out")
+    print("It's an older license, sir, but it checks out")
 
 
 if __name__ == "__main__":
