@@ -10,6 +10,7 @@ from .code_change_display import print_change
 from .code_file_manager import CodeFileManager
 from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
+from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker, count_tokens, setup_api_key
 from .logging_config import setup_logging
 from .user_input_manager import UserInputManager
@@ -40,10 +41,11 @@ def run(paths: Iterable[str]):
 
 
 def loop(paths: Iterable[str], cost_tracker: CostTracker) -> None:
+    git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager()
     conv = Conversation(config, cost_tracker)
     user_input_manager = UserInputManager(config)
-    code_file_manager = CodeFileManager(paths, user_input_manager, config)
+    code_file_manager = CodeFileManager(paths, user_input_manager, config, git_root)
 
     tokens = count_tokens(code_file_manager.get_code_message())
     cprint(f"\nFile token count: {tokens}", "cyan")
@@ -55,7 +57,7 @@ def loop(paths: Iterable[str], cost_tracker: CostTracker) -> None:
             user_response = user_input_manager.collect_user_input()
             conv.add_user_message(user_response)
         explanation, code_changes = conv.get_model_response(code_file_manager, config)
-        warn_user_wrong_files(code_file_manager, code_changes)
+        warn_user_wrong_files(code_file_manager, code_changes, git_root)
 
         if code_changes:
             need_user_request = get_user_feedback_on_changes(
@@ -66,7 +68,9 @@ def loop(paths: Iterable[str], cost_tracker: CostTracker) -> None:
 
 
 def warn_user_wrong_files(
-    code_file_manager: CodeFileManager, code_changes: Iterable[CodeChange]
+    code_file_manager: CodeFileManager,
+    code_changes: Iterable[CodeChange],
+    git_root: str,
 ):
     warned = set()
     for change in code_changes:
@@ -88,8 +92,7 @@ def warn_user_wrong_files(
             raise KeyboardInterrupt
 
         if (
-            os.path.join(code_file_manager.git_root, change.file)
-            not in code_file_manager.file_paths
+            os.path.join(git_root, change.file) not in code_file_manager.file_paths
             and change.action != CodeChangeAction.CreateFile
             and change.file not in warned
         ):

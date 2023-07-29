@@ -3,7 +3,6 @@ import logging
 import math
 import mimetypes
 import os
-import subprocess
 from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
@@ -16,6 +15,11 @@ from .change_conflict_resolution import (
 )
 from .code_change import CodeChange, CodeChangeAction
 from .config_manager import ConfigManager
+from .git_handler import (
+    get_git_diff_for_path,
+    get_non_gitignored_files,
+    get_paths_with_git_diffs,
+)
 from .user_input_manager import UserInputManager
 
 # mimetypes is OS dependent, so it's best to add as many extensions as we can
@@ -52,67 +56,6 @@ default_filetype_include_list = [
 ]
 default_filetype_exclude_list = []
 # fmt: on
-
-
-def _get_git_diff_for_path(git_root, path: str) -> str:
-    return subprocess.check_output(["git", "diff", path], cwd=git_root).decode("utf-8")
-
-
-def _get_paths_with_git_diffs(git_root) -> set[str]:
-    changed = subprocess.check_output(
-        ["git", "diff", "--name-only"], cwd=git_root, text=True
-    ).split("\n")
-    return set(
-        map(lambda path: os.path.realpath(os.path.join(git_root, Path(path))), changed)
-    )
-
-
-def _get_git_root_for_path(path) -> str:
-    if os.path.isdir(path):
-        dir_path = path
-    else:
-        dir_path = os.path.dirname(path)
-    try:
-        git_root = (
-            subprocess.check_output(
-                [
-                    "git",
-                    "rev-parse",
-                    "--show-toplevel",
-                ],
-                cwd=os.path.realpath(dir_path),
-                stderr=subprocess.DEVNULL,
-            )
-            .decode("utf-8")
-            .strip()
-        )
-        # call realpath to resolve symlinks, so all paths match
-        return os.path.realpath(git_root)
-    except subprocess.CalledProcessError:
-        logging.error(f"File {path} isn't part of a git project.")
-        exit()
-
-
-def _get_shared_git_root_for_paths(paths) -> str:
-    git_roots = set()
-    for path in paths:
-        git_root = _get_git_root_for_path(path)
-        git_roots.add(git_root)
-    if not paths:
-        git_root = _get_git_root_for_path(os.getcwd())
-        git_roots.add(git_root)
-
-    if len(git_roots) > 1:
-        logging.error(
-            "All paths must be part of the same git project! Projects provided:"
-            f" {git_roots}"
-        )
-        exit()
-    elif len(git_roots) == 0:
-        logging.error("No git projects provided.")
-        exit()
-
-    return git_roots.pop()
 
 
 def _build_path_tree(file_paths, git_root):
@@ -179,6 +122,7 @@ class CodeFileManager:
         paths: Iterable[str],
         user_input_manager: UserInputManager,
         config: ConfigManager,
+        git_root: str,
     ):
         # Make sure to apply user config last
         for file_type in default_filetype_include_list:
@@ -192,7 +136,7 @@ class CodeFileManager:
             mimetypes.types_map.pop(file_type, None)
 
         self.config = config
-        self.git_root = _get_shared_git_root_for_paths(paths)
+        self.git_root = git_root
         self._set_file_paths(paths)
         self.user_input_manager = user_input_manager
 
@@ -205,7 +149,7 @@ class CodeFileManager:
         _print_path_tree(
             _build_path_tree(self.file_paths + self.non_code_file_paths, self.git_root),
             self.non_code_file_paths,
-            _get_paths_with_git_diffs(self.git_root),
+            get_paths_with_git_diffs(self.git_root),
             self.git_root,
         )
 
@@ -236,20 +180,7 @@ class CodeFileManager:
                     raise KeyboardInterrupt
                 self.file_paths.add(os.path.realpath(path))
             elif path.is_dir():
-                non_git_ignored_files = set(
-                    # git returns / separated paths even on windows, convert so we can remove
-                    # glob_excluded_files, which have windows paths on windows
-                    os.path.normpath(path)
-                    for path in filter(
-                        lambda p: p != "",
-                        subprocess.check_output(
-                            # -c shows cached (regular) files, -o shows other (untracked/ new) files
-                            ["git", "ls-files", "-c", "-o", "--exclude-standard"],
-                            cwd=path,
-                            text=True,
-                        ).split("\n"),
-                    )
-                )
+                non_git_ignored_files = get_non_gitignored_files(path)
                 glob_excluded_files = set(
                     file
                     for glob_path in self.config.file_exclude_glob_list()
@@ -301,7 +232,7 @@ class CodeFileManager:
             for i, line in enumerate(self.file_lines[abs_path], start=1):
                 code_message.append(f"{i}:{line}")
             code_message.append("")
-            git_diff_output = _get_git_diff_for_path(self.git_root, rel_path)
+            git_diff_output = get_git_diff_for_path(self.git_root, rel_path)
             if git_diff_output:
                 code_message.append("Current git diff for this file:")
                 code_message.append(f"{git_diff_output}")
