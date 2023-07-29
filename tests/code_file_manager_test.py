@@ -41,18 +41,6 @@ def test_path_gitignoring(temp_testbed, mock_config):
     )
 
 
-def test_ignore_non_text_files(temp_testbed, mock_config):
-    image_file_path = "image.jpg"
-    with open(image_file_path, "w") as image_file:
-        image_file.write("I am an image")
-    code_file_manager = CodeFileManager(
-        ["./"], user_input_manager=None, config=mock_config, git_root="./"
-    )
-    assert (
-        os.path.join(temp_testbed, image_file_path) not in code_file_manager.file_paths
-    )
-
-
 def test_glob_exclude(mocker, temp_testbed, mock_config):
     # Makes sure glob exclude config works
     mock_glob_exclude = mocker.MagicMock()
@@ -77,31 +65,6 @@ def test_glob_exclude(mocker, temp_testbed, mock_config):
         not in code_file_manager.file_paths
     )
     assert os.path.join(temp_testbed, glob_include_path) in code_file_manager.file_paths
-
-
-def test_code_file_checking(temp_testbed, mock_config):
-    # Makes sure non 'code' files aren't automatically picked up unless we request them
-    noncode_path = "iamnotcode.notcode"
-    noncode_path_requested = "iamalsonotcode.notcode"
-    with open(noncode_path, "w") as f:
-        f.write("I am an innocent non-code file!")
-    with open(noncode_path_requested, "w") as f:
-        f.write("I am an innocent non-code file that has been requested by the user!")
-
-    paths = ["./", noncode_path_requested]
-    code_file_manager = CodeFileManager(
-        paths, user_input_manager=None, config=mock_config, git_root="./"
-    )
-
-    assert (
-        os.path.join(temp_testbed, noncode_path_requested)
-        in code_file_manager.file_paths
-    )
-    assert os.path.join(temp_testbed, noncode_path) not in code_file_manager.file_paths
-    assert (
-        os.path.join(temp_testbed, noncode_path)
-        in code_file_manager.non_code_file_paths
-    )
 
 
 def test_text_encoding_checking(temp_testbed, mock_config):

@@ -13,15 +13,6 @@ Allow Mentat to use OpenAI's gpt-4 32k context window model. Your API key must a
 }
 ```
 
-### Filetype Include and Exclude list
-Determines which file types inside of a directory will be automatically included or excluded from context when Mentat is given a directory. This will not affect hidden files, ignored files, or files specified by their direct path.
-```
-{
-    "filetype-include-list": [".include_this"],
-    "filetype-exclude-list": [".exclude_this"]
-}
-```
-
 ### File Exclude Glob list
 List of [glob patterns](https://docs.python.org/3/library/glob.html) that will exclude all files from context that it matches starting from the given directory.
 ```

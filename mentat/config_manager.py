@@ -61,12 +61,6 @@ class ConfigManager:
     def allow_32k(self) -> bool:
         return self._get_key("allow-32k")
 
-    def filetype_include_list(self) -> list[str]:
-        return self._get_key("filetype-include-list")
-
-    def filetype_exclude_list(self) -> list[str]:
-        return self._get_key("filetype-exclude-list")
-
     def file_exclude_glob_list(self) -> list[str]:
         return self._get_key("file-exclude-glob-list")
 
