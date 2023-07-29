@@ -6,10 +6,8 @@ import pytest
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
 
-config = ConfigManager()
 
-
-def test_path_gitignoring(temp_testbed):
+def test_path_gitignoring(temp_testbed, mock_config):
     gitignore_path = ".gitignore"
     testing_dir_path = "git_testing_dir"
     os.makedirs(testing_dir_path)
@@ -29,7 +27,7 @@ def test_path_gitignoring(temp_testbed):
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
     paths = [testing_dir_path, ignored_file_path_2]
     code_file_manager = CodeFileManager(
-        paths, user_input_manager=None, config=config, git_root="./"
+        paths, user_input_manager=None, config=mock_config, git_root="./"
     )
 
     expected_file_paths = [
@@ -43,19 +41,19 @@ def test_path_gitignoring(temp_testbed):
     )
 
 
-def test_ignore_non_text_files(temp_testbed):
+def test_ignore_non_text_files(temp_testbed, mock_config):
     image_file_path = "image.jpg"
     with open(image_file_path, "w") as image_file:
         image_file.write("I am an image")
     code_file_manager = CodeFileManager(
-        ["./"], user_input_manager=None, config=config, git_root="./"
+        ["./"], user_input_manager=None, config=mock_config, git_root="./"
     )
     assert (
         os.path.join(temp_testbed, image_file_path) not in code_file_manager.file_paths
     )
 
 
-def test_glob_exclude(mocker, temp_testbed):
+def test_glob_exclude(mocker, temp_testbed, mock_config):
     # Makes sure glob exclude config works
     mock_glob_exclude = mocker.MagicMock()
     mocker.patch.object(ConfigManager, "file_exclude_glob_list", new=mock_glob_exclude)
@@ -71,7 +69,7 @@ def test_glob_exclude(mocker, temp_testbed):
         glob_include_file.write("I am included")
 
     code_file_manager = CodeFileManager(
-        ["."], user_input_manager=None, config=config, git_root="./"
+        ["."], user_input_manager=None, config=mock_config, git_root="./"
     )
     print(code_file_manager.file_paths)
     assert (
@@ -81,7 +79,7 @@ def test_glob_exclude(mocker, temp_testbed):
     assert os.path.join(temp_testbed, glob_include_path) in code_file_manager.file_paths
 
 
-def test_code_file_checking(temp_testbed):
+def test_code_file_checking(temp_testbed, mock_config):
     # Makes sure non 'code' files aren't automatically picked up unless we request them
     noncode_path = "iamnotcode.notcode"
     noncode_path_requested = "iamalsonotcode.notcode"
@@ -92,7 +90,7 @@ def test_code_file_checking(temp_testbed):
 
     paths = ["./", noncode_path_requested]
     code_file_manager = CodeFileManager(
-        paths, user_input_manager=None, config=config, git_root="./"
+        paths, user_input_manager=None, config=mock_config, git_root="./"
     )
 
     assert (
@@ -106,7 +104,7 @@ def test_code_file_checking(temp_testbed):
     )
 
 
-def test_text_encoding_checking(temp_testbed):
+def test_text_encoding_checking(temp_testbed, mock_config):
     # Makes sure we don't include non text encoded files, and we quit if user gives us one
     nontext_path = "iamnottext.py"
     with open(nontext_path, "wb") as f:
@@ -115,7 +113,7 @@ def test_text_encoding_checking(temp_testbed):
 
     paths = ["./"]
     code_file_manager = CodeFileManager(
-        paths, user_input_manager=None, config=config, git_root="./"
+        paths, user_input_manager=None, config=mock_config, git_root="./"
     )
     assert os.path.join(temp_testbed, nontext_path) not in code_file_manager.file_paths
 
@@ -127,6 +125,6 @@ def test_text_encoding_checking(temp_testbed):
 
         paths = [nontext_path_requested]
         _ = CodeFileManager(
-            paths, user_input_manager=None, config=config, git_root="./"
+            paths, user_input_manager=None, config=mock_config, git_root="./"
         )
     assert e_info.type == KeyboardInterrupt

@@ -11,9 +11,9 @@ mentat_dir_path = os.path.join(Path.home(), ".mentat")
 
 # package_name should always be "mentat" - but this will work if package name is changed
 package_name = __name__.split(".")[0]
-config_file_name = "default_config.json"
-user_config_file_name = ".mentat_config.json"
-user_config_path = os.path.join(mentat_dir_path, user_config_file_name)
+default_config_file_name = "default_config.json"
+config_file_name = ".mentat_config.json"
+user_config_path = os.path.join(mentat_dir_path, config_file_name)
 
 
 class ConfigManager:
@@ -33,7 +33,7 @@ class ConfigManager:
         else:
             self.user_config = {}
 
-        project_config_path = os.path.join(git_root, user_config_file_name)
+        project_config_path = os.path.join(git_root, config_file_name)
         if os.path.exists(project_config_path):
             with open(project_config_path) as config_file:
                 try:
@@ -49,7 +49,9 @@ class ConfigManager:
         else:
             self.project_config = {}
 
-        default_config_path = resources.files(package_name).joinpath(config_file_name)
+        default_config_path = resources.files(package_name).joinpath(
+            default_config_file_name
+        )
         with default_config_path.open("r") as config_file:
             self.default_config = json.load(config_file)
 
@@ -76,5 +78,4 @@ class ConfigManager:
         elif key in self.default_config:
             return self.default_config[key]
         else:
-            logging.warning(f"No value for config key {key} found")
-            return None
+            raise ValueError(f"No value for config key {key} found")

@@ -6,6 +6,7 @@ import tempfile
 
 import pytest
 
+from mentat.config_manager import ConfigManager
 from mentat.streaming_printer import StreamingPrinter
 from mentat.user_input_manager import UserInputManager
 
@@ -69,6 +70,13 @@ def mock_setup_api_key(mocker):
     mocker.patch("mentat.app.setup_api_key")
     mocker.patch("mentat.conversation.check_model_availability")
     return
+
+
+@pytest.fixture
+def mock_config(temp_testbed):
+    config = ConfigManager(temp_testbed)
+    config.project_config = {}
+    return config
 
 
 def add_permissions(func, path, exc_info):
