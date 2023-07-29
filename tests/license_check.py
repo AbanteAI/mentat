@@ -3,7 +3,17 @@ import subprocess
 
 import fire
 
-accepted_licenses = []
+library_exceptions = [
+    "mentat-ai",
+    # pip-licenses shows tiktoken's full license text, but it is MIT
+    "tiktoken",
+]
+accepted_licenses = [
+    "BSD License",
+    "Apache Software License",
+    "MIT License",
+    "Mozilla Public License 2.0 (MPL 2.0)",
+]
 
 
 def main():
@@ -13,12 +23,15 @@ def main():
             raise ValueError(f"No name found for package {package}")
         elif "License" not in package:
             raise ValueError(f"License not found for package {package['Name']}")
-        else:
-            if package["License"] not in accepted_licenses:
-                raise Exception(
-                    f"Package {package['Name']} has license {package['License']}; if"
-                    " this license is valid, add it to the accepted licenses list"
-                )
+        elif package["Name"] not in library_exceptions:
+            package_licenses = package["License"].split(";")
+            for package_license in package_licenses:
+                if package_license.strip() not in accepted_licenses:
+                    raise Exception(
+                        f"Package {package['Name']} has license {package['License']};"
+                        " if this license is valid, add it to the accepted licenses"
+                        " list"
+                    )
     print("It's an older package list, sir, but it checks out")
 
 
