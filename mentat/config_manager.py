@@ -15,9 +15,23 @@ default_config_file_name = "default_config.json"
 config_file_name = ".mentat_config.json"
 user_config_path = os.path.join(mentat_dir_path, config_file_name)
 
+# Remove this warning after August 19
+old_config_file_path = os.path.join(mentat_dir_path, "config.json")
+
 
 class ConfigManager:
     def __init__(self, git_root: str):
+        # Remove this warning after August 19
+        if os.path.exists(old_config_file_path):
+            cprint(
+                "Warning: You are still using an old config.json in your ~/.mentat"
+                " directory. The config filename has recently been changed to"
+                " .mentat_config.json, and can be present in either ~/.mentat or the"
+                " git project you are working in. Your current config.json file will"
+                " not be used.",
+                color="light_yellow",
+            )
+
         if os.path.exists(user_config_path):
             with open(user_config_path) as config_file:
                 try:
