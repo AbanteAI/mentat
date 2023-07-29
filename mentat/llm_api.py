@@ -9,7 +9,7 @@ import tiktoken
 from dotenv import load_dotenv
 from termcolor import cprint
 
-from .config_manager import mentat_dir_path, user_config_file_name
+from .config_manager import mentat_dir_path, user_config_path
 
 package_name = __name__.split(".")[0]
 
@@ -103,7 +103,7 @@ def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
             cprint(
                 "Warning: gpt-4-0314 has a maximum context length of 8192 tokens."
                 " If you have access to gpt-4-32k-0314, set allow-32k to `true` in"
-                f" `{os.path.join(mentat_dir_path, user_config_file_name)}` to use"
+                f" `{user_config_path}` to use"
                 " it. Attempting to run with gpt-4-0314:",
                 "yellow",
             )

@@ -16,7 +16,7 @@ def get_non_gitignored_files(path: str) -> set[str]:
         for p in filter(
             lambda p: p != "",
             subprocess.check_output(
-                # -c shows cached (regular) files, -o shows other (untracked/ new) files
+                # -c shows cached (regular) files, -o shows other (untracked/new) files
                 ["git", "ls-files", "-c", "-o", "--exclude-standard"],
                 cwd=path,
                 text=True,
