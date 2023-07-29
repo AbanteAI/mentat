@@ -70,7 +70,8 @@ For custom configuration options see [configuration.md](docs/configuration.md)
 
 
 # 🚀 Usage
-Run Mentat with:
+
+Run Mentat from within your project directory. Mentat uses git, so if your project doesn't already have git set up, run `git init`. Then you can run Mentat with:
 
 `mentat <paths to files or directories>`
 
