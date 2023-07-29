@@ -1,5 +1,4 @@
 import os
-import subprocess
 from unittest import TestCase
 
 import pytest
@@ -29,7 +28,9 @@ def test_path_gitignoring(temp_testbed):
 
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
     paths = [testing_dir_path, ignored_file_path_2]
-    code_file_manager = CodeFileManager(paths, user_input_manager=None, config=config)
+    code_file_manager = CodeFileManager(
+        paths, user_input_manager=None, config=config, git_root="./"
+    )
 
     expected_file_paths = [
         os.path.join(temp_testbed, ignored_file_path_2),
@@ -46,36 +47,12 @@ def test_ignore_non_text_files(temp_testbed):
     image_file_path = "image.jpg"
     with open(image_file_path, "w") as image_file:
         image_file.write("I am an image")
-    code_file_manager = CodeFileManager(["./"], user_input_manager=None, config=config)
+    code_file_manager = CodeFileManager(
+        ["./"], user_input_manager=None, config=config, git_root="./"
+    )
     assert (
         os.path.join(temp_testbed, image_file_path) not in code_file_manager.file_paths
     )
-
-
-def test_no_paths_given(temp_testbed):
-    # Get temp_testbed as the git root when given no paths
-    code_file_manager = CodeFileManager([], user_input_manager=None, config=config)
-    assert code_file_manager.git_root == temp_testbed
-
-
-def test_paths_given(temp_testbed):
-    # Get temp_testbed when given file in temp_testbed
-    code_file_manager = CodeFileManager(
-        ["scripts"], user_input_manager=None, config=config
-    )
-    assert code_file_manager.git_root == temp_testbed
-
-
-def test_two_git_roots_given():
-    # Exits when given 2 paths with separate git roots
-    with pytest.raises(SystemExit) as e_info:
-        os.makedirs("git_testing_dir")
-        subprocess.run(["git", "init"], cwd="git_testing_dir")
-
-        _ = CodeFileManager(
-            ["./", "git_testing_dir"], user_input_manager=None, config=config
-        )
-    assert e_info.type == SystemExit
 
 
 def test_glob_exclude(mocker, temp_testbed):
@@ -93,7 +70,9 @@ def test_glob_exclude(mocker, temp_testbed):
     with open(glob_include_path, "w") as glob_include_file:
         glob_include_file.write("I am included")
 
-    code_file_manager = CodeFileManager(["."], user_input_manager=None, config=config)
+    code_file_manager = CodeFileManager(
+        ["."], user_input_manager=None, config=config, git_root="./"
+    )
     print(code_file_manager.file_paths)
     assert (
         os.path.join(temp_testbed, glob_exclude_path)
@@ -112,7 +91,9 @@ def test_code_file_checking(temp_testbed):
         f.write("I am an innocent non-code file that has been requested by the user!")
 
     paths = ["./", noncode_path_requested]
-    code_file_manager = CodeFileManager(paths, user_input_manager=None, config=config)
+    code_file_manager = CodeFileManager(
+        paths, user_input_manager=None, config=config, git_root="./"
+    )
 
     assert (
         os.path.join(temp_testbed, noncode_path_requested)
@@ -133,7 +114,9 @@ def test_text_encoding_checking(temp_testbed):
         f.write(bytearray([0x81]))
 
     paths = ["./"]
-    code_file_manager = CodeFileManager(paths, user_input_manager=None, config=config)
+    code_file_manager = CodeFileManager(
+        paths, user_input_manager=None, config=config, git_root="./"
+    )
     assert os.path.join(temp_testbed, nontext_path) not in code_file_manager.file_paths
 
     with pytest.raises(KeyboardInterrupt) as e_info:
@@ -143,5 +126,7 @@ def test_text_encoding_checking(temp_testbed):
             f.write(bytearray([0x81]))
 
         paths = [nontext_path_requested]
-        _ = CodeFileManager(paths, user_input_manager=None, config=config)
+        _ = CodeFileManager(
+            paths, user_input_manager=None, config=config, git_root="./"
+        )
     assert e_info.type == KeyboardInterrupt

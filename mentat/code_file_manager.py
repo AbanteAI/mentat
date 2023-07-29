@@ -19,7 +19,6 @@ from .git_handler import (
     get_git_diff_for_path,
     get_non_gitignored_files,
     get_paths_with_git_diffs,
-    get_shared_git_root_for_paths,
 )
 from .user_input_manager import UserInputManager
 
@@ -123,6 +122,7 @@ class CodeFileManager:
         paths: Iterable[str],
         user_input_manager: UserInputManager,
         config: ConfigManager,
+        git_root: str,
     ):
         # Make sure to apply user config last
         for file_type in default_filetype_include_list:
@@ -136,7 +136,7 @@ class CodeFileManager:
             mimetypes.types_map.pop(file_type, None)
 
         self.config = config
-        self.git_root = get_shared_git_root_for_paths(paths)
+        self.git_root = git_root
         self._set_file_paths(paths)
         self.user_input_manager = user_input_manager
 
