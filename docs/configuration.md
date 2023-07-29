@@ -1,6 +1,6 @@
 # 🔧 Configuration
 
-To change Mentat's default configuration, create `.mentat_config.json` in the git root of the project you are running Mentat for. Alternatively, creating `~/.mentat/.mentat_config.json` will create a default config that Mentat will use if no config exists in your current git project.
+To change Mentat's configuration, create `.mentat_config.json` in the git root of the project you are running Mentat for. Alternatively, creating `~/.mentat/.mentat_config.json` will create a default user config that Mentat will use if no config exists in your current git project.
 
 ## Options
 

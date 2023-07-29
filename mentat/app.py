@@ -42,7 +42,7 @@ def run(paths: Iterable[str]):
 
 def loop(paths: Iterable[str], cost_tracker: CostTracker) -> None:
     git_root = get_shared_git_root_for_paths(paths)
-    config = ConfigManager()
+    config = ConfigManager(git_root)
     conv = Conversation(config, cost_tracker)
     user_input_manager = UserInputManager(config)
     code_file_manager = CodeFileManager(paths, user_input_manager, config, git_root)

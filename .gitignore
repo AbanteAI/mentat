@@ -9,4 +9,4 @@ tags
 benchmark_results
 .idea
 build
-
+.mentat_config.json
