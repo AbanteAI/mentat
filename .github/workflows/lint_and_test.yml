@@ -47,3 +47,21 @@ jobs:
         run: |
           pytest
           
+  license-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.11
+      - name: Install dependencies
+        run: |
+          python -m pip install .
+      - name: Install pip-licenses
+        run: |
+          pip install pip-licenses
+      - name: Run license checking script
+        run: |
+          python tests/license_check.py
