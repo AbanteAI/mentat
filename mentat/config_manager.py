@@ -9,7 +9,7 @@ mentat_dir_path = os.path.join(Path.home(), ".mentat")
 # package_name should always be "mentat" - but this will work if package name is changed
 package_name = __name__.split(".")[0]
 config_file_name = "default_config.json"
-user_config_file_name = "config.json"
+user_config_file_name = ".mentat_config.json"
 user_config_path = os.path.join(mentat_dir_path, user_config_file_name)
 
 
