@@ -29,5 +29,6 @@ setup(
     },
     description="AI coding assistant on your command line",
     long_description=long_description,
+    long_description_content_type="text/markdown",
     license="Apache-2.0",
 )
