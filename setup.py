@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from setuptools import find_packages, setup
@@ -8,8 +9,7 @@ def read_requirements(file):
         return f.read().splitlines()
 
 
-this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text()
+long_description = Path(os.path.join(Path(__file__).parent, "README.md")).read_text()
 
 setup(
     name="mentat-ai",
