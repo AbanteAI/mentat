@@ -153,7 +153,7 @@ def _print_path_tree(tree, non_text_files, changed_files, cur_path, prefix=""):
             _print_path_tree(tree[key], non_text_files, changed_files, cur, new_prefix)
 
 
-def _is_file_utf8(file_path):
+def _is_file_text_encoded(file_path):
     try:
         # The ultimate filetype test
         with open(file_path) as f:
@@ -169,7 +169,7 @@ def _is_file_code(file_path):
         file_type
         and file_type.split("/")[0] == "text"
         and encoding is None
-        and _is_file_utf8(file_path)
+        and _is_file_text_encoded(file_path)
     )
 
 
@@ -227,10 +227,10 @@ class CodeFileManager:
         for path in paths:
             path = Path(path)
             if path.is_file():
-                if not _is_file_utf8(path):
-                    logging.info(f"File path {path} is not utf-8 encoded.")
+                if not _is_file_text_encoded(path):
+                    logging.info(f"File path {path} is not text encoded.")
                     cprint(
-                        f"Filepath {path} is not utf-8 encoded.",
+                        f"Filepath {path} is not text encoded.",
                         "light_yellow",
                     )
                     raise KeyboardInterrupt

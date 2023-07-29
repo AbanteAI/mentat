@@ -125,23 +125,23 @@ def test_code_file_checking(temp_testbed):
     )
 
 
-def test_utf8_encoding_checking(temp_testbed):
-    # Makes sure we don't include non utf-8 encoded files, and we quit if user gives us one
-    nonutf8_path = "iamnotutf8.py"
-    with open(nonutf8_path, "wb") as f:
-        # ASCII ranges from 0-127
-        # After 128, UTF-8 requires additional code points to specify the character, so a single 128 is not valid UTF-8
-        f.write(bytearray([128]))
+def test_text_encoding_checking(temp_testbed):
+    # Makes sure we don't include non text encoded files, and we quit if user gives us one
+    nontext_path = "iamnottext.py"
+    with open(nontext_path, "wb") as f:
+        # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
+        f.write(bytearray([0x81]))
 
     paths = ["./"]
     code_file_manager = CodeFileManager(paths, user_input_manager=None, config=config)
-    assert os.path.join(temp_testbed, nonutf8_path) not in code_file_manager.file_paths
+    assert os.path.join(temp_testbed, nontext_path) not in code_file_manager.file_paths
 
     with pytest.raises(KeyboardInterrupt) as e_info:
-        nonutf8_path_requested = "iamalsonotutf8.py"
-        with open(nonutf8_path_requested, "wb") as f:
-            f.write(bytearray([128]))
+        nontext_path_requested = "iamalsonottext.py"
+        with open(nontext_path_requested, "wb") as f:
+            # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
+            f.write(bytearray([0x81]))
 
-        paths = [nonutf8_path_requested]
+        paths = [nontext_path_requested]
         _ = CodeFileManager(paths, user_input_manager=None, config=config)
     assert e_info.type == KeyboardInterrupt
