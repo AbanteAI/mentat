@@ -14,10 +14,10 @@ Allow Mentat to use OpenAI's gpt-4 32k context window model. Your API key must a
 ```
 
 ### File Exclude Glob list
-List of [glob patterns](https://docs.python.org/3/library/glob.html) that will exclude all files from context that it matches starting from the given directory.
+List of [glob patterns](https://docs.python.org/3/library/glob.html) that will exclude all files from context that it matches starting from the given directory. Importantly, this means that the pattern to exclude all files ending with `.py` would be `**/*.py` rather than `*.py`. Here is an example that would exclude all hidden directories and files:
 ```
 {
-    "file-exclude-glob-list": ["**/exclude_this.*"]
+    "file-exclude-glob-list": ["**/.*, **/.*/**"]
 }
 ```
 

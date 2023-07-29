@@ -77,4 +77,4 @@ Run Mentat from within your project directory. Mentat uses git, so if your proje
 
 `mentat <paths to files or directories>`
 
-If you provide a directory, Mentat will add all non-hidden text files in that directory to it's context. If this exceeds the GPT-4 token context limit, try running Mentat with just the files you need it to see.
+If you provide a directory, Mentat will add all non git-ignored text files in that directory to it's context. If this exceeds the GPT-4 token context limit, try running Mentat with just the files you need it to see.
