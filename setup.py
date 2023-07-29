@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from setuptools import find_packages, setup
 
 
@@ -6,9 +8,12 @@ def read_requirements(file):
         return f.read().splitlines()
 
 
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
+
 setup(
     name="mentat-ai",
-    version="0.1.5",
+    version="0.1.6",
     python_requires=">=3.10",
     packages=find_packages(),
     install_requires=read_requirements("requirements.txt"),
@@ -20,6 +25,7 @@ setup(
             "mentat=mentat.app:run_cli",
         ],
     },
-    description="AI Coding Assistant",
+    description="AI coding assistant on your command line",
+    long_description=long_description,
     license="Apache-2.0",
 )
