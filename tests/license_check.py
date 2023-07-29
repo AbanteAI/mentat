@@ -9,6 +9,7 @@ library_exceptions = [
     "tiktoken",
 ]
 accepted_licenses = [
+    "BSD License",
     "Apache Software License",
     "MIT License",
     "Mozilla Public License 2.0 (MPL 2.0)",
