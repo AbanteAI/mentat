@@ -100,3 +100,48 @@ def test_glob_exclude(mocker, temp_testbed):
         not in code_file_manager.file_paths
     )
     assert os.path.join(temp_testbed, glob_include_path) in code_file_manager.file_paths
+
+
+def test_code_file_checking(temp_testbed):
+    # Makes sure non 'code' files aren't automatically picked up unless we request them
+    noncode_path = "iamnotcode.notcode"
+    noncode_path_requested = "iamalsonotcode.notcode"
+    with open(noncode_path, "w") as f:
+        f.write("I am an innocent non-code file!")
+    with open(noncode_path_requested, "w") as f:
+        f.write("I am an innocent non-code file that has been requested by the user!")
+
+    paths = ["./", noncode_path_requested]
+    code_file_manager = CodeFileManager(paths, user_input_manager=None, config=config)
+
+    assert (
+        os.path.join(temp_testbed, noncode_path_requested)
+        in code_file_manager.file_paths
+    )
+    assert os.path.join(temp_testbed, noncode_path) not in code_file_manager.file_paths
+    assert (
+        os.path.join(temp_testbed, noncode_path)
+        in code_file_manager.non_code_file_paths
+    )
+
+
+def test_utf8_encoding_checking(temp_testbed):
+    # Makes sure we don't include non utf-8 encoded files, and we quit if user gives us one
+    nonutf8_path = "iamnotutf8.py"
+    with open(nonutf8_path, "wb") as f:
+        # ASCII ranges from 0-127
+        # After 128, UTF-8 requires additional code points to specify the character, so a single 128 is not valid UTF-8
+        f.write(bytearray([128]))
+
+    paths = ["./"]
+    code_file_manager = CodeFileManager(paths, user_input_manager=None, config=config)
+    assert os.path.join(temp_testbed, nonutf8_path) not in code_file_manager.file_paths
+
+    with pytest.raises(KeyboardInterrupt) as e_info:
+        nonutf8_path_requested = "iamalsonotutf8.py"
+        with open(nonutf8_path_requested, "wb") as f:
+            f.write(bytearray([128]))
+
+        paths = [nonutf8_path_requested]
+        _ = CodeFileManager(paths, user_input_manager=None, config=config)
+    assert e_info.type == KeyboardInterrupt
