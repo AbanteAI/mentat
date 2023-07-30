@@ -142,8 +142,7 @@ class CodeFileManager:
         excluded_files, excluded_files_from_dir = _abs_file_paths_from_list(
             exclude_paths, check_for_text=False
         )
-        # excluded paths should have already been expanded
-        assert not excluded_files_from_dir
+
         glob_excluded_files = set(
             os.path.join(self.git_root, file)
             for glob_path in self.config.file_exclude_glob_list()
@@ -162,7 +161,8 @@ class CodeFileManager:
         file_paths_from_dirs -= glob_excluded_files
 
         self.file_paths = list(
-            (file_paths_direct | file_paths_from_dirs) - excluded_files
+            (file_paths_direct | file_paths_from_dirs)
+            - (excluded_files | excluded_files_from_dir)
         )
 
     def _read_file(self, abs_path) -> Iterable[str]:
