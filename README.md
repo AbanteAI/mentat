@@ -77,7 +77,7 @@ Run Mentat from within your project directory. Mentat uses git, so if your proje
 
 `mentat <paths to files or directories>`
 
-If you provide a directory, Mentat will add all non git-ignored text files in that directory to it's context. If you provide a [glob pattern](https://docs.python.org/3/library/glob.html), Mentat will add all files matching the pattern to it's context. If this exceeds the GPT-4 token context limit, try running Mentat with just the files you need it to see.
+List the files you would like Mentat to read and edit as arguments. Mentat will add each of them to context, so be careful not to exceed the GPT-4 token context limit. To add multiple files at once, you can also provide directories as arguments. When a directory is provided, Mentat will add all the contained files, except for ones ignored in your `.gitignore`. In addition to files and directories, you can use [glob patterns](https://docs.python.org/3/library/glob.html) to add multiple files at once.
 
 ## Options
 
