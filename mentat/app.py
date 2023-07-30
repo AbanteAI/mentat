@@ -2,7 +2,7 @@ import argparse
 import glob
 import logging
 import os
-from typing import Iterable
+from typing import Iterable, Optional
 
 from termcolor import cprint
 
@@ -47,7 +47,7 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
     return globbed_paths
 
 
-def run(paths: Iterable[str], exclude_paths: Iterable[str]):
+def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
     os.makedirs(mentat_dir_path, exist_ok=True)
     setup_logging()
     setup_api_key()
@@ -63,14 +63,20 @@ def run(paths: Iterable[str], exclude_paths: Iterable[str]):
 
 
 def loop(
-    paths: Iterable[str], exclude_paths: Iterable[str], cost_tracker: CostTracker
+    paths: Iterable[str],
+    exclude_paths: Optional[Iterable[str]],
+    cost_tracker: CostTracker,
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
     conv = Conversation(config, cost_tracker)
     user_input_manager = UserInputManager(config)
     code_file_manager = CodeFileManager(
-        paths, exclude_paths, user_input_manager, config, git_root
+        paths,
+        exclude_paths if exclude_paths is not None else [],
+        user_input_manager,
+        config,
+        git_root,
     )
 
     tokens = count_tokens(code_file_manager.get_code_message())
