@@ -159,6 +159,9 @@ class CodeFileManager:
         code_message = ["Code Files:\n"]
         for abs_path in self.file_paths:
             rel_path = os.path.relpath(abs_path, self.git_root)
+            # if path has at least one dir in it, even on windows
+            if rel_path.count(os.path.sep) > 0:
+                assert False, (rel_path, os.path.normpath(rel_path))
             code_message.append(rel_path)
             for i, line in enumerate(self.file_lines[abs_path], start=1):
                 code_message.append(f"{i}:{line}")
