@@ -81,12 +81,59 @@ def test_glob_include(temp_testbed, mock_config):
         glob_include_file.write("I am also included")
     os.makedirs(os.path.dirname(glob_exclude_path), exist_ok=True)
     with open(glob_exclude_path, "w") as glob_exclude_file:
+        glob_exclude_file.write("I am not included")
+
+    file_paths = expand_paths(["**/*.py"])
+    code_file_manager = CodeFileManager(
+        file_paths,
+        [],
+        user_input_manager=None,
+        config=mock_config,
+        git_root=temp_testbed,
+    )
+
+    assert (
+        os.path.join(temp_testbed, glob_exclude_path)
+        not in code_file_manager.file_paths
+    )
+    assert os.path.join(temp_testbed, glob_include_path) in code_file_manager.file_paths
+    assert (
+        os.path.join(temp_testbed, glob_include_path2) in code_file_manager.file_paths
+    )
+
+
+def test_cli_glob_exclude(temp_testbed, mock_config):
+    # Make sure cli glob exclude works and overrides regular include
+    glob_include_then_exclude_path = os.path.join(
+        "glob_test", "bagel", "apple", "include_then_exclude_me.py"
+    )
+    glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.ts")
+
+    os.makedirs(os.path.dirname(glob_include_then_exclude_path), exist_ok=True)
+    with open(glob_include_then_exclude_path, "w") as glob_exclude_file:
+        glob_exclude_file.write("I am included then excluded")
+    os.makedirs(os.path.dirname(glob_exclude_path), exist_ok=True)
+    with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am excluded")
 
     file_paths = expand_paths(["**/*.py"])
-    assert glob_exclude_path not in file_paths
-    assert glob_include_path in file_paths
-    assert glob_include_path2 in file_paths
+    exclude_paths = expand_paths(["**/*.py", "**/*.ts"])
+    code_file_manager = CodeFileManager(
+        file_paths,
+        exclude_paths,
+        user_input_manager=None,
+        config=mock_config,
+        git_root=temp_testbed,
+    )
+
+    assert (
+        os.path.join(temp_testbed, glob_include_then_exclude_path)
+        not in code_file_manager.file_paths
+    )
+    assert (
+        os.path.join(temp_testbed, glob_exclude_path)
+        not in code_file_manager.file_paths
+    )
 
 
 def test_text_encoding_checking(temp_testbed, mock_config):

@@ -24,12 +24,14 @@ def run_cli():
     parser.add_argument(
         "paths",
         nargs="*",
+        default=[],
         help="List of file paths, directory paths, or glob patterns",
     )
     parser.add_argument(
         "--exclude",
         "-e",
         nargs="*",
+        default=[],
         help="List of file paths, directory paths, or glob patterns to exclude",
     )
     args = parser.parse_args()
