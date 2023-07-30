@@ -5,7 +5,6 @@ To change Mentat's configuration, create `.mentat_config.json` in the git root o
 ## Options
 
 ### Allow 32k
-___
 Allow Mentat to use OpenAI's gpt-4 32k context window model. Your API key must already have access to the model.
 ```
 {
@@ -14,7 +13,7 @@ Allow Mentat to use OpenAI's gpt-4 32k context window model. Your API key must a
 ```
 
 ### File Exclude Glob list
-List of [glob patterns](https://docs.python.org/3/library/glob.html) that will exclude all files from context that it matches starting from the git root. Importantly, this means that the pattern to exclude all files ending with `.py` would be `**/*.py` rather than `*.py`. Here is an example that would exclude all hidden directories and files:
+List of [glob patterns](https://docs.python.org/3/library/glob.html) to exclude files from being read/edited by Mentat. These take effect whenever you provide Mentat with a directory as an argument. Mentat will add all files in the directory that are not in your `.gitignore` and do not match these glob patterns. Glob patterns are interpreted from the git root location. If you wanted to exclude all files ending in `.py`, the pattern to use would be `**/*.py` rather than `*.py`. Here is an example that would exclude all hidden directories and files:
 ```
 {
     "file-exclude-glob-list": ["**/.*, **/.*/**"]

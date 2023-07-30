@@ -68,17 +68,49 @@ def _is_file_text_encoded(file_path):
         return False
 
 
+def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True):
+    file_paths_direct = set()
+    file_paths_from_dirs = set()
+    for path in paths:
+        path = Path(path)
+        if path.is_file():
+            if check_for_text and not _is_file_text_encoded(path):
+                logging.info(f"File path {path} is not text encoded.")
+                cprint(
+                    f"Filepath {path} is not text encoded.",
+                    "light_yellow",
+                )
+                raise KeyboardInterrupt
+            file_paths_direct.add(os.path.realpath(path))
+        elif path.is_dir():
+            nonignored_files = set(
+                map(
+                    lambda f: os.path.realpath(os.path.join(path, f)),
+                    get_non_gitignored_files(path),
+                )
+            )
+
+            file_paths_from_dirs.update(
+                filter(
+                    lambda f: (not check_for_text) or _is_file_text_encoded(f),
+                    nonignored_files,
+                )
+            )
+    return file_paths_direct, file_paths_from_dirs
+
+
 class CodeFileManager:
     def __init__(
         self,
         paths: Iterable[str],
+        exclude_paths: Iterable[str],
         user_input_manager: UserInputManager,
         config: ConfigManager,
         git_root: str,
     ):
         self.config = config
         self.git_root = git_root
-        self._set_file_paths(paths)
+        self._set_file_paths(paths, exclude_paths)
         self.user_input_manager = user_input_manager
 
         if self.file_paths:
@@ -93,7 +125,9 @@ class CodeFileManager:
             self.git_root,
         )
 
-    def _set_file_paths(self, paths: Iterable[str] = None) -> None:
+    def _set_file_paths(
+        self, paths: Iterable[str], exclude_paths: Iterable[str]
+    ) -> None:
         invalid_paths = []
         for path in paths:
             if not os.path.exists(path):
@@ -105,32 +139,9 @@ class CodeFileManager:
             print("Exiting...")
             exit()
 
-        self.file_paths = set()
-        for path in paths:
-            path = Path(path)
-            if path.is_file():
-                if not _is_file_text_encoded(path):
-                    logging.info(f"File path {path} is not text encoded.")
-                    cprint(
-                        f"Filepath {path} is not text encoded.",
-                        "light_yellow",
-                    )
-                    raise KeyboardInterrupt
-                self.file_paths.add(os.path.realpath(path))
-            elif path.is_dir():
-                nonignored_files = set(
-                    map(
-                        lambda f: os.path.realpath(os.path.join(path, f)),
-                        get_non_gitignored_files(path),
-                    )
-                )
-
-                self.file_paths.update(
-                    filter(
-                        _is_file_text_encoded,
-                        nonignored_files,
-                    )
-                )
+        excluded_files, excluded_files_from_dir = _abs_file_paths_from_list(
+            exclude_paths, check_for_text=False
+        )
 
         glob_excluded_files = set(
             os.path.join(self.git_root, file)
@@ -142,7 +153,17 @@ class CodeFileManager:
                 recursive=True,
             )
         )
-        self.file_paths = list(self.file_paths - glob_excluded_files)
+        file_paths_direct, file_paths_from_dirs = _abs_file_paths_from_list(
+            paths, check_for_text=True
+        )
+
+        # config glob excluded files only apply to files added from directories
+        file_paths_from_dirs -= glob_excluded_files
+
+        self.file_paths = list(
+            (file_paths_direct | file_paths_from_dirs)
+            - (excluded_files | excluded_files_from_dir)
+        )
 
     def _read_file(self, abs_path) -> Iterable[str]:
         with open(abs_path, "r") as f:

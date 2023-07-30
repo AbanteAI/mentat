@@ -28,7 +28,7 @@ def test_path_gitignoring(temp_testbed, mock_config):
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
     paths = [testing_dir_path, ignored_file_path_2]
     code_file_manager = CodeFileManager(
-        paths, user_input_manager=None, config=mock_config, git_root=temp_testbed
+        paths, [], user_input_manager=None, config=mock_config, git_root=temp_testbed
     )
 
     expected_file_paths = [
@@ -42,7 +42,7 @@ def test_path_gitignoring(temp_testbed, mock_config):
     )
 
 
-def test_glob_exclude(mocker, temp_testbed, mock_config):
+def test_config_glob_exclude(mocker, temp_testbed, mock_config):
     # Makes sure glob exclude config works
     mock_glob_exclude = mocker.MagicMock()
     mocker.patch.object(ConfigManager, "file_exclude_glob_list", new=mock_glob_exclude)
@@ -50,21 +50,37 @@ def test_glob_exclude(mocker, temp_testbed, mock_config):
 
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
+    directly_added_glob_excluded_path = os.path.join(
+        "glob_test", "bagel", "apple", "directly_added_glob_excluded.py"
+    )
     os.makedirs(os.path.dirname(glob_exclude_path), exist_ok=True)
     with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am excluded")
-    os.makedirs(os.path.dirname(glob_include_path), exist_ok=True)
     with open(glob_include_path, "w") as glob_include_file:
         glob_include_file.write("I am included")
+    with open(
+        directly_added_glob_excluded_path, "w"
+    ) as directly_added_glob_excluded_file:
+        directly_added_glob_excluded_file.write(
+            "Config excludes me but I'm included if added directly"
+        )
 
     code_file_manager = CodeFileManager(
-        ["."], user_input_manager=None, config=mock_config, git_root=temp_testbed
+        [".", directly_added_glob_excluded_path],
+        [],
+        user_input_manager=None,
+        config=mock_config,
+        git_root=temp_testbed,
     )
     assert (
         os.path.join(temp_testbed, glob_exclude_path)
         not in code_file_manager.file_paths
     )
     assert os.path.join(temp_testbed, glob_include_path) in code_file_manager.file_paths
+    assert (
+        os.path.join(temp_testbed, directly_added_glob_excluded_path)
+        in code_file_manager.file_paths
+    )
 
 
 def test_glob_include(temp_testbed, mock_config):
@@ -81,12 +97,59 @@ def test_glob_include(temp_testbed, mock_config):
         glob_include_file.write("I am also included")
     os.makedirs(os.path.dirname(glob_exclude_path), exist_ok=True)
     with open(glob_exclude_path, "w") as glob_exclude_file:
+        glob_exclude_file.write("I am not included")
+
+    file_paths = expand_paths(["**/*.py"])
+    code_file_manager = CodeFileManager(
+        file_paths,
+        [],
+        user_input_manager=None,
+        config=mock_config,
+        git_root=temp_testbed,
+    )
+
+    assert (
+        os.path.join(temp_testbed, glob_exclude_path)
+        not in code_file_manager.file_paths
+    )
+    assert os.path.join(temp_testbed, glob_include_path) in code_file_manager.file_paths
+    assert (
+        os.path.join(temp_testbed, glob_include_path2) in code_file_manager.file_paths
+    )
+
+
+def test_cli_glob_exclude(temp_testbed, mock_config):
+    # Make sure cli glob exclude works and overrides regular include
+    glob_include_then_exclude_path = os.path.join(
+        "glob_test", "bagel", "apple", "include_then_exclude_me.py"
+    )
+    glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.ts")
+
+    os.makedirs(os.path.dirname(glob_include_then_exclude_path), exist_ok=True)
+    with open(glob_include_then_exclude_path, "w") as glob_exclude_file:
+        glob_exclude_file.write("I am included then excluded")
+    os.makedirs(os.path.dirname(glob_exclude_path), exist_ok=True)
+    with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am excluded")
 
     file_paths = expand_paths(["**/*.py"])
-    assert glob_exclude_path not in file_paths
-    assert glob_include_path in file_paths
-    assert glob_include_path2 in file_paths
+    exclude_paths = expand_paths(["**/*.py", "**/*.ts"])
+    code_file_manager = CodeFileManager(
+        file_paths,
+        exclude_paths,
+        user_input_manager=None,
+        config=mock_config,
+        git_root=temp_testbed,
+    )
+
+    assert (
+        os.path.join(temp_testbed, glob_include_then_exclude_path)
+        not in code_file_manager.file_paths
+    )
+    assert (
+        os.path.join(temp_testbed, glob_exclude_path)
+        not in code_file_manager.file_paths
+    )
 
 
 def test_text_encoding_checking(temp_testbed, mock_config):
@@ -98,7 +161,7 @@ def test_text_encoding_checking(temp_testbed, mock_config):
 
     paths = ["./"]
     code_file_manager = CodeFileManager(
-        paths, user_input_manager=None, config=mock_config, git_root=temp_testbed
+        paths, [], user_input_manager=None, config=mock_config, git_root=temp_testbed
     )
     assert os.path.join(temp_testbed, nontext_path) not in code_file_manager.file_paths
 
@@ -110,6 +173,10 @@ def test_text_encoding_checking(temp_testbed, mock_config):
 
         paths = [nontext_path_requested]
         _ = CodeFileManager(
-            paths, user_input_manager=None, config=mock_config, git_root=temp_testbed
+            paths,
+            [],
+            user_input_manager=None,
+            config=mock_config,
+            git_root=temp_testbed,
         )
     assert e_info.type == KeyboardInterrupt
