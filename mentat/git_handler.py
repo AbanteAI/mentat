@@ -29,8 +29,14 @@ def get_paths_with_git_diffs(git_root) -> set[str]:
     changed = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd=git_root, text=True
     ).split("\n")
+    new = subprocess.check_output(
+        ["git", "ls-files", "-o", "--exclude-standard"], cwd=git_root, text=True
+    ).split("\n")
     return set(
-        map(lambda path: os.path.realpath(os.path.join(git_root, Path(path))), changed)
+        map(
+            lambda path: os.path.realpath(os.path.join(git_root, Path(path))),
+            changed + new,
+        )
     )
 
 
