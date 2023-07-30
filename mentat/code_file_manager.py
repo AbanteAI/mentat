@@ -69,7 +69,8 @@ def _is_file_text_encoded(file_path):
 
 
 def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True):
-    file_paths = set()
+    file_paths_direct = set()
+    file_paths_from_dirs = set()
     for path in paths:
         path = Path(path)
         if path.is_file():
@@ -80,7 +81,7 @@ def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True)
                     "light_yellow",
                 )
                 raise KeyboardInterrupt
-            file_paths.add(os.path.realpath(path))
+            file_paths_direct.add(os.path.realpath(path))
         elif path.is_dir():
             nonignored_files = set(
                 map(
@@ -89,13 +90,13 @@ def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True)
                 )
             )
 
-            file_paths.update(
+            file_paths_from_dirs.update(
                 filter(
                     lambda f: (not check_for_text) or _is_file_text_encoded(f),
                     nonignored_files,
                 )
             )
-    return file_paths
+    return file_paths_direct, file_paths_from_dirs
 
 
 class CodeFileManager:
@@ -138,7 +139,11 @@ class CodeFileManager:
             print("Exiting...")
             exit()
 
-        excluded_files = _abs_file_paths_from_list(exclude_paths, check_for_text=False)
+        excluded_files, excluded_files_from_dir = _abs_file_paths_from_list(
+            exclude_paths, check_for_text=False
+        )
+        # excluded paths should have already been expanded
+        assert not excluded_files_from_dir
         glob_excluded_files = set(
             os.path.join(self.git_root, file)
             for glob_path in self.config.file_exclude_glob_list()
@@ -149,10 +154,15 @@ class CodeFileManager:
                 recursive=True,
             )
         )
+        file_paths_direct, file_paths_from_dirs = _abs_file_paths_from_list(
+            paths, check_for_text=True
+        )
+
+        # config glob excluded files only apply to files added from directories
+        file_paths_from_dirs -= glob_excluded_files
+
         self.file_paths = list(
-            _abs_file_paths_from_list(paths, check_for_text=True)
-            - excluded_files
-            - glob_excluded_files
+            (file_paths_direct | file_paths_from_dirs) - excluded_files
         )
 
     def _read_file(self, abs_path) -> Iterable[str]:

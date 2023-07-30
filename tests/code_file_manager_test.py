@@ -42,7 +42,7 @@ def test_path_gitignoring(temp_testbed, mock_config):
     )
 
 
-def test_glob_exclude(mocker, temp_testbed, mock_config):
+def test_config_glob_exclude(mocker, temp_testbed, mock_config):
     # Makes sure glob exclude config works
     mock_glob_exclude = mocker.MagicMock()
     mocker.patch.object(ConfigManager, "file_exclude_glob_list", new=mock_glob_exclude)
@@ -50,21 +50,37 @@ def test_glob_exclude(mocker, temp_testbed, mock_config):
 
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
+    directly_added_glob_excluded_path = os.path.join(
+        "glob_test", "bagel", "apple", "directly_added_glob_excluded.py"
+    )
     os.makedirs(os.path.dirname(glob_exclude_path), exist_ok=True)
     with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am excluded")
-    os.makedirs(os.path.dirname(glob_include_path), exist_ok=True)
     with open(glob_include_path, "w") as glob_include_file:
         glob_include_file.write("I am included")
+    with open(
+        directly_added_glob_excluded_path, "w"
+    ) as directly_added_glob_excluded_file:
+        directly_added_glob_excluded_file.write(
+            "Config excludes me but I'm included if added directly"
+        )
 
     code_file_manager = CodeFileManager(
-        ["."], [], user_input_manager=None, config=mock_config, git_root=temp_testbed
+        [".", directly_added_glob_excluded_path],
+        [],
+        user_input_manager=None,
+        config=mock_config,
+        git_root=temp_testbed,
     )
     assert (
         os.path.join(temp_testbed, glob_exclude_path)
         not in code_file_manager.file_paths
     )
     assert os.path.join(temp_testbed, glob_include_path) in code_file_manager.file_paths
+    assert (
+        os.path.join(temp_testbed, directly_added_glob_excluded_path)
+        in code_file_manager.file_paths
+    )
 
 
 def test_glob_include(temp_testbed, mock_config):
