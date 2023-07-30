@@ -77,4 +77,13 @@ Run Mentat from within your project directory. Mentat uses git, so if your proje
 
 `mentat <paths to files or directories>`
 
-If you provide a directory, Mentat will add all non git-ignored text files in that directory to it's context. If you provide a glob pattern, Mentat will add all files matching the pattern to it's context. If this exceeds the GPT-4 token context limit, try running Mentat with just the files you need it to see.
+If you provide a directory, Mentat will add all non git-ignored text files in that directory to it's context. If you provide a [glob pattern](https://docs.python.org/3/library/glob.html), Mentat will add all files matching the pattern to it's context. If this exceeds the GPT-4 token context limit, try running Mentat with just the files you need it to see.
+
+## Options
+
+### Exclude Files
+
+Exclude given paths, directories, or [glob patterns](https://docs.python.org/3/library/glob.html) from Mentat's context. Takes precedence over included file paths.
+```
+mentat --exclude exclude_me.py dir1/dir2 **/*.ts
+```

@@ -28,7 +28,7 @@ def test_path_gitignoring(temp_testbed, mock_config):
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
     paths = [testing_dir_path, ignored_file_path_2]
     code_file_manager = CodeFileManager(
-        paths, user_input_manager=None, config=mock_config, git_root=temp_testbed
+        paths, [], user_input_manager=None, config=mock_config, git_root=temp_testbed
     )
 
     expected_file_paths = [
@@ -58,7 +58,7 @@ def test_glob_exclude(mocker, temp_testbed, mock_config):
         glob_include_file.write("I am included")
 
     code_file_manager = CodeFileManager(
-        ["."], user_input_manager=None, config=mock_config, git_root=temp_testbed
+        ["."], [], user_input_manager=None, config=mock_config, git_root=temp_testbed
     )
     assert (
         os.path.join(temp_testbed, glob_exclude_path)
@@ -98,7 +98,7 @@ def test_text_encoding_checking(temp_testbed, mock_config):
 
     paths = ["./"]
     code_file_manager = CodeFileManager(
-        paths, user_input_manager=None, config=mock_config, git_root=temp_testbed
+        paths, [], user_input_manager=None, config=mock_config, git_root=temp_testbed
     )
     assert os.path.join(temp_testbed, nontext_path) not in code_file_manager.file_paths
 
@@ -110,6 +110,10 @@ def test_text_encoding_checking(temp_testbed, mock_config):
 
         paths = [nontext_path_requested]
         _ = CodeFileManager(
-            paths, user_input_manager=None, config=mock_config, git_root=temp_testbed
+            paths,
+            [],
+            user_input_manager=None,
+            config=mock_config,
+            git_root=temp_testbed,
         )
     assert e_info.type == KeyboardInterrupt
