@@ -247,9 +247,11 @@ class CodeFileManager:
 
         for rel_path, code_lines in files_to_write.items():
             file_path = os.path.join(self.git_root, rel_path)
-            # if changes created a new file and we are now writing to it, add it to context
             if file_path not in self.file_paths:
+                # newly created files added to Mentat's context
                 logging.info(f"Adding new file {file_path} to context")
                 self.file_paths.append(file_path)
+                # create any missing directories in the path
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, "w") as f:
                 f.write("\n".join(code_lines))

@@ -132,7 +132,7 @@ def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
 
 def test_create_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
     # Create a temporary file
-    temp_file_name = "temp.py"
+    temp_file_name = "new_dir/temp.py"
     mock_collect_user_input.side_effect = [
         "Create a new file called temp.py",
         "y",
