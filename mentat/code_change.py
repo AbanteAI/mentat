@@ -65,30 +65,43 @@ class CodeChange:
                 f"Model created change with unknown action {self.json_data['action']}",
                 unfinished_change=False,
             )
-        match self.action:
-            case CodeChangeAction.Insert:
-                if "insert-before-line" in self.json_data:
-                    self.first_changed_line = self.json_data["insert-before-line"]
-                    if "insert-after-line" in self.json_data:
-                        if (
-                            self.first_changed_line - 1
-                            != self.json_data["insert-after-line"]
-                        ):
-                            self.error = "Insert line numbers invalid"
-                elif "insert-after-line" in self.json_data:
-                    self.first_changed_line = self.json_data["insert-after-line"] + 1
-                else:
-                    self.error = "Insert line number not specified"
-                self.first_changed_line -= 0.5
-                self.last_changed_line = self.first_changed_line
 
-            case CodeChangeAction.Replace:
-                self.first_changed_line = self.json_data["start-line"]
-                self.last_changed_line = self.json_data["end-line"]
+        try:
+            match self.action:
+                case CodeChangeAction.Insert:
+                    if "insert-before-line" in self.json_data:
+                        self.first_changed_line = self.json_data["insert-before-line"]
+                        if "insert-after-line" in self.json_data:
+                            if (
+                                self.first_changed_line - 1
+                                != self.json_data["insert-after-line"]
+                            ):
+                                self.error = "Insert line numbers invalid"
+                    elif "insert-after-line" in self.json_data:
+                        self.first_changed_line = (
+                            self.json_data["insert-after-line"] + 1
+                        )
+                    else:
+                        self.error = "Insert line number not specified"
+                    self.first_changed_line -= 0.5
+                    self.last_changed_line = self.first_changed_line
 
-            case CodeChangeAction.Delete:
-                self.first_changed_line = self.json_data["start-line"]
-                self.last_changed_line = self.json_data["end-line"]
+                case CodeChangeAction.Replace:
+                    self.first_changed_line = self.json_data["start-line"]
+                    self.last_changed_line = self.json_data["end-line"]
+
+                case CodeChangeAction.Delete:
+                    self.first_changed_line = self.json_data["start-line"]
+                    self.last_changed_line = self.json_data["end-line"]
+        except KeyError:
+            self.error = "Line numbers not given"
+
+        if (
+            self.first_changed_line
+            and self.last_changed_line
+            and self.first_changed_line > self.last_changed_line
+        ):
+            self.error = "Starting line of change is greater than ending line of change"
 
         if self.action != CodeChangeAction.CreateFile:
             file_path = os.path.join(self.git_root, self.file)
@@ -100,8 +113,9 @@ class CodeChange:
         else:
             if os.path.exists(self.file):
                 self.error = (
-                    f"Model attempted to create file {file_path} that already existed",
+                    f"Model attempted to create file {self.file} that already exists"
                 )
+
             self.file_lines = []
             self.line_number_buffer = 2
 

@@ -95,7 +95,7 @@ class ParsingState:
                     )
                 self.in_special_lines = True
             case _BlockIndicator.Code.value:
-                if not self.in_special_lines or self.in_code_lines:
+                if not self.in_special_lines:
                     raise ModelError(
                         "Model gave code indicator while it was not making a change",
                         unfinished_change=False,
@@ -195,6 +195,7 @@ async def stream_and_parse_llm_response(
         printer.wrap_it_up()
         await printer_task
     except ModelError as e:
+        logging.info(f"Model created error {e}")
         printer.wrap_it_up()
         await printer_task
         cprint("\n\nFatal error while processing model response:", "red")
@@ -280,13 +281,13 @@ def _process_content_line(
                     printer.add_string(get_later_lines(cur_change))
                     printer.add_string(change_delimiter)
 
-        prefix = (
-            "+" + " " * (state.code_changes[-1].line_number_buffer - 1)
-            if state.in_code_lines and beginning
-            else ""
-        )
-        color = "green" if state.in_code_lines else None
         if to_print and not (state.in_code_lines and state.code_changes[-1].error):
+            prefix = (
+                "+" + " " * (state.code_changes[-1].line_number_buffer - 1)
+                if state.in_code_lines and beginning
+                else ""
+            )
+            color = "green" if state.in_code_lines else None
             printer.add_string(prefix + to_print, end="", color=color)
         if exited_code_lines and not state.code_changes[-1].error:
             printer.add_string(get_later_lines(state.code_changes[-1]))
