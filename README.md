@@ -85,5 +85,5 @@ List the files you would like Mentat to read and edit as arguments. Mentat will 
 
 Exclude given paths, directories, or [glob patterns](https://docs.python.org/3/library/glob.html) from Mentat's context. Takes precedence over included file paths.
 ```
-mentat --exclude exclude_me.py dir1/dir2 **/*.ts
+mentat path/to/directory --exclude exclude_me.py dir1/dir2 **/*.ts
 ```
