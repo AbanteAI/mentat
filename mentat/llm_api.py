@@ -52,7 +52,9 @@ async def call_llm_api(messages: list[dict[str, str]], model) -> Generator:
 
 
 def count_tokens(message: str) -> int:
-    return len(tiktoken.encoding_for_model("gpt-4").encode(message))
+    return len(
+        tiktoken.encoding_for_model("gpt-4").encode(message, disallowed_special=())
+    )
 
 
 def check_model_availability(allow_32k: bool) -> bool:
@@ -83,10 +85,8 @@ def check_model_availability(allow_32k: bool) -> bool:
 
 def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
     prompt_token_count = 0
-    tokenizer = tiktoken.encoding_for_model("gpt-4")
     for message in messages:
-        encoding = tokenizer.encode(message["content"])
-        prompt_token_count += len(encoding)
+        prompt_token_count += count_tokens(message["content"])
     cprint(f"\nTotal token count: {prompt_token_count}", "cyan")
 
     model = "gpt-4-0314"
