@@ -45,7 +45,7 @@ class CodeChange:
     ):
         self.json_data = json_data
         # Scab on some simple type coercion.
-        for k in 'insert-before-line insert-after-line start-line end-line'.split():
+        for k in "insert-before-line insert-after-line start-line end-line".split():
             if k in self.json_data:
                 self.json_data[k] = int(self.json_data[k])
         self.code_lines = code_lines
