@@ -6,7 +6,7 @@ from typing import Iterable, Optional
 
 from termcolor import cprint
 
-from .code_change import CodeChange, CodeChangeAction
+from .code_change import CodeChange
 from .code_change_display import print_change
 from .code_file_manager import CodeFileManager
 from .config_manager import ConfigManager, mentat_dir_path
@@ -89,7 +89,6 @@ def loop(
             user_response = user_input_manager.collect_user_input()
             conv.add_user_message(user_response)
         explanation, code_changes = conv.get_model_response(code_file_manager, config)
-        warn_user_wrong_files(code_file_manager, code_changes, git_root)
 
         if code_changes:
             need_user_request = get_user_feedback_on_changes(
@@ -97,42 +96,6 @@ def loop(
             )
         else:
             need_user_request = True
-
-
-def warn_user_wrong_files(
-    code_file_manager: CodeFileManager,
-    code_changes: Iterable[CodeChange],
-    git_root: str,
-):
-    warned = set()
-    for change in code_changes:
-        if change.action == CodeChangeAction.CreateFile and os.path.exists(change.file):
-            logging.info("Model tried to create a file that already exists")
-            cprint(
-                f"Error: tried to create {change.file}, but file already existed!",
-                color="red",
-            )
-            raise KeyboardInterrupt
-        elif change.action == CodeChangeAction.DeleteFile and not os.path.exists(
-            change.file
-        ):
-            logging.info("Model tried to delete a file that didn't exist")
-            cprint(
-                f"Error: tried to delete {change.file}, but file doesn't exist!",
-                color="red",
-            )
-            raise KeyboardInterrupt
-
-        if (
-            os.path.join(git_root, change.file) not in code_file_manager.file_paths
-            and change.action != CodeChangeAction.CreateFile
-            and change.file not in warned
-        ):
-            warned.add(change.file)
-            cprint(
-                f"Change in {change.file} does not match original files!",
-                color="light_yellow",
-            )
 
 
 def get_user_feedback_on_changes(

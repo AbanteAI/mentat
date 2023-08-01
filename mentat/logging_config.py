@@ -13,7 +13,8 @@ def setup_logging():
     logs_path = os.path.join(mentat_dir_path, logs_dir)
 
     logging.getLogger("openai").setLevel(logging.WARNING)
-    logging.getLogger("asyncio").setLevel(logging.WARNING)
+    # Breaking out of async generator when model messes up causes an error
+    logging.getLogger("asyncio").setLevel(logging.CRITICAL)
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
     console_handler = logging.StreamHandler()

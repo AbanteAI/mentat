@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from enum import Enum
+from json import JSONDecodeError
 from timeit import default_timer
 from typing import Generator
 
@@ -19,6 +20,7 @@ from .code_change_display import (
 )
 from .code_file_manager import CodeFileManager
 from .llm_api import call_llm_api
+from .model_error import ModelError
 from .streaming_printer import StreamingPrinter
 
 
@@ -66,10 +68,18 @@ class ParsingState:
         )
 
     def create_code_change(self, code_file_manager: CodeFileManager):
-        json_data = json.loads("\n".join(self.json_lines))
-        self.code_changes.append(
-            CodeChange(json_data, self.code_lines, self.git_root, code_file_manager)
+        try:
+            json_data = json.loads("\n".join(self.json_lines))
+        except JSONDecodeError:
+            raise ModelError(
+                "Model gave malformed JSON for change",
+                already_added_to_changelist=False,
+            )
+
+        new_change = CodeChange(
+            json_data, self.code_lines, self.git_root, code_file_manager
         )
+        self.code_changes.append(new_change)
         self.json_lines, self.code_lines = [], []
 
     def new_line(self, code_file_manager: CodeFileManager):
@@ -79,16 +89,38 @@ class ParsingState:
         created_code_change = False
         match self.cur_line.rstrip("\n"):
             case _BlockIndicator.Start.value:
-                assert not self.in_special_lines and not self.in_code_lines
+                if self.in_special_lines or self.in_code_lines:
+                    raise ModelError(
+                        "Model gave start indicator while making change",
+                        already_added_to_changelist=True,
+                    )
                 self.in_special_lines = True
             case _BlockIndicator.Code.value:
-                assert self.in_special_lines and not self.in_code_lines
+                if not self.in_special_lines:
+                    raise ModelError(
+                        "Model gave code indicator while it was not making a change",
+                        already_added_to_changelist=False,
+                    )
+                if self.in_code_lines:
+                    raise ModelError(
+                        "Model gave code indicator while in code block",
+                        already_added_to_changelist=True,
+                    )
                 self.in_code_lines = True
                 self.create_code_change(code_file_manager)
+                if not self.code_changes[-1].action.has_additions():
+                    raise ModelError(
+                        "Model gave code indicator for action without code",
+                        already_added_to_changelist=True,
+                    )
                 entered_code_lines = True
                 created_code_change = True
             case _BlockIndicator.End.value:
-                assert self.in_special_lines
+                if not self.in_special_lines:
+                    raise ModelError(
+                        "Model gave end indicator while not creating change",
+                        already_added_to_changelist=False,
+                    )
                 if not self.in_code_lines:
                     self.create_code_change(code_file_manager)
                     created_code_change = True
@@ -129,7 +161,7 @@ def run_async_stream_and_parse_llm_response(
         asyncio.run(
             stream_and_parse_llm_response(messages, model, state, code_file_manager)
         )
-    except openai.error.InvalidRequestError as e:
+    except (openai.error.InvalidRequestError, openai.error.RateLimitError) as e:
         cprint(e, "red")
         exit()
     except KeyboardInterrupt:
@@ -138,6 +170,10 @@ def run_async_stream_and_parse_llm_response(
         if state.in_code_lines:
             state.code_changes = state.code_changes[:-1]
         logging.info("User interrupted response.")
+
+    state.code_changes = list(
+        filter(lambda change: not change.error, state.code_changes)
+    )
 
     state.time_elapsed = default_timer() - start_time
     return state
@@ -155,11 +191,22 @@ async def stream_and_parse_llm_response(
 
     printer = StreamingPrinter()
     printer_task = asyncio.create_task(printer.print_lines())
-    await _process_response(state, response, printer, code_file_manager)
-    printer.wrap_it_up()
-    await printer_task
-
-    logging.debug(f"LLM response:\n{state.message}")
+    try:
+        await _process_response(state, response, printer, code_file_manager)
+        printer.wrap_it_up()
+        await printer_task
+    except ModelError as e:
+        logging.info(f"Model created error {e}")
+        printer.wrap_it_up()
+        # make sure we finish printing everything model sent before we encountered the crash
+        await printer_task
+        cprint("\n\nFatal error while processing model response:", "red")
+        cprint(e, color="red")
+        cprint("Using response up to this point.")
+        if e.already_added_to_changelist:
+            state.code_changes = state.code_changes[:-1]
+    finally:
+        logging.debug(f"LLM response:\n{state.message}")
 
 
 async def _process_response(
@@ -176,7 +223,14 @@ async def _process_response(
             if content_line:
                 state.message += content_line
                 _process_content_line(state, content_line, printer, code_file_manager)
+
+    # This newline solves at least 5 edge cases singlehandedly
     _process_content_line(state, "\n", printer, code_file_manager)
+
+    # If the model forgot an @@end at the very end of it's message, we might as well add the change
+    if state.in_special_lines:
+        logging.info("Model forgot an @@end!")
+        _process_content_line(state, "@@end\n", printer, code_file_manager)
 
 
 def _process_content_line(
@@ -185,7 +239,9 @@ def _process_content_line(
     beginning = state.cur_line == ""
     state.cur_line += content
 
-    if state.in_code_lines or not state.in_special_lines:
+    if (
+        state.in_code_lines and not state.code_changes[-1].error
+    ) or not state.in_special_lines:
         to_print = state.parse_line_printing(content)
         prefix = (
             "+" + " " * (state.code_changes[-1].line_number_buffer - 1)
@@ -203,28 +259,38 @@ def _process_content_line(
 
         if created_code_change:
             cur_change = state.code_changes[-1]
-            if (
-                len(state.code_changes) < 2
-                or state.code_changes[-2].file != cur_change.file
-                or state.explained_since_change
-            ):
-                printer.add_string(get_file_name(cur_change))
-                printer.add_string(change_delimiter)
-            state.explained_since_change = False
-            printer.add_string(get_previous_lines(cur_change))
-            printer.add_string(get_removed_block(cur_change))
-            if not cur_change.action.has_additions():
-                printer.add_string(get_later_lines(cur_change))
-                printer.add_string(change_delimiter)
+            if cur_change.error:
+                logging.info(
+                    f"Model error when creating code change: {cur_change.error}"
+                )
+                printer.add_string("\nNot showing skipped change due to error:")
+                printer.add_string(cur_change.error, color="red")
+                printer.add_string(
+                    "Continuing model response...\n", color="light_green"
+                )
+            else:
+                if (
+                    len(state.code_changes) < 2
+                    or state.code_changes[-2].file != cur_change.file
+                    or state.explained_since_change
+                ):
+                    printer.add_string(get_file_name(cur_change))
+                    printer.add_string(change_delimiter)
+                state.explained_since_change = False
+                printer.add_string(get_previous_lines(cur_change))
+                printer.add_string(get_removed_block(cur_change))
+                if not cur_change.action.has_additions():
+                    printer.add_string(get_later_lines(cur_change))
+                    printer.add_string(change_delimiter)
 
-        prefix = (
-            "+" + " " * (state.code_changes[-1].line_number_buffer - 1)
-            if state.in_code_lines and beginning
-            else ""
-        )
-        color = "green" if state.in_code_lines else None
-        if to_print:
+        if to_print and not (state.in_code_lines and state.code_changes[-1].error):
+            prefix = (
+                "+" + " " * (state.code_changes[-1].line_number_buffer - 1)
+                if state.in_code_lines and beginning
+                else ""
+            )
+            color = "green" if state.in_code_lines else None
             printer.add_string(prefix + to_print, end="", color=color)
-        if exited_code_lines:
+        if exited_code_lines and not state.code_changes[-1].error:
             printer.add_string(get_later_lines(state.code_changes[-1]))
             printer.add_string(change_delimiter)
