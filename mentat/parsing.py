@@ -197,6 +197,7 @@ async def stream_and_parse_llm_response(
     except ModelError as e:
         logging.info(f"Model created error {e}")
         printer.wrap_it_up()
+        # make sure we finish printing everything model sent before we encountered the crash
         await printer_task
         cprint("\n\nFatal error while processing model response:", "red")
         cprint(e, color="red")
