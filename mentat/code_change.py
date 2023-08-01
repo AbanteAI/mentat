@@ -109,7 +109,7 @@ class CodeChange:
                 self.file_lines = code_file_manager.file_lines[file_path]
                 self.line_number_buffer = len(str(len(self.file_lines) + 1)) + 1
             except KeyError:
-                self.error = f"File {file_path} not included in context"
+                self.error = f"Model attempt to edit {file_path}, which isn't in current context or doesn't exist"
         else:
             if os.path.exists(self.file):
                 self.error = (
