@@ -113,7 +113,7 @@ class CodeChange:
         else:
             if os.path.exists(self.file):
                 self.error = (
-                    f"Model attempted to create file {self.file} that already exists"
+                    f"Model attempted to create file that already exists: {self.file}"
                 )
 
             self.file_lines = []
