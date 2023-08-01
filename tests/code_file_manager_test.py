@@ -180,3 +180,22 @@ def test_text_encoding_checking(temp_testbed, mock_config):
             git_root=temp_testbed,
         )
     assert e_info.type == KeyboardInterrupt
+
+
+# Make sure we always give posix paths to GPT
+def test_posix_paths(temp_testbed, mock_config):
+    dir_name = "dir"
+    file_name = "file.txt"
+    file_path = os.path.join(dir_name, file_name)
+    os.makedirs(dir_name, exist_ok=True)
+    with open(file_path, "w") as file_file:
+        file_file.write("I am a file")
+    code_file_manager = CodeFileManager(
+        [file_path],
+        [],
+        user_input_manager=None,
+        config=mock_config,
+        git_root=temp_testbed,
+    )
+    code_message = code_file_manager.get_code_message()
+    assert dir_name + "/" + file_name in code_message.split("\n")

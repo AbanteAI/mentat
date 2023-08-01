@@ -180,14 +180,20 @@ class CodeFileManager:
         code_message = ["Code Files:\n"]
         for abs_path in self.file_paths:
             rel_path = os.path.relpath(abs_path, self.git_root)
-            code_message.append(rel_path)
+
+            # We always want to give GPT posix paths
+            posix_rel_path = Path(rel_path).as_posix()
+            code_message.append(posix_rel_path)
+
             for i, line in enumerate(self.file_lines[abs_path], start=1):
                 code_message.append(f"{i}:{line}")
             code_message.append("")
+
             git_diff_output = get_git_diff_for_path(self.git_root, rel_path)
             if git_diff_output:
                 code_message.append("Current git diff for this file:")
                 code_message.append(f"{git_diff_output}")
+
         return "\n".join(code_message)
 
     def _handle_delete(self, delete_change):

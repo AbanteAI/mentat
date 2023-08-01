@@ -1,5 +1,6 @@
 import os
 from enum import Enum
+from pathlib import Path
 
 from pygments.lexers import TextLexer, get_lexer_for_filename
 from pygments.util import ClassNotFound
@@ -45,7 +46,7 @@ class CodeChange:
         self.json_data = json_data
         self.code_lines = code_lines
         self.first_changed_line = None
-        self.file = self.json_data["file"]
+        self.file = Path(self.json_data["file"])
         self.first_changed_line = None
         self.last_changed_line = None
         self.git_root = git_root
