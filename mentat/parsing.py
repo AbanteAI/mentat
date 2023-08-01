@@ -72,7 +72,8 @@ class ParsingState:
             json_data = json.loads("\n".join(self.json_lines))
         except JSONDecodeError:
             raise ModelError(
-                "Model gave malformed JSON for change", unfinished_change=False
+                "Model gave malformed JSON for change",
+                already_added_to_changelist=False,
             )
 
         new_change = CodeChange(
@@ -91,26 +92,26 @@ class ParsingState:
                 if self.in_special_lines or self.in_code_lines:
                     raise ModelError(
                         "Model gave start indicator while making change",
-                        unfinished_change=True,
+                        already_added_to_changelist=True,
                     )
                 self.in_special_lines = True
             case _BlockIndicator.Code.value:
                 if not self.in_special_lines:
                     raise ModelError(
                         "Model gave code indicator while it was not making a change",
-                        unfinished_change=False,
+                        already_added_to_changelist=False,
                     )
                 if self.in_code_lines:
                     raise ModelError(
                         "Model gave code indicator while in code block",
-                        unfinished_change=True,
+                        already_added_to_changelist=True,
                     )
                 self.in_code_lines = True
                 self.create_code_change(code_file_manager)
                 if not self.code_changes[-1].action.has_additions():
                     raise ModelError(
                         "Model gave code indicator for action without code",
-                        unfinished_change=True,
+                        already_added_to_changelist=True,
                     )
                 entered_code_lines = True
                 created_code_change = True
@@ -118,7 +119,7 @@ class ParsingState:
                 if not self.in_special_lines:
                     raise ModelError(
                         "Model gave end indicator while not creating change",
-                        unfinished_change=False,
+                        already_added_to_changelist=False,
                     )
                 if not self.in_code_lines:
                     self.create_code_change(code_file_manager)
@@ -202,7 +203,7 @@ async def stream_and_parse_llm_response(
         cprint("\n\nFatal error while processing model response:", "red")
         cprint(e, color="red")
         cprint("Using response up to this point.")
-        if e.unfinished_change:
+        if e.already_added_to_changelist:
             state.code_changes = state.code_changes[:-1]
     finally:
         logging.debug(f"LLM response:\n{state.message}")

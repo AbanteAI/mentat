@@ -63,7 +63,7 @@ class CodeChange:
         except ValueError:
             raise ModelError(
                 f"Model created change with unknown action {self.json_data['action']}",
-                unfinished_change=False,
+                already_added_to_changelist=False,
             )
 
         try:
@@ -109,7 +109,10 @@ class CodeChange:
                 self.file_lines = code_file_manager.file_lines[file_path]
                 self.line_number_buffer = len(str(len(self.file_lines) + 1)) + 1
             except KeyError:
-                self.error = f"Model attempt to edit {file_path}, which isn't in current context or doesn't exist"
+                self.error = (
+                    f"Model attempted to edit {file_path}, which isn't in current"
+                    " context or doesn't exist"
+                )
         else:
             if os.path.exists(self.file):
                 self.error = (
