@@ -180,6 +180,10 @@ class CodeFileManager:
         code_message = ["Code Files:\n"]
         for abs_path in self.file_paths:
             rel_path = os.path.relpath(abs_path, self.git_root)
+            # We always want to give GPT posix paths
+            posix_rel_path = Path(rel_path).as_posix()
+            if rel_path.count(os.path.sep) > 0:
+                assert False, (rel_path, posix_rel_path)
             code_message.append(rel_path)
             for i, line in enumerate(self.file_lines[abs_path], start=1):
                 code_message.append(f"{i}:{line}")
