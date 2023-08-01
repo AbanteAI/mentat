@@ -68,7 +68,7 @@ def mock_collect_user_input(mocker):
 @pytest.fixture
 def mock_setup_api_key(mocker):
     mocker.patch("mentat.app.setup_api_key")
-    mocker.patch("mentat.conversation.check_model_availability")
+    mocker.patch("mentat.app.check_model_availability")
     return
 
 

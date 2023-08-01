@@ -11,7 +11,16 @@ from termcolor import cprint
 
 from .config_manager import mentat_dir_path, user_config_path
 
-package_name = __name__.split(".")[0]
+model_8k = "gpt-4-0314"
+model_32k = "gpt-4-32k-0314"
+tokens_8k = 8192
+tokens_32k = 32768
+token_buffer = 500
+
+cost_per_1000_tokens = {
+    model_8k: (0.03, 0.06),
+    model_32k: (0.06, 0.12),
+}
 
 
 # Check for .env file or already exported API key
@@ -57,14 +66,21 @@ def count_tokens(message: str) -> int:
     )
 
 
+def get_prompt_token_count(messages: list[str]) -> int:
+    prompt_token_count = 0
+    for message in messages:
+        prompt_token_count += count_tokens(message["content"])
+    return prompt_token_count
+
+
 def check_model_availability(allow_32k: bool) -> bool:
     available_models = [x["id"] for x in openai.Model.list()["data"]]
     if allow_32k:
         # check if user has access to gpt-4-32k
-        if "gpt-4-32k-0314" not in available_models:
+        if model_32k not in available_models:
             cprint(
                 "You set ALLOW_32K to true, but your OpenAI API key doesn't"
-                " have access to gpt-4-32k-0314. To remove this warning, set"
+                f" have access to {model_32k}. To remove this warning, set"
                 " ALLOW_32K to false until you have access.",
                 "yellow",
             )
@@ -72,9 +88,9 @@ def check_model_availability(allow_32k: bool) -> bool:
 
     if not allow_32k:
         # check if user has access to gpt-4
-        if "gpt-4-0314" not in available_models:
+        if model_8k not in available_models:
             cprint(
-                "Sorry, but your OpenAI API key doesn't have access to gpt-4-0314,"
+                f"Sorry, but your OpenAI API key doesn't have access to {model_8k},"
                 " which is currently required to run Mentat.",
                 "red",
             )
@@ -83,31 +99,28 @@ def check_model_availability(allow_32k: bool) -> bool:
     return allow_32k
 
 
-def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
-    prompt_token_count = 0
-    for message in messages:
-        prompt_token_count += count_tokens(message["content"])
-    cprint(f"\nTotal token count: {prompt_token_count}", "cyan")
-
-    model = "gpt-4-0314"
-    token_buffer = 500
-    if prompt_token_count > 8192 - token_buffer:
+def choose_model(prompt_token_count: int, allow_32k: bool) -> str:
+    if prompt_token_count > tokens_8k - token_buffer:
         if allow_32k:
-            model = "gpt-4-32k-0314"
-            if prompt_token_count > 32768 - token_buffer:
+            if prompt_token_count > tokens_32k - token_buffer:
                 cprint(
-                    "Warning: gpt-4-32k-0314 has a token limit of 32768. Attempting"
-                    " to run anyway:"
+                    "\nWarning: gpt-4-32k-0314 has a token limit of"
+                    f" {tokens_32k} tokens. Your current context length is"
+                    f" {prompt_token_count} tokens. Attempting to run anyway:",
+                    "light_yellow",
                 )
+            return model_32k
         else:
             cprint(
-                "Warning: gpt-4-0314 has a maximum context length of 8192 tokens."
-                " If you have access to gpt-4-32k-0314, set allow-32k to `true` in"
-                f" `{user_config_path}` to use"
-                " it. Attempting to run with gpt-4-0314:",
-                "yellow",
+                f"\nWarning: gpt-4-0314 has a token limit of {tokens_8k} tokens. Your"
+                f" current context length is {prompt_token_count} tokens. If you have"
+                f" access to {model_32k}, set allow-32k to `true` in"
+                f" `{user_config_path}` to use it. Attempting to run with {model_8k}:",
+                "light_yellow",
             )
-    return model, prompt_token_count
+            return model_8k
+    else:
+        return model_8k
 
 
 @dataclass
@@ -121,10 +134,6 @@ class CostTracker:
         model: str,
         call_time: float,
     ) -> None:
-        cost_per_1000_tokens = {
-            "gpt-4-0314": (0.03, 0.06),
-            "gpt-4-32k-0314": (0.06, 0.12),
-        }
         prompt_cost = (num_prompt_tokens / 1000) * cost_per_1000_tokens[model][0]
         sampled_cost = (num_sampled_tokens / 1000) * cost_per_1000_tokens[model][1]
 

@@ -1,7 +1,7 @@
 from .code_change import CodeChange
 from .code_file_manager import CodeFileManager
 from .config_manager import ConfigManager
-from .llm_api import CostTracker, check_model_availability, choose_model, count_tokens
+from .llm_api import CostTracker, count_tokens, get_prompt_token_count
 from .parsing import run_async_stream_and_parse_llm_response
 from .prompts import system_prompt
 
@@ -11,7 +11,6 @@ class Conversation:
         self.messages = []
         self.add_system_message(system_prompt)
         self.cost_tracker = cost_tracker
-        self.allow_32k = check_model_availability(config.allow_32k())
 
     def add_system_message(self, message: str):
         self.messages.append({"role": "system", "content": message})
@@ -23,19 +22,18 @@ class Conversation:
         self.messages.append({"role": "assistant", "content": message})
 
     def get_model_response(
-        self, code_file_manager: CodeFileManager, config: ConfigManager
+        self, code_file_manager: CodeFileManager, config: ConfigManager, model: str
     ) -> (str, list[CodeChange]):
         messages = self.messages.copy()
 
         code_message = code_file_manager.get_code_message()
         messages.append({"role": "system", "content": code_message})
 
-        model, num_prompt_tokens = choose_model(messages, self.allow_32k)
-
         state = run_async_stream_and_parse_llm_response(
             messages, model, code_file_manager
         )
 
+        num_prompt_tokens = get_prompt_token_count(messages)
         self.cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             count_tokens(state.message),

@@ -12,7 +12,13 @@ from .code_file_manager import CodeFileManager
 from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
 from .git_handler import get_shared_git_root_for_paths
-from .llm_api import CostTracker, count_tokens, setup_api_key
+from .llm_api import (
+    CostTracker,
+    check_model_availability,
+    choose_model,
+    count_tokens,
+    setup_api_key,
+)
 from .logging_config import setup_logging
 from .user_input_manager import UserInputManager
 
@@ -79,7 +85,10 @@ def loop(
         git_root,
     )
 
+    allow_32k = check_model_availability(config.allow_32k())
     tokens = count_tokens(code_file_manager.get_code_message())
+    model = choose_model(tokens, allow_32k)
+
     cprint(f"\nFile token count: {tokens}", "cyan")
     cprint("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")
     cprint("What can I do for you?", color="light_blue")
@@ -88,7 +97,9 @@ def loop(
         if need_user_request:
             user_response = user_input_manager.collect_user_input()
             conv.add_user_message(user_response)
-        explanation, code_changes = conv.get_model_response(code_file_manager, config)
+        explanation, code_changes = conv.get_model_response(
+            code_file_manager, config, model
+        )
 
         if code_changes:
             need_user_request = get_user_feedback_on_changes(
