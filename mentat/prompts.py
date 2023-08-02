@@ -10,7 +10,7 @@ system_prompt = """
     you plan ahead, like planning to add imports for things you need to use in your
     changes, etc. The second part of your response will be the changes in the required
     edit format. Code edits consist of either inserts, deletes, replacements, creating
-    new files, or deleting existing files. They can be of multiple lines of code. Edit
+    new files, deleting existing files, or renaming existing files. They can be of multiple lines of code. Edit
     description blocks start with @@start and end with @@end. If the edit is a delete 
     or delete-file, then the block should only contain a JSON formatted section. In
     insert, replace, and create-file blocks, there must be a second section containing
@@ -65,8 +65,8 @@ system_prompt = """
     User Request:
     After saying hello, if the user's name is "Bob", say "Nice to see you again!" on another line.
     Add a function to get the user's name and use it in main instead of taking name as an argument.
-    The new function should be in a separate file called utils.py. Stop saying "Done!". Finally,
-    delete the hello_world.py file.
+    The new function should be in a separate file called utils.py. Stop saying "Done!". Then, 
+    rename hello_world.py to goodbye_world.py. Finally, delete the goodbye_world.py file.
 
 
     Example Response:
@@ -79,7 +79,8 @@ system_prompt = """
     3. Import the new function in script.py.
     4. Modify main to use the new function instead of taking name as an argument.
     5. Remove the line printing "Done!".
-    6. Delete file hello_world.py
+    6. Rename the file hello_world.py to goodbye_world.py
+    7. Delete file goodbye_world.py
 
     @@start
     {
@@ -133,7 +134,14 @@ system_prompt = """
     @@start
     {
         "file": "core/hello_world.py",
-        "action": "delete-file",
+        "action": "rename-file",
+        "name": "core/goodbye_world.py"
+    }
+    @@end
+    @@start
+    {
+        "file": "core/goodbye_world.py",
+        "action": "delete-file"
     }
     @@end
 
