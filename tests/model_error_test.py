@@ -236,7 +236,6 @@ def test_invalid_line_numbers(
         @@end
         """) + template_insert2,
     )
-    print(repr(content))
     assert content == template_double_insert_expected_content
 
 
@@ -257,7 +256,6 @@ def test_existing_file(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
         @@end
         """) + template_insert2,
     )
-    print(repr(content))
     assert content == template_double_insert_expected_content
 
 
@@ -282,5 +280,31 @@ def test_file_not_in_context(
         @@end
         """) + template_insert2,
     )
-    print(repr(content))
+    assert content == template_double_insert_expected_content
+
+
+def test_rename_file_already_exists(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+):
+    # Trying to rename to existing file shouldn't work
+    start_file_name = "start.py"
+    existing_file_name = "existing.py"
+    with open(start_file_name, "w") as start_file:
+        start_file.write("I started here")
+    with open(existing_file_name, "w") as existing_file:
+        existing_file.write("I was always here")
+    content = error_test_template(
+        mock_call_llm_api,
+        mock_collect_user_input,
+        mock_setup_api_key,
+        template_insert + dedent(f"""\
+        @@start
+        {{
+            "file": "{start_file_name}",
+            "action": "rename-file",
+            "name": "{existing_file_name}"
+        }}
+        @@end
+        """) + template_insert2,
+    )
     assert content == template_double_insert_expected_content

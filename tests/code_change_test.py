@@ -195,6 +195,40 @@ def test_delete_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_
     assert not os.path.exists(temp_file_name)
 
 
+def test_rename_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+    # Make sure rename-file works
+    temp_file_name = "temp.py"
+    temp_2_file_name = "temp_2.py"
+    with open(temp_file_name, "w") as f:
+        f.write("# Move me!")
+
+    mock_collect_user_input.side_effect = [
+        "Rename the file temp_2.py",
+        "y",
+        KeyboardInterrupt,
+    ]
+    mock_call_llm_api.set_generator_values([dedent(f"""\
+        I will rename the file
+
+        Steps: 1. rename the file
+
+        @@start
+        {{
+            "file": "{temp_file_name}",
+            "action": "rename-file",
+            "name": "{temp_2_file_name}"
+        }}
+        @@end""")])
+
+    run([temp_file_name])
+    with open(temp_2_file_name) as new_file:
+        content = new_file.read()
+        expected_content = "# Move me!"
+
+    assert not os.path.exists(temp_file_name)
+    assert content == expected_content
+
+
 def test_multiple_blocks(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
