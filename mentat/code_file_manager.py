@@ -14,7 +14,7 @@ from .change_conflict_resolution import (
 )
 from .code_change import CodeChange, CodeChangeAction
 from .config_manager import ConfigManager
-from .errors import UserError
+from .errors import MentatError, UserError
 from .git_handler import (
     get_git_diff_for_path,
     get_non_gitignored_files,
@@ -235,7 +235,7 @@ class CodeFileManager:
         min_changed_line = largest_changed_line + 1
         for i, change in enumerate(changes):
             if change.last_changed_line >= min_changed_line:
-                raise UserError(f"Change line number overlap in file {change.file}")
+                raise MentatError(f"Change line number overlap in file {change.file}")
             min_changed_line = change.first_changed_line
             new_code_lines = change.apply(new_code_lines)
         return new_code_lines

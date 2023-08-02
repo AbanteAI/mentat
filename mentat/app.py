@@ -63,11 +63,11 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
 def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
     os.makedirs(mentat_dir_path, exist_ok=True)
     setup_logging()
-    setup_api_key()
     logging.debug(f"Paths: {paths}")
 
     cost_tracker = CostTracker()
     try:
+        setup_api_key()
         loop(paths, exclude_paths, cost_tracker)
     except (
         EOFError,
