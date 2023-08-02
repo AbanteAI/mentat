@@ -125,17 +125,6 @@ class CodeFileManager:
     def _set_file_paths(
         self, paths: Iterable[str], exclude_paths: Iterable[str]
     ) -> None:
-        invalid_paths = []
-        for path in paths:
-            if not os.path.exists(path):
-                invalid_paths.append(path)
-        if invalid_paths:
-            cprint("Error:", "red", end=" ")
-            cprint("The following paths do not exist:")
-            print("\n".join(invalid_paths))
-            print("Exiting...")
-            raise UserError()
-
         excluded_files, excluded_files_from_dir = _abs_file_paths_from_list(
             exclude_paths, check_for_text=False
         )

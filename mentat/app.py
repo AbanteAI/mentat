@@ -43,8 +43,20 @@ def run_cli():
 
 def expand_paths(paths: Iterable[str]) -> Iterable[str]:
     globbed_paths = set()
+    invalid_paths = []
     for path in paths:
-        globbed_paths.update(glob.glob(pathname=path, recursive=True))
+        new_paths = glob.glob(pathname=path, recursive=True)
+        if new_paths:
+            globbed_paths.update(new_paths)
+        else:
+            invalid_paths.append(path)
+    if invalid_paths:
+        cprint(
+            "The following paths do not exist:",
+            "light_yellow",
+        )
+        print("\n".join(invalid_paths))
+        exit()
     return globbed_paths
 
 
