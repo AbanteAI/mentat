@@ -45,7 +45,6 @@ class CodeChange:
     ):
         self.json_data = json_data
         self.code_lines = code_lines
-        self.first_changed_line = None
         self.file = Path(self.json_data["file"])
         self.first_changed_line = None
         self.last_changed_line = None
