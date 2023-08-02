@@ -259,3 +259,52 @@ def test_multiple_blocks(
                         # just for
                         # better measure""")
     assert content == expected_content
+
+
+def test_json_strings(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+    # Make sure we don't throw error if GPT gives us numbers in a string format
+    temp_file_name = "temp.py"
+    with open(temp_file_name, "w") as f:
+        f.write(dedent("""\
+            # This is a temporary file"""))
+
+    mock_collect_user_input.side_effect = [
+        "Insert a comment at the start and replace the current line",
+        "y",
+        KeyboardInterrupt,
+    ]
+
+    mock_call_llm_api.set_generator_values([dedent("""\
+        I will insert a comment at the start.
+
+        @@start
+        {{
+            "file": "{file_name}",
+            "action": "insert",
+            "insert-after-line": "0",
+            "insert-before-line": "1"
+        }}
+        @@code
+        # I inserted this comment
+        @@end
+        @@start
+        {{
+            "file": "{file_name}",
+            "action": "replace",
+            "start-line": "1",
+            "end-line": "1"
+        }}
+        @@code
+        # I replaced this comment
+        @@end""".format(file_name=temp_file_name))])
+
+    # Run the system with the temporary file path
+    run([temp_file_name])
+
+    # Check if the temporary file is modified as expected
+    with open(temp_file_name, "r") as f:
+        content = f.read()
+        expected_content = dedent("""\
+            # I inserted this comment
+            # I replaced this comment""")
+    assert content == expected_content

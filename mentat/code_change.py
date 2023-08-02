@@ -44,10 +44,15 @@ class CodeChange:
         code_file_manager,
     ):
         self.json_data = json_data
-        # Scab on some simple type coercion.
-        for k in "insert-before-line insert-after-line start-line end-line".split():
-            if k in self.json_data:
-                self.json_data[k] = int(self.json_data[k])
+        # Sometimes GPT puts quotes around numbers, so we have to convert those
+        for json_key in [
+            "insert-before-line",
+            "insert-after-line",
+            "start-line",
+            "end-line",
+        ]:
+            if json_key in self.json_data:
+                self.json_data[json_key] = int(self.json_data[json_key])
         self.code_lines = code_lines
         self.first_changed_line = None
         self.file = Path(self.json_data["file"])
