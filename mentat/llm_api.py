@@ -42,7 +42,7 @@ async def call_llm_api(messages: list[dict[str, str]], model) -> Generator:
         sys.exit(1)
 
     response = await openai.ChatCompletion.acreate(
-        model=model,
+        model="gpt-3.5-turbo",
         messages=messages,
         temperature=0.5,
         stream=True,
