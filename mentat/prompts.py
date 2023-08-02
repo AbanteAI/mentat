@@ -66,7 +66,7 @@ system_prompt = """
     After saying hello, if the user's name is "Bob", say "Nice to see you again!" on another line.
     Add a function to get the user's name and use it in main instead of taking name as an argument.
     The new function should be in a separate file called utils.py. Stop saying "Done!". Then, 
-    rename hello_world.py to goodbye_world.py. Finally, delete the goodbye_world.py file.
+    rename hello_world.py to hello_again.py. Finally, delete the goodbye_world.py file.
 
 
     Example Response:
@@ -79,7 +79,7 @@ system_prompt = """
     3. Import the new function in script.py.
     4. Modify main to use the new function instead of taking name as an argument.
     5. Remove the line printing "Done!".
-    6. Rename the file hello_world.py to goodbye_world.py
+    6. Rename the file hello_world.py to hello_again.py
     7. Delete file goodbye_world.py
 
     @@start
@@ -135,7 +135,7 @@ system_prompt = """
     {
         "file": "core/hello_world.py",
         "action": "rename-file",
-        "name": "core/goodbye_world.py"
+        "name": "core/hello_again.py"
     }
     @@end
     @@start

@@ -279,11 +279,18 @@ def _process_content_line(
                     or state.explained_since_change
                 ):
                     printer.add_string(get_file_name(cur_change))
-                    printer.add_string(change_delimiter)
+                    if (
+                        cur_change.action.has_additions()
+                        or cur_change.action.has_removals()
+                    ):
+                        printer.add_string(change_delimiter)
                 state.explained_since_change = False
                 printer.add_string(get_previous_lines(cur_change))
                 printer.add_string(get_removed_block(cur_change))
-                if not cur_change.action.has_additions():
+                if (
+                    not cur_change.action.has_additions()
+                    and cur_change.action.has_removals()
+                ):
                     printer.add_string(get_later_lines(cur_change))
                     printer.add_string(change_delimiter)
 

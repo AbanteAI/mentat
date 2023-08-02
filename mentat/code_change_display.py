@@ -59,16 +59,15 @@ def print_change(code_change):
 
 def get_file_name(code_change):
     file_name = code_change.file
-    action = code_change.action
-    color = (
-        "light_red"
-        if action == CodeChangeAction.DeleteFile
-        else ("light_green" if action == CodeChangeAction.CreateFile else "light_blue")
-    )
-    return colored(
-        f"\n{file_name}{'*' if action == CodeChangeAction.CreateFile else ''}",
-        color=color,
-    )
+    match code_change.action:
+        case CodeChangeAction.CreateFile:
+            return colored(f"\n{file_name}*", color="light_green")
+        case CodeChangeAction.DeleteFile:
+            return colored(f"\n{file_name}", color="light_red")
+        case CodeChangeAction.RenameFile:
+            return colored(f"\n{file_name} -> {code_change.name}", color="yellow")
+        case _:
+            return colored(f"\n{file_name}", color="light_blue")
 
 
 def get_removed_block(code_change, prefix="-", color="red"):
