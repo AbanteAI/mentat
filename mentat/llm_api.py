@@ -10,12 +10,13 @@ from dotenv import load_dotenv
 from termcolor import cprint
 
 from .config_manager import mentat_dir_path, user_config_path
+from .errors import MentatError, UserError
 
 package_name = __name__.split(".")[0]
 
 
 # Check for .env file or already exported API key
-# If no api key found, exit and warn user
+# If no api key found, raise an error
 def setup_api_key():
     if not load_dotenv(os.path.join(mentat_dir_path, ".env")):
         load_dotenv()
@@ -24,12 +25,10 @@ def setup_api_key():
         openai.api_key = key
         openai.Model.list()  # Test the API key
     except openai.error.AuthenticationError:
-        cprint(
+        raise UserError(
             "No valid OpenAI api key detected.\nEither place your key into a .env"
-            " file or export it as an environment variable.",
-            "red",
+            " file or export it as an environment variable."
         )
-        sys.exit(0)
 
 
 async def call_llm_api(messages: list[dict[str, str]], model) -> Generator:
@@ -38,8 +37,8 @@ async def call_llm_api(messages: list[dict[str, str]], model) -> Generator:
         and "--benchmark" not in sys.argv
         and os.getenv("MENTAT_BENCHMARKS_RUNNING") == "false"
     ):
-        logging.critical("OpenAI call made in non benchmark test environment!")
-        sys.exit(1)
+        logging.critical("OpenAI call attempted in non benchmark test environment!")
+        raise MentatError("OpenAI call attempted in non benchmark test environment!")
 
     response = await openai.ChatCompletion.acreate(
         model=model,
@@ -73,12 +72,10 @@ def check_model_availability(allow_32k: bool) -> bool:
     if not allow_32k:
         # check if user has access to gpt-4
         if "gpt-4-0314" not in available_models:
-            cprint(
+            raise UserError(
                 "Sorry, but your OpenAI API key doesn't have access to gpt-4-0314,"
-                " which is currently required to run Mentat.",
-                "red",
+                " which is currently required to run Mentat."
             )
-            raise KeyboardInterrupt
 
     return allow_32k
 

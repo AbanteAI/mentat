@@ -11,10 +11,11 @@ from .code_change_display import print_change
 from .code_file_manager import CodeFileManager
 from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
+from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker, count_tokens, setup_api_key
 from .logging_config import setup_logging
-from .user_input_manager import UserInputManager
+from .user_input_manager import UserInputManager, UserQuitInterrupt
 
 
 def run_cli():
@@ -56,8 +57,15 @@ def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
     cost_tracker = CostTracker()
     try:
         loop(paths, exclude_paths, cost_tracker)
-    except (EOFError, KeyboardInterrupt) as e:
-        print(e)
+    except (
+        EOFError,
+        KeyboardInterrupt,
+        UserQuitInterrupt,
+        UserError,
+        MentatError,
+    ) as e:
+        if str(e):
+            cprint(e, "light_yellow")
     finally:
         cost_tracker.display_total_cost()
 

@@ -5,7 +5,7 @@ from pathlib import Path
 from pygments.lexers import TextLexer, get_lexer_for_filename
 from pygments.util import ClassNotFound
 
-from .model_error import ModelError
+from .errors import ModelError
 
 
 class CodeChangeAction(Enum):

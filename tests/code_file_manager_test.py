@@ -6,6 +6,7 @@ import pytest
 from mentat.app import expand_paths
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
+from mentat.errors import UserError
 
 
 def test_path_gitignoring(temp_testbed, mock_config):
@@ -165,7 +166,7 @@ def test_text_encoding_checking(temp_testbed, mock_config):
     )
     assert os.path.join(temp_testbed, nontext_path) not in code_file_manager.file_paths
 
-    with pytest.raises(KeyboardInterrupt) as e_info:
+    with pytest.raises(UserError) as e_info:
         nontext_path_requested = "iamalsonottext.py"
         with open(nontext_path_requested, "wb") as f:
             # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
@@ -179,7 +180,7 @@ def test_text_encoding_checking(temp_testbed, mock_config):
             config=mock_config,
             git_root=temp_testbed,
         )
-    assert e_info.type == KeyboardInterrupt
+    assert e_info.type == UserError
 
 
 # Make sure we always give posix paths to GPT
