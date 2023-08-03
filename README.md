@@ -60,7 +60,7 @@ pip install -e .
 
 ## Add your OpenAI API Key
 
-You'll need to have API access to GPT-4 to run Mentat. There are a few options to provide Mentat with your OpenAI API key:
+You'll need to have [API access to GPT-4](https://help.openai.com/en/articles/7102672-how-can-i-access-gpt-4) to run Mentat. There are a few options to provide Mentat with your OpenAI API key:
 
 1. Create a `.env` file with the line `OPENAI_API_KEY=<your-api-key>` in the directory you plan to run mentat in or in `~/.mentat/.env`
 2. Run `export OPENAI_API_KEY=<your key here>` prior to running Mentat
