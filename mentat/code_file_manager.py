@@ -121,6 +121,7 @@ class CodeFileManager:
             get_paths_with_git_diffs(self.git_root),
             self.git_root,
         )
+        print()
 
     def _set_file_paths(
         self, paths: Iterable[str], exclude_paths: Iterable[str]
