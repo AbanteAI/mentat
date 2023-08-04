@@ -54,7 +54,6 @@ class CodeChange:
             if json_key in self.json_data:
                 self.json_data[json_key] = int(self.json_data[json_key])
         self.code_lines = code_lines
-        self.first_changed_line = None
         self.file = Path(self.json_data["file"])
         self.first_changed_line = None
         self.last_changed_line = None
