@@ -21,7 +21,9 @@ class Conversation:
         self.code_file_manager = code_file_manager
         self.allow_32k = check_model_availability(config.allow_32k())
 
-        tokens = count_tokens(code_file_manager.get_code_message())
+        tokens = count_tokens(code_file_manager.get_code_message()) + count_tokens(
+            system_prompt
+        )
         token_limit = 32768 if self.allow_32k else 8192
         if tokens > token_limit:
             raise KeyboardInterrupt(
@@ -35,7 +37,7 @@ class Conversation:
                 "red",
             )
         else:
-            cprint(f"File token count: {tokens} / {token_limit}", "cyan")
+            cprint(f"File and prompt token count: {tokens} / {token_limit}", "cyan")
 
     def add_system_message(self, message: str):
         self.messages.append({"role": "system", "content": message})
