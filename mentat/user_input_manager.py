@@ -23,6 +23,10 @@ class FilteredFileHistory(FileHistory):
             super().append_string(string)
 
 
+class UserQuitInterrupt(Exception):
+    pass
+
+
 class UserInputManager:
     def __init__(self, config: ConfigManager):
         self.config = config
@@ -77,7 +81,7 @@ class UserInputManager:
         user_input = self.session.prompt().strip()
         logging.debug(f"User input:\n{user_input}")
         if user_input.lower() == "q":
-            raise KeyboardInterrupt("User used 'q' to quit")
+            raise UserQuitInterrupt()
         return user_input
 
     def ask_yes_no(self, default_yes: bool) -> bool:

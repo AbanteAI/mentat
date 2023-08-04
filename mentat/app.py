@@ -11,10 +11,11 @@ from .code_change_display import print_change
 from .code_file_manager import CodeFileManager
 from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
+from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker, count_tokens, setup_api_key
 from .logging_config import setup_logging
-from .user_input_manager import UserInputManager
+from .user_input_manager import UserInputManager, UserQuitInterrupt
 
 
 def run_cli():
@@ -42,22 +43,41 @@ def run_cli():
 
 def expand_paths(paths: Iterable[str]) -> Iterable[str]:
     globbed_paths = set()
+    invalid_paths = []
     for path in paths:
-        globbed_paths.update(glob.glob(pathname=path, recursive=True))
+        new_paths = glob.glob(pathname=path, recursive=True)
+        if new_paths:
+            globbed_paths.update(new_paths)
+        else:
+            invalid_paths.append(path)
+    if invalid_paths:
+        cprint(
+            "The following paths do not exist:",
+            "light_yellow",
+        )
+        print("\n".join(invalid_paths))
+        exit()
     return globbed_paths
 
 
 def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
     os.makedirs(mentat_dir_path, exist_ok=True)
     setup_logging()
-    setup_api_key()
     logging.debug(f"Paths: {paths}")
 
     cost_tracker = CostTracker()
     try:
+        setup_api_key()
         loop(paths, exclude_paths, cost_tracker)
-    except (EOFError, KeyboardInterrupt) as e:
-        print(e)
+    except (
+        EOFError,
+        KeyboardInterrupt,
+        UserQuitInterrupt,
+        UserError,
+        MentatError,
+    ) as e:
+        if str(e):
+            cprint(e, "light_yellow")
     finally:
         cost_tracker.display_total_cost()
 

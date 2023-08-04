@@ -19,8 +19,8 @@ from .code_change_display import (
     get_removed_block,
 )
 from .code_file_manager import CodeFileManager
+from .errors import MentatError, ModelError
 from .llm_api import call_llm_api
-from .model_error import ModelError
 from .streaming_printer import StreamingPrinter
 
 
@@ -163,7 +163,7 @@ def run_async_stream_and_parse_llm_response(
         )
     except (openai.error.InvalidRequestError, openai.error.RateLimitError) as e:
         cprint(e, "red")
-        exit()
+        MentatError("Something went wrong - invalid request to OpenAI API.")
     except KeyboardInterrupt:
         print("\n\nInterrupted by user. Using the response up to this point.")
         # if the last change is incomplete, remove it

@@ -3,6 +3,7 @@ import subprocess
 
 import pytest
 
+from mentat.errors import UserError
 from mentat.git_handler import get_shared_git_root_for_paths
 
 
@@ -20,9 +21,9 @@ def test_paths_given(temp_testbed):
 
 def test_two_git_roots_given():
     # Exits when given 2 paths with separate git roots
-    with pytest.raises(SystemExit) as e_info:
+    with pytest.raises(UserError) as e_info:
         os.makedirs("git_testing_dir")
         subprocess.run(["git", "init"], cwd="git_testing_dir")
 
         _ = get_shared_git_root_for_paths(["./", "git_testing_dir"])
-    assert e_info.type == SystemExit
+    assert e_info.type == UserError

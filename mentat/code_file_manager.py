@@ -14,6 +14,7 @@ from .change_conflict_resolution import (
 )
 from .code_change import CodeChange, CodeChangeAction
 from .config_manager import ConfigManager
+from .errors import MentatError, UserError
 from .git_handler import (
     get_git_diff_for_path,
     get_non_gitignored_files,
@@ -76,11 +77,7 @@ def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True)
         if path.is_file():
             if check_for_text and not _is_file_text_encoded(path):
                 logging.info(f"File path {path} is not text encoded.")
-                cprint(
-                    f"Filepath {path} is not text encoded.",
-                    "light_yellow",
-                )
-                raise KeyboardInterrupt
+                raise UserError(f"File path {path} is not text encoded.")
             file_paths_direct.add(os.path.realpath(path))
         elif path.is_dir():
             nonignored_files = set(
@@ -128,17 +125,6 @@ class CodeFileManager:
     def _set_file_paths(
         self, paths: Iterable[str], exclude_paths: Iterable[str]
     ) -> None:
-        invalid_paths = []
-        for path in paths:
-            if not os.path.exists(path):
-                invalid_paths.append(path)
-        if invalid_paths:
-            cprint("Error:", "red", end=" ")
-            cprint("The following paths do not exist:")
-            print("\n".join(invalid_paths))
-            print("Exiting...")
-            exit()
-
         excluded_files, excluded_files_from_dir = _abs_file_paths_from_list(
             exclude_paths, check_for_text=False
         )
@@ -249,7 +235,7 @@ class CodeFileManager:
         min_changed_line = largest_changed_line + 1
         for i, change in enumerate(changes):
             if change.last_changed_line >= min_changed_line:
-                raise ValueError(f"Change line number overlap in file {change.file}")
+                raise MentatError(f"Change line number overlap in file {change.file}")
             min_changed_line = change.first_changed_line
             new_code_lines = change.apply(new_code_lines)
         return new_code_lines
