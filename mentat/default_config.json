@@ -12,14 +12,6 @@
         [
             "continuation",
             "#ffffff bold"
-        ],
-        [
-            "bottom-toolbar",
-            "#666666"
-        ],
-        [
-            "bottom-toolbar.text",
-            "#00ffff bold"
         ]
     ],
     "file-exclude-glob-list": []
