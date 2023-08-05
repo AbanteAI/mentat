@@ -1,6 +1,8 @@
+import importlib
 import os
 import shutil
 import subprocess
+import sys
 
 import pytest
 
@@ -131,3 +133,131 @@ def test_start_project_from_scratch(mock_collect_user_input):
     result = subprocess.run(["python", fizzbuzz_path], capture_output=True, text=True)
     expected_output = "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n"
     assert result.stdout.strip() == expected_output.strip()
+
+
+def test_create_person_class_from_data(mock_collect_user_input, temp_testbed):
+    # I had to add details/ hints to prompt engineer this until the model began passing the test
+    # If we want to make the test more challenging, the parts we can remove are:
+    """
+    Make sure to pay special attention to the nuances of loading the data.
+    In this data file people are stored either as parents, children, or standalone.
+    Each one needs to be included.
+    """
+    # Those three lines are things users shouldn't have to specify - since mentat can read the data.json file
+    # But mentat can't consistently pass without them
+
+    # these tests were run on commit c91548c
+    # 20 runs each probably isn't enough to be confident in the pass rate
+
+    # 19 passed, 1 failed - 95% pass rate
+    easy_prompt = (
+        "Fill out the Person class for this data. It needs load_data and __eq__"
+        " functions. The equality functions should compare all attributes and"
+        " recursively compare the parents. A Person should have individual mother"
+        " and father attributes. The load_data function should be a class method of"
+        " Person. The load function will take the data file's path as an argument."
+        " Make sure to pay special attention to the nuances of loading the data. In"
+        " this data file people are stored either as parents, children, or"
+        " standalone. Each one needs to be included. Note that the father is listed"
+        " first in a parents list."
+    )
+    # Removes the line: "Make sure to pay special attention to the nuances of loading the data."
+    # 15 passed, 5 failed - 75% pass rate
+    easy_medium_prompt = (
+        "Fill out the Person class for this data. It needs load_data and __eq__"
+        " functions. The equality functions should compare all attributes and"
+        " recursively compare the parents. A Person should have individual mother"
+        " and father attributes. The load_data function should be a class method of"
+        " Person. The load function will take the data file's path as an argument."
+        " In this data file people are stored either as parents, children, or"
+        " standalone. Each one needs to be included. Note that the father is listed"
+        " first in a parents list."
+    )
+    # Removes the line: "Each one needs to be included."
+    # 8 passed, 12 failed - 40% pass rate
+    medium_prompt = (
+        "Fill out the Person class for this data. It needs load_data and __eq__"
+        " functions. The equality functions should compare all attributes and"
+        " recursively compare the parents. A Person should have individual mother"
+        " and father attributes. The load_data function should be a class method of"
+        " Person. The load function will take the data file's path as an argument."
+        " In this data file people are stored either as parents, children, or"
+        " standalone. Note that the father is listed first in a parents list."
+    )
+    # Removes the Line: "In this data file people are stored either as parents, children, or standalone."
+    # Probably 0% pass rate (I ran it a number of times)
+    hard_prompt = (
+        "Fill out the Person class for this data. It needs load_data and __eq__"
+        " functions. The equality functions should compare all attributes and"
+        " recursively compare the parents. A Person should have individual mother"
+        " and father attributes. The load_data function should be a class method of"
+        " Person. The load function will take the data file's path as an argument."
+        " Note that the father is listed"
+        " first in a parents list."
+    )
+    # makes linter shut up
+    easy_prompt
+    easy_medium_prompt
+    medium_prompt
+    hard_prompt
+    mock_collect_user_input.side_effect = [
+        easy_medium_prompt,
+        "y",
+        KeyboardInterrupt,
+    ]
+    run(["person_data/data.json", "person_data/person.py"])
+
+    # This imports the Person class from the file mentat edited just created
+    # import in Python is always relative to the file's original path
+    # so even though we change the cwd, we can't use relative imports to import form the tmp dir
+    file_path = os.path.join(os.getcwd(), "person_data/person.py")
+    module_name = "testbed.person_data.person"
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    Person = module.Person
+    # from testbed.person_data.person import Person
+
+    people = Person.load_data("../testbed/person_data/data.json")
+
+    # One of the most common mistakes Mentat makes:
+    if len(people) == 14:
+        # common in the easy and easy_medium prompt
+        raise AssertionError(
+            "Mentat likely duplicated the parents (counted them for each child)"
+        )
+    elif len(people) == 8:
+        # common in the medium prompt
+        raise AssertionError("Mentat likely didn't include the parents")
+    elif len(people) != 10:
+        raise AssertionError(
+            f"Mentat gave the wrong number of people ({len(people)}) - please send John"
+            " its code"
+        )
+
+    assert sorted(list(vars(people[0]).keys())) == [
+        "age",
+        "father",
+        "married",
+        "mother",
+        "name",
+        "weight",
+    ]
+
+    def sortkey(x):
+        return (x.name, x.age, x.weight, x.married, x.father, x.mother)
+
+    people = sorted(people, key=sortkey)
+    people2 = sorted(Person.load_data("../testbed/person_data/data.json"), key=sortkey)
+    for p1, p2 in zip(people, people2):
+        assert p1 == p2
+    for p1, p2 in zip(people[:-1], people2[1:]):
+        assert p1 != p2
+
+    people3 = sorted(
+        Person.load_data("../testbed/person_data/test_data.json"), key=sortkey
+    )
+    # This tests that the equality function is recursive - because the Alexs' moms' weights are different
+    assert people[0].name == people3[0].name == "Alex"
+    assert people[0] != people3[0]

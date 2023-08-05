@@ -1,0 +1,20 @@
+{
+    "People": [
+        {
+            "parents": [
+                {"name": "Henry", "age": 35, "weight": 235, "married": true},
+                {"name": "Martha", "age": 36, "weight": 140, "married": true}
+            ],
+            "children": [
+                {"name": "Steve", "age": 15, "weight": 120, "married": false},
+                {"name": "Alex", "age": 12, "weight": 110, "married": false},
+                {"name": "Sarah", "age": 9, "weight": 70, "married": false}
+            ]
+        },
+        { "name": "Fridge", "age": 42, "weight": 180, "married": false },
+        { "name": "Jane", "age": 57, "weight": 140, "married": true },
+        { "name": "Jane", "age": 58, "weight": 140, "married": true },
+        { "name": "Jane", "age": 58, "weight": 141, "married": true },
+        { "name": "Jane", "age": 58, "weight": 141, "married": false}
+    ]
+}
