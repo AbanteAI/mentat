@@ -10,10 +10,9 @@ from prompt_toolkit.filters import Condition
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
-from prompt_toolkit.styles import Style
 
 from .commands import Command
-from .config_manager import ConfigManager, mentat_dir_path
+from .config_manager import mentat_dir_path
 
 
 class FilteredFileHistory(FileHistory):
@@ -44,10 +43,9 @@ class FilteredHistorySuggestions(AutoSuggestFromHistory):
 
 
 class MentatPromptSession(PromptSession):
-    def __init__(self, config: ConfigManager):
+    def __init__(self, *args, **kwargs):
         self._setup_bindings()
         super().__init__(
-            message=[("class:prompt", ">>> ")],
             completer=WordCompleter(
                 words=Command.get_command_completions(),
                 ignore_case=True,
@@ -55,11 +53,18 @@ class MentatPromptSession(PromptSession):
             ),
             history=FilteredFileHistory(os.path.join(mentat_dir_path, "history")),
             auto_suggest=FilteredHistorySuggestions(),
-            style=Style(config.input_style()),
             multiline=True,
             prompt_continuation=self.prompt_continuation,
             key_bindings=self.bindings,
+            *args,
+            **kwargs,
         )
+
+    def prompt(self, *args, **kwargs):
+        while (user_input := super().prompt(*args, **kwargs)).startswith("/"):
+            command = Command.create_command(user_input[1:])
+            command.apply()
+        return user_input
 
     def prompt_continuation(self, width, line_number, is_soft_wrap):
         return (
