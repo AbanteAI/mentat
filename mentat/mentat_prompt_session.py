@@ -12,6 +12,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.styles import Style
 
+from .commands import Command
 from .config_manager import ConfigManager, mentat_dir_path
 
 
@@ -48,7 +49,7 @@ class MentatPromptSession(PromptSession):
         super().__init__(
             message=[("class:prompt", ">>> ")],
             completer=WordCompleter(
-                words=["command words here"],
+                words=Command.get_command_completions(),
                 ignore_case=True,
                 sentence=True,
             ),
