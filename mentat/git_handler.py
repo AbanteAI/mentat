@@ -93,3 +93,11 @@ def get_shared_git_root_for_paths(paths) -> str:
         raise UserError()
 
     return git_roots.pop()
+
+
+def commit(message: str = "Automatic commit") -> None:
+    """
+    Commit all unstaged and staged changes
+    """
+    subprocess.run(["git", "add", "."])
+    subprocess.run(["git", "commit", "-m", message])
