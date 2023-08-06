@@ -21,14 +21,16 @@ def setup_api_key():
     if not load_dotenv(os.path.join(mentat_dir_path, ".env")):
         load_dotenv()
     key = os.getenv("OPENAI_API_KEY")
+    if not key:
+        raise UserError(
+            "No OpenAI api key detected.\nEither place your key into a .env"
+            " file or export it as an environment variable."
+        )
     try:
         openai.api_key = key
         openai.Model.list()  # Test the API key
-    except openai.error.AuthenticationError:
-        raise UserError(
-            "No valid OpenAI api key detected.\nEither place your key into a .env"
-            " file or export it as an environment variable."
-        )
+    except openai.error.AuthenticationError as e:
+        raise UserError(f"OpenAI gave an Authentication Error:\n{e}")
 
 
 async def call_llm_api(messages: list[dict[str, str]], model) -> Generator:
