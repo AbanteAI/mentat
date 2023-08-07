@@ -269,3 +269,6 @@ class CodeFileManager:
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, "w") as f:
                 f.write("\n".join(code_lines))
+
+    def get_all_file_paths(self) -> list[str]:
+        return self.file_paths
