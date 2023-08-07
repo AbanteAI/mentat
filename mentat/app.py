@@ -1,3 +1,4 @@
+import shutil
 import argparse
 import glob
 import logging
@@ -35,10 +36,26 @@ def run_cli():
         default=[],
         help="List of file paths, directory paths, or glob patterns to exclude",
     )
+    parser.add_argument(
+        "--preserve-backup",
+        action="store_true",
+        help="Preserve a backup of the original files before applying changes",
+    )
+    parser.add_argument(
+        "--backup-dir",
+        type=str,
+        default=None,
+        help="Directory to store backups, if not provided, backups will be stored in the original files' directory",
+    )
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
-    run(expand_paths(paths), expand_paths(exclude_paths))
+    run(
+        expand_paths(paths),
+        expand_paths(exclude_paths),
+        args.preserve_backup,
+        args.backup_dir,
+    )
 
 
 def expand_paths(paths: Iterable[str]) -> Iterable[str]:
@@ -60,7 +77,12 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
     return globbed_paths
 
 
-def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
+def run(
+    paths: Iterable[str],
+    exclude_paths: Optional[Iterable[str]] = None,
+    preserve_backup: bool = False,
+    backup_dir: Optional[str] = None,
+):
     os.makedirs(mentat_dir_path, exist_ok=True)
     setup_logging()
     logging.debug(f"Paths: {paths}")
@@ -68,7 +90,7 @@ def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
     cost_tracker = CostTracker()
     try:
         setup_api_key()
-        loop(paths, exclude_paths, cost_tracker)
+        loop(paths, exclude_paths, cost_tracker, preserve_backup, backup_dir)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -86,6 +108,8 @@ def loop(
     paths: Iterable[str],
     exclude_paths: Optional[Iterable[str]],
     cost_tracker: CostTracker,
+    preserve_backup: bool = False,
+    backup_dir: Optional[str] = None,
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
@@ -110,7 +134,13 @@ def loop(
 
         if code_changes:
             need_user_request = get_user_feedback_on_changes(
-                config, conv, user_input_manager, code_file_manager, code_changes
+                config,
+                conv,
+                user_input_manager,
+                code_file_manager,
+                code_changes,
+                preserve_backup,
+                backup_dir,
             )
         else:
             need_user_request = True
@@ -122,7 +152,12 @@ def get_user_feedback_on_changes(
     user_input_manager: UserInputManager,
     code_file_manager: CodeFileManager,
     code_changes: Iterable[CodeChange],
+    preserve_backup: bool,
+    backup_dir: Optional[str] = None,
 ) -> bool:
+    if preserve_backup is True:
+        backup_files(code_file_manager, backup_dir)
+
     cprint(
         "Apply these changes? 'Y/n/i' or provide feedback.",
         color="light_blue",
@@ -169,6 +204,37 @@ def get_user_feedback_on_changes(
         cprint("Can I do anything else for you?", color="light_blue")
 
     return need_user_request
+
+
+def backup_files(code_file_manager: CodeFileManager, backup_dir: Optional[str] = None):
+    cprint("Creating backups...", color="yellow")
+    for file_path in code_file_manager.get_all_file_paths():
+        if backup_dir:
+            os.makedirs(backup_dir, exist_ok=True)
+            relative_path = os.path.relpath(file_path)
+            relative_path = relative_path.replace(os.path.sep, "_")
+            backup_file_path = os.path.join(backup_dir, relative_path + ".backup")
+        else:
+            backup_file_path = file_path + ".backup"
+
+        if not os.path.exists(backup_file_path):
+            try:
+                shutil.copy2(file_path, backup_file_path)
+                cprint("Backups created successfully.", color="green")
+            except PermissionError:
+                cprint(
+                    f"Permission denied when trying to create backup for {file_path}.",
+                    color="red",
+                )
+                continue
+            except Exception as e:
+                cprint(
+                    f"An error occurred while trying to create backup for {file_path}: {str(e)}",
+                    color="red",
+                )
+                continue
+
+    cprint("Backup process exited...", color="green")
 
 
 def user_filter_changes(
