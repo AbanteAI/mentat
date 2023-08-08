@@ -37,9 +37,9 @@ def run_cli():
         help="List of file paths, directory paths, or glob patterns to exclude",
     )
     parser.add_argument(
-        "--preserve-backup",
-        action="store_true",
-        help="Preserve a backup of the original files before applying changes",
+        "--no-backup",
+        action="store_false",
+        help="No backup mode for the mentat",
     )
     parser.add_argument(
         "--backup-dir",
@@ -59,7 +59,7 @@ def run_cli():
     run(
         expand_paths(paths),
         expand_paths(exclude_paths),
-        args.preserve_backup,
+        args.no_backup,
         args.backup_dir,
     )
 
@@ -86,20 +86,28 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
 def run(
     paths: Iterable[str],
     exclude_paths: Optional[Iterable[str]] = None,
-    preserve_backup: bool = True,
+    no_backup: bool = True,
     backup_dir: Optional[str] = ".mentat_backups",
 ):
     os.makedirs(mentat_dir_path, exist_ok=True)
     setup_logging()
     logging.debug(f"Paths: {paths}")
 
-    backup_manager = CodeBackupManager(backup_dir)
+    if no_backup is True:
+        backup_manager = CodeBackupManager(backup_dir)
 
     cost_tracker = CostTracker()
 
     try:
         setup_api_key()
-        loop(paths, exclude_paths, cost_tracker, preserve_backup, backup_dir)
+        if no_backup is True:
+            cprint(
+                "mentat started with automatic backup pipeline...\n", color="light_blue"
+            )
+        else:
+            cprint("mentat started with no backup mechanism...\n", color="red")
+
+        loop(paths, exclude_paths, cost_tracker, no_backup, backup_dir)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -117,7 +125,7 @@ def loop(
     paths: Iterable[str],
     exclude_paths: Optional[Iterable[str]],
     cost_tracker: CostTracker,
-    preserve_backup: bool = True,
+    no_backup: bool = True,
     backup_dir: Optional[str] = ".mentat_backups",
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
@@ -148,7 +156,7 @@ def loop(
                 user_input_manager,
                 code_file_manager,
                 code_changes,
-                preserve_backup,
+                no_backup,
                 backup_dir,
             )
         else:
@@ -161,10 +169,9 @@ def get_user_feedback_on_changes(
     user_input_manager: UserInputManager,
     code_file_manager: CodeFileManager,
     code_changes: Iterable[CodeChange],
-    preserve_backup: bool = True,
+    no_backup: bool = True,
     backup_dir: Optional[str] = ".mentat_backups",
 ) -> bool:
-
     cprint(
         "Apply these changes? 'Y/n/i' or provide feedback. mentat will automatically backup your changed files.",
         color="light_blue",
@@ -174,7 +181,7 @@ def get_user_feedback_on_changes(
     need_user_request = True
     match user_response.lower():
         case "y" | "":
-            if preserve_backup is True:
+            if no_backup is True:
                 backup_files(code_file_manager, backup_dir)
             code_changes_to_apply = code_changes
             conv.add_user_message("User chose to apply all your changes.")
