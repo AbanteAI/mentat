@@ -47,21 +47,24 @@ def run_cli():
         default=".mentat_backups",
         help="Directory to store backups, if not provided, backups will be stored in the .mentat_backups directory",
     )
-    # parser.add_argument(
-    #    "--revert",
-    #    action="store_true",
-    #    help="Restore from the mentat_backups directory"
-    # )
+    parser.add_argument(
+        "--revert",
+        action="store_true",
+        help="Restore from the mentat_backups directory",
+    )
     args = parser.parse_args()
 
-    paths = args.paths
-    exclude_paths = args.exclude
-    run(
-        expand_paths(paths),
-        expand_paths(exclude_paths),
-        args.no_backup,
-        args.backup_dir,
-    )
+    if args.revert:
+        revert_files(args.backup_dir)
+    else:
+        paths = args.paths
+        exclude_paths = args.exclude
+        run(
+            expand_paths(paths),
+            expand_paths(exclude_paths),
+            args.no_backup,
+            args.backup_dir,
+        )
 
 
 def expand_paths(paths: Iterable[str]) -> Iterable[str]:
@@ -227,6 +230,55 @@ def backup_files(
 ):
     backup_manager = CodeBackupManager(backup_dir)
     backup_manager.backup_files(code_file_manager)
+
+
+def user_select_files_to_revert(available_backups: list) -> list:
+    cprint(
+        "Enter the numbers of the backup files you wish to revert (e.g., '1 3 4'). Press Enter to revert none.",
+        color="light_blue",
+    )
+    user_response = input()
+
+    try:
+        selected_indices = list(map(int, user_response.split()))
+        selected_files = [
+            available_backups[i - 1]
+            for i in selected_indices
+            if 0 < i <= len(available_backups)
+        ]
+        return selected_files
+    except ValueError:
+        cprint("Invalid input. No files reverted.", color="red")
+        return []
+
+
+def revert_files(backup_dir: str = ".mentat_backups"):
+    backup_manager = CodeBackupManager(backup_dir)
+
+    available_backups = [
+        os.path.relpath(os.path.join(dirpath, filename), backup_dir)
+        for dirpath, _, filenames in os.walk(backup_dir)
+        for filename in filenames
+        if filename.endswith(".backup")
+    ]
+
+    available_backups = [filename[:-7] for filename in available_backups]
+
+    if not available_backups:
+        cprint("No backup files found for your directory.", color="red")
+        return
+
+    cprint("Available backup files are:", color="light_blue")
+    for index, backup in enumerate(available_backups, start=1):
+        print(f"{index}. {backup.replace('.backup', '')}")
+
+    selected_files = user_select_files_to_revert(available_backups)
+
+    for file in selected_files:
+        if backup_manager.restore_file(file):
+            cprint(f"Reverted changes for {file} based on backup.", color="green")
+        else:
+            cprint(f"Failed to revert changes for the file {file}.", color="red")
 
 
 def user_filter_changes(
