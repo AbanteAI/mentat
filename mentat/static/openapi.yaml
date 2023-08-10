@@ -1,0 +1,100 @@
+openapi: 3.0.1
+info:
+  title: Mentat Plugin
+  description: A plugin that allows the user to code with Mentat.
+  version: v1
+servers:
+  - url: http://localhost:3333
+paths:
+  /get-all-paths:
+    get:
+      operationId: getAllPaths
+      summary: Get all paths available to focus.
+      responses:
+        '200':
+          description: OK
+  /focus-paths:
+    post:
+      operationId: focusPaths
+      summary: Focus on specific paths.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                paths:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: OK
+  /get-focused-paths:
+    get:
+      operationId: getFocusedPaths
+      summary: Get the focused paths.
+      responses:
+        '200':
+          description: OK
+  /get-repository-state:
+    get:
+      operationId: getRepositoryState
+      summary: Get the repository state.
+      responses:
+        '200':
+          description: OK
+  /confirm-staged-change:
+    post:
+      operationId: confirmStagedChange
+      summary: Confirm or clear staged changes.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                accept:
+                  type: boolean
+                clear:
+                  type: boolean
+      responses:
+        '200':
+          description: OK
+  /suggest-change:
+    post:
+      operationId: suggestChange
+      summary: Suggest a code change.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                summary:
+                  type: string
+                code_changes:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      action:
+                        type: string
+                        enum: [insert, replace, delete, create-file, delete-file]
+                      file:
+                        type: string
+                      insert-after-line:
+                        type: integer
+                      insert-before-line:
+                        type: integer
+                      start-line:
+                        type: integer
+                      end-line:
+                        type: integer
+                      code-lines:
+                        type: array
+                        items:
+                          type: string
+      responses:
+        '200':
+          description: OK

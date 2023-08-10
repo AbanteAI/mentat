@@ -37,14 +37,15 @@ def resolve_insertion_conflicts(
             cprint(
                 "Type the order in which to insert changes (omit for no preference):"
             )
-            user_input = user_input_manager.collect_user_input()
             new_code_lines = []
             used = set()
-            for c in user_input:
-                index = string.printable.index(c) if c in string.printable else -1
-                if index < end - cur and index != -1:
-                    new_code_lines += insert_changes[cur + index].code_lines
-                    used.add(index)
+            if user_input_manager is not None:
+                user_input = user_input_manager.collect_user_input()
+                for c in user_input:
+                    index = string.printable.index(c) if c in string.printable else -1
+                    if index < end - cur and index != -1:
+                        new_code_lines += insert_changes[cur + index].code_lines
+                        used.add(index)
             for i in range(end - cur):
                 if i not in used:
                     new_code_lines += insert_changes[cur + i].code_lines
@@ -75,7 +76,10 @@ def resolve_non_insertion_conflicts(
         if change.last_changed_line >= min_changed_line:
             if change.action == CodeChangeAction.Insert:
                 logging.debug("insertion inside removed block")
-                if changes[i - 1].action == CodeChangeAction.Delete:
+                if (
+                    changes[i - 1].action == CodeChangeAction.Delete
+                    or user_input_manager is None
+                ):
                     keep = True
                 else:
                     cprint(

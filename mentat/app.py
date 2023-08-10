@@ -6,6 +6,7 @@ from typing import Iterable, Optional
 
 from termcolor import cprint
 
+from .api_app import run_api
 from .code_change import CodeChange
 from .code_change_display import print_change
 from .code_file_manager import CodeFileManager
@@ -35,10 +36,18 @@ def run_cli():
         default=[],
         help="List of file paths, directory paths, or glob patterns to exclude",
     )
+    parser.add_argument(
+        "--plugin-api",
+        default=False,
+        action="store_true",
+    )
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
-    run(expand_paths(paths), expand_paths(exclude_paths))
+    if args.plugin_api:
+        run_api(expand_paths(paths), expand_paths(exclude_paths))
+    else:
+        run(expand_paths(paths), expand_paths(exclude_paths))
 
 
 def expand_paths(paths: Iterable[str]) -> Iterable[str]:

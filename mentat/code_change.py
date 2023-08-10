@@ -131,6 +131,12 @@ class CodeChange:
             self.file_lines = []
             self.line_number_buffer = 2
 
+    def to_dict(self):
+        return {
+            **self.json_data,
+            "code_lines": self.code_lines,
+        }
+
     def __lt__(self, other):
         return self.last_changed_line < other.last_changed_line
 
