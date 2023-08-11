@@ -37,33 +37,23 @@ def run_cli():
         help="List of file paths, directory paths, or glob patterns to exclude",
     )
     parser.add_argument(
-        "--no-backup",
-        action="store_false",
-        help="No backup mode for the mentat",
-    )
-    parser.add_argument(
-        "--backup-dir",
-        type=str,
-        default=".mentat_backups",
-        help="Directory to store backups, if not provided, backups will be stored in the .mentat_backups directory",
-    )
-    parser.add_argument(
         "--revert",
         action="store_true",
         help="Restore from the mentat_backups directory",
     )
     args = parser.parse_args()
 
+    backup_dir = ".mentat_backups"
+
     if args.revert:
-        revert_files(args.backup_dir)
+        revert_files(backup_dir)
     else:
         paths = args.paths
         exclude_paths = args.exclude
         run(
             expand_paths(paths),
             expand_paths(exclude_paths),
-            args.no_backup,
-            args.backup_dir,
+            backup_dir,
         )
 
 
@@ -89,28 +79,22 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
 def run(
     paths: Iterable[str],
     exclude_paths: Optional[Iterable[str]] = None,
-    no_backup: bool = True,
     backup_dir: Optional[str] = ".mentat_backups",
 ):
     os.makedirs(mentat_dir_path, exist_ok=True)
     setup_logging()
     logging.debug(f"Paths: {paths}")
 
-    if no_backup is True:
-        backup_manager = CodeBackupManager(backup_dir)
+    backup_manager = CodeBackupManager(backup_dir)
 
     cost_tracker = CostTracker()
 
     try:
         setup_api_key()
-        if no_backup is True:
-            cprint(
-                "mentat started with automatic backup pipeline...\n", color="light_blue"
-            )
-        else:
-            cprint("mentat started with no backup mechanism...\n", color="red")
 
-        loop(paths, exclude_paths, cost_tracker, no_backup, backup_dir)
+        cprint("mentat started with automatic backup pipeline...\n", color="light_blue")
+
+        loop(paths, exclude_paths, cost_tracker, backup_dir)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -128,7 +112,6 @@ def loop(
     paths: Iterable[str],
     exclude_paths: Optional[Iterable[str]],
     cost_tracker: CostTracker,
-    no_backup: bool = True,
     backup_dir: Optional[str] = ".mentat_backups",
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
@@ -159,7 +142,6 @@ def loop(
                 user_input_manager,
                 code_file_manager,
                 code_changes,
-                no_backup,
                 backup_dir,
             )
         else:
@@ -172,7 +154,6 @@ def get_user_feedback_on_changes(
     user_input_manager: UserInputManager,
     code_file_manager: CodeFileManager,
     code_changes: Iterable[CodeChange],
-    no_backup: bool = True,
     backup_dir: Optional[str] = ".mentat_backups",
 ) -> bool:
     cprint(
@@ -184,8 +165,7 @@ def get_user_feedback_on_changes(
     need_user_request = True
     match user_response.lower():
         case "y" | "":
-            if no_backup is True:
-                backup_files(code_file_manager, backup_dir)
+            backup_files(code_file_manager, backup_dir)
             code_changes_to_apply = code_changes
             conv.add_user_message("User chose to apply all your changes.")
         case "n":
@@ -234,10 +214,13 @@ def backup_files(
 
 def user_select_files_to_revert(available_backups: list) -> list:
     cprint(
-        "Enter the numbers of the backup files you wish to revert (e.g., '1 3 4'). Press Enter to revert none.",
+        "Enter the numbers of the backup files you wish to revert (e.g., '1 3 4') or Press Enter to revert all.",
         color="light_blue",
     )
-    user_response = input()
+    user_response = input().strip()
+
+    if not user_response:
+        return available_backups
 
     try:
         selected_indices = list(map(int, user_response.split()))
@@ -252,7 +235,7 @@ def user_select_files_to_revert(available_backups: list) -> list:
         return []
 
 
-def revert_files(backup_dir: str = ".mentat_backups"):
+def revert_files(backup_dir):
     backup_manager = CodeBackupManager(backup_dir)
 
     available_backups = [
