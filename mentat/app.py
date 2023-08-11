@@ -213,25 +213,29 @@ def backup_files(
 
 
 def user_select_files_to_revert(available_backups: list) -> list:
-    cprint(
-        "Enter the numbers of the backup files you wish to revert (e.g., '1 3 4') or Press Enter to revert all.",
-        color="light_blue",
-    )
-    user_response = input().strip()
-
-    if not user_response:
-        return available_backups
-
     try:
-        selected_indices = list(map(int, user_response.split()))
-        selected_files = [
-            available_backups[i - 1]
-            for i in selected_indices
-            if 0 < i <= len(available_backups)
-        ]
-        return selected_files
-    except ValueError:
-        cprint("Invalid input. No files reverted.", color="red")
+        cprint(
+            "Enter the numbers of the backup files you wish to revert (e.g., '1 3 4') or Press Enter to revert all or Press Ctrl-C to cancel revertion.",
+            color="light_blue",
+        )
+        user_response = input().strip()
+
+        if not user_response:
+            return available_backups
+
+        try:
+            selected_indices = list(map(int, user_response.split()))
+            selected_files = [
+                available_backups[i - 1]
+                for i in selected_indices
+                if 0 < i <= len(available_backups)
+            ]
+            return selected_files
+        except ValueError:
+            cprint("Invalid input. No files reverted.", color="red")
+            return []
+    except KeyboardInterrupt:
+        cprint("\nOperation cancelled by user. No files reverted.", color="red")
         return []
 
 
