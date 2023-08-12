@@ -65,7 +65,7 @@ def get_file_name(code_change):
         case CodeChangeAction.DeleteFile:
             return colored(f"\n{file_name}", color="light_red")
         case CodeChangeAction.RenameFile:
-            return colored(f"\n{file_name} -> {code_change.name}", color="yellow")
+            return colored(f"\nRename: {file_name} -> {code_change.name}", color="yellow")
         case _:
             return colored(f"\n{file_name}", color="light_blue")
 
