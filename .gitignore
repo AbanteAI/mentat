@@ -9,4 +9,5 @@ tags
 benchmark_results
 .idea
 build
+output_images
 .mentat_config.json
