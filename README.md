@@ -100,3 +100,5 @@ The goal for Mentat is to become the best way to write code. Some big improvemen
 - improved edit quality
 
 If this is something you'd like to work on, jump right in! And if you want to join the team to work on this full time, message [@bio_bootloader](https://twitter.com/bio_bootloader) on twitter.
+
+To find something specific to work on, take a look at [open issues](https://github.com/biobootloader/mentat/issues) and/or check this Github Project: [Mentat Development](https://github.com/users/biobootloader/projects/2)
