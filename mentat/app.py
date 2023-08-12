@@ -43,17 +43,14 @@ def run_cli():
     )
     args = parser.parse_args()
 
-    backup_dir = ".mentat_backups"
-
     if args.revert:
-        revert_files(backup_dir)
+        revert_files()
     else:
         paths = args.paths
         exclude_paths = args.exclude
         run(
             expand_paths(paths),
             expand_paths(exclude_paths),
-            backup_dir,
         )
 
 
@@ -79,13 +76,12 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
 def run(
     paths: Iterable[str],
     exclude_paths: Optional[Iterable[str]] = None,
-    backup_dir: Optional[str] = ".mentat_backups",
 ):
     os.makedirs(mentat_dir_path, exist_ok=True)
     setup_logging()
     logging.debug(f"Paths: {paths}")
 
-    backup_manager = CodeBackupManager(backup_dir)
+    backup_manager = CodeBackupManager(".mentat_backups")
 
     cost_tracker = CostTracker()
 
@@ -94,7 +90,7 @@ def run(
 
         cprint("mentat started with automatic backup pipeline...\n", color="light_blue")
 
-        loop(paths, exclude_paths, cost_tracker, backup_dir)
+        loop(paths, exclude_paths, cost_tracker)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -112,7 +108,6 @@ def loop(
     paths: Iterable[str],
     exclude_paths: Optional[Iterable[str]],
     cost_tracker: CostTracker,
-    backup_dir: Optional[str] = ".mentat_backups",
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
@@ -142,7 +137,6 @@ def loop(
                 user_input_manager,
                 code_file_manager,
                 code_changes,
-                backup_dir,
             )
         else:
             need_user_request = True
@@ -154,7 +148,6 @@ def get_user_feedback_on_changes(
     user_input_manager: UserInputManager,
     code_file_manager: CodeFileManager,
     code_changes: Iterable[CodeChange],
-    backup_dir: Optional[str] = ".mentat_backups",
 ) -> bool:
     cprint(
         "Apply these changes? 'Y/n/i' or provide feedback. mentat will automatically backup your changed files.",
@@ -165,7 +158,7 @@ def get_user_feedback_on_changes(
     need_user_request = True
     match user_response.lower():
         case "y" | "":
-            backup_files(code_file_manager, backup_dir)
+            backup_files(code_file_manager, ".mentat_backups")
             code_changes_to_apply = code_changes
             conv.add_user_message("User chose to apply all your changes.")
         case "n":
@@ -206,9 +199,9 @@ def get_user_feedback_on_changes(
 
 
 def backup_files(
-    code_file_manager: CodeFileManager, backup_dir: Optional[str] = ".mentat_backups"
+    code_file_manager: CodeFileManager
 ):
-    backup_manager = CodeBackupManager(backup_dir)
+    backup_manager = CodeBackupManager(".mentat_backups")
     backup_manager.backup_files(code_file_manager)
 
 
@@ -239,12 +232,12 @@ def user_select_files_to_revert(available_backups: list) -> list:
         return []
 
 
-def revert_files(backup_dir):
-    backup_manager = CodeBackupManager(backup_dir)
+def revert_files():
+    backup_manager = CodeBackupManager(".mentat_backups")
 
     available_backups = [
-        os.path.relpath(os.path.join(dirpath, filename), backup_dir)
-        for dirpath, _, filenames in os.walk(backup_dir)
+        os.path.relpath(os.path.join(dirpath, filename), ".mentat_backups")
+        for dirpath, _, filenames in os.walk(".mentat_backups")
         for filename in filenames
         if filename.endswith(".backup")
     ]
