@@ -10,7 +10,7 @@ import attr
 import openai
 from termcolor import cprint
 
-from .code_change import CodeChange
+from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import (
     change_delimiter,
     get_file_name,
@@ -277,6 +277,7 @@ def _process_content_line(
                     len(state.code_changes) < 2
                     or state.code_changes[-2].file != cur_change.file
                     or state.explained_since_change
+                    or state.code_changes[-1].action == CodeChangeAction.RenameFile
                 ):
                     printer.add_string(get_file_name(cur_change))
                     if (
