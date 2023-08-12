@@ -1,3 +1,4 @@
+import subprocess
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
@@ -169,6 +170,15 @@ def suggest_change():
     }
 
     return jsonify(response)
+
+
+@app.route("/execute-subprocess-command", methods=["POST"])
+def execute_subprocess_command():
+    if not config.api_allow_subprocess_commands():
+        return jsonify({"error": "Subprocess commands are not allowed. Must enable in config."}), 403
+    command = request.json.get("command")
+    result = subprocess.run(command.split(), cwd=git_root, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return jsonify({"result": result.stdout.decode('utf-8')})
 
 
 @app.route("/<path:path>")

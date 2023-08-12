@@ -98,3 +98,19 @@ paths:
       responses:
         '200':
           description: OK
+  /execute-subprocess-command:
+    post:
+      operationId: executeSubprocessCommand
+      summary: Execute a subprocess command.
+      description: 'Example: {"command": "git status --short"}.'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                command:
+                  type: string
+      responses:
+        '200':
+          description: OK

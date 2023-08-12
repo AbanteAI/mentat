@@ -78,6 +78,9 @@ class ConfigManager:
     def file_exclude_glob_list(self) -> list[str]:
         return self._get_key("file-exclude-glob-list")
 
+    def api_allow_subprocess_commands(self) -> bool:
+        return self._get_key("allow-subprocess-commands")
+
     def _get_key(self, key: str):
         if key in self.project_config:
             return self.project_config[key]
