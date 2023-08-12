@@ -63,7 +63,7 @@ def generate_path_tree_image(file_paths, git_root):
         draw.text((10, 10 + text_height * line_num), text, fill=color, font=font)
 
     image_name = f"path-{uuid4()}.png"
-    image_url = os.path.join("mentat/static/output_images", image_name)
-    image.save(image_url)
+    image_path = Path(__file__).parent / "static" / "output_images" / image_name
+    image.save(image_path)
 
     return f"http://localhost:3333/output_images/{image_name}"
