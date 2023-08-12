@@ -8,8 +8,6 @@ from termcolor import cprint
 from .errors import MentatError
 from .git_handler import commit
 
-help_message_width = 20
-
 
 class Command(ABC):
     _registered_commands = {}
@@ -29,13 +27,20 @@ class Command(ABC):
     def get_command_completions(cls) -> Iterable[str]:
         return list(map(lambda name: "/" + name, cls._registered_commands))
 
+    # *args[0] is always the command_name, c style
+    @abstractmethod
+    def apply(self, *args: str) -> None:
+        pass
+
+    # TODO: make more robust way to specify arguments for commands
+    @classmethod
+    @abstractmethod
+    def argument_names(cls) -> list[str]:
+        pass
+
     @classmethod
     @abstractmethod
     def help_message(cls) -> str:
-        pass
-
-    @abstractmethod
-    def apply(self) -> None:
         pass
 
 
@@ -43,7 +48,7 @@ class InvalidCommand(Command, command_name=None):
     def __init__(self, invalid_name):
         self.invalid_name = invalid_name
 
-    def apply(self) -> None:
+    def apply(self, *args: str) -> None:
         cprint(
             f"{self.invalid_name} is not a valid command. Use /help to see a list of"
             " all valid commands",
@@ -51,17 +56,30 @@ class InvalidCommand(Command, command_name=None):
         )
 
     @classmethod
+    def argument_names(cls) -> list[str]:
+        raise MentatError("Argument names called on invalid command")
+
+    @classmethod
     def help_message(cls) -> str:
         raise MentatError("Help message called on invalid command")
 
 
+help_message_width = 60
+
+
 class HelpCommand(Command, command_name="help"):
-    def apply(self) -> None:
+    def apply(self, *args: str) -> None:
         for command_name, command_class in Command._registered_commands.items():
-            print(
-                f"/{command_name}".ljust(help_message_width),
-                command_class.help_message(),
+            argument_names = command_class.argument_names()
+            help_message = command_class.help_message()
+            message = " ".join(
+                [f"/{command_name}"] + [f"<{arg}>" for arg in argument_names]
             )
+            print(message.ljust(help_message_width), help_message, sep="")
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return []
 
     @classmethod
     def help_message(cls) -> str:
@@ -69,8 +87,17 @@ class HelpCommand(Command, command_name="help"):
 
 
 class CommitCommand(Command, command_name="commit"):
-    def apply(self) -> None:
-        commit()
+    default_message = "Automatic commit"
+
+    def apply(self, *args: str) -> None:
+        if len(args) > 1:
+            commit(args[1])
+        else:
+            commit(self.__class__.default_message)
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return [f"commit_message={cls.default_message}"]
 
     @classmethod
     def help_message(cls) -> str:

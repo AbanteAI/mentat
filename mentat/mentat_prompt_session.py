@@ -35,7 +35,7 @@ class FilteredHistorySuggestions(AutoSuggestFromHistory):
         super().__init__()
 
     def get_suggestion(self, buffer: Buffer, document: Document) -> Suggestion | None:
-        # We want the auto completer to handle commands
+        # We want the auto completer to handle commands instead of the suggester
         if buffer.text[0] == "/":
             return None
         else:
@@ -63,8 +63,10 @@ class MentatPromptSession(PromptSession):
     def prompt(self, *args, **kwargs):
         # Automatically capture all commands
         while (user_input := super().prompt(*args, **kwargs)).startswith("/"):
-            command = Command.create_command(user_input[1:])
-            command.apply()
+            # argument 0 is the command name, c style
+            arguments = user_input[1:].split(" ")
+            command = Command.create_command(arguments[0])
+            command.apply(*arguments[1:])
         return user_input
 
     def prompt_continuation(self, width, line_number, is_soft_wrap):

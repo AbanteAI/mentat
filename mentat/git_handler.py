@@ -95,7 +95,7 @@ def get_shared_git_root_for_paths(paths) -> str:
     return git_roots.pop()
 
 
-def commit(message: str = "Automatic commit") -> None:
+def commit(message: str) -> None:
     """
     Commit all unstaged and staged changes
     """
