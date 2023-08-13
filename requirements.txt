@@ -9,6 +9,8 @@ click==8.1.6
 exceptiongroup==1.1.2
 fire==0.5.0
 flake8==6.0.0
+Flask==2.3.2
+Flask-Cors==4.0.0
 frozenlist==1.4.0
 gitdb==4.0.10
 GitPython==3.1.32
@@ -21,6 +23,7 @@ mypy-extensions==1.0.0
 openai==0.27.8
 packaging==23.1
 pathspec==0.11.2
+Pillow==10.0.0
 platformdirs==3.10.0
 pluggy==1.2.0
 prompt-toolkit==3.0.39
