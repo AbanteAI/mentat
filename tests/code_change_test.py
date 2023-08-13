@@ -160,8 +160,6 @@ def test_create_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_
         content = f.read()
         expected_content = dedent("""\
                         # I created this file""")
-    print(content)
-    print(expected_content)
     assert content == expected_content
 
 
