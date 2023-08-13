@@ -152,7 +152,8 @@ class CodeFileManager:
             - (excluded_files | excluded_files_from_dir)
         )
 
-    def _read_file(self, abs_path) -> Iterable[str]:
+    def _read_file(self, rel_path) -> Iterable[str]:
+        abs_path = os.path.join(self.git_root, rel_path)
         with open(abs_path, "r") as f:
             lines = f.read().split("\n")
         return lines
@@ -160,7 +161,8 @@ class CodeFileManager:
     def _read_all_file_lines(self) -> None:
         self.file_lines = dict()
         for abs_path in self.file_paths:
-            self.file_lines[abs_path] = self._read_file(abs_path)
+            rel_path = os.path.relpath(abs_path, self.git_root)
+            self.file_lines[rel_path] = self._read_file(abs_path)
 
     def get_code_message(self):
         self._read_all_file_lines()
@@ -172,7 +174,7 @@ class CodeFileManager:
             posix_rel_path = Path(rel_path).as_posix()
             code_message.append(posix_rel_path)
 
-            for i, line in enumerate(self.file_lines[abs_path], start=1):
+            for i, line in enumerate(self.file_lines[rel_path], start=1):
                 code_message.append(f"{i}:{line}")
             code_message.append("")
 
@@ -213,10 +215,9 @@ class CodeFileManager:
         if not changes:
             return []
 
-        rel_path = changes[0].file
-        abs_path = os.path.join(self.git_root, rel_path)
-        new_code_lines = self.file_lines[abs_path].copy()
-        if new_code_lines != self._read_file(abs_path):
+        rel_path = str(changes[0].file)
+        new_code_lines = self.file_lines[rel_path].copy()
+        if new_code_lines != self._read_file(rel_path):
             logging.info(f"File '{rel_path}' changed while generating changes")
             cprint(
                 f"File '{rel_path}' changed while generating; current file changes"

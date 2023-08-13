@@ -51,7 +51,6 @@ def resolve_insertion_conflicts(
             new_change = CodeChange(
                 insert_changes[cur].json_data,
                 new_code_lines,
-                insert_changes[cur].git_root,
                 code_file_manager,
             )
             new_insert_changes.append(new_change)
