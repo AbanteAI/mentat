@@ -1,5 +1,6 @@
 {
     "allow-32k": false,
+    "api-allow-subprocess-commands": false,
     "input-style": [
         [
             "",
@@ -14,6 +15,5 @@
             "#ffffff bold"
         ]
     ],
-    "file-exclude-glob-list": [],
-    "api-allow-subprocess-commands": false
+    "file-exclude-glob-list": []
 }
