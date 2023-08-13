@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Generator
 
 import openai
+from litellm import completion
 import tiktoken
 from dotenv import load_dotenv
 from termcolor import cprint
@@ -41,7 +42,7 @@ async def call_llm_api(messages: list[dict[str, str]], model) -> Generator:
         logging.critical("OpenAI call made in non benchmark test environment!")
         sys.exit(1)
 
-    response = await openai.ChatCompletion.acreate(
+    response = await completion(
         model=model,
         messages=messages,
         temperature=0.5,
