@@ -87,3 +87,18 @@ Exclude given paths, directories, or [glob patterns](https://docs.python.org/3/l
 ```
 mentat path/to/directory --exclude exclude_me.py dir1/dir2 **/*.ts
 ```
+
+
+# 👩‍💻 Roadmap and Contributing
+
+We welcome contributions! To coordinate, make sure to join the Discord server: [![Discord Follow](https://dcbadge.vercel.app/api/server/XbPdxAMJte?style=flat)](https://discord.gg/zbvd9qx9Pb)
+
+The goal for Mentat is to become the best way to write code. Some big improvements coming up are:
+- improved user interface and options (VSCode and other editor integrations, etc)
+- use with LLMs other than GPT-4
+- seamlessly work with codebases much larger than LLM context limits, without requiring users to filter files manually
+- improved edit quality
+
+If this is something you'd like to work on, jump right in! And if you want to join the team to work on this full time, message [@bio_bootloader](https://twitter.com/bio_bootloader) on twitter.
+
+To find something specific to work on, take a look at [open issues](https://github.com/biobootloader/mentat/issues) and/or check this Github Project: [Mentat Development](https://github.com/users/biobootloader/projects/2)
