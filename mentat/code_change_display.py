@@ -43,21 +43,25 @@ def _prefixed_lines(code_change, lines, prefix):
 
 
 def print_change(code_change):
-    to_print = [
-        get_file_name(code_change),
-        change_delimiter,
-        get_previous_lines(code_change),
-        get_removed_block(code_change),
-        get_added_block(code_change),
-        get_later_lines(code_change),
-        change_delimiter,
-    ]
+    to_print = get_code_change_text(code_change, cli_formatted=True)
     for s in to_print:
         if s:
             print(s)
 
 
-def get_file_name(code_change):
+def get_code_change_text(code_change, cli_formatted=True):
+    return [
+        get_file_name(code_change, cli_formatted=cli_formatted),
+        change_delimiter,
+        get_previous_lines(code_change, cli_formatted=cli_formatted),
+        get_removed_block(code_change, cli_formatted=cli_formatted),
+        get_added_block(code_change, cli_formatted=cli_formatted),
+        get_later_lines(code_change, cli_formatted=cli_formatted),
+        change_delimiter,
+    ]
+
+
+def get_file_name(code_change, cli_formatted=True):
     file_name = code_change.file
     action = code_change.action
     color = (
@@ -65,13 +69,16 @@ def get_file_name(code_change):
         if action == CodeChangeAction.DeleteFile
         else ("light_green" if action == CodeChangeAction.CreateFile else "light_blue")
     )
+    text = f"\n{file_name}{'*' if action == CodeChangeAction.CreateFile else ''}"
+    if not cli_formatted:
+        return text
     return colored(
-        f"\n{file_name}{'*' if action == CodeChangeAction.CreateFile else ''}",
+        text,
         color=color,
     )
 
 
-def get_removed_block(code_change, prefix="-", color="red"):
+def get_removed_block(code_change, prefix="-", color="red", cli_formatted=True):
     if code_change.action.has_removals():
         if code_change.action == CodeChangeAction.DeleteFile:
             changed_lines = code_change.file_lines
@@ -82,19 +89,23 @@ def get_removed_block(code_change, prefix="-", color="red"):
 
         removed = _prefixed_lines(code_change, changed_lines, prefix)
         if removed:
+            if not cli_formatted:
+                return removed
             return colored(removed, color=color)
     return ""
 
 
-def get_added_block(code_change, prefix="+", color="green"):
+def get_added_block(code_change, prefix="+", color="green", cli_formatted=True):
     if code_change.action.has_additions():
         added = _prefixed_lines(code_change, code_change.code_lines, prefix)
         if added:
+            if not cli_formatted:
+                return added
             return colored(added, color=color)
     return ""
 
 
-def get_previous_lines(code_change, num=2):
+def get_previous_lines(code_change, num=2, cli_formatted=True):
     if not code_change.action.has_surrounding_lines():
         return ""
     lines = _remove_extra_empty_lines(
@@ -119,12 +130,14 @@ def get_previous_lines(code_change, num=2):
 
     prev = "\n".join(numbered)
     if prev:
+        if not cli_formatted:
+            return prev
         h_prev = highlight(prev, code_change.lexer, TerminalFormatter(bg="dark"))
         return h_prev
     return ""
 
 
-def get_later_lines(code_change, num=2):
+def get_later_lines(code_change, num=2, cli_formatted=True):
     if not code_change.action.has_surrounding_lines():
         return ""
     lines = _remove_extra_empty_lines(
@@ -149,6 +162,8 @@ def get_later_lines(code_change, num=2):
 
     later = "\n".join(numbered)
     if later:
+        if not cli_formatted:
+            return later
         h_later = highlight(later, code_change.lexer, TerminalFormatter(bg="dark"))
         return h_later
     return ""
