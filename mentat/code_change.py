@@ -111,14 +111,14 @@ class CodeChange:
             self.error = "Starting line of change is greater than ending line of change"
 
         if self.action != CodeChangeAction.CreateFile:
-            relative_file_path = str(self.file)
+            rel_path = str(self.file)
             try:
-                self.file_lines = code_file_manager.file_lines[relative_file_path]
+                self.file_lines = code_file_manager.file_lines[rel_path]
                 self.line_number_buffer = len(str(len(self.file_lines) + 1)) + 1
             except KeyError:
                 self.error = (
-                    f"Model attempted to edit {relative_file_path}, which isn't in current"
-                    " context or doesn't exist"
+                    f"Model attempted to edit {rel_path}, which isn't in"
+                    " current context or doesn't exist"
                 )
         else:
             if os.path.exists(self.file):
