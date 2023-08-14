@@ -1,6 +1,6 @@
 {
     "allow-32k": false,
-    "api-allow-subprocess-commands": false,
+    "api-allow-commands": false,
     "input-style": [
         [
             "",

@@ -45,6 +45,6 @@ A list of key-value pairs defining a custom [Pygment Style](https://pygments.org
 Allow or block the execution of subprocess commands in Mentat AI plugin API, such as git commands. Defaults to false.
 ```
 {
-    "api-allow-subprocess-commands": false
+    "api-allow-commands": false
 }
 ```

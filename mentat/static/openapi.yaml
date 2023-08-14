@@ -13,9 +13,9 @@ paths:
       responses:
         '200':
           description: OK
-  /focus-paths:
+  /focus-on-paths:
     post:
-      operationId: focusPaths
+      operationId: focusOnPaths
       summary: Focus on specific paths.
       requestBody:
         content:
@@ -27,6 +27,8 @@ paths:
                   type: array
                   items:
                     type: string
+              required:
+                - paths
       responses:
         '200':
           description: OK
@@ -44,9 +46,9 @@ paths:
       responses:
         '200':
           description: OK
-  /confirm-staged-change:
+  /confirm-or-clear-staged-change:
     post:
-      operationId: confirmStagedChange
+      operationId: confirmOrClearStagedChange
       summary: Confirm or clear staged changes.
       requestBody:
         content:
@@ -61,10 +63,10 @@ paths:
       responses:
         '200':
           description: OK
-  /suggest-change:
+  /stage-change:
     post:
-      operationId: suggestChange
-      summary: Suggest a code change.
+      operationId: stageChange
+      summary: Stage a code change.
       requestBody:
         content:
           application/json:
@@ -80,7 +82,12 @@ paths:
                     properties:
                       action:
                         type: string
-                        enum: [insert, replace, delete, create-file, delete-file]
+                        enum:
+                          - insert
+                          - replace
+                          - delete
+                          - create-file
+                          - delete-file
                       file:
                         type: string
                       insert-after-line:
@@ -98,10 +105,10 @@ paths:
       responses:
         '200':
           description: OK
-  /execute-subprocess-command:
+  /execute-command:
     post:
-      operationId: executeSubprocessCommand
-      summary: Execute a subprocess command.
+      operationId: executeCommand
+      summary: Execute a command.
       description: 'Example: {"command": "git status --short"}.'
       requestBody:
         content:
@@ -111,6 +118,8 @@ paths:
               properties:
                 command:
                   type: string
+              required:
+                - command
       responses:
         '200':
           description: OK
