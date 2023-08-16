@@ -1,7 +1,7 @@
 import argparse
 import glob
 import logging
-import os
+from pathlib import Path
 from typing import Iterable, Optional
 
 from termcolor import cprint
@@ -61,7 +61,7 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
 
 
 def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
-    os.makedirs(mentat_dir_path, exist_ok=True)
+    mentat_dir_path.mkdir(parents=True, exist_ok=True)
     setup_logging()
     logging.debug(f"Paths: {paths}")
 

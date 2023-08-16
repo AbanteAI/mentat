@@ -1,28 +1,31 @@
 import json
 import logging
-import os
+
 from importlib import resources
 from json import JSONDecodeError
 from pathlib import Path
 
 from termcolor import cprint
 
-mentat_dir_path = os.path.join(Path.home(), ".mentat")
+
+mentat_dir_path = Path.home() / ".mentat"
 
 # package_name should always be "mentat" - but this will work if package name is changed
 package_name = __name__.split(".")[0]
 default_config_file_name = "default_config.json"
 config_file_name = ".mentat_config.json"
-user_config_path = os.path.join(mentat_dir_path, config_file_name)
+user_config_path = mentat_dir_path / config_file_name
 
 # Remove this warning after August 19
-old_config_file_path = os.path.join(mentat_dir_path, "config.json")
+old_config_file_path = mentat_dir_path / "config.json"
 
 
 class ConfigManager:
     def __init__(self, git_root: str):
+        git_root = Path(git_root)
+
         # Remove this warning after August 19
-        if os.path.exists(old_config_file_path):
+        if old_config_file_path.exists():
             cprint(
                 "Warning: You are still using an old config.json in your ~/.mentat"
                 " directory. The config filename has recently been changed to"
@@ -32,7 +35,7 @@ class ConfigManager:
                 color="light_yellow",
             )
 
-        if os.path.exists(user_config_path):
+        if user_config_path.exists():
             with open(user_config_path) as config_file:
                 try:
                     self.user_config = json.load(config_file)
@@ -47,8 +50,8 @@ class ConfigManager:
         else:
             self.user_config = {}
 
-        project_config_path = os.path.join(git_root, config_file_name)
-        if os.path.exists(project_config_path):
+        project_config_path = git_root / config_file_name
+        if project_config_path.exists():
             with open(project_config_path) as config_file:
                 try:
                     self.project_config = json.load(config_file)

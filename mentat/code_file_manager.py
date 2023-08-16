@@ -46,7 +46,7 @@ def _print_path_tree(tree, changed_files, cur_path, prefix=""):
             new_prefix = prefix + "    "
             print(f"{prefix}└── ", end="")
 
-        cur = os.path.join(cur_path, key)
+        cur = cur_path / key
         star = "* " if cur in changed_files else ""
         if tree[key]:
             color = "blue"
@@ -82,7 +82,7 @@ def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True)
         elif path.is_dir():
             nonignored_files = set(
                 map(
-                    lambda f: os.path.realpath(os.path.join(path, f)),
+                    lambda f: os.path.realpath(path / f),
                     get_non_gitignored_files(path),
                 )
             )
@@ -106,7 +106,7 @@ class CodeFileManager:
         git_root: str,
     ):
         self.config = config
-        self.git_root = git_root
+        self.git_root = Path(git_root)
         self._set_file_paths(paths, exclude_paths)
         self.user_input_manager = user_input_manager
 
@@ -115,7 +115,7 @@ class CodeFileManager:
         else:
             cprint("No files included in context.\n", "red")
             cprint("Git project: ", "green", end="")
-        cprint(os.path.split(self.git_root)[1], "blue")
+        cprint(self.git_root.name, "blue")
         _print_path_tree(
             _build_path_tree(self.file_paths, self.git_root),
             get_paths_with_git_diffs(self.git_root),
@@ -153,7 +153,7 @@ class CodeFileManager:
         )
 
     def _read_file(self, rel_path) -> Iterable[str]:
-        abs_path = os.path.join(self.git_root, rel_path)
+        abs_path = self.git_root / rel_path
         with open(abs_path, "r") as f:
             lines = f.read().split("\n")
         return lines
@@ -162,6 +162,7 @@ class CodeFileManager:
         self.file_lines = dict()
         for abs_path in self.file_paths:
             rel_path = os.path.relpath(abs_path, self.git_root)
+            # here keys are str not path object
             self.file_lines[rel_path] = self._read_file(abs_path)
 
     def get_code_message(self):
@@ -186,8 +187,8 @@ class CodeFileManager:
         return "\n".join(code_message)
 
     def _handle_delete(self, delete_change):
-        file_path = os.path.join(self.git_root, delete_change.file)
-        if not os.path.exists(file_path):
+        file_path = self.git_root / delete_change.file
+        if not file_path.exists():
             logging.error(f"Path {file_path} non-existent on delete")
             return
 
@@ -195,8 +196,10 @@ class CodeFileManager:
         if self.user_input_manager.ask_yes_no(default_yes=False):
             logging.info(f"Deleting file {file_path}")
             cprint(f"Deleting {delete_change.file}...")
-            self.file_paths.remove(file_path)
-            os.remove(file_path)
+            self.file_paths.remove(str(file_path))
+            # os.remove(file_path)
+            file_path.unlink()
+
         else:
             cprint(f"Not deleting {delete_change.file}")
 
@@ -261,12 +264,13 @@ class CodeFileManager:
                 files_to_write[file_path] = new_code_lines
 
         for rel_path, code_lines in files_to_write.items():
-            file_path = os.path.join(self.git_root, rel_path)
+            file_path = self.git_root / rel_path
             if file_path not in self.file_paths:
                 # newly created files added to Mentat's context
                 logging.info(f"Adding new file {file_path} to context")
                 self.file_paths.append(file_path)
                 # create any missing directories in the path
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                dir_name = file_path.parent
+                dir_name.mkdir(parents=True, exist_ok=True)
             with open(file_path, "w") as f:
                 f.write("\n".join(code_lines))
