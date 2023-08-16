@@ -249,7 +249,8 @@ class CodeFileManager:
         files_to_write = dict()
         file_changes = defaultdict(list)
         for code_change in code_changes:
-            rel_path = code_change.file
+            # here keys are str not path object
+            rel_path = str(code_change.file)
             if code_change.action == CodeChangeAction.CreateFile:
                 cprint(f"Creating new file {rel_path}", color="light_green")
                 files_to_write[rel_path] = code_change.code_lines
