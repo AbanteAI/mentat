@@ -40,7 +40,6 @@ class CodeChange:
         self,
         json_data: dict,
         code_lines: list[str],
-        git_root: str,
         code_file_manager,
     ):
         self.json_data = json_data
@@ -57,7 +56,6 @@ class CodeChange:
         self.file = Path(self.json_data["file"])
         self.first_changed_line = None
         self.last_changed_line = None
-        self.git_root = git_root
         self.error = False
         try:
             self.lexer = get_lexer_for_filename(self.file)
@@ -113,14 +111,14 @@ class CodeChange:
             self.error = "Starting line of change is greater than ending line of change"
 
         if self.action != CodeChangeAction.CreateFile:
-            file_path = os.path.join(self.git_root, self.file)
+            rel_path = str(self.file)
             try:
-                self.file_lines = code_file_manager.file_lines[file_path]
+                self.file_lines = code_file_manager.file_lines[rel_path]
                 self.line_number_buffer = len(str(len(self.file_lines) + 1)) + 1
             except KeyError:
                 self.error = (
-                    f"Model attempted to edit {file_path}, which isn't in current"
-                    " context or doesn't exist"
+                    f"Model attempted to edit {rel_path}, which isn't in"
+                    " current context or doesn't exist"
                 )
         else:
             if os.path.exists(self.file):

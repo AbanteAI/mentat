@@ -32,7 +32,6 @@ class _BlockIndicator(Enum):
 
 @attr.s
 class ParsingState:
-    git_root: str = attr.ib(init=True)
     message: str = attr.ib(default="")
     cur_line: str = attr.ib(default="")
     cur_printed: bool = attr.ib(default=False)
@@ -76,9 +75,7 @@ class ParsingState:
                 already_added_to_changelist=False,
             )
 
-        new_change = CodeChange(
-            json_data, self.code_lines, self.git_root, code_file_manager
-        )
+        new_change = CodeChange(json_data, self.code_lines, code_file_manager)
         self.code_changes.append(new_change)
         self.json_lines, self.code_lines = [], []
 
@@ -155,7 +152,7 @@ def run_async_stream_and_parse_llm_response(
     model: str,
     code_file_manager: CodeFileManager,
 ) -> ParsingState:
-    state: ParsingState = ParsingState(git_root=code_file_manager.git_root)
+    state: ParsingState = ParsingState()
     start_time = default_timer()
     try:
         asyncio.run(
@@ -257,9 +254,12 @@ def _process_content_line(
             printer.add_string(prefix + to_print, end="", color=color)
 
     if "\n" in content:
-        to_print, entered_code_lines, exited_code_lines, created_code_change = (
-            state.new_line(code_file_manager)
-        )
+        (
+            to_print,
+            entered_code_lines,
+            exited_code_lines,
+            created_code_change,
+        ) = state.new_line(code_file_manager)
 
         if created_code_change:
             cur_change = state.code_changes[-1]
