@@ -7,7 +7,6 @@
 
   // Handle messages sent from the extension to the webview
   window.addEventListener("message", (event) => {
-    // Get the message from the event
     const message = event.data;
 
     // Create a new element for message
@@ -23,26 +22,34 @@
     conversationContainer.appendChild(_messageElement);
   });
 
-  // Listen for keyup events on the prompt input element
+
+  // Handle vscode extension commands
+  const handleGetResponse = () => {
+    const input = document.getElementById('prompt').value;
+    if (input) {      
+      vscode.postMessage({ command: 'getResponse', data: input });
+      document.getElementById('prompt').value = '';
+    }
+  };
+
+  const handleInterrupt = () => {
+    vscode.postMessage({ command: 'interrupt' });
+  };
+
+  const handleRestart = () => {
+    vscode.postMessage({ command: 'restart' });
+  };
+
+
+  // Add listeners to page elements
   document.getElementById('prompt').addEventListener('keyup', function (e) {
     // If the key that was pressed was the Enter key
     if (e.keyCode === 13) {
-      vscode.postMessage({
-        type: 'message',
-        data: { type: 'user', value: this.value }
-      });
-      this.value = '';
+      handleGetResponse();
     }
   });
+  document.getElementById('get-response').addEventListener('click', handleGetResponse);
+  document.getElementById('interrupt').addEventListener('click', handleInterrupt);
+  document.getElementById('restart').addEventListener('click', handleRestart);
 
-  // Listen for clicks
-  const buttons = ['get-response', 'interrupt', 'restart'];
-  buttons.forEach(button => {
-    document.getElementById(button).addEventListener('click', function () {
-      vscode.postMessage({
-        type: 'action',
-        data: { value: button }
-      });
-    });
-  });
 })();

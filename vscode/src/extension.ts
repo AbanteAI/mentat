@@ -20,14 +20,6 @@ import { MentatProvider } from './view/MentatProvider';
 
 let lsClient: LanguageClient | undefined;
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-    // Initialize webview container
-    const provider = new MentatProvider(context.extensionUri);
-    context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider(MentatProvider.viewType, provider, {
-            webviewOptions: { retainContextWhenHidden: true },
-        }),
-    );
-
     // This is required to get server name and module. This should be
     // the first thing that we do in this extension.
     const serverInfo = loadServerDefaults();
@@ -56,6 +48,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     traceLog(`Name: ${serverInfo.name}`);
     traceLog(`Module: ${serverInfo.module}`);
     traceVerbose(`Full Server Info: ${JSON.stringify(serverInfo)}`);
+
+    // Initialize webview container
+    const provider = new MentatProvider(context.extensionUri, serverName, serverId);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(MentatProvider.viewType, provider, {
+            webviewOptions: { retainContextWhenHidden: true },
+        }),
+    );
 
     const runServer = async () => {
         const interpreter = getInterpreterFromSetting(serverId);
@@ -89,8 +89,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 await runServer();
             }
         }),
-        registerCommand(`${serverId}.restart`, async () => {
+        registerCommand(`${serverId}.restartServer`, async () => {
             await runServer();
+        }),
+        registerCommand(`${serverId}.getResponse`, async (data: string) => {
+            traceLog(`Sending 'Get Response' to server for ${data}`);
+        }),
+        registerCommand(`${serverId}.interrupt`, async () => {
+            traceLog(`Sending 'Interrupt' to server`);
+        }),
+        registerCommand(`${serverId}.restart`, async () => {
+            traceLog(`Sending 'Restart' to server`);
         }),
     );
 

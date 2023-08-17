@@ -129,6 +129,21 @@
             {
                 "title": "Restart Server",
                 "category": "Mentat",
+                "command": "mentat.restartServer"
+            },
+            {
+                "title": "Get Response",
+                "category": "Mentat",
+                "command": "mentat.getResponse"
+            },
+            {
+                "title": "Interrupt",
+                "category": "Mentat",
+                "command": "mentat.interrupt"
+            },
+            {
+                "title": "Restart Mentat",
+                "category": "Mentat",
                 "command": "mentat.restart"
             }
         ],

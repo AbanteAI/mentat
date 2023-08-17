@@ -1,19 +1,39 @@
 import * as vscode from 'vscode';
 import { traceError, traceLog, traceVerbose } from '../common/log/logging';
 
-class MentatProvider implements vscode.WebviewViewProvider {
+export interface WebViewMessage {
+    command: Command,
+    data: string | undefined,
+}
+
+export enum Command {
+    getResponse = 'getResponse',
+    interrupt = 'interrupt',
+    restart = 'restart',
+}
+
+export class MentatProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     public static readonly viewType = 'mentat.chatView';
 
-    constructor(private readonly _extensionUri: vscode.Uri) {
-        
-    }
+    constructor(
+      private readonly _extensionUri: vscode.Uri, 
+      private readonly _serverName: string,
+      private readonly _serverId: string,
+    ) {}
 
+    /**
+      * Called when our view is first initialized
+      * @param webviewView
+      * @param context
+      * @param _token
+      * @returns
+    */
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
         context: vscode.WebviewViewResolveContext,
         _token: vscode.CancellationToken,
-    ) {
+    ): void | Thenable<void> {
         this._view = webviewView;
 
         webviewView.webview.options = {
@@ -24,25 +44,34 @@ class MentatProvider implements vscode.WebviewViewProvider {
         webviewView.webview.html = this._generateHtml(webviewView.webview);
 
         // Intercept messages coming from the webview/user
-        this._view.webview.onDidReceiveMessage((data) => {
-            if (data.type === 'message') {
-                if (!this._view) {
-                    traceError('Webview not found.');
-                    return;
-                }
-                // Add the prompt to conversation
-                this._view.webview.postMessage(data.data);
-                // TODO: Send to backend
-                this._view.webview.postMessage({ type: 'system', value: 'Message received by MentatProvider.' });
-            
-            } else if (data.type === 'action') {
-                const { value } = data.data;
-                traceLog(`Action: ${value}`);
+        this._view.webview.onDidReceiveMessage((msg: WebViewMessage) => {
+            const { command, data } = msg;
+            switch (command) {
+                case Command.getResponse:
+                    const echo = { type: "user", value: data };
+                    this._view?.webview.postMessage(echo);
+                    // Send to backend
+                    vscode.commands.executeCommand(`${this._serverId}.${Command.getResponse}`, data);
+                    break;
+                case Command.interrupt:
+                    vscode.commands.executeCommand(`${this._serverId}.${Command.interrupt}`);
+                    break;
+                case Command.restart:
+                    vscode.commands.executeCommand(`${this._serverId}.${Command.restart}`);
+                    break;
+                default:
+                    traceLog(`Unknown command: ${command}`);
+                    break;
             }
         });
     }
 
-    private _generateHtml(webview: vscode.Webview) {
+    /**
+     * Generates the HTML content for the webview.
+     * @param webview
+     * @returns The HTML string
+     */
+    private _generateHtml(webview: vscode.Webview): string {
 
         // Load scripts and styles files
         const scriptUri = this._getUri(webview, 'src', 'view', 'scripts', 'main.js');
@@ -75,9 +104,13 @@ class MentatProvider implements vscode.WebviewViewProvider {
         `;
     }
 
-    private _getUri(webview: vscode.Webview, ...paths: string[]) {
+    /**
+     * Get the URI of a file
+     * @param webview
+     * @param paths - relative path from the 'mentat/vscode' folder
+     * @returns - The URI
+     */
+    private _getUri(webview: vscode.Webview, ...paths: string[]): vscode.Uri {
         return webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, ...paths));
     }
 }
-
-export { MentatProvider };
