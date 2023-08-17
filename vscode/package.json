@@ -131,7 +131,25 @@
                 "category": "Mentat",
                 "command": "mentat.restart"
             }
-        ]
+        ],
+        "viewsContainers": {
+          "activitybar": [
+            {
+              "id": "mentat",
+              "title": "Mentat",
+              "icon": "resources/mentat-icon.svg"
+            }
+          ]
+        },
+        "views": {
+          "mentat": [
+            {
+              "type": "webview",
+              "id": "mentat.chatView",
+              "name": "Mentat Chat"
+            }
+          ]
+        }
     },
     "dependencies": {
         "@vscode/python-extension": "1.0.1",
