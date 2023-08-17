@@ -1,12 +1,12 @@
 {
-    "name": "<pytool-module>",
-    "displayName": "<pytool-display-name>",
-    "description": "Linting support for python files using `<pytool-module>`.",
+    "name": "mentat",
+    "displayName": "Mentat",
+    "description": "Linting support for python files using `mentat`.",
     "version": "2022.0.0-dev",
     "preview": true,
     "serverInfo": {
-        "name": "<pytool-display-name>",
-        "module": "<pytool-module>"
+        "name": "Mentat",
+        "module": "mentat"
     },
     "publisher": "<my-publisher>",
     "license": "MIT",
@@ -24,7 +24,7 @@
     },
     "keywords": [
         "python",
-        "<pytool-module>"
+        "mentat"
     ],
     "engines": {
         "vscode": "^1.78.0"
@@ -40,7 +40,7 @@
     "capabilities": {
         "virtualWorkspaces": {
             "supported": false,
-            "description": "Virtual Workspaces are not supported with <pytool-display-name>."
+            "description": "Virtual Workspaces are not supported with Mentat."
         }
     },
     "activationEvents": [
@@ -59,12 +59,12 @@
         "lint": "eslint src --ext ts",
         "format-check": "prettier --check 'src/**/*.ts' 'build/**/*.yml' '.github/**/*.yml'",
         "test": "node ./out/test/runTest.js",
-        "vsce-package": "vsce package -o <pytool-module>.vsix"
+        "vsce-package": "vsce package -o mentat.vsix"
     },
     "contributes": {
         "configuration": {
             "properties": {
-                "<pytool-module>.args": {
+                "mentat.args": {
                     "default": [],
                     "description": "Arguments passed in. Each argument is a separate item in the array.",
                     "items": {
@@ -73,30 +73,30 @@
                     "scope": "resource",
                     "type": "array"
                 },
-                "<pytool-module>.path": {
+                "mentat.path": {
                     "default": [],
-                    "description": "When set to a path to <pytool-module> binary, extension will use that. NOTE: Using this option may slowdown server response time.",
+                    "description": "When set to a path to mentat binary, extension will use that. NOTE: Using this option may slowdown server response time.",
                     "scope": "resource",
                     "items": {
                         "type": "string"
                     },
                     "type": "array"
                 },
-                "<pytool-module>.importStrategy": {
+                "mentat.importStrategy": {
                     "default": "fromEnvironment",
-                    "description": "Defines where `<pytool-module>` is imported from. This setting may be ignored if `<pytool-module>.path` is set.",
+                    "description": "Defines where `mentat` is imported from. This setting may be ignored if `mentat.path` is set.",
                     "enum": [
                         "useBundled",
                         "fromEnvironment"
                     ],
                     "enumDescriptions": [
-                        "Always use the bundled version of `<pytool-module>`.",
-                        "Use `<pytool-module>` from environment, fallback to bundled version only if `<pytool-module>` not available in the environment."
+                        "Always use the bundled version of `mentat`.",
+                        "Use `mentat` from environment, fallback to bundled version only if `mentat` not available in the environment."
                     ],
                     "scope": "window",
                     "type": "string"
                 },
-                "<pytool-module>.interpreter": {
+                "mentat.interpreter": {
                     "default": [],
                     "description": "When set to a path to python executable, extension will use that to launch the server and any subprocess.",
                     "scope": "resource",
@@ -105,7 +105,7 @@
                     },
                     "type": "array"
                 },
-                "<pytool-module>.showNotifications": {
+                "mentat.showNotifications": {
                     "default": "off",
                     "description": "Controls when notifications are shown by this extension.",
                     "enum": [
@@ -128,8 +128,8 @@
         "commands": [
             {
                 "title": "Restart Server",
-                "category": "<pytool-display-name>",
-                "command": "<pytool-module>.restart"
+                "category": "Mentat",
+                "command": "mentat.restart"
             }
         ]
     },

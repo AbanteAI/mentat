@@ -67,11 +67,11 @@ LSP_SERVER = server.LanguageServer(
 
 # TODO: Update TOOL_MODULE with the module name for your tool.
 # e.g, TOOL_MODULE = "pylint"
-TOOL_MODULE = "<pytool-module>"
+TOOL_MODULE = "mentat"
 
 # TODO: Update TOOL_DISPLAY with a display name for your tool.
 # e.g, TOOL_DISPLAY = "Pylint"
-TOOL_DISPLAY = "<pytool-display-name>"
+TOOL_DISPLAY = "Mentat"
 
 # TODO: Update TOOL_ARGS with default argument you have to pass to your tool in
 # all scenarios.
