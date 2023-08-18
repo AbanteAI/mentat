@@ -92,15 +92,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         registerCommand(`${serverId}.restartServer`, async () => {
             await runServer();
         }),
-        registerCommand(`${serverId}.getResponse`, async (data: string) => {
-            traceLog(`Sending 'Get Response' to server for ${data}`);
-        }),
-        registerCommand(`${serverId}.interrupt`, async () => {
-            traceLog(`Sending 'Interrupt' to server`);
-        }),
-        registerCommand(`${serverId}.restart`, async () => {
-            traceLog(`Sending 'Restart' to server`);
-        }),
+        // Mentat commands are registered in lsp_server.py
     );
 
     setImmediate(async () => {

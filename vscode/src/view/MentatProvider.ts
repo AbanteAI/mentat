@@ -51,13 +51,25 @@ export class MentatProvider implements vscode.WebviewViewProvider {
                     const echo = { type: "user", value: data };
                     this._view?.webview.postMessage(echo);
                     // Send to backend
-                    vscode.commands.executeCommand(`${this._serverId}.${Command.getResponse}`, data);
+                    vscode.commands.executeCommand(`${this._serverId}.${Command.getResponse}`, data)
+                        .then((response) => {
+                            const msg = { type: "assistant", value: response };
+                            this._view?.webview.postMessage(msg);
+                        });
                     break;
                 case Command.interrupt:
-                    vscode.commands.executeCommand(`${this._serverId}.${Command.interrupt}`);
+                    vscode.commands.executeCommand(`${this._serverId}.${Command.interrupt}`)
+                        .then((response) => {
+                            const msg = { type: "system", value: response };
+                            this._view?.webview.postMessage(msg);
+                        });
                     break;
                 case Command.restart:
-                    vscode.commands.executeCommand(`${this._serverId}.${Command.restart}`);
+                    vscode.commands.executeCommand(`${this._serverId}.${Command.restart}`)
+                        .then((response) => {
+                            const msg = { type: "system", value: response };
+                            this._view?.webview.postMessage(msg);
+                        });
                     break;
                 default:
                     traceLog(`Unknown command: ${command}`);
