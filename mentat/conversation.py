@@ -1,7 +1,9 @@
+from ipdb import set_trace
 from termcolor import cprint
 
 from .code_change import CodeChange
 from .code_file_manager import CodeFileManager
+from .code_map import CodeMap
 from .config_manager import ConfigManager
 from .llm_api import CostTracker, check_model_availability, choose_model, count_tokens
 from .parsing import run_async_stream_and_parse_llm_response
@@ -19,6 +21,7 @@ class Conversation:
         self.add_system_message(system_prompt)
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
+        self.code_map = CodeMap(self.code_file_manager)
         self.allow_32k = check_model_availability(config.allow_32k())
 
         tokens = count_tokens(code_file_manager.get_code_message()) + count_tokens(
@@ -52,9 +55,28 @@ class Conversation:
         messages = self.messages.copy()
 
         code_message = self.code_file_manager.get_code_message()
-        messages.append({"role": "system", "content": code_message})
+
+        code_map_message = self.code_map.get_message()
+        code_map_message_token_count = count_tokens(code_map_message)
+
+        prompt_token_count = 0
+        prompt_token_count += count_tokens(code_message)
+        for message in messages:
+            prompt_token_count += count_tokens(message["content"])
+
+        token_buffer = 500
+        token_limit = 32768 if self.allow_32k else 8192
+        token_count = prompt_token_count + code_map_message_token_count + token_buffer
+        if token_count > token_limit:
+            system_message = code_map_message
+        else:
+            system_message = "\n".join([code_message, code_map_message])
+
+        messages.append({"role": "system", "content": system_message})
 
         model, num_prompt_tokens = choose_model(messages, self.allow_32k)
+
+        set_trace()
 
         state = run_async_stream_and_parse_llm_response(
             messages, model, self.code_file_manager
