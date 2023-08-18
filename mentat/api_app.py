@@ -157,10 +157,10 @@ def get_focused_paths():
     summary="Get repository state.",
 )
 def get_repository_state():
-    response = { "code_messages": app.state.code_file_manager.get_code_message()}
+    response = {"code_messages": app.state.code_file_manager.get_code_message()}
 
     if app.state.staged_changes:
-        image_name, code_change_lines = generate_code_change_image_and_lines( 
+        image_name, code_change_lines = generate_code_change_image_and_lines(
             app.state.staged_changes["code_changes"]
         )
         response["staged_changes"] = {
@@ -209,8 +209,6 @@ def stage_changes(
                     "invalid_file": code_change.file,
                 },
             )
-
-        print(code_change.codeLines)
 
         code_changes.append(
             CodeChange(

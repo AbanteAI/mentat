@@ -22,7 +22,7 @@ core/hello_world.py
 3:    print("Hello, World!")
 4:"""
 
-example_summary = """I will make the modifications to script.py and create the new file, importing from it in script.py. 
+example_summary = """I will make the modifications to script.py and create the new file, importing from it in script.py.
 
 Steps:
 1. Modify say_hello, adding the case for Bob.
