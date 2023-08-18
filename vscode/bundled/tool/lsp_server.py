@@ -48,54 +48,45 @@ RUNNER = pathlib.Path(__file__).parent / "lsp_runner.py"
 MAX_WORKERS = 5
 # TODO: Update the language server name and version.
 LSP_SERVER = server.LanguageServer(
-    name="<pytool-display-name>", version="<server version>", max_workers=MAX_WORKERS
+    name="Mentat", version="<server version>", max_workers=MAX_WORKERS
 )
-
-
-# **********************************************************
-# Tool specific code goes below this.
-# **********************************************************
-
-# Reference:
-#  LS Protocol:
-#  https://microsoft.github.io/language-server-protocol/specifications/specification-3-16/
-#
-#  Sample implementations:
-#  Pylint: https://github.com/microsoft/vscode-pylint/blob/main/bundled/tool
-#  Black: https://github.com/microsoft/vscode-black-formatter/blob/main/bundled/tool
-#  isort: https://github.com/microsoft/vscode-isort/blob/main/bundled/tool
-
-# TODO: Update TOOL_MODULE with the module name for your tool.
-# e.g, TOOL_MODULE = "pylint"
-TOOL_MODULE = "mentat"
-
-# TODO: Update TOOL_DISPLAY with a display name for your tool.
-# e.g, TOOL_DISPLAY = "Pylint"
-TOOL_DISPLAY = "Mentat"
-
-# TODO: Update TOOL_ARGS with default argument you have to pass to your tool in
-# all scenarios.
-TOOL_ARGS = []  # default arguments always passed to your tool.
 
 
 # **********************************************************
 # Mentat features
 # **********************************************************
 
+dev_mode = os.environ.get('USE_DEBUGPY')  # TODO: Not ideal
+if dev_mode:
+  # For local development, add the path to local installation of mentat.
+  # TODO: Since mentat is copied to bundled/lib for production, we may
+  # need to "ignore" that path.
+  mentat_inner_path = pathlib.Path(__file__).parent.parent.parent.parent
+  sys.path.insert(0, str(mentat_inner_path))
+
+# TODO: For production:
+# 1. Install all mentat dependencies in bundled/lib via nox. These will be
+#    included in the extension so users don't have to download them
+# 2. Copy the latest mentat code into bundled/lib as well
+# 3. `tiktoken` is an odd case: it's architecture-dependent, so we'll need to
+#    either (a) include binaries for all OS's or (b) download it to user's
+#    machine on first run.
+
+from mentat.mentat_runner import MentatRunner
+
+_MR = MentatRunner()
+
 @LSP_SERVER.command('mentat.getResponse')
 def handle_mentat_get_response(data: str):
-    log_to_output(f"Received mentat.getResponse command: {data}")
-    return "Hello from mentat.getResponse on the server!"
+    return _MR.get_response(data)
 
 @LSP_SERVER.command('mentat.interrupt')
 def handle_mentat_interrupt(data: str):
-    log_to_output("Received mentat.interrupt command!")
-    return "Interrupting mentat from the server"
+    return _MR.interrupt()
 
 @LSP_SERVER.command('mentat.restart')
 def handle_mentat_restart(data: str):
-    log_to_output("Received mentat.restart command!")
-    return "Restarting mentat from the server"
+    return _MR.restart()
 
 
 # **********************************************************
