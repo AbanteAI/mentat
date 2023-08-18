@@ -4,6 +4,7 @@
 
 import json
 import os
+import shutil
 import pathlib
 import urllib.request as url_lib
 from typing import List
@@ -23,6 +24,39 @@ def _install_bundle(session: nox.Session) -> None:
         "-r",
         "./requirements.txt",
     )
+
+EXCLUDED_PACKAGES = ['tiktoken']  # is architecture-specific
+def _install_mentat_dependencies(session: nox.Session) -> None:
+    """Installs mentat's Python dependencies into `./bundled/libs`."""
+    
+    # Read the requirements and filter out the excluded packages
+    with open("../requirements.txt", 'r') as f:
+        lines = f.readlines()
+        filtered_requirements = [line for line in lines if not any(pkg in line for pkg in EXCLUDED_PACKAGES)]
+    
+    # Write the filtered requirements to a temporary file
+    temp_requirements_path = "./temp_requirements.txt"
+    with open(temp_requirements_path, 'w') as f:
+        f.writelines(filtered_requirements)
+    session.install(
+        "-t",
+        "./bundled/libs",
+        "--no-cache-dir",
+        "--implementation",
+        "py",
+        "--no-deps",
+        "--upgrade",
+        "-r",
+        temp_requirements_path,
+    )
+    os.remove(temp_requirements_path)
+
+
+def _copy_mentat_code() -> None:
+    """Copies the current mentat code into `./bundled/libs/mentat`."""
+    src_dir = pathlib.Path(__file__).parent.parent / 'mentat'
+    dst_dir = pathlib.Path(__file__).parent / "bundled/libs/mentat"
+    shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
 
 
 def _check_files(names: List[str]) -> None:
@@ -100,6 +134,8 @@ def _setup_template_environment(session: nox.Session) -> None:
         "./src/test/python_tests/requirements.in",
     )
     _install_bundle(session)
+    _install_mentat_dependencies(session)
+    _copy_mentat_code()
 
 
 @nox.session()

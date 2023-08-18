@@ -29,7 +29,8 @@ def update_sys_path(path_to_add: str, strategy: str) -> None:
 # Ensure that we can import LSP libraries, and other bundled libraries.
 update_sys_path(
     os.fspath(pathlib.Path(__file__).parent.parent / "libs"),
-    os.getenv("LS_IMPORT_STRATEGY", "useBundled"),
+    "useBundled",  # This was required to import mentat
+    # os.getenv("LS_IMPORT_STRATEGY", "useBundled"),
 )
 
 # **********************************************************
@@ -56,21 +57,15 @@ LSP_SERVER = server.LanguageServer(
 # Mentat features
 # **********************************************************
 
-dev_mode = os.environ.get('USE_DEBUGPY')  # TODO: Not ideal
+dev_mode = os.environ.get('USE_DEBUGPY')  # TODO: Not the best flag?
 if dev_mode:
   # For local development, add the path to local installation of mentat.
-  # TODO: Since mentat is copied to bundled/lib for production, we may
-  # need to "ignore" that path.
   mentat_inner_path = pathlib.Path(__file__).parent.parent.parent.parent
   sys.path.insert(0, str(mentat_inner_path))
 
-# TODO: For production:
-# 1. Install all mentat dependencies in bundled/lib via nox. These will be
-#    included in the extension so users don't have to download them
-# 2. Copy the latest mentat code into bundled/lib as well
-# 3. `tiktoken` is an odd case: it's architecture-dependent, so we'll need to
-#    either (a) include binaries for all OS's or (b) download it to user's
-#    machine on first run.
+# TODO: `tiktoken` is architecture-dependent, so we'll need to
+# either (a) include binaries for all arch's or (b) download it to user's
+# machine on first run.
 
 from mentat.mentat_runner import MentatRunner
 
