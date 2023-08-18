@@ -7,10 +7,9 @@ certifi==2023.7.22
 charset-normalizer==3.2.0
 click==8.1.6
 exceptiongroup==1.1.2
+fastapi==0.101.0
 fire==0.5.0
 flake8==6.0.0
-Flask==2.3.2
-Flask-Cors==4.0.0
 frozenlist==1.4.0
 gitdb==4.0.10
 GitPython==3.1.32
@@ -45,5 +44,6 @@ tiktoken==0.4.0
 tomli==2.0.1
 tqdm==4.65.0
 urllib3==2.0.4
+uvicorn==0.23.2
 wcwidth==0.2.6
 yarl==1.9.2

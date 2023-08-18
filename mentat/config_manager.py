@@ -8,6 +8,7 @@ from pathlib import Path
 from termcolor import cprint
 
 mentat_dir_path = os.path.join(Path.home(), ".mentat")
+image_cache_dir_path = os.path.join(mentat_dir_path, "image_cache")
 
 # package_name should always be "mentat" - but this will work if package name is changed
 package_name = __name__.split(".")[0]

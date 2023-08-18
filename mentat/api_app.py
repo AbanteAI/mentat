@@ -1,199 +1,315 @@
+import os
 import subprocess
-from flask import Flask, jsonify, request, send_from_directory
-from flask_cors import CORS
 from typing import Set
+from fastapi.datastructures import State
+import uvicorn
 
-from .api_image_gen import generate_path_tree_image, generate_code_change_image_and_lines
+from typing import List
+from pydantic import Field, create_model
+
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+
+from .api_image_gen import (
+    generate_code_change_image_and_lines,
+    generate_path_tree_image,
+)
 from .prompts import api_system_prompt
-from .code_change import CodeChange
+from .code_change import CodeChange, CodeChangeAction
 from .code_file_manager import CodeFileManager
 from .config_manager import ConfigManager
 from .git_handler import get_shared_git_root_for_paths
+from .config_manager import image_cache_dir_path
+
+HOST = "localhost"
+PORT = 3333
+
+app = FastAPI()
+os.makedirs(image_cache_dir_path, exist_ok=True)
+
+app.mount("/images", StaticFiles(directory=image_cache_dir_path))
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-app = Flask(__name__, static_folder="static")
-CORS(app)
-
-state = {
-    "available_paths": None,
-    "paths": None,
-    "exclude_paths": None,
-    "git_root": None,
-    "config": None,
-    "code_file_manager": None,
-    "staged_changes": None,
-    "focused_paths": set(),
-}
-
-
-def run_api(paths: Set[str], exclude: Set[str]):
-    state["paths"] = paths
-    state["exclude_paths"] = exclude
-    state["available_paths"] = (
-        state["paths"] - state["exclude_paths"]
-        if state["paths"] and state["exclude_paths"]
-        else state["paths"]
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="Mentat",
+        version="0.1.0",
+        description="Code with Mentat.",
+        routes=app.routes,
     )
-    configure_app_state()
-    app.run(debug=True, port=3333)
+    # OpenAI not parsing nested components so we flatten them.
+    openapi_schema["components"]["schemas"]["CodeChange"]["properties"][
+        "action"
+    ] = openapi_schema["components"]["schemas"]["CodeChangeAction"]
+    openapi_schema["components"]["schemas"]["StageChangesRequestBody"]["properties"][
+        "changes"
+    ]["items"] = openapi_schema["components"]["schemas"]["CodeChange"]
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
 
 
-def configure_app_state():
-    git_root = get_shared_git_root_for_paths(
-        state["focused_paths"] if state["focused_paths"] else state["paths"]
-    )
-    config = ConfigManager(git_root)
-    code_file_manager = CodeFileManager(
-        state["focused_paths"] if state["focused_paths"] else [],
-        state["exclude_paths"] if state["exclude_paths"] else [],
-        None,
-        config,
-        git_root,
-    )
-    state.update(
-        {
-            "git_root": git_root,
-            "config": config,
-            "code_file_manager": code_file_manager,
-        }
-    )
-    code_file_manager.get_code_message()
+app.openapi = custom_openapi
 
 
-@app.route("/focus-on-paths", methods=["POST"])
-def focus_on_paths():
-    requested_paths: Set[str] = set(request.json.get("paths", []))
-    invalid_paths = requested_paths - state["available_paths"]
-    if invalid_paths:
-        return (
-            jsonify(
-                {
-                    "error": "Invalid paths provided. Provided paths must be within the set of all paths (see /get-all-paths).",
-                    "invalid_paths": list(invalid_paths),
-                }
-            ),
-            400,
+class AppState(State):
+    paths: Set[str]
+    exclude_paths: Set[str]
+    available_paths: Set[str]
+    focused_paths: Set[str]
+    git_root: str
+    config: ConfigManager
+    code_file_manager: CodeFileManager
+    staged_changes: dict
+
+    def __init__(self, paths: Set[str], exclude_paths: Set[str]):
+        super().__init__()
+        self.paths: Set[str] = paths
+        self.exclude_paths: Set[str] = exclude_paths
+        self.available_paths: Set[str] = paths - exclude_paths
+        self.focused_paths: Set[str] = set()
+        self.configure()
+
+    def configure(self):
+        self.git_root = get_shared_git_root_for_paths(self.paths)
+        self.config = ConfigManager(self.git_root)
+        self.code_file_manager = CodeFileManager(
+            self.focused_paths,
+            self.exclude_paths,
+            None,
+            self.config,
+            self.git_root,
         )
-    state["focused_paths"] = requested_paths
-    state["staged_changes"] = None
-    configure_app_state()
-    return jsonify({"success": True})
+        self.code_file_manager.get_code_message()
 
 
-@app.route("/get-focused-paths", methods=["GET"])
-def get_focused_paths():
-    return jsonify(
-        {
-            "paths": list(state["focused_paths"]),
-            "user_output_image": generate_path_tree_image(
-                state["focused_paths"], state["git_root"]
-            )
-            if state["focused_paths"]
-            else None,
-        }
-    )
+def run_api(paths: Set[str], exclude_paths: Set[str]):
+    app.state = AppState(paths, exclude_paths)
+    uvicorn.run(app, host=HOST, port=PORT)
 
 
-@app.route("/get-all-paths", methods=["GET"])
+@app.get("/get-all-paths", operation_id="getAllPaths", summary="Get all paths.")
 def get_all_paths():
     return {
-        "paths": sorted(list(state["available_paths"])),
-        "user_output_image": generate_path_tree_image(
-            state["available_paths"], state["git_root"]
-        ),
+        "paths": sorted(list(app.state.available_paths)),
+        "user_output_image": f"http://{HOST}:{PORT}/images/"
+        + generate_path_tree_image(app.state.available_paths, app.state.git_root),
     }
 
 
-@app.route("/get-repository-state", methods=["GET"])
+@app.post("/focus-on-paths", operation_id="focusOnPaths", summary="Focus on paths.")
+def focus_on_paths(
+    request_body: create_model("FocusOnPathsRequestBody", paths=(List[str], ...))
+):
+    request_paths: Set[str] = set(request_body.paths)
+    invalid_paths = request_paths - app.state.available_paths
+
+    if invalid_paths:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Invalid paths provided. See getAllPaths for valid paths.",
+                "invalid_paths": list(invalid_paths),
+            },
+        )
+
+    app.state.focused_paths = request_paths
+    app.state.staged_changes = None
+    app.state.configure()
+
+    return {"success": True}
+
+
+@app.get(
+    "/get-focused-paths", operation_id="getFocusedPaths", summary="Get focused paths."
+)
+def get_focused_paths():
+    if not app.state.focused_paths:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "No focused paths. See getAllPaths for paths to set with focusOnPaths.",
+            },
+        )
+
+    image_name = generate_path_tree_image(app.state.focused_paths, app.state.git_root)
+
+    return {
+        "paths": sorted(list(app.state.focused_paths)),
+        "user_output_image": f"http://{HOST}:{PORT}/images/{image_name}",
+    }
+
+
+@app.get(
+    "/get-repository-state",
+    operation_id="getRepositoryState",
+    summary="Get repository state.",
+)
 def get_repository_state():
-    code_message = state["code_file_manager"].get_code_message()
-    response = {"code_message": code_message}
-    if state["staged_changes"]:
-        image_url, code_change_lines = generate_code_change_image_and_lines(
-            state["staged_changes"].get("code_changes", [])
+    response = { "code_messages": app.state.code_file_manager.get_code_message()}
+
+    if app.state.staged_changes:
+        image_name, code_change_lines = generate_code_change_image_and_lines( 
+            app.state.staged_changes["code_changes"]
         )
         response["staged_changes"] = {
-            "summary": state["staged_changes"].get("summary", ""),
+            "summary": app.state.staged_changes["summary"],
             "code_changes": code_change_lines,
-            "user_output_image": image_url,
+            "user_output_image": f"http://{HOST}:{PORT}/images/{image_name}",
         }
+
     return response
 
 
-@app.route("/confirm-or-clear-staged-change", methods=["POST"])
-def confirm_or_clear_staged_change():
-    accept: bool | None = request.json.get("accept")
-    clear: bool | None = request.json.get("clear")
-    if accept and state["staged_changes"]:
-        state["code_file_manager"].write_changes_to_files(
-            state["staged_changes"].get("code_changes", [])
-        )
-        state["staged_changes"] = None
-        return {"applied": True}
-    elif clear:
-        state["staged_changes"] = None
-        return {"cleared": True}
+@app.post(
+    "/stage-changes",
+    operation_id="stageChanges",
+    summary="Stage changes.",
+)
+def stage_changes(
+    request_body: create_model(
+        "StageChangesRequestBody",
+        summary=(str, ...),
+        changes=(
+            List[
+                create_model(
+                    "CodeChange",
+                    action=(CodeChangeAction, ...),
+                    file=(str, ...),
+                    insertAfterLine=(int, Field(None, alias="insert-after-line")),
+                    insertBeforeLine=(int, Field(None, alias="insert-before-line")),
+                    startLine=(int, Field(None, alias="start-line")),
+                    endLine=(int, Field(None, alias="end-line")),
+                    codeLines=(List[str], Field(default=[])),
+                )
+            ],
+            ...,
+        ),
+    )
+):
+    code_changes = []
 
+    for code_change in request_body.changes:
+        if code_change.file not in app.state.focused_paths:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "Invalid file provided. Must be in focused paths.",
+                    "invalid_file": code_change.file,
+                },
+            )
 
-@app.route("/stage-change", methods=["POST"])
-def stage_change():
-    code_changes = [
-        CodeChange(
-            code_change,
-            code_change.get("code_lines", []),
-            state["git_root"],
-            state["code_file_manager"],
+        print(code_change.codeLines)
+
+        code_changes.append(
+            CodeChange(
+                code_change.dict(by_alias=True, exclude_none=True),
+                code_change.codeLines,
+                app.state.code_file_manager,
+            )
         )
-        for code_change in request.json.get("code_changes")
-    ]
-    state["staged_changes"] = {
-        "summary": request.json.get("summary"),
+
+    app.state.staged_changes = {
+        "summary": request_body.summary,
         "code_changes": code_changes,
     }
-    image_url, code_change_lines = generate_code_change_image_and_lines(code_changes)
-    response = {
+
+    image_name, code_change_lines = generate_code_change_image_and_lines(code_changes)
+
+    return {
         "staged_changes": code_change_lines,
         "message": "Please confirm or clear the staged changes.",
-        "user_output_image": image_url,
+        "user_output_image": f"http://{HOST}:{PORT}/images/{image_name}",
     }
-    return jsonify(response)
 
 
-@app.route("/execute-command", methods=["POST"])
-def execute_command():
-    if not state["config"].api_allow_commands():
-        return (
-            jsonify({"error": "Commands are not allowed. Must enable in config."}),
-            403,
+@app.post(
+    "/execute-command",
+    operation_id="executeCommand",
+    summary='Execute command. Example: {"command": "git status --short"}.',
+)
+def execute_command(
+    request_body: create_model(
+        "ExecuteCommandRequestBody",
+        command=(str, ...),
+    )
+):
+    if not app.state.config.api_allow_commands():
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "Commands are not allowed. Must enable in config.",
+            },
         )
-    command = request.json.get("command")
     result = subprocess.run(
-        command.split(),
-        cwd=state["git_root"],
+        request_body.command.split(),
+        cwd=app.state.git_root,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    return jsonify({"result": result.stdout.decode("utf-8")})
+    return {"result": result.stdout.decode("utf-8")}
 
 
-@app.route("/<path:path>")
-def serve_static(path):
-    return send_from_directory("static", path)
-
-
-@app.route("/.well-known/ai-plugin.json", methods=["GET"])
-def ai_plugin_info():
-    return jsonify(
-        {
-            "schema_version": "v1",
-            "name_for_human": "Mentat",
-            "name_for_model": "mentat",
-            "description_for_human": "Code with Mentat.",
-            "description_for_model": api_system_prompt,
-            "auth": {"type": "none"},
-            "api": {"type": "openapi", "url": "http://localhost:3333/openapi.yaml"},
-            "logo_url": "http://localhost:3333/logo.png",
-            "contact_email": "support@example.com",
-            "legal_info_url": "http://www.example.com/legal",
-        }
+@app.post(
+    "/confirm-or-clear-staged-changes",
+    operation_id="confirmOrClearStagedChanges",
+    summary="Confirm or clear staged changes.",
+)
+def confirm_staged_changes(
+    request_body: create_model(
+        "ConfirmOrClearStagedChangesRequestBody",
+        confirm=(bool, None),
+        clear=(bool, None),
     )
+):
+    if not app.state.staged_changes:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "No staged changes. See stageChanges to stage changes.",
+            },
+        )
+
+    if request_body.confirm:
+        app.state.code_file_manager.write_changes_to_files(
+            app.state.staged_changes["code_changes"]
+        )
+        app.state.staged_changes = None
+        return {"message": "Changes applied."}
+    elif request_body.clear:
+        app.state.staged_changes = None
+        return {"message": "Changes cleared."}
+    else:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Must provide confirm or clear.",
+            },
+        )
+
+
+@app.get("/.well-known/ai-plugin.json", include_in_schema=False)
+def ai_plugin_info():
+    return {
+        "schema_version": "v1",
+        "name_for_human": "Mentat",
+        "name_for_model": "mentat",
+        "description_for_human": "Code with Mentat.",
+        "description_for_model": api_system_prompt,
+        "auth": {"type": "none"},
+        "api": {"type": "openapi", "url": "http://localhost:3333/openapi.json"},
+        "logo_url": "http://localhost:3333/logo.png",
+        "contact_email": "support@example.com",
+        "legal_info_url": "http://www.example.com/legal",
+    }
