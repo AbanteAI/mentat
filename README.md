@@ -70,6 +70,27 @@ You'll need to have API access to GPT-4 to run Mentat. There are a few options t
 
 For custom configuration options see [configuration.md](docs/configuration.md)
 
+## (Optional) Install universal ctags 
+
+Installing [universal ctags](https://github.com/universal-ctags/ctags) is helpful if you want to use Mentat with many files. This enables Mentat to better understand your code by building a map of your entire codebase. 
+
+See the [official instructions](https://github.com/universal-ctags/ctags#the-latest-build-and-package) for installing univeresal ctags for your specific operating system, however you may be able to install a compatible version with one of the following commands:
+
+**OSX**
+```shell
+brew update && brew install universal-ctags
+```
+
+**Ubuntu**
+```shell
+sudo apt update && sudo apt install universal-ctags
+```
+
+**Windows**
+```shell
+choco install universal-ctags
+```
+
 
 # 🚀 Usage
 
