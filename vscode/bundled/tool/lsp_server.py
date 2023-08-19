@@ -8,6 +8,7 @@ import sys
 import json
 import pathlib
 import zipfile
+import asyncio
 import platform
 from typing import Any, Optional, Sequence
 
@@ -105,8 +106,11 @@ from mentat.mentat_runner import MentatRunner
 _MR = MentatRunner()
 
 @LSP_SERVER.command('mentat.getResponse')
-def handle_mentat_get_response(data: str):
-    return _MR.get_response(data)
+async def handle_mentat_get_response(data: str):
+    def stream_response(chunk):
+        LSP_SERVER.send_notification('mentat.sendChunk', chunk)
+    asyncio.create_task(_MR.get_response(data, stream_response))
+    return 
 
 @LSP_SERVER.command('mentat.interrupt')
 def handle_mentat_interrupt(data: str):

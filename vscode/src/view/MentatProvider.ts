@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { traceError, traceLog, traceVerbose } from '../common/log/logging';
+import { LanguageClient } from 'vscode-languageclient/node';
 
 export interface WebViewMessage {
     command: Command,
@@ -31,7 +32,7 @@ export class MentatProvider implements vscode.WebviewViewProvider {
     */
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
-        context: vscode.WebviewViewResolveContext,
+        _context: vscode.WebviewViewResolveContext,
         _token: vscode.CancellationToken,
     ): void | Thenable<void> {
         this._view = webviewView;
@@ -58,11 +59,7 @@ export class MentatProvider implements vscode.WebviewViewProvider {
                         });
                     break;
                 case Command.interrupt:
-                    vscode.commands.executeCommand(`${this._serverId}.${Command.interrupt}`)
-                        .then((response) => {
-                            const msg = { type: "system", value: response };
-                            this._view?.webview.postMessage(msg);
-                        });
+                    vscode.commands.executeCommand(`${this._serverId}.${Command.interrupt}`);
                     break;
                 case Command.restart:
                     vscode.commands.executeCommand(`${this._serverId}.${Command.restart}`)
@@ -124,5 +121,21 @@ export class MentatProvider implements vscode.WebviewViewProvider {
      */
     private _getUri(webview: vscode.Webview, ...paths: string[]): vscode.Uri {
         return webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, ...paths));
+    }
+
+    /**
+     * Register the language client to stream chunks of data to the webview
+     * @param lsClient - The language client
+     * @returns
+     */
+    public registerClient(lsClient: LanguageClient | undefined) {
+        if (!lsClient) {
+            traceError('Language client not found');
+            return;
+        }
+        lsClient.onNotification('mentat.sendChunk', (data: String) => {
+            const msg = { type: "assistant", value: data };
+            this._view?.webview.postMessage(msg);
+        });
     }
 }
