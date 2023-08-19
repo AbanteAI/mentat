@@ -3,14 +3,12 @@
 """Implementation of tool support over LSP."""
 from __future__ import annotations
 
-import copy
-import json
 import os
-import pathlib
-import re
 import sys
-import sysconfig
-import traceback
+import json
+import pathlib
+import zipfile
+import platform
 from typing import Any, Optional, Sequence
 
 
@@ -32,6 +30,45 @@ update_sys_path(
     "useBundled",  # This was required to import mentat
     # os.getenv("LS_IMPORT_STRATEGY", "useBundled"),
 )
+
+
+# Install the architecture-specific version of tiktoken from bundled wheel
+tiktoken_path = os.fspath(pathlib.Path(__file__).parent.parent / "libs" / "tiktoken")
+if not os.path.isdir(tiktoken_path):
+
+    # Select Python version
+    wheels_path = pathlib.Path(__file__).parent.parent / "libs" / "tiktoken_wheels"
+    available_wheels = [wheel.name for wheel in wheels_path.iterdir()]
+    latest_py_version = max([int(wheel.split('-')[2][2:]) for wheel in available_wheels])
+    user_py_version = int(f'{sys.version_info.major}{sys.version_info.minor}')
+    py_version = str(min(latest_py_version, int(user_py_version)))
+
+    # Select architecture
+    system = platform.system()
+    arch = platform.machine()
+    SYSTEM_ARCH_MAPPING = {
+        ('Windows', 'x86_64'): ('win', 'amd64'),
+        ('Linux', 'x86_64'): ('manylinux2014', 'x86_64'),
+        ('Linux', 'aarch64'): ('musllinux_1_1', 'aarch64'),
+        ('Darwin', 'x86_64'): ('macosx_10_9', 'x86_64'),
+        ('Darwin', 'arm64'): ('macosx_11_0', 'arm64'),
+    }
+    try:
+        system, arch = SYSTEM_ARCH_MAPPING[(system, arch)]
+    except KeyError:
+        raise Exception("Unsupported system or architecture")
+    
+    # Find the wheel
+    pattern = f"tiktoken-*-cp{py_version}-cp{py_version}-{system}_{arch}.whl"
+    matching_wheels = list(wheels_path.glob(pattern))
+    if len(matching_wheels) == 0:
+        raise Exception(f"Compatible wheel for tiktoken not found for {system} on {arch} using Python {py_version}")
+
+    # Install the wheel
+    os.mkdir(tiktoken_path)
+    with zipfile.ZipFile(matching_wheels[0], 'r') as zip_ref:
+        zip_ref.extractall(path=str(tiktoken_path))
+
 
 # **********************************************************
 # Imports needed for the language server goes below this.
@@ -62,10 +99,6 @@ if dev_mode:
   # For local development, add the path to local installation of mentat.
   mentat_inner_path = pathlib.Path(__file__).parent.parent.parent.parent
   sys.path.insert(0, str(mentat_inner_path))
-
-# TODO: `tiktoken` is architecture-dependent, so we'll need to
-# either (a) include binaries for all arch's or (b) download it to user's
-# machine on first run.
 
 from mentat.mentat_runner import MentatRunner
 

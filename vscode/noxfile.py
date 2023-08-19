@@ -12,7 +12,11 @@ from typing import List
 import nox  # pylint: disable=import-error
 
 
-def _install_bundle(session: nox.Session) -> None:
+def _pip_install_requirements(session: nox.Session, requirements_path: str) -> None:
+    """Installs pip from a requirements file to bundled/libs.
+    
+    Includes the "--implementation py" flag to exclude architecture-specific packages.
+    """
     session.install(
         "-t",
         "./bundled/libs",
@@ -22,35 +26,70 @@ def _install_bundle(session: nox.Session) -> None:
         "--no-deps",
         "--upgrade",
         "-r",
-        "./requirements.txt",
+        requirements_path,
     )
+
+
+def _install_bundle(session: nox.Session) -> None:
+    """Install vscode-python-tools-extension-template requirements."""
+    _pip_install_requirements(session, "./requirements.txt")
+
 
 EXCLUDED_PACKAGES = ['tiktoken']  # is architecture-specific
 def _install_mentat_dependencies(session: nox.Session) -> None:
-    """Installs mentat's Python dependencies into `./bundled/libs`."""
+    """Installs mentat's Python dependencies."""
     
     # Read the requirements and filter out the excluded packages
     with open("../requirements.txt", 'r') as f:
         lines = f.readlines()
         filtered_requirements = [line for line in lines if not any(pkg in line for pkg in EXCLUDED_PACKAGES)]
     
-    # Write the filtered requirements to a temporary file
+    # Install filtered requirements using a temp file
     temp_requirements_path = "./temp_requirements.txt"
     with open(temp_requirements_path, 'w') as f:
         f.writelines(filtered_requirements)
-    session.install(
-        "-t",
-        "./bundled/libs",
-        "--no-cache-dir",
-        "--implementation",
-        "py",
-        "--no-deps",
-        "--upgrade",
-        "-r",
-        temp_requirements_path,
-    )
+    _pip_install_requirements(session, temp_requirements_path)
     os.remove(temp_requirements_path)
 
+    # For excluded packages, download all available wheels as well as dependencies
+    for pkg in EXCLUDED_PACKAGES:
+        _install_all_wheels_and_deps(session, pkg)
+
+
+def _install_all_wheels_and_deps(session: nox.Session, package_name: str='tiktoken') -> None:
+    """Download all available wheels for the latest release, as well as dependencies."""
+    
+    # Get list of wheels for the latest release
+    with url_lib.urlopen(f"https://pypi.org/pypi/{package_name}/json") as response:
+        data = json.loads(response.read().decode())
+    
+    # Filter by Python version and release version
+    MIN_PY_VERSION = 10
+    urls = [
+        release['url'] for release in data['releases'][data['info']['version']]
+        if release['packagetype'] == 'bdist_wheel'  # Only get wheel files
+        and any(f"-cp3{num}-" in release['filename'] for num in range(MIN_PY_VERSION, 15))  # Filter Python versions
+    ]
+
+    # Download all to bundled/libs
+    output_dir = f"./bundled/libs/{package_name}_wheels"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    for url in urls:
+        with url_lib.urlopen(url) as response, open(os.path.join(output_dir, os.path.basename(url)), 'wb') as out_file:
+            out_file.write(response.read())
+            print(f"Downloaded {os.path.basename(url)}")
+
+    # Install package's dependencies
+    requirements = data['info'].get('requires_dist', [])
+    if requirements:
+        requirements_clean = '\n'.join(item.replace(" (", "").replace(")", "") for item in requirements)
+        temp_requirements_path = "./temp_requirements.txt"
+        with open(temp_requirements_path, 'w') as f:
+            f.writelines(requirements_clean)
+        _pip_install_requirements(session, temp_requirements_path)
+        os.remove(temp_requirements_path)
+        
 
 def _copy_mentat_code() -> None:
     """Copies the current mentat code into `./bundled/libs/mentat`."""
