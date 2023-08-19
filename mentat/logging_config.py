@@ -27,8 +27,7 @@ def setup_logging():
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = logs_path / f"mentat_{timestamp}.log"
     latest_log_file = logs_path / "latest.log"
-    if latest_log_file.exists():
-        latest_log_file.unlink()
+    latest_log_file.unlink(missing_ok=True)
 
     file_handler = logging.FileHandler(log_file)
     file_handler_latest = logging.FileHandler(latest_log_file)

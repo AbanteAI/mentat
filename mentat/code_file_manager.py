@@ -197,7 +197,6 @@ class CodeFileManager:
             logging.info(f"Deleting file {file_path}")
             cprint(f"Deleting {delete_change.file}...")
             self.file_paths.remove(str(file_path))
-            # os.remove(file_path)
             file_path.unlink()
 
         else:
@@ -271,7 +270,6 @@ class CodeFileManager:
                 logging.info(f"Adding new file {file_path} to context")
                 self.file_paths.append(file_path)
                 # create any missing directories in the path
-                dir_name = file_path.parent
-                dir_name.mkdir(parents=True, exist_ok=True)
+                file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, "w") as f:
                 f.write("\n".join(code_lines))
