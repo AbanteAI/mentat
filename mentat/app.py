@@ -1,7 +1,6 @@
 import argparse
 import glob
 import logging
-
 from typing import Iterable, Optional
 
 from termcolor import cprint

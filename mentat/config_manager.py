@@ -1,12 +1,10 @@
 import json
 import logging
-
 from importlib import resources
 from json import JSONDecodeError
 from pathlib import Path
 
 from termcolor import cprint
-
 
 mentat_dir_path = Path.home() / ".mentat"
 
