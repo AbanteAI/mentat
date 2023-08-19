@@ -7,6 +7,10 @@ from typing import DefaultDict, Set, Tuple
 
 from ipdb import set_trace
 
+# To-Do
+# 1. prevent mentat editing files which exist in the code map but not in the code message
+# 2. create a mini-code map
+
 
 def get_git_root():
     try:
@@ -109,9 +113,9 @@ def _get_message(ctags: DefaultDict[str, Set[Tuple[str, ...]]]):
         file_maps.append(output)
 
     message = f"""
-        Below is a map of all files tracked by git in this project. Let the user know 
-        if you think they should add the complete source code of any files to this 
-        chat.
+        Below is a read-only code map of all files tracked by git in this project. 
+        If you need to edit any of the files in this code map that aren't in the current context,
+        don't try to edit them and instead give the user the filepaths of what they should add to this context.
     """
     message = message.strip()
     message = re.sub(r"[\n\s]+", " ", message)

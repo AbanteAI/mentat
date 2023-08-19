@@ -3,7 +3,7 @@ from termcolor import cprint
 
 from .code_change import CodeChange
 from .code_file_manager import CodeFileManager
-from .code_map import get_code_map_message, get_git_root
+from .code_map import get_code_map_message
 from .config_manager import ConfigManager
 from .llm_api import CostTracker, check_model_availability, choose_model, count_tokens
 from .parsing import run_async_stream_and_parse_llm_response
@@ -69,9 +69,8 @@ class Conversation:
                 prompt_token_count + code_map_message_token_count + token_buffer
             )
 
-            set_trace()
-
             if token_count < token_limit:
+                set_trace()
                 system_message = "\n".join([code_message, code_map_message])
 
         messages.append({"role": "system", "content": system_message})
