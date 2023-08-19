@@ -48,12 +48,12 @@ def _get_git_root_for_path(path) -> str:
     else:
         dir_path = os.path.dirname(path)
     try:
-        git_root = (
+        relative_path = (
             subprocess.check_output(
                 [
                     "git",
                     "rev-parse",
-                    "--show-toplevel",
+                    "--show-prefix",
                 ],
                 cwd=os.path.realpath(dir_path),
                 stderr=subprocess.DEVNULL,
@@ -61,6 +61,7 @@ def _get_git_root_for_path(path) -> str:
             .decode("utf-8")
             .strip()
         )
+        git_root = os.path.abspath(os.path.join(dir_path, "../" * (len(os.path.split(relative_path)) - 1)))
         # call realpath to resolve symlinks, so all paths match
         return os.path.realpath(git_root)
     except subprocess.CalledProcessError:
