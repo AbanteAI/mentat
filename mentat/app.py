@@ -1,7 +1,7 @@
 import argparse
 import glob
 import logging
-from pathlib import Path
+
 from typing import Iterable, Optional
 
 from termcolor import cprint
