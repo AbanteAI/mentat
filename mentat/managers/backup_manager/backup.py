@@ -37,7 +37,7 @@ class CodeBackupManager:
                 self.backup_dir, os.path.basename(file_path) + ".backup"
             )
 
-    def backup_files(self, code_file_manager: "CodeFileManager"):
+    def backup_files(self, code_file_manager):
         cprint("Creating backups...", color="yellow")
 
         for file_path in code_file_manager.get_all_file_paths():

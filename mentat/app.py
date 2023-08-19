@@ -80,9 +80,6 @@ def run(
     os.makedirs(mentat_dir_path, exist_ok=True)
     setup_logging()
     logging.debug(f"Paths: {paths}")
-
-    backup_manager = CodeBackupManager(".mentat_backups")
-
     cost_tracker = CostTracker()
 
     try:
@@ -198,9 +195,7 @@ def get_user_feedback_on_changes(
     return need_user_request
 
 
-def backup_files(
-    code_file_manager: CodeFileManager
-):
+def backup_files(code_file_manager: CodeFileManager):
     backup_manager = CodeBackupManager(".mentat_backups")
     backup_manager.backup_files(code_file_manager)
 
@@ -208,7 +203,8 @@ def backup_files(
 def user_select_files_to_revert(available_backups: list) -> list:
     try:
         cprint(
-            "Enter the numbers of the backup files you wish to revert (e.g., '1 3 4') or Press Enter to revert all or Press Ctrl-C to cancel revertion.",
+            "Enter the numbers of the backup files you wish to revert (e.g., '1 3 4') or "
+            "Press Enter to revert all or Press Ctrl-C to cancel revertion.",
             color="light_blue",
         )
         user_response = input().strip()
