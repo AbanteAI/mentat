@@ -3,7 +3,7 @@ from termcolor import cprint
 
 from .code_change import CodeChange
 from .code_file_manager import CodeFileManager
-from .code_map import get_code_map_message
+from .code_map import CodeMap
 from .config_manager import ConfigManager
 from .llm_api import CostTracker, check_model_availability, choose_model, count_tokens
 from .parsing import run_async_stream_and_parse_llm_response
@@ -16,11 +16,13 @@ class Conversation:
         config: ConfigManager,
         cost_tracker: CostTracker,
         code_file_manager: CodeFileManager,
+        code_map: CodeMap | None = None,
     ):
         self.messages = []
         self.add_system_message(system_prompt)
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
+        self.code_map = code_map
         self.allow_32k = check_model_availability(config.allow_32k())
 
         tokens = count_tokens(code_file_manager.get_code_message()) + count_tokens(
@@ -56,22 +58,22 @@ class Conversation:
         code_message = self.code_file_manager.get_code_message()
         system_message = code_message
 
-        code_map_message = get_code_map_message()
-        if code_map_message is not None:
-            code_map_message_token_count = count_tokens(code_map_message)
-            prompt_token_count = 0
-            prompt_token_count += count_tokens(code_message)
-            for message in messages:
-                prompt_token_count += count_tokens(message["content"])
-            token_buffer = 1000
-            token_limit = 32768 if self.allow_32k else 8192
-            token_count = (
-                prompt_token_count + code_map_message_token_count + token_buffer
-            )
-
-            if token_count < token_limit:
-                set_trace()
-                system_message = "\n".join([code_message, code_map_message])
+        if self.code_map:
+            code_map_message = self.code_map.get_message()
+            if code_map_message is not None:
+                code_map_message_token_count = count_tokens(code_map_message)
+                prompt_token_count = 0
+                prompt_token_count += count_tokens(code_message)
+                for message in messages:
+                    prompt_token_count += count_tokens(message["content"])
+                token_buffer = 1000
+                token_limit = 32768 if self.allow_32k else 8192
+                token_count = (
+                    prompt_token_count + code_map_message_token_count + token_buffer
+                )
+                if token_count < token_limit:
+                    set_trace()
+                    system_message = "\n".join([code_message, code_map_message])
 
         messages.append({"role": "system", "content": system_message})
 

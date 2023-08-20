@@ -9,6 +9,7 @@ from termcolor import cprint
 from .code_change import CodeChange
 from .code_change_display import print_change
 from .code_file_manager import CodeFileManager
+from .code_map import CodeMap
 from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
 from .errors import MentatError, UserError
@@ -97,7 +98,8 @@ def loop(
         config,
         git_root,
     )
-    conv = Conversation(config, cost_tracker, code_file_manager)
+    code_map = CodeMap(git_root)
+    conv = Conversation(config, cost_tracker, code_file_manager, code_map)
 
     cprint("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")
     cprint("What can I do for you?", color="light_blue")
