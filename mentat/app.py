@@ -98,7 +98,7 @@ def loop(
         config,
         git_root,
     )
-    code_map = CodeMap(git_root)
+    code_map = CodeMap(git_root, token_limit=2048)
     conv = Conversation(config, cost_tracker, code_file_manager, code_map)
 
     cprint("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")

@@ -1,5 +1,4 @@
 import json
-import os
 import re
 import subprocess
 import tempfile
@@ -9,7 +8,7 @@ from typing import List
 from .llm_api import count_tokens
 
 
-def get_git_files(git_root: str, absolute_paths: bool = False) -> List[str]:
+def _get_git_files(git_root: str, absolute_paths: bool = False) -> List[str]:
     git_files_ = (
         subprocess.check_output(["git", "ls-files"], cwd=git_root)
         .decode("utf-8")
@@ -65,6 +64,9 @@ def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
 
         ctags.add(tuple(res))
 
+    if len(ctags) == 0:
+        return f"{file_path}\n"
+
     # Build LLM-readable string representation of ctag objects
     sorted_tags = sorted(ctags)
     output = ""
@@ -116,7 +118,7 @@ def _get_file_map(file_paths: List[str]):
 
 
 class CodeMap:
-    def __init__(self, git_root: str, token_limit: int | None = 2048):
+    def __init__(self, git_root: str, token_limit: int | None = None):
         self.git_root = git_root
         self.token_limit = token_limit
 
@@ -144,10 +146,10 @@ class CodeMap:
                 return
 
             with tempfile.TemporaryDirectory() as tempdir:
-                hello_py = os.path.join(tempdir, "hello.py")
+                hello_py = Path(tempdir).joinpath("hello.py")
                 with open(hello_py, "w", encoding="utf-8") as f:
                     f.write("def hello():\n    print('Hello, world!')\n")
-                _get_code_map(tempdir, hello_py)
+                _get_code_map(tempdir, str(hello_py))
         except FileNotFoundError:
             self.ctags_disabled_reason = f"ctags executable not found"
             return
@@ -168,7 +170,10 @@ class CodeMap:
             )
             code_map_token_count = count_tokens(code_map)
 
-            if self.token_limit is not None and code_map_token_count > self.token_limit:
+            if (
+                self.token_limit is not None
+                and code_maps_token_count > self.token_limit
+            ):
                 if exclude_signatures is True:
                     return
                 return self._get_code_map_message(
@@ -214,7 +219,7 @@ class CodeMap:
         return message
 
     def get_message(self):
-        git_file_paths = get_git_files(self.git_root)
+        git_file_paths = _get_git_files(self.git_root)
 
         if not self.ctags_disabled:
             code_map_message = self._get_code_map_message(self.git_root, git_file_paths)
