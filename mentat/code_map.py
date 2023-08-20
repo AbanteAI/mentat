@@ -3,13 +3,11 @@ import re
 import subprocess
 from collections import defaultdict
 from pathlib import Path
-from typing import DefaultDict, Set, Tuple
+from typing import DefaultDict, List, Set, Tuple
 
 from ipdb import set_trace
 
-# To-Do
-# 1. prevent mentat editing files which exist in the code map but not in the code message
-# 2. create a mini-code map
+from .llm_api import count_tokens
 
 
 def get_git_root():
@@ -25,23 +23,24 @@ def get_git_root():
     return git_root
 
 
-def get_git_files():
-    git_files = (
-        subprocess.check_output(["git", "ls-files"]).decode("utf-8").splitlines()
+def get_git_files(git_root: str, absolute_paths: bool = False) -> List[str]:
+    git_files_ = (
+        subprocess.check_output(["git", "ls-files"], cwd=git_root)
+        .decode("utf-8")
+        .splitlines()
     )
+    if absolute_paths:
+        git_files = [str(Path(git_root).joinpath(f)) for f in git_files_]
+    else:
+        git_files = git_files_
 
     return git_files
 
 
-def _build_ctags():
+def _build_ctags(root: str, file_paths: List[str]):
     ctags: DefaultDict[str, Set[Tuple[str, ...]]] = defaultdict(set)
 
-    git_root = get_git_root()
-    if git_root is None:
-        return
-    git_file_paths = get_git_files()
-
-    for file_path in git_file_paths:
+    for file_path in file_paths:
         ctags_cmd = [
             "ctags",
             "--fields=+S",
@@ -49,7 +48,7 @@ def _build_ctags():
             "--input-encoding=utf-8",
             "--output-format=json",
             "--output-encoding=utf-8",
-            str(Path(git_root).joinpath(file_path)),
+            str(Path(root).joinpath(file_path)),
         ]
         output = subprocess.check_output(ctags_cmd, stderr=subprocess.PIPE).decode(
             "utf-8"
@@ -83,10 +82,10 @@ def _build_ctags():
     return ctags
 
 
-def _get_message(ctags: DefaultDict[str, Set[Tuple[str, ...]]]):
+def _get_code_map_message(ctags: DefaultDict[str, Set[Tuple[str, ...]]]):
     file_maps = []
-    for ctags in ctags.values():
-        sorted_tags = sorted(ctags)
+    for ctags_ in ctags.values():
+        sorted_tags = sorted(ctags_)
 
         output = ""
         last = [None] * len(sorted_tags[0])
@@ -124,13 +123,40 @@ def _get_message(ctags: DefaultDict[str, Set[Tuple[str, ...]]]):
     return message
 
 
-def get_code_map_message():
-    is_git_repo = True if get_git_root() is not None else False
-    if not is_git_repo:
-        return
-    ctags = _build_ctags()
-    if ctags is None:
-        return
-    message = _get_message(ctags)
+def _get_file_map_message(file_paths: List[str]):
+    tree = {}
+    for file_path in file_paths:
+        parts = file_path.split("/")
+        node = tree
+        for part in parts:
+            if part not in node:
+                node[part] = {}
+            node = node[part]
 
-    return message
+    def tree_to_string(tree, indent=0):
+        s = ""
+        sorted_keys = sorted(tree.keys())
+        for key in sorted_keys:
+            s += "\t" * indent + key + "\n"
+            s += tree_to_string(tree[key], indent + 1)
+        return s
+
+    return tree_to_string(tree)
+
+
+def get_code_map_message(token_limit: int | None = None):
+    git_root = get_git_root()
+    if not git_root:
+        return
+    git_file_paths = get_git_files(git_root)
+    ctags = _build_ctags(git_root, git_file_paths)
+
+    code_map_message = _get_code_map_message(ctags)
+    code_map_message_token_count = count_tokens(code_map_message)
+    if token_limit is None or code_map_message_token_count <= token_limit:
+        return code_map_message
+
+    file_map_message = _get_file_map_message(git_file_paths)
+    file_map_message_token_count = count_tokens(file_map_message)
+    if file_map_message_token_count <= token_limit:
+        return file_map_message
