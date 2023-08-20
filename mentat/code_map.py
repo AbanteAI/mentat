@@ -160,8 +160,14 @@ class CodeMap:
         self.ctags_disabled = False
 
     def _get_code_map_message(
-        self, root: str, file_paths: List[str], exclude_signatures: bool = False
+        self,
+        root: str,
+        file_paths: List[str],
+        exclude_signatures: bool = False,
+        token_limit: int | None = None,
     ) -> str | None:
+        token_limit = token_limit or self.token_limit
+
         code_maps = []
         code_maps_token_count = 0
         for file_path in file_paths:
@@ -170,62 +176,52 @@ class CodeMap:
             )
             code_map_token_count = count_tokens(code_map)
 
-            if (
-                self.token_limit is not None
-                and code_maps_token_count > self.token_limit
-            ):
+            if token_limit is not None and code_maps_token_count > token_limit:
                 if exclude_signatures is True:
                     return
                 return self._get_code_map_message(
-                    root, file_paths, exclude_signatures=True
+                    root, file_paths, exclude_signatures=True, token_limit=token_limit
                 )
 
             code_maps.append(code_map)
             code_maps_token_count += code_map_token_count
 
-        message = f"""
-            Below is a read-only code map of all files tracked by git in this project. 
-            If you need to edit any of the files in this code map that aren't in the current context,
-            don't try to edit them and instead give the user the filepaths of what they should add to this context.
-        """
-        message = message.strip()
-        message = re.sub(r"[\n\s]+", " ", message)
-        message += "\n\n" + "\n".join(code_maps)
+        message = "Code Map:" + "\n\n" + "\n".join(code_maps)
 
         message_token_count = count_tokens(message)
-        if self.token_limit is not None and message_token_count > self.token_limit:
+        if token_limit is not None and message_token_count > token_limit:
             if exclude_signatures is True:
                 return
             return self._get_code_map_message(root, file_paths, exclude_signatures=True)
 
         return message
 
-    def _get_file_map_message(self, file_paths: List[str]) -> str | None:
+    def _get_file_map_message(
+        self, file_paths: List[str], token_limit: int | None = None
+    ) -> str | None:
         file_map_tree = _get_file_map(file_paths)
 
-        message = f"""
-            Below is a read-only code map of all files tracked by git in this project. 
-            If you need to edit any of the files in this code map that aren't in the current context,
-            don't try to edit them and instead give the user the filepaths of what they should add to this context.
-        """
-        message = message.strip()
-        message = re.sub(r"[\n\s]+", " ", message)
-        message += "\n\n" + file_map_tree
+        message = "Code Map:" + "\n\n" + file_map_tree
 
         message_token_count = count_tokens(message)
-        if self.token_limit is not None and message_token_count > self.token_limit:
+        token_limit = token_limit or self.token_limit
+        if token_limit is not None and message_token_count > token_limit:
             return
 
         return message
 
-    def get_message(self):
+    def get_message(self, token_limit: int | None = None):
         git_file_paths = _get_git_files(self.git_root)
 
         if not self.ctags_disabled:
-            code_map_message = self._get_code_map_message(self.git_root, git_file_paths)
+            code_map_message = self._get_code_map_message(
+                self.git_root, git_file_paths, token_limit=token_limit
+            )
             if code_map_message is not None:
                 return code_map_message
 
-        file_map_message = self._get_file_map_message(git_file_paths)
+        file_map_message = self._get_file_map_message(
+            git_file_paths, token_limit=token_limit
+        )
         if file_map_message is not None:
             return file_map_message
