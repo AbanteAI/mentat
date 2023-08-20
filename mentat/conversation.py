@@ -1,4 +1,3 @@
-from ipdb import set_trace
 from termcolor import cprint
 
 from .code_change import CodeChange
@@ -72,7 +71,6 @@ class Conversation:
                     prompt_token_count + code_map_message_token_count + token_buffer
                 )
                 if token_count < token_limit:
-                    set_trace()
                     system_message = "\n".join([code_message, code_map_message])
 
         messages.append({"role": "system", "content": system_message})
