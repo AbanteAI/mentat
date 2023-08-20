@@ -1,13 +1,10 @@
 import json
-import logging
 import os
 import re
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import List
-
-from ipdb import set_trace
 
 from .llm_api import count_tokens
 
@@ -119,7 +116,7 @@ def _get_file_map(file_paths: List[str]):
 
 
 class CodeMap:
-    def __init__(self, git_root: str, token_limit: int | None = None):
+    def __init__(self, git_root: str, token_limit: int | None = 2048):
         self.git_root = git_root
         self.token_limit = token_limit
 
