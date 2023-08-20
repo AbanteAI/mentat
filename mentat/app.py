@@ -37,26 +37,7 @@ def run_cli():
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
-    run(expand_paths(paths), expand_paths(exclude_paths))
-
-
-def expand_paths(paths: Iterable[str]) -> Iterable[str]:
-    globbed_paths = set()
-    invalid_paths = []
-    for path in paths:
-        new_paths = glob.glob(pathname=path, recursive=True)
-        if new_paths:
-            globbed_paths.update(new_paths)
-        else:
-            invalid_paths.append(path)
-    if invalid_paths:
-        cprint(
-            "The following paths do not exist:",
-            "light_yellow",
-        )
-        print("\n".join(invalid_paths))
-        exit()
-    return globbed_paths
+    run(paths, exclude_paths)
 
 
 def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
