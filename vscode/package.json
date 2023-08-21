@@ -49,17 +49,23 @@
     ],
     "main": "./dist/extension.js",
     "scripts": {
-        "vscode:prepublish": "npm run package",
-        "compile": "webpack",
-        "watch": "webpack --watch",
-        "package": "webpack --mode production --devtool source-map --config ./webpack.config.js",
-        "compile-tests": "tsc -p . --outDir out",
-        "watch-tests": "tsc -p . -w --outDir out",
-        "pretest": "npm run compile-tests && npm run compile && npm run lint",
-        "lint": "eslint src --ext ts",
-        "format-check": "prettier --check 'src/**/*.ts' 'build/**/*.yml' '.github/**/*.yml'",
-        "test": "node ./out/test/runTest.js",
-        "vsce-package": "vsce package -o mentat.vsix"
+      "vscode:prepublish": "npm run package",
+      "compile:ts": "webpack",
+      "compile:svelte": "rollup -c",
+      "watch:ts": "webpack --watch",
+      "watch:svelte": "rollup -c -w",
+      "compile": "npm run compile:ts && npm run compile:svelte",
+      "watch": "npm run watch:ts & npm run watch:svelte",
+      "package": "npm run package:ts && npm run package:svelte",
+      "package:ts": "webpack --mode production --devtool source-map --config ./webpack.config.js",
+      "package:svelte": "rollup -c",
+      "compile-tests": "tsc -p . --outDir out",
+      "watch-tests": "tsc -p . -w --outDir out",
+      "pretest": "npm run compile-tests && npm run compile && npm run lint",
+      "lint": "eslint src --ext ts",
+      "format-check": "prettier --check 'src/**/*.ts' 'build/**/*.yml' '.github/**/*.yml'",
+      "test": "node ./out/test/runTest.js",
+      "vsce-package": "vsce package -o mentat.vsix"
     },
     "contributes": {
         "configuration": {
@@ -148,34 +154,42 @@
             }
         ],
         "viewsContainers": {
-          "activitybar": [
-            {
-              "id": "mentat",
-              "title": "Mentat",
-              "icon": "resources/mentat-icon.svg"
-            }
-          ]
+            "activitybar": [
+                {
+                    "id": "mentat",
+                    "title": "Mentat",
+                    "icon": "resources/mentat-icon.svg"
+                }
+            ]
         },
         "views": {
-          "mentat": [
-            {
-              "type": "webview",
-              "id": "mentat.chatView",
-              "name": "Mentat Chat"
-            }
-          ]
+            "mentat": [
+                {
+                    "type": "webview",
+                    "id": "mentat.chatView",
+                    "name": "Mentat Chat"
+                }
+            ]
         }
     },
     "dependencies": {
+        "@rollup/plugin-commonjs": "^25.0.4",
+        "@rollup/plugin-node-resolve": "^15.2.0",
+        "@rollup/plugin-terser": "^0.4.3",
         "@vscode/python-extension": "1.0.1",
         "fs-extra": "^11.1.1",
+        "rollup": "^3.28.0",
+        "rollup-plugin-css-only": "^4.3.0",
+        "rollup-plugin-livereload": "^2.0.5",
+        "rollup-plugin-svelte": "^7.1.6",
+        "svelte": "^4.2.0",
         "vscode-languageclient": "^8.1.0"
     },
     "devDependencies": {
         "@types/fs-extra": "^11.0.1",
-        "@types/vscode": "1.78.0",
         "@types/glob": "^8.1.0",
         "@types/node": "16.x",
+        "@types/vscode": "1.78.0",
         "@typescript-eslint/eslint-plugin": "^6.2.0",
         "@typescript-eslint/parser": "^6.2.0",
         "@vscode/test-electron": "^2.3.3",
@@ -183,8 +197,8 @@
         "eslint": "^8.45.0",
         "glob": "^10.3.3",
         "prettier": "^3.0.0",
-        "typescript": "^5.1.6",
         "ts-loader": "^9.4.4",
+        "typescript": "^5.1.6",
         "webpack": "^5.88.2",
         "webpack-cli": "^5.1.4"
     }

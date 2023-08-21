@@ -52,11 +52,8 @@ export class MentatProvider implements vscode.WebviewViewProvider {
                     const echo = { type: "user", value: data };
                     this._view?.webview.postMessage(echo);
                     // Send to backend
-                    vscode.commands.executeCommand(`${this._serverId}.${Command.getResponse}`, data)
-                        .then((response) => {
-                            const msg = { type: "assistant", value: response };
-                            this._view?.webview.postMessage(msg);
-                        });
+                    vscode.commands.executeCommand(`${this._serverId}.${Command.getResponse}`, data);
+                    // Ignore the return value for now because response is streamed
                     break;
                 case Command.interrupt:
                     vscode.commands.executeCommand(`${this._serverId}.${Command.interrupt}`);
@@ -83,8 +80,8 @@ export class MentatProvider implements vscode.WebviewViewProvider {
     private _generateHtml(webview: vscode.Webview): string {
 
         // Load scripts and styles files
-        const scriptUri = this._getUri(webview, 'src', 'view', 'scripts', 'main.js');
-        const stylesUri = this._getUri(webview, 'src', 'view', 'css', 'styles.css');
+        const scriptUri = this._getUri(webview, 'dist', 'bundle.js');
+        const stylesUri = this._getUri(webview, 'dist', 'bundle.css');
         
         return `
           <!DOCTYPE html>
@@ -93,21 +90,9 @@ export class MentatProvider implements vscode.WebviewViewProvider {
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <link href="${stylesUri}" rel="stylesheet">
+              <script defer src="${scriptUri}"></script>
             </head>
             <body>
-            
-            <div id="conversation-container" class="conversation">
-              <div class="message assistant">Welcome to Mentat Chat!</div>
-            </div>
-
-            <input class="input" id="prompt" type="text" placeholder="Enter a prompt" />
-            <div class="button-container">
-              <button class="button" id="get-response">Get Response</button>
-              <button class="button" id="interrupt">Interrupt</button>
-              <button class="button" id="restart">Restart</button>
-            </div>
-
-            <script src="${scriptUri}"></script>
             </body>
           </html>
         `;
