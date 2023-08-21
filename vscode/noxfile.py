@@ -98,15 +98,6 @@ def _copy_mentat_code() -> None:
     shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
 
 
-def _check_files(names: List[str]) -> None:
-    root_dir = pathlib.Path(__file__).parent
-    for name in names:
-        file_path = root_dir / name
-        lines: List[str] = file_path.read_text().splitlines()
-        if any(line for line in lines if line.startswith("# TODO:")):
-            raise Exception(f"Please update {os.fspath(file_path)}.")
-
-
 def _update_pip_packages(session: nox.Session) -> None:
     session.run("pip-compile", "--generate-hashes", "--resolver=backtracking", "--upgrade", "./requirements.in")
     session.run(
@@ -226,7 +217,6 @@ def lint(session: nox.Session) -> None:
 @nox.session()
 def build_package(session: nox.Session) -> None:
     """Builds VSIX package for publishing."""
-    _check_files(["README.md", "LICENSE", "SECURITY.md", "SUPPORT.md"])
     _setup_template_environment(session)
     session.run("npm", "install", external=True)
     session.run("npm", "run", "vsce-package", external=True)

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { traceError, traceLog, traceVerbose } from '../common/log/logging';
+import { traceError, traceLog, traceVerbose } from './common/log/logging';
 import { LanguageClient } from 'vscode-languageclient/node';
 
 export interface WebViewMessage {

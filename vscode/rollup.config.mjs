@@ -38,7 +38,7 @@ export default {
 		}),
 		commonjs(),
 
-		// Watch the `public` directory and refresh the
+		// Watch the `src/svelte` directory and refresh the
 		// browser on changes when not in production
 		!production && livereload('src/svelte'),
 
