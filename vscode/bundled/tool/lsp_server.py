@@ -103,10 +103,11 @@ if dev_mode:
 
 from mentat.mentat_runner import MentatRunner
 
-_MR = MentatRunner()
+_MR = None
 
 @LSP_SERVER.command('mentat.getResponse')
 async def handle_mentat_get_response(data: str):
+    global _MR
     def stream_response(chunk):
         LSP_SERVER.send_notification('mentat.sendChunk', chunk)
     asyncio.create_task(_MR.get_response(data, stream_response))
@@ -114,12 +115,20 @@ async def handle_mentat_get_response(data: str):
 
 @LSP_SERVER.command('mentat.interrupt')
 def handle_mentat_interrupt(data: str):
+    global _MR
     return _MR.interrupt()
 
 @LSP_SERVER.command('mentat.restart')
-def handle_mentat_restart(data: str):
-    return _MR.restart()
-
+async def handle_mentat_restart(data: list):
+    global _MR
+    if _MR is not None:
+        _MR.cleanup()
+    _MR = MentatRunner(data)
+    response = f'Mentat initialized with paths={str(_MR.paths)} exclude={str(_MR.exclude_paths)}'
+    async def echo():
+        await asyncio.sleep(0.5)
+        LSP_SERVER.send_notification('mentat.sendChunk', response)
+    asyncio.create_task(echo())
 
 # **********************************************************
 # Required Language Server Initialization and Exit handlers.

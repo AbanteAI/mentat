@@ -8,6 +8,7 @@ export interface WebViewMessage {
 }
 
 export enum Command {
+    getPaths = 'getPaths',
     getResponse = 'getResponse',
     interrupt = 'interrupt',
     restart = 'restart',
@@ -45,9 +46,20 @@ export class MentatProvider implements vscode.WebviewViewProvider {
         webviewView.webview.html = this._generateHtml(webviewView.webview);
 
         // Intercept messages coming from the webview/user
-        this._view.webview.onDidReceiveMessage((msg: WebViewMessage) => {
+        this._view.webview.onDidReceiveMessage(async (msg: WebViewMessage) => {
             const { command, data } = msg;
             switch (command) {
+                case Command.getPaths:
+                    // Resolve the list of files in the workspace
+                    let paths: any[] = [];
+                    if (vscode.workspace.workspaceFolders) {
+                      const workspaceFolder = vscode.workspace.workspaceFolders[0];
+                      const uri = workspaceFolder.uri;
+                      const files = await vscode.workspace.fs.readDirectory(uri);
+                      paths = files.filter(([_, type]) => type === vscode.FileType.File).map(([name]) => name);
+                    }
+                    this._view?.webview.postMessage({ type: "paths", value: paths });
+                    break;
                 case Command.getResponse:
                     const echo = { type: "user", value: data };
                     this._view?.webview.postMessage(echo);
@@ -59,11 +71,7 @@ export class MentatProvider implements vscode.WebviewViewProvider {
                     vscode.commands.executeCommand(`${this._serverId}.${Command.interrupt}`);
                     break;
                 case Command.restart:
-                    vscode.commands.executeCommand(`${this._serverId}.${Command.restart}`)
-                        .then((response) => {
-                            const msg = { type: "system", value: response };
-                            this._view?.webview.postMessage(msg);
-                        });
+                    vscode.commands.executeCommand(`${this._serverId}.${Command.restart}`, data);
                     break;
                 default:
                     traceLog(`Unknown command: ${command}`);

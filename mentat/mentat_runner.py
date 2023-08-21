@@ -2,8 +2,9 @@ import asyncio
 
 class MentatRunner:
     _interrupted = False
-    def __init__(self):
-        pass
+    def __init__(self, paths, exclude_paths=None):
+        self.paths = paths
+        self.exclude_paths = exclude_paths
     
     async def get_response(self, data: str, stream_handler: callable):
         response = f'Responding to {data}'
@@ -19,5 +20,5 @@ class MentatRunner:
     def interrupt(self):
         self._interrupted = True
     
-    def restart(self):
-        return 'Restarting'
+    def cleanup(self):
+        self.interrupt()
