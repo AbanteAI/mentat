@@ -18,7 +18,8 @@ package_name = __name__.split(".")[0]
 # Check for .env file or already exported API key
 # If no api key found, raise an error
 def setup_api_key():
-    if not load_dotenv(os.path.join(mentat_dir_path, ".env")):
+    mentat_dir_path / ".env"
+    if not load_dotenv(mentat_dir_path / ".env"):
         load_dotenv()
     key = os.getenv("OPENAI_API_KEY")
     if not key:

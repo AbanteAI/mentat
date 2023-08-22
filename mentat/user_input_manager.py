@@ -1,5 +1,4 @@
 import logging
-import os
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
@@ -30,9 +29,7 @@ class UserQuitInterrupt(Exception):
 class UserInputManager:
     def __init__(self, config: ConfigManager):
         self.config = config
-        self.file_history = FilteredFileHistory(
-            os.path.join(mentat_dir_path, "history"), config
-        )
+        self.file_history = FilteredFileHistory(mentat_dir_path / "history", config)
         self.auto_suggest = AutoSuggestFromHistory()
         self.style = Style(config.input_style())
         self.prompt = [("class:prompt", ">>> ")]
