@@ -61,6 +61,8 @@ def _get_git_root_for_path(path) -> str:
             .decode("utf-8")
             .strip()
         )
+        # --show-toplevel doesn't work in some windows environment with posix paths,
+        # like msys2, so we have to use --show-prefix instead
         git_root = os.path.abspath(
             os.path.join(dir_path, "../" * len(Path(relative_path).parts))
         )
