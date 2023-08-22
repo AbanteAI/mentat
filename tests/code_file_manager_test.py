@@ -1,9 +1,11 @@
 import os
+from textwrap import dedent
 from unittest import TestCase
 
 import pytest
 
-from mentat.code_file_manager import CodeFileManager, expand_paths
+from mentat.app import expand_paths
+from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
 from mentat.errors import UserError
 
@@ -72,7 +74,6 @@ def test_config_glob_exclude(mocker, temp_testbed, mock_config):
         git_root=temp_testbed,
     )
     file_paths = [str(file.path.resolve()) for file in code_file_manager.files]
-    print("jake here", file_paths)
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
     assert os.path.join(temp_testbed, glob_include_path) in file_paths
     assert os.path.join(temp_testbed, directly_added_glob_excluded_path) in file_paths
@@ -194,13 +195,12 @@ def test_partial_files(temp_testbed, mock_config):
     file_path = os.path.join(dir_name, file_name)
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
-        file_file.write(
-            """I am a file
-with 5 lines
-third
-fourth
-fifth"""
-        )
+        file_file.write(dedent("""\
+             I am a file
+             with 5 lines
+             third
+             fourth
+             fifth"""))
     file_path_partial = file_path + ":1,3-5"
 
     code_file_manager = CodeFileManager(
@@ -211,14 +211,12 @@ fifth"""
         git_root=temp_testbed,
     )
     code_message = code_file_manager.get_code_message()
-    assert (
-        code_message
-        == """Code Files:
+    assert code_message == dedent("""\
+             Code Files:
 
-dir/file.txt
-1:I am a file
-3:third
-4:fourth
-5:fifth
-"""
-    )
+             dir/file.txt
+             1:I am a file
+             3:third
+             4:fourth
+             5:fifth
+              """)

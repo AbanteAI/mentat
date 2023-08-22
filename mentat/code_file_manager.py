@@ -13,6 +13,7 @@ from .change_conflict_resolution import (
     resolve_non_insertion_conflicts,
 )
 from .code_change import CodeChange, CodeChangeAction
+from .code_file import CodeFile
 from .config_manager import ConfigManager
 from .errors import MentatError, UserError
 from .git_handler import (
@@ -73,7 +74,7 @@ def _abs_files_from_list(paths: Iterable[str], check_for_text: bool = True):
     files_direct = set()
     file_paths_from_dirs = set()
     for path in paths:
-        file = File(path)
+        file = CodeFile(path)
         path = Path(file.path)
         if path.is_file():
             if check_for_text and not _is_file_text_encoded(path):
@@ -95,7 +96,7 @@ def _abs_files_from_list(paths: Iterable[str], check_for_text: bool = True):
                 )
             )
 
-    files_from_dirs = [File(path) for path in file_paths_from_dirs]
+    files_from_dirs = [CodeFile(path) for path in file_paths_from_dirs]
     return files_direct, files_from_dirs
 
 
@@ -104,76 +105,6 @@ def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True)
     return set(map(lambda f: f.path, files_direct)), set(
         map(lambda f: f.path, files_from_dirs)
     )
-
-
-class Interval:
-    def __init__(
-        self,
-        start: int,
-        end: int,
-    ):
-        self.start = start
-        self.end = end
-
-    def contains(self, k):
-        return self.start <= k <= self.end
-
-
-def parse_intervals(interval_string: str) -> list[Interval] | None:
-    try:
-        intervals = []
-        for interval in interval_string.split(","):
-            interval = interval.split("-", 1)
-            if len(interval) == 1:
-                intervals += [Interval(int(interval[0]), int(interval[0]))]
-            else:
-                intervals += [Interval(int(interval[0]), int(interval[1]))]
-        return intervals
-    except (ValueError, IndexError):
-        return None
-
-
-class File:
-    def __init__(self, path: str | Path):
-        if Path(path).exists():
-            self.path = Path(path)
-            self.intervals = [Interval(0, math.inf)]
-        else:
-            path = str(path)
-            split = path.rsplit(":", 1)
-            self.path = Path(split[0])
-            if len(split) == 1:
-                self.intervals = [Interval(0, math.inf)]
-            else:
-                self.intervals = parse_intervals(split[1])
-
-    def contains_line(self, line_number: int):
-        return any([interval.contains(line_number) for interval in self.intervals])
-
-
-def expand_paths(paths: Iterable[str]) -> Iterable[str]:
-    globbed_paths = set()
-    invalid_paths = []
-    for path in paths:
-        new_paths = glob.glob(pathname=path, recursive=True)
-        if new_paths:
-            globbed_paths.update(new_paths)
-        else:
-            split = path.rsplit(":", 1)
-            p = split[0]
-            intervals = parse_intervals(split[1])
-            if Path(p).exists() and intervals is not None:
-                globbed_paths.add(path)
-            else:
-                invalid_paths.append(path)
-    if invalid_paths:
-        cprint(
-            "The following paths do not exist:",
-            "light_yellow",
-        )
-        print("\n".join(invalid_paths))
-        exit()
-    return globbed_paths
 
 
 class CodeFileManager:
@@ -185,8 +116,6 @@ class CodeFileManager:
         config: ConfigManager,
         git_root: str,
     ):
-        paths = expand_paths(paths)
-        exclude_paths = expand_paths(exclude_paths)
         self.config = config
         self.git_root = Path(git_root)
         self._set_file_paths(paths, exclude_paths)
@@ -241,8 +170,8 @@ class CodeFileManager:
             if file.path not in excluded_files | excluded_files_from_dir
         ]
 
-    def _read_file(self, file: Union[str, File]) -> Iterable[str]:
-        if isinstance(file, File):
+    def _read_file(self, file: Union[str, CodeFile]) -> Iterable[str]:
+        if isinstance(file, CodeFile):
             rel_path = file.path
         else:
             rel_path = self.git_root / file
@@ -363,7 +292,7 @@ class CodeFileManager:
             if not any(file.path == file_path for file in self.files):
                 # newly created files added to Mentat's context
                 logging.info(f"Adding new file {file_path} to context")
-                self.files.append(File(file_path))
+                self.files.append(CodeFile(file_path))
                 # create any missing directories in the path
                 file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, "w") as f:
