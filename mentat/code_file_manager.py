@@ -69,12 +69,10 @@ def _is_file_text_encoded(file_path):
         return False
 
 
-def _abs_files_from_list(
-    paths_with_maybe_interval_info: Iterable[str], check_for_text: bool = True
-):
+def _abs_files_from_list(paths: Iterable[str], check_for_text: bool = True):
     files_direct = set()
     file_paths_from_dirs = set()
-    for path in paths_with_maybe_interval_info:
+    for path in paths:
         file = File(path)
         path = Path(file.path)
         if path.is_file():
@@ -121,6 +119,20 @@ class Interval:
         return self.start <= k <= self.end
 
 
+def parse_intervals(interval_string: str) -> list[Interval] | None:
+    try:
+        intervals = []
+        for interval in interval_string.split(","):
+            interval = interval.split("-", 1)
+            if len(interval) == 1:
+                intervals += [Interval(int(interval[0]), int(interval[0]))]
+            else:
+                intervals += [Interval(int(interval[0]), int(interval[1]))]
+        return intervals
+    except (ValueError, IndexError):
+        return None
+
+
 class File:
     def __init__(self, path: str | Path):
         if Path(path).exists():
@@ -128,19 +140,12 @@ class File:
             self.intervals = [Interval(0, math.inf)]
         else:
             path = str(path)
-            split = path.split(":")
+            split = path.rsplit(":", 1)
             self.path = Path(split[0])
-            self.intervals = []
-            if len(split) > 1:
-                intervals = split[1].split(",")
-                for interval in intervals:
-                    interval = interval.split("-")
-                    if len(interval) == 1:
-                        self.intervals += [Interval(int(interval[0]), int(interval[0]))]
-                    else:
-                        self.intervals += [Interval(int(interval[0]), int(interval[1]))]
+            if len(split) == 1:
+                self.intervals = [Interval(0, math.inf)]
             else:
-                self.intervals += [Interval(0, math.inf)]
+                self.intervals = parse_intervals(split[1])
 
     def contains_line(self, line_number: int):
         return any([interval.contains(line_number) for interval in self.intervals])
@@ -154,8 +159,10 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
         if new_paths:
             globbed_paths.update(new_paths)
         else:
-            p = path.split(":")[0]
-            if Path(p).exists():
+            split = path.rsplit(":", 1)
+            p = split[0]
+            intervals = parse_intervals(split[1])
+            if Path(p).exists() and intervals is not None:
                 globbed_paths.add(path)
             else:
                 invalid_paths.append(path)
@@ -172,17 +179,17 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
 class CodeFileManager:
     def __init__(
         self,
-        paths_with_maybe_interval_info: Iterable[str],
+        paths: Iterable[str],
         exclude_paths: Iterable[str],
         user_input_manager: UserInputManager,
         config: ConfigManager,
         git_root: str,
     ):
-        paths_with_maybe_interval_info = expand_paths(paths_with_maybe_interval_info)
+        paths = expand_paths(paths)
         exclude_paths = expand_paths(exclude_paths)
         self.config = config
         self.git_root = Path(git_root)
-        self._set_file_paths(paths_with_maybe_interval_info, exclude_paths)
+        self._set_file_paths(paths, exclude_paths)
         self.user_input_manager = user_input_manager
 
         if self.files:
@@ -200,7 +207,7 @@ class CodeFileManager:
 
     def _set_file_paths(
         self,
-        paths_with_maybe_interval_info: Iterable[str],
+        paths: Iterable[str],
         exclude_paths: Iterable[str],
     ) -> None:
         excluded_files, excluded_files_from_dir = _abs_file_paths_from_list(
@@ -217,9 +224,7 @@ class CodeFileManager:
                 recursive=True,
             )
         )
-        files_direct, files_from_dirs = _abs_files_from_list(
-            paths_with_maybe_interval_info, check_for_text=True
-        )
+        files_direct, files_from_dirs = _abs_files_from_list(paths, check_for_text=True)
 
         # config glob excluded files only apply to files added from directories
         files_from_dirs = [
