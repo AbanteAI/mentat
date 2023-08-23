@@ -1,6 +1,6 @@
 // This class replaces `acquireVsCodeApi()` for testing or when running in a browser.
 
-import { VsCodeApi, Command, OutboundMessage, Sender, InboundMessage } from '../types/globals';
+import { VsCodeApi, Command, OutboundMessage, Sender, InboundMessage, WorkspaceFile } from '../types/globals';
 
 export default class MockVSCode implements VsCodeApi {
     _streaming = false;
@@ -11,8 +11,13 @@ export default class MockVSCode implements VsCodeApi {
         // Send a message OUT to vscode.extension
         console.log('Message OUT', message);
         switch (message.command) {
-            case Command.getPaths:
-                this.respond({ type: Sender.paths, value: ['main.ts', 'main.css', 'index.html'] });
+            case Command.getWorkspaceFiles:
+                const testFiles = ['main.ts', 'main.css', 'index.html'].map((name) => ({
+                    name,
+                    uri: `file:///src/${name}`,
+                    url: `http://localhost:3000/${name}`,
+                }));
+                this.respond({ type: Sender.files, value: testFiles });
                 break;
             case Command.getResponse:
                 this.respond({ type: Sender.user, value: message.data });
@@ -59,6 +64,6 @@ export default class MockVSCode implements VsCodeApi {
             }
             // Sleep 100 ms
             await new Promise((resolve) => setTimeout(resolve, 100));
-        };
+        }
     }
 }

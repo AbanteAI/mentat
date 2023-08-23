@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { traceError, traceLog, traceVerbose } from './common/log/logging';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { Command, OutboundMessage, Sender, InboundMessage } from './types/globals';
+import { Command, OutboundMessage, Sender, WorkspaceFile } from './types/globals';
 
 export class MentatProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
@@ -41,19 +41,17 @@ export class MentatProvider implements vscode.WebviewViewProvider {
         this._view.webview.onDidReceiveMessage(async (msg: OutboundMessage) => {
             const { command, data } = msg;
             switch (command) {
-                case Command.getPaths:
+                case Command.getWorkspaceFiles:
                     // Resolve the list of files in the workspace
-                    let paths: any[] = [];
+                    let files: WorkspaceFile[] = [];
                     if (vscode.workspace.workspaceFolders) {
                         const workspaceFolder = vscode.workspace.workspaceFolders[0];
-                        const uri = workspaceFolder.uri;
-                        const files = await vscode.workspace.fs.readDirectory(uri);
-                        paths = files.filter(([_, type]) => type === vscode.FileType.File).map(([name]) => name);
+                        files = await this._getWorkspaceFiles(workspaceFolder.uri);
                     }
-                    this._view?.webview.postMessage({ type: 'paths', value: paths });
+                    this._view?.webview.postMessage({ type: Sender.files, value: files });
                     break;
                 case Command.getResponse:
-                    const echo = { type: 'user', value: data };
+                    const echo = { type: Sender.user, value: data };
                     this._view?.webview.postMessage(echo);
                     // Send to backend
                     vscode.commands.executeCommand(`${this._serverId}.${Command.getResponse}`, data);
@@ -98,6 +96,32 @@ export class MentatProvider implements vscode.WebviewViewProvider {
      */
     private _getUri(webview: vscode.Webview, ...paths: string[]): vscode.Uri {
         return webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, ...paths));
+    }
+
+    private async _getWorkspaceFiles(uri: vscode.Uri): Promise<WorkspaceFile[]> {
+        if (!this._view) {
+            traceError('Webview not found');
+            return [];
+        }
+        const filesAndDirectories = await vscode.workspace.fs.readDirectory(uri);
+
+        const allPaths: WorkspaceFile[] = [];
+
+        for (const [name, type] of filesAndDirectories) {
+            if (name.startsWith('.')) {
+                continue;
+            }
+            const currentUri = vscode.Uri.joinPath(uri, name);
+            const currentUrl = this._view.webview.asWebviewUri(currentUri).toString(); // Assuming 'this' context has _view
+
+            if (type === vscode.FileType.File) {
+                allPaths.push({ name, uri: currentUri.toString(), url: currentUrl });
+            } else if (type === vscode.FileType.Directory) {
+                const pathsFromDirectory = await this._getWorkspaceFiles(currentUri);
+                allPaths.push(...pathsFromDirectory);
+            }
+        }
+        return allPaths;
     }
 
     /**

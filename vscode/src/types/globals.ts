@@ -1,5 +1,5 @@
 export enum Command {
-    getPaths = 'getPaths',
+    getWorkspaceFiles = 'getWorkspaceFiles',
     getResponse = 'getResponse',
     interrupt = 'interrupt',
     restart = 'restart',
@@ -14,12 +14,12 @@ export enum Sender {
     user = 'user',
     assistant = 'assistant',
     system = 'system',
-    paths = 'paths',
+    files = 'files',
 }
 
 export interface InboundMessage {
     type: Sender;
-    value: any;
+    value: string | WorkspaceFile[];
 }
 
 export interface VsCodeApi {
@@ -28,5 +28,7 @@ export interface VsCodeApi {
 
 export interface WorkspaceFile {
     name: string;
-    selected: boolean;
+    uri: string;
+    url: string;
+    selected?: boolean;
 }
