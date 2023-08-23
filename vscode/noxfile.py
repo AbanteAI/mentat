@@ -176,9 +176,13 @@ def setup(session: nox.Session) -> None:
 
 @nox.session()
 def tests(session: nox.Session) -> None:
-    """Runs all the tests for the extension."""
+    """Runs all the tests for the extension.
+    
+    Pass command-line arguments to pytest by setting the `--` flag, e.g.:
+        nox -s tests -- --verbose
+    """
     session.install("-r", "src/test/python_tests/requirements.txt")
-    session.run("pytest", "src/test/python_tests")
+    session.run("pytest", "src/test/python_tests", *session.posargs)
 
 
 @nox.session()

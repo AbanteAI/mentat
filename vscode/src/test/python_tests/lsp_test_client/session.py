@@ -20,10 +20,10 @@ from .defaults import VSCODE_DEFAULT_INITIALIZE
 LSP_EXIT_TIMEOUT = 5000
 
 
-PUBLISH_DIAGNOSTICS = "textDocument/publishDiagnostics"
-WINDOW_LOG_MESSAGE = "window/logMessage"
-WINDOW_SHOW_MESSAGE = "window/showMessage"
-
+MENTAT_GET_RESPONSE = "mentat.getResponse"
+MENTAT_INTERRUPT = "mentat.interrupt"
+MENTAT_RESTART = "mentat.restart"
+MENTAT_SEND_CHUNK = "mentat.sendChunk"
 
 # pylint: disable=too-many-instance-attributes
 class LspSession(MethodDispatcher):
@@ -62,9 +62,7 @@ class LspSession(MethodDispatcher):
         self._reader = JsonRpcStreamReader(os.fdopen(self._sub.stdout.fileno(), "rb"))
 
         dispatcher = {
-            PUBLISH_DIAGNOSTICS: self._publish_diagnostics,
-            WINDOW_SHOW_MESSAGE: self._window_show_message,
-            WINDOW_LOG_MESSAGE: self._window_log_message,
+            MENTAT_SEND_CHUNK: self._mentat_send_chunk,
         }
         self._endpoint = Endpoint(dispatcher, self._writer.write)
         self._thread_pool.submit(self._reader.listen, self._endpoint.consume)
@@ -125,39 +123,6 @@ class LspSession(MethodDispatcher):
         self._endpoint.notify("exit")
         assert self._sub.wait(exit_timeout) == 0
 
-    def notify_did_change(self, did_change_params):
-        """Sends did change notification to LSP Server."""
-        self._send_notification("textDocument/didChange", params=did_change_params)
-
-    def notify_did_save(self, did_save_params):
-        """Sends did save notification to LSP Server."""
-        self._send_notification("textDocument/didSave", params=did_save_params)
-
-    def notify_did_open(self, did_open_params):
-        """Sends did open notification to LSP Server."""
-        self._send_notification("textDocument/didOpen", params=did_open_params)
-
-    def notify_did_close(self, did_close_params):
-        """Sends did close notification to LSP Server."""
-        self._send_notification("textDocument/didClose", params=did_close_params)
-
-    def text_document_formatting(self, formatting_params):
-        """Sends text document references request to LSP server."""
-        fut = self._send_request("textDocument/formatting", params=formatting_params)
-        return fut.result()
-
-    def text_document_code_action(self, code_action_params):
-        """Sends text document code actions request to LSP server."""
-        fut = self._send_request("textDocument/codeAction", params=code_action_params)
-        return fut.result()
-
-    def code_action_resolve(self, code_action_resolve_params):
-        """Sends text document code actions resolve request to LSP server."""
-        fut = self._send_request(
-            "codeAction/resolve", params=code_action_resolve_params
-        )
-        return fut.result()
-
     def set_notification_callback(self, notification_name, callback):
         """Set custom LS notification handler."""
         self._notification_callbacks[notification_name] = callback
@@ -173,22 +138,6 @@ class LspSession(MethodDispatcher):
                 """Default notification handler."""
 
             return _default_handler
-
-    def _publish_diagnostics(self, publish_diagnostics_params):
-        """Internal handler for text document publish diagnostics."""
-        return self._handle_notification(
-            PUBLISH_DIAGNOSTICS, publish_diagnostics_params
-        )
-
-    def _window_log_message(self, window_log_message_params):
-        """Internal handler for window log message."""
-        return self._handle_notification(WINDOW_LOG_MESSAGE, window_log_message_params)
-
-    def _window_show_message(self, window_show_message_params):
-        """Internal handler for window show message."""
-        return self._handle_notification(
-            WINDOW_SHOW_MESSAGE, window_show_message_params
-        )
 
     def _handle_notification(self, notification_name, params):
         """Internal handler for notifications."""
@@ -211,3 +160,19 @@ class LspSession(MethodDispatcher):
     def _send_notification(self, name, params=None):
         """Sends {name} notification to the LSP server."""
         self._endpoint.notify(name, params)
+
+    # Mentat specific methods
+
+    def _mentat_send_chunk(self, data):
+        """Internal handler for window show message."""
+        return self._handle_notification(MENTAT_SEND_CHUNK, data)
+
+    def _send_command(self, name, params=None):
+        """Sends {name} command to the LSP server.
+        
+        Custom features are registered with pygls as 'commands', instead of 
+        features. Built-in features can be called with _send_request, but 
+        commands require this special structure.
+        """
+        command_params = { 'command': name, 'arguments': params }
+        self._endpoint.request('workspace/executeCommand', command_params)
