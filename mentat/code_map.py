@@ -2,23 +2,12 @@ import json
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List
+from typing import Set
 
+from termcolor import cprint
+
+from .git_handler import get_non_gitignored_files
 from .llm_api import count_tokens
-
-
-def _get_git_files(git_root: str, absolute_paths: bool = False) -> List[str]:
-    git_files_ = (
-        subprocess.check_output(["git", "ls-files"], cwd=git_root)
-        .decode("utf-8")
-        .splitlines()
-    )
-    if absolute_paths:
-        git_files = [str(Path(git_root).joinpath(f)) for f in git_files_]
-    else:
-        git_files = git_files_
-
-    return git_files
 
 
 def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
@@ -34,7 +23,7 @@ def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
     else:
         ctags_cmd_args.append("--fields=+S")
     ctags_cmd = ["ctags", *ctags_cmd_args, str(Path(root).joinpath(file_path))]
-    output = subprocess.check_output(ctags_cmd, stderr=subprocess.PIPE).decode("utf-8")
+    output = subprocess.check_output(ctags_cmd, stderr=subprocess.PIPE, text=True)
     output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
@@ -43,8 +32,8 @@ def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            print(f"Error parsing ctags output: {err}")
-            print(repr(output_line))
+            cprint(f"Error parsing ctags output: {err}")
+            cprint(repr(output_line))
             continue
 
         scope = tag.get("scope")
@@ -93,7 +82,7 @@ def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
     return output
 
 
-def _get_file_map(file_paths: List[str]):
+def _get_file_map(file_paths: Set[str]) -> str:
     tree = {}
     for file_path in file_paths:
         parts = file_path.split("/")
@@ -150,7 +139,7 @@ class CodeMap:
                     f.write("def hello():\n    print('Hello, world!')\n")
                 _get_code_map(tempdir, str(hello_py))
         except FileNotFoundError:
-            self.ctags_disabled_reason = f"ctags executable not found"
+            self.ctags_disabled_reason = "ctags executable not found"
             return
         except Exception as e:
             self.ctags_disabled_reason = f"error running universal-ctags: {e}"
@@ -161,7 +150,7 @@ class CodeMap:
     def _get_code_map_message(
         self,
         root: str,
-        file_paths: List[str],
+        file_paths: Set[str],
         exclude_signatures: bool = False,
         token_limit: int | None = None,
     ) -> str | None:
@@ -196,7 +185,7 @@ class CodeMap:
         return message
 
     def _get_file_map_message(
-        self, file_paths: List[str], token_limit: int | None = None
+        self, file_paths: Set[str], token_limit: int | None = None
     ) -> str | None:
         file_map_tree = _get_file_map(file_paths)
 
@@ -210,7 +199,7 @@ class CodeMap:
         return message
 
     def get_message(self, token_limit: int | None = None):
-        git_file_paths = _get_git_files(self.git_root)
+        git_file_paths = get_non_gitignored_files(self.git_root)
 
         if not self.ctags_disabled:
             code_map_message = self._get_code_map_message(

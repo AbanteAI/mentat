@@ -1,3 +1,5 @@
+from textwrap import dedent
+
 system_prompt_prefix = """
     You are part of an automated coding system. As such, responses must adhere
     strictly to the required format, so they can be parsed programmaticaly. 
@@ -40,8 +42,7 @@ system_prompt_prefix = """
     (only the high-level code map), tell the user which files you need the source code
     for so you can make edits correctly.
 """
-system_prompt_prefix = system_prompt_prefix.strip()
-system_prompt_prefix = "\n".join(l.strip() for l in system_prompt_prefix.splitlines())
+system_prompt_prefix = dedent(system_prompt_prefix).strip()
 
 system_prompt_example = """
     Example 1:
@@ -198,5 +199,6 @@ system_prompt_example = """
     }
     @@end
 """
+system_prompt_example = dedent(system_prompt_example).strip()
 
 system_prompt = "\n\n" + "\n".join([system_prompt_prefix, system_prompt_example])
