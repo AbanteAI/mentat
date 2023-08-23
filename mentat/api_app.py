@@ -233,33 +233,6 @@ def stage_changes(
 
 
 @app.post(
-    "/execute-command",
-    operation_id="executeCommand",
-    summary='Execute command. Example: {"command": "git status --short"}.',
-)
-def execute_command(
-    request_body: create_model(
-        "ExecuteCommandRequestBody",
-        command=(str, ...),
-    )
-):
-    if not app.state.config.api_allow_commands():
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": "Commands are not allowed. Must enable in config.",
-            },
-        )
-    result = subprocess.run(
-        request_body.command.split(),
-        cwd=app.state.git_root,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    return {"result": result.stdout.decode("utf-8")}
-
-
-@app.post(
     "/confirm-or-clear-staged-changes",
     operation_id="confirmOrClearStagedChanges",
     summary="Confirm or clear staged changes.",
