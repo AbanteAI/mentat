@@ -1,42 +1,35 @@
 import os
 import subprocess
-from typing import Set
-from fastapi.datastructures import State
+from typing import List, Set
+
 import uvicorn
-
-from typing import List
-from pydantic import Field, create_model
-
 from fastapi import FastAPI
+from fastapi.datastructures import State
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+from pydantic import Field, create_model
 
 from .api_image_gen import (
     generate_code_change_image_and_lines,
     generate_path_tree_image,
 )
-from .prompts import api_system_prompt
 from .code_change import CodeChange, CodeChangeAction
 from .code_file_manager import CodeFileManager
-from .config_manager import ConfigManager
+from .config_manager import ConfigManager, image_cache_dir_path
 from .git_handler import get_shared_git_root_for_paths
-from .config_manager import image_cache_dir_path
+from .prompts import api_system_prompt
 
 HOST = "localhost"
 PORT = 3333
 
 app = FastAPI()
-os.makedirs(image_cache_dir_path, exist_ok=True)
 
+os.makedirs(image_cache_dir_path, exist_ok=True)
 app.mount("/images", StaticFiles(directory=image_cache_dir_path))
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
 
 
@@ -50,9 +43,9 @@ def custom_openapi():
         routes=app.routes,
     )
     # OpenAI not parsing nested components so we flatten them.
-    openapi_schema["components"]["schemas"]["CodeChange"]["properties"][
-        "action"
-    ] = openapi_schema["components"]["schemas"]["CodeChangeAction"]
+    openapi_schema["components"]["schemas"]["CodeChange"]["properties"]["action"] = (
+        openapi_schema["components"]["schemas"]["CodeChangeAction"]
+    )
     openapi_schema["components"]["schemas"]["StageChangesRequestBody"]["properties"][
         "changes"
     ]["items"] = openapi_schema["components"]["schemas"]["CodeChange"]
@@ -103,8 +96,9 @@ def run_api(paths: Set[str], exclude_paths: Set[str]):
 def get_all_paths():
     return {
         "paths": sorted(list(app.state.available_paths)),
-        "user_output_image": f"http://{HOST}:{PORT}/images/"
-        + generate_path_tree_image(app.state.available_paths, app.state.git_root),
+        "user_output_image": f"http://{HOST}:{PORT}/images/" + generate_path_tree_image(
+            app.state.available_paths, app.state.git_root
+        ),
     }
 
 
@@ -139,7 +133,10 @@ def get_focused_paths():
         return JSONResponse(
             status_code=400,
             content={
-                "error": "No focused paths. See getAllPaths for paths to set with focusOnPaths.",
+                "error": (
+                    "No focused paths. See getAllPaths for paths to set with"
+                    " focusOnPaths."
+                ),
             },
         )
 
@@ -201,7 +198,10 @@ def stage_changes(
     code_changes = []
 
     for code_change in request_body.changes:
-        if code_change.file not in app.state.focused_paths:
+        if (
+            code_change.file not in app.state.focused_paths
+            and code_change.action != CodeChangeAction.CreateFile
+        ):
             return JSONResponse(
                 status_code=400,
                 content={

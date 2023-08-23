@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from uuid import uuid4
+
 from PIL import Image, ImageDraw, ImageFont
 
 from .code_change import CodeChangeAction

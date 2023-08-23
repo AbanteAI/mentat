@@ -192,7 +192,9 @@ class CodeFileManager:
             return
 
         cprint(f"Are you sure you want to delete {delete_change.file}?", "red")
-        if self.user_input_manager is None or self.user_input_manager.ask_yes_no(default_yes=False):
+        if self.user_input_manager is None or self.user_input_manager.ask_yes_no(
+            default_yes=False
+        ):
             logging.info(f"Deleting file {file_path}")
             cprint(f"Deleting {delete_change.file}...")
             self.file_paths.remove(file_path)
@@ -217,7 +219,9 @@ class CodeFileManager:
 
         rel_path = str(changes[0].file)
         new_code_lines = self.file_lines[rel_path].copy()
-        if self.user_input_manager is not None and new_code_lines != self._read_file(rel_path):
+        if self.user_input_manager is not None and new_code_lines != self._read_file(
+            rel_path
+        ):
             logging.info(f"File '{rel_path}' changed while generating changes")
             cprint(
                 f"File '{rel_path}' changed while generating; current file changes"

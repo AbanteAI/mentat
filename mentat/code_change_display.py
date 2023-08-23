@@ -64,7 +64,9 @@ def get_code_change_text(code_change, cli_formatted=True):
 def get_file_name(code_change, cli_formatted=True):
     file_name = code_change.file
     action = code_change.action
-    file_name_text = f"\n{file_name}{'*' if action == CodeChangeAction.CreateFile else ''}"
+    file_name_text = (
+        f"\n{file_name}{'*' if action == CodeChangeAction.CreateFile else ''}"
+    )
     if not cli_formatted:
         return file_name_text
     color = (
