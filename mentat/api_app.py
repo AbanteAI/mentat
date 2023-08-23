@@ -30,10 +30,7 @@ image_cache_dir_path.mkdir(parents=True, exist_ok=True)
 
 app.mount("/images", StaticFiles(directory=image_cache_dir_path))
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"]
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
 
 
@@ -72,15 +69,21 @@ class AppState(State):
 
     def __init__(self, paths: Set[str], exclude_paths: Set[str]):
         super().__init__()
-        self.paths: Set[str] = paths
-        self.exclude_paths: Set[str] = exclude_paths
-        self.available_paths: Set[str] = paths - exclude_paths
-        self.focused_paths: Set[str] = set()
+        self.paths = paths
+        self.exclude_paths = exclude_paths
+        self.focused_paths = set()
+        self.git_root = get_shared_git_root_for_paths(self.paths)
+        self.config = ConfigManager(self.git_root)
+        self.available_paths = CodeFileManager(
+            self.paths,
+            self.exclude_paths,
+            None,
+            self.config,
+            self.git_root,
+        ).file_paths
         self.configure()
 
     def configure(self):
-        self.git_root = get_shared_git_root_for_paths(self.paths)
-        self.config = ConfigManager(self.git_root)
         self.code_file_manager = CodeFileManager(
             self.focused_paths,
             self.exclude_paths,
