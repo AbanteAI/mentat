@@ -59,23 +59,36 @@ class Conversation:
         code_message = self.code_file_manager.get_code_message()
         system_message = code_message
 
-        if self.code_map and (code_map_message := self.code_map.get_message()):
-            code_map_message_token_count = count_tokens(code_map_message)
-            prompt_token_count = 0
-            prompt_token_count += count_tokens(code_message)
+        if self.code_map:
+            system_message_token_count = count_tokens(system_message)
+            messages_token_count = 0
             for message in messages:
-                prompt_token_count += count_tokens(message["content"])
+                messages_token_count += count_tokens(message["content"])
             token_buffer = 1000
             token_count = (
-                prompt_token_count + code_map_message_token_count + token_buffer
+                system_message_token_count + messages_token_count + token_buffer
             )
-            if token_count < self.token_limit:
+            max_tokens_for_code_map = self.token_limit - token_count
+
+            if self.code_map.token_limit:
+                code_map_message_token_limit = min(
+                    self.code_map.token_limit, max_tokens_for_code_map
+                )
+            else:
+                code_map_message_token_limit = max_tokens_for_code_map
+
+            code_map_message = self.code_map.get_message(
+                token_limit=code_map_message_token_limit
+            )
+            if code_map_message:
                 system_message += f"\n{code_map_message}"
             else:
-                cprint(
-                    "Excluding CodeMap from system message.\nReason: not enough tokens available in model context.\n",
-                    color="yellow",
-                )
+                cprint_message = [
+                    "\nExcluding CodeMap from system message.",
+                    "Reason: not enough tokens available in model context.",
+                ]
+                cprint_message = "\n".join(cprint_message)
+                cprint(cprint_message, color="yellow")
 
         messages.append({"role": "system", "content": system_message})
 
