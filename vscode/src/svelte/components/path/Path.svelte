@@ -4,7 +4,6 @@
   export let toggleSelect = () => {}
 
   function handleToggleSelect() {
-      console.log('toggling select for path', path, index)
       toggleSelect(index)
   }5
 </script>

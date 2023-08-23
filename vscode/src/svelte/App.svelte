@@ -1,7 +1,7 @@
 <script>
   import { ChatView, PathView } from './components';
-  const vscode = acquireVsCodeApi();
-
+  export let vscode;
+  
   let _running = false;
   const startMentat = (paths) => {
     vscode.postMessage({ command: 'restart', data: paths })

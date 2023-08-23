@@ -12,7 +12,6 @@
   // Mentat input
   let prompt = '';
   const handleGetResponse = () => {
-    console.log(`Getting response for ${prompt}`)
     if (!prompt) {
       return;
     }
@@ -56,33 +55,27 @@
 
 </script>
 
-<div class="app">
-  <button on:click={restartMentat}>Restart</button>
-  <div class="conversation">
-    {#each messages as message}
-      <Message {...message} />
-    {/each}
-  </div>
-  <InputField bind:prompt handleGetResponse={handleGetResponse} />
-  <Buttons 
-    handleGetResponse={handleGetResponse}
-    handleInterrupt={handleInterrupt}
-    handleRestart={restartMentat}
-  />
+<div class="conversation">
+  {#each messages as message}
+    <Message {...message} />
+  {/each}
 </div>
+<InputField bind:prompt handleGetResponse={handleGetResponse} />
+<Buttons 
+  handleGetResponse={handleGetResponse}
+  handleInterrupt={handleInterrupt}
+  handleRestart={restartMentat}
+/>
 
-<style>
-  .app {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-  }
-  
+<style>  
   .conversation {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
     align-items: flex-start;
     flex-grow: 1;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
 </style>

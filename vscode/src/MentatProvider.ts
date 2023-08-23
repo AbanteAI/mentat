@@ -1,3 +1,5 @@
+import * as path from 'path';
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { traceError, traceLog, traceVerbose } from './common/log/logging';
 import { LanguageClient } from 'vscode-languageclient/node';
@@ -20,6 +22,7 @@ export class MentatProvider implements vscode.WebviewViewProvider {
 
     constructor(
       private readonly _extensionUri: vscode.Uri, 
+      private _extensionPath: string,
       private readonly _serverName: string,
       private readonly _serverId: string,
     ) {}
@@ -86,24 +89,16 @@ export class MentatProvider implements vscode.WebviewViewProvider {
      * @returns The HTML string
      */
     private _generateHtml(webview: vscode.Webview): string {
+      const indexPath = path.join(this._extensionPath, 'dist', 'index.html');
+      let htmlContent = fs.readFileSync(indexPath, 'utf-8');
 
-        // Load scripts and styles files
-        const scriptUri = this._getUri(webview, 'dist', 'bundle.js');
-        const stylesUri = this._getUri(webview, 'dist', 'bundle.css');
-        
-        return `
-          <!DOCTYPE html>
-            <html lang="en">
-            <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <link href="${stylesUri}" rel="stylesheet">
-              <script defer src="${scriptUri}"></script>
-            </head>
-            <body>
-            </body>
-          </html>
-        `;
+      // Replace relative paths with webview URIs
+      const scriptUri = this._getUri(webview, 'dist', 'bundle.js');
+      const stylesUri = this._getUri(webview, 'dist', 'bundle.css');
+      htmlContent = htmlContent.replace('/bundle.js', scriptUri.toString());
+      htmlContent = htmlContent.replace('/bundle.css', stylesUri.toString());
+    
+      return htmlContent; 
     }
 
     /**

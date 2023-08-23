@@ -23,5 +23,6 @@
     color: var(--vscode-input-foreground);
     padding: 0.5em;
     border: 1px solid var(--vscode-input-border);
+    box-sizing: border-box;
   }
 </style>

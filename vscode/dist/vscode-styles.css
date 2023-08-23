@@ -1,0 +1,38 @@
+/* These styles mimic the vscode styles when running in a browser */
+/* General styles */
+body {
+  background-color: #1E1E1E; /* Dark gray background typical of VS Code dark themes */
+  color: #D4D4D4; /* Light gray text color */
+  margin: 0;
+  padding: 0;
+}
+
+/* Links */
+a {
+  color: #569CD6; /* Typical color for links in VS Code dark themes */
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+  color: #C586C0; /* Light purple color often used for headers */
+}
+
+/* Code blocks */
+pre, code {
+  background-color: #2D2D30; /* Slightly different background for code blocks */
+  color: #D4D4D4; /* Light gray text color */
+  font-family: 'Courier New', Courier, monospace;
+  border-radius: 3px;
+  padding: 0.5em;
+}
+
+:root {
+  --vscode-button-foreground: #ffffff; /* White text on buttons */
+  --vscode-button-background: #444444; /* Dark gray button background */
+  --vscode-button-hoverBackground: #555555; /* Slightly lighter gray for hover */
+}

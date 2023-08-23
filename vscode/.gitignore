@@ -11,3 +11,7 @@ bundled/libs/
 **/.pytest_cache
 **/.vs
 !.vscode/
+!dist/
+dist/*
+!dist/index.html
+!dist/vscode-styles.css
