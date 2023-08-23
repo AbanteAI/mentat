@@ -1,4 +1,3 @@
-import os
 from enum import Enum
 from pathlib import Path
 
@@ -121,7 +120,7 @@ class CodeChange:
                     " current context or doesn't exist"
                 )
         else:
-            if os.path.exists(self.file):
+            if self.file.exists():
                 self.error = (
                     f"Model attempted to create file that already exists: {self.file}"
                 )

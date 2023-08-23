@@ -26,10 +26,14 @@ PORT = 3333
 
 app = FastAPI()
 
-os.makedirs(image_cache_dir_path, exist_ok=True)
+image_cache_dir_path.mkdir(parents=True, exist_ok=True)
+
 app.mount("/images", StaticFiles(directory=image_cache_dir_path))
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 
