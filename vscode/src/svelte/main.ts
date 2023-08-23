@@ -1,7 +1,10 @@
 import App from './App.svelte';
 import MockVSCode from '../test/MockVSCode';
+import { VsCodeApi } from '../types/globals';
 
-let vscode;
+// Acquire context: vscode or mock
+declare function acquireVsCodeApi(): VsCodeApi;
+let vscode: VsCodeApi;
 try {
   // Running inside vscode
   vscode = acquireVsCodeApi();
@@ -16,6 +19,7 @@ try {
   document.head.appendChild(linkElement);
 }
 
+// Initialize Svelte app with context
 const app = new App({
 	target: document.body,
 	props: { vscode }

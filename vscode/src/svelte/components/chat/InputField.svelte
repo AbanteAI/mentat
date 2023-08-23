@@ -1,6 +1,6 @@
-<script>
-  export let handleGetResponse = () => {};
-  export let prompt = '';
+<script lang="ts">
+  export let handleGetResponse: () => void;
+  export let prompt: string;
 </script>
 
 <input 

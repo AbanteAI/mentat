@@ -3,37 +3,26 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { traceError, traceLog, traceVerbose } from './common/log/logging';
 import { LanguageClient } from 'vscode-languageclient/node';
-
-export interface WebViewMessage {
-    command: Command,
-    data: string | undefined,
-}
-
-export enum Command {
-    getPaths = 'getPaths',
-    getResponse = 'getResponse',
-    interrupt = 'interrupt',
-    restart = 'restart',
-}
+import { Command, OutboundMessage, Sender, InboundMessage } from './types/globals';
 
 export class MentatProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     public static readonly viewType = 'mentat.chatView';
 
     constructor(
-      private readonly _extensionUri: vscode.Uri, 
-      private _extensionPath: string,
-      private readonly _serverName: string,
-      private readonly _serverId: string,
+        private readonly _extensionUri: vscode.Uri,
+        private _extensionPath: string,
+        private readonly _serverName: string,
+        private readonly _serverId: string,
     ) {}
 
     /**
-      * Called when our view is first initialized
-      * @param webviewView
-      * @param context
-      * @param _token
-      * @returns
-    */
+     * Called when our view is first initialized
+     * @param webviewView
+     * @param context
+     * @param _token
+     * @returns
+     */
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
         _context: vscode.WebviewViewResolveContext,
@@ -49,22 +38,22 @@ export class MentatProvider implements vscode.WebviewViewProvider {
         webviewView.webview.html = this._generateHtml(webviewView.webview);
 
         // Intercept messages coming from the webview/user
-        this._view.webview.onDidReceiveMessage(async (msg: WebViewMessage) => {
+        this._view.webview.onDidReceiveMessage(async (msg: OutboundMessage) => {
             const { command, data } = msg;
             switch (command) {
                 case Command.getPaths:
                     // Resolve the list of files in the workspace
                     let paths: any[] = [];
                     if (vscode.workspace.workspaceFolders) {
-                      const workspaceFolder = vscode.workspace.workspaceFolders[0];
-                      const uri = workspaceFolder.uri;
-                      const files = await vscode.workspace.fs.readDirectory(uri);
-                      paths = files.filter(([_, type]) => type === vscode.FileType.File).map(([name]) => name);
+                        const workspaceFolder = vscode.workspace.workspaceFolders[0];
+                        const uri = workspaceFolder.uri;
+                        const files = await vscode.workspace.fs.readDirectory(uri);
+                        paths = files.filter(([_, type]) => type === vscode.FileType.File).map(([name]) => name);
                     }
-                    this._view?.webview.postMessage({ type: "paths", value: paths });
+                    this._view?.webview.postMessage({ type: 'paths', value: paths });
                     break;
                 case Command.getResponse:
-                    const echo = { type: "user", value: data };
+                    const echo = { type: 'user', value: data };
                     this._view?.webview.postMessage(echo);
                     // Send to backend
                     vscode.commands.executeCommand(`${this._serverId}.${Command.getResponse}`, data);
@@ -89,16 +78,16 @@ export class MentatProvider implements vscode.WebviewViewProvider {
      * @returns The HTML string
      */
     private _generateHtml(webview: vscode.Webview): string {
-      const indexPath = path.join(this._extensionPath, 'dist', 'index.html');
-      let htmlContent = fs.readFileSync(indexPath, 'utf-8');
+        const indexPath = path.join(this._extensionPath, 'dist', 'index.html');
+        let htmlContent = fs.readFileSync(indexPath, 'utf-8');
 
-      // Replace relative paths with webview URIs
-      const scriptUri = this._getUri(webview, 'dist', 'bundle.js');
-      const stylesUri = this._getUri(webview, 'dist', 'bundle.css');
-      htmlContent = htmlContent.replace('/bundle.js', scriptUri.toString());
-      htmlContent = htmlContent.replace('/bundle.css', stylesUri.toString());
-    
-      return htmlContent; 
+        // Replace relative paths with webview URIs
+        const scriptUri = this._getUri(webview, 'dist', 'bundle.js');
+        const stylesUri = this._getUri(webview, 'dist', 'bundle.css');
+        htmlContent = htmlContent.replace('/bundle.js', scriptUri.toString());
+        htmlContent = htmlContent.replace('/bundle.css', stylesUri.toString());
+
+        return htmlContent;
     }
 
     /**
@@ -122,7 +111,7 @@ export class MentatProvider implements vscode.WebviewViewProvider {
             return;
         }
         lsClient.onNotification('mentat.sendChunk', (data: String) => {
-            const msg = { type: "assistant", value: data };
+            const msg = { type: Sender.assistant, value: data };
             this._view?.webview.postMessage(msg);
         });
     }

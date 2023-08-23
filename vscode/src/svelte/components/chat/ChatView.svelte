@@ -1,8 +1,10 @@
 <script>
-  import { Message, InputField, Buttons } from './';
+  import Message from './Message.svelte';
+  import InputField from './InputField.svelte';
+  import Buttons from './Buttons.svelte';
   import { onDestroy, onMount } from 'svelte';
   
-  export let vscode = '';
+  export let vscode;
   export let restartMentat = () => {};
 
   let messages = [

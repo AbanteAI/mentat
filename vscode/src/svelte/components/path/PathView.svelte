@@ -1,19 +1,20 @@
-<script>
+<script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import Path from './Path.svelte'
+  import { VsCodeApi, Command, WorkspaceFile } from "../../../types/globals";
 
-  export let vscode = ''
-  export let startMentat = () => {}
+  export let vscode: VsCodeApi;
+  export let startMentat: (paths: Iterable<string>) => void;
 
   // Setup and maintain the list of paths
-  let paths
+  let paths: WorkspaceFile[] = []
   const refreshPaths = () => {
-    vscode.postMessage({ command: 'getPaths' });
+    vscode.postMessage({ command: Command.getPaths, data: null });
   }
-  const handleReceivePaths = (event) => {
+  const handleReceivePaths = (event: MessageEvent) => {
     const { type, value } = event.data
     if (type === 'paths') {
-      paths = value.map(path => ({ name: path, selected: false }))
+      paths = value.map((path: string) => ({ name: path, selected: false }))
     }
   }
   onMount(() => {
@@ -23,7 +24,7 @@
   onDestroy(() => window.removeEventListener('message', handleReceivePaths));
 
   // Callback to select a path
-  const toggleSelect = (i) => {
+  const toggleSelect = (i: number) => {
     paths[i].selected = !paths[i].selected
   }
 

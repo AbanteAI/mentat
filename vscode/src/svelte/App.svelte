@@ -1,20 +1,22 @@
-<script>
+<script lang="ts">
   import { ChatView, PathView } from './components';
-  export let vscode;
+  import { VsCodeApi, Command } from '../types/globals';
+
+  export let vscode: VsCodeApi;
   
-  let _running = false;
-  const startMentat = (paths) => {
-    vscode.postMessage({ command: 'restart', data: paths })
-    _running = true;
+  let isRunning: boolean = false;
+  const startMentat = (paths: Iterable<string>): void => {
+    vscode.postMessage({ command: Command.restart, data: paths })
+    isRunning = true;
   }
-  const restartMentat = () => {
-    _running = false;
+  const restartMentat = (): void => {
+    isRunning = false;
     // vscode.postMessage({ command: 'restart' });
   }
 </script>
 
 <div class="app">
-  {#if _running}
+  {#if isRunning}
     <ChatView vscode={vscode} restartMentat={restartMentat} />
   {:else}
     <PathView vscode={vscode} startMentat={startMentat} />

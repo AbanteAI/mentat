@@ -1,13 +1,13 @@
-<script>
-  export let type = "";
-  export let value = "";
+<script lang="ts">
+  import { Sender } from "../../../types/globals";
+  export let type: Sender;
+  export let value: string;
 
-  $: {
-    handleUpdateValue(value);
-  }
-  const handleUpdateValue = (value) => {
-    // TODO: Identify/render code blocks
-  }
+  // TODO: Identify/render code blocks
+  // $: {
+  //   handleUpdateValue(value);
+  // }
+  // const handleUpdateValue = (value: string) => {}
 </script>
 
 <div class={`message ${type}`}>

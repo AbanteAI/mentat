@@ -1,11 +1,12 @@
-<script>
-  export let path = ''
-  export let index = ''
-  export let toggleSelect = () => {}
+<script lang='ts'>
+  import { WorkspaceFile } from "../../../types/globals";
+  export let path: WorkspaceFile;
+  export let index: number;
+  export let toggleSelect: (i: number) => void;
 
   function handleToggleSelect() {
       toggleSelect(index)
-  }5
+  }
 </script>
 
 <div style="width: 100%; display: flex;">

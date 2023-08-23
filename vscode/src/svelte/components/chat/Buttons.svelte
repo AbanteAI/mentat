@@ -1,7 +1,7 @@
-<script>
-  export let handleGetResponse = () => {};
-  export let handleInterrupt = () => {};
-  export let handleRestart = () => {};
+<script lang="ts">
+  export let handleGetResponse: () => void;
+  export let handleInterrupt: () => void;
+  export let handleRestart: () => void;
 </script>
 
 <div class="button-container">
