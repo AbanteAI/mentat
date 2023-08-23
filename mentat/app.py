@@ -100,10 +100,12 @@ def loop(
     )
     code_map = CodeMap(git_root, token_limit=2048)
     if code_map.ctags_disabled:
-        cprint(
-            f"There was an error with your universal ctags installation, disabling CodeMap.\nReason: {code_map.ctags_disabled_reason}\n",
-            color="yellow",
-        )
+        ctags_disabled_message = ctags_disabled_message = [
+            "There was an error with your universal ctags installation, disabling CodeMap.",
+            f"Reason: {code_map.ctags_disabled_reason}\n",
+        ]
+        ctags_disabled_message = "\n".join(ctags_disabled_message)
+        cprint(ctags_disabled_message, color="yellow")
     conv = Conversation(config, cost_tracker, code_file_manager, code_map)
 
     cprint("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")

@@ -32,8 +32,8 @@ def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            cprint(f"Error parsing ctags output: {err}")
-            cprint(repr(output_line))
+            cprint(f"Error parsing ctags output: {err}", color="yellow")
+            cprint(f"{repr(output_line)}\n", color="yellow")
             continue
 
         scope = tag.get("scope")
