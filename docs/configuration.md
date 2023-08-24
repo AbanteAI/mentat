@@ -40,3 +40,4 @@ A list of key-value pairs defining a custom [Pygment Style](https://pygments.org
     ]
 }
 ```
+
