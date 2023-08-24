@@ -30,13 +30,15 @@ class Conversation:
         self.token_limit = 32768 if self.allow_32k else 8192
         if tokens > self.token_limit:
             raise KeyboardInterrupt(
-                f"Included files already exceed token limit ({tokens} / {self.token_limit})."
-                " Please try running again with a reduced number of files."
+                f"Included files already exceed token limit ({tokens} /"
+                f" {self.token_limit}). Please try running again with a reduced number"
+                " of files."
             )
         elif tokens + 1000 > self.token_limit:
             cprint(
                 f"Warning: Included files are close to token limit ({tokens} /"
-                f" {self.token_limit}), you may not be able to have a long conversation.",
+                f" {self.token_limit}), you may not be able to have a long"
+                " conversation.",
                 "red",
             )
         else:
