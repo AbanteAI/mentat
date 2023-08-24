@@ -1,7 +1,6 @@
 import argparse
 import glob
 import logging
-import os
 from textwrap import dedent
 from typing import Iterable, Optional
 
@@ -73,7 +72,7 @@ def run(
     exclude_paths: Optional[Iterable[str]] = None,
     no_code_map: bool = False,
 ):
-    os.makedirs(mentat_dir_path, exist_ok=True)
+    mentat_dir_path.mkdir(parents=True, exist_ok=True)
     setup_logging()
     logging.debug(f"Paths: {paths}")
 
