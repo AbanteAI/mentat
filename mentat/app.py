@@ -37,10 +37,16 @@ def run_cli():
         default=[],
         help="List of file paths, directory paths, or glob patterns to exclude",
     )
+    parser.add_argument(
+        "--no-code-map",
+        action="store_true",
+        help="Exclude the file structure/syntax map from the system prompt",
+    )
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
-    run(expand_paths(paths), expand_paths(exclude_paths))
+    no_code_map = args.no_code_map
+    run(expand_paths(paths), expand_paths(exclude_paths), no_code_map)
 
 
 def expand_paths(paths: Iterable[str]) -> Iterable[str]:
@@ -62,7 +68,11 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
     return globbed_paths
 
 
-def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
+def run(
+    paths: Iterable[str],
+    exclude_paths: Optional[Iterable[str]] = None,
+    no_code_map: bool = False,
+):
     os.makedirs(mentat_dir_path, exist_ok=True)
     setup_logging()
     logging.debug(f"Paths: {paths}")
@@ -70,7 +80,7 @@ def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
     cost_tracker = CostTracker()
     try:
         setup_api_key()
-        loop(paths, exclude_paths, cost_tracker)
+        loop(paths, exclude_paths, cost_tracker, no_code_map)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -88,6 +98,7 @@ def loop(
     paths: Iterable[str],
     exclude_paths: Optional[Iterable[str]],
     cost_tracker: CostTracker,
+    no_code_map: bool,
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
@@ -99,8 +110,8 @@ def loop(
         config,
         git_root,
     )
-    code_map = CodeMap(git_root, token_limit=2048)
-    if code_map.ctags_disabled:
+    code_map = CodeMap(git_root, token_limit=2048) if not no_code_map else None
+    if code_map is not None and code_map.ctags_disabled:
         ctags_disabled_message = f"""
             There was an error with your universal ctags installation, disabling CodeMap.
             Reason: {code_map.ctags_disabled_reason}
