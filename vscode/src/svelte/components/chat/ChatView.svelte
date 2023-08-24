@@ -1,8 +1,10 @@
 <script>
+  import { onDestroy, onMount } from 'svelte';
+  import Fa from 'svelte-fa'
+  import { faPaperPlane, faStop, faArrowLeft } from '@fortawesome/free-solid-svg-icons'
+  
   import Message from './Message.svelte';
   import InputField from './InputField.svelte';
-  import Buttons from './Buttons.svelte';
-  import { onDestroy, onMount } from 'svelte';
   
   export let vscode;
   export let restartMentat = () => {};
@@ -56,20 +58,47 @@
   onDestroy(() => window.removeEventListener('message', handleReceiveChunk));
 
 </script>
-
+<button class='back-button' on:click={restartMentat}>
+  <Fa icon={faArrowLeft} />
+  <div class='spacer' />
+  Start Over
+</button>
 <div class="conversation">
   {#each messages as message}
     <Message {...message} />
   {/each}
 </div>
-<InputField bind:prompt handleGetResponse={handleGetResponse} />
-<Buttons 
-  handleGetResponse={handleGetResponse}
-  handleInterrupt={handleInterrupt}
-  handleRestart={restartMentat}
-/>
+<div class="control">
+  <InputField bind:prompt handleGetResponse={handleGetResponse} />
+  <div class='spacer' />
+  {#if _isStreaming}
+    <button on:click={handleInterrupt}>
+      <Fa icon={faStop} />
+    </button>
+    {/if}
+    {#if !_isStreaming }
+    <button on:click={handleGetResponse}>
+      <Fa icon={faPaperPlane} />
+    </button>
+  {/if}
+</div>
 
 <style>  
+  .back-button {
+    display: flex;
+    flex-direction: row;
+    justify-content: start;
+    align-items: center;
+    background-color: transparent;
+    padding: 0.5em;
+  }
+  .back-button:hover {
+    cursor: pointer;
+    background-color: var(--vscode-inputOption-hoverBackground);
+  }
+  .spacer {
+    padding: 0.25em;
+  }
   .conversation {
     display: flex;
     flex-direction: column;
@@ -79,5 +108,15 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+  }
+  .control {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    padding: 0.5em;
+  } 
+  .spacer {
+    padding: 0.25em;
   }
 </style>

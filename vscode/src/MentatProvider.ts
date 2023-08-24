@@ -82,8 +82,10 @@ export class MentatProvider implements vscode.WebviewViewProvider {
         // Replace relative paths with webview URIs
         const scriptUri = this._getUri(webview, 'dist', 'bundle.js');
         const stylesUri = this._getUri(webview, 'dist', 'bundle.css');
+        const stylesPath = this._getUri(webview, 'dist', 'styles.css');
         htmlContent = htmlContent.replace('/bundle.js', scriptUri.toString());
         htmlContent = htmlContent.replace('/bundle.css', stylesUri.toString());
+        htmlContent = htmlContent.replace('/styles.css', stylesPath.toString());
 
         return htmlContent;
     }

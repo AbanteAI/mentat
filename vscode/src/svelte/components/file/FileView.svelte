@@ -38,10 +38,8 @@
 <h1>Paths</h1>
 <button on:click={refreshFiles}>Refresh</button>
 {#if files}
-  <ul>
     {#each files as file, index (file.uri)}
       <File file={file} index={index} toggleSelect={toggleSelect} />
     {/each}
-  </ul>
 {/if}
 <button on:click={handleStartMentat}>Start Mentat</button>

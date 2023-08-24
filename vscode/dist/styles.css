@@ -1,0 +1,30 @@
+body {
+  background-color: var(--vscode-editorPane-background); /* Dark gray background typical of VS Code dark themes */
+  color: var(--vscode-foreground);
+  font-size: var(--vscode-font-size);
+  font-family: var(--vscode-font-family);
+  margin: 0;
+  padding: 0;
+}
+
+button {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: var(--vscode-button-border);
+  font-size: var(--vscode-font-size);
+  padding: 0.5rem;
+}
+button:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+input {
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: var(--vscode-input-border);
+  font-size: var(--vscode-font-size);
+  padding: 0.5rem;
+}
+input:active {
+  border: var(--vscode-inputOption-activeBorder);
+}

@@ -9,8 +9,23 @@
   }
 </script>
 
-<div style="width: 100%; display: flex;">
-  <input type="checkbox" checked={file.selected} on:change={handleToggleSelect} />
+<div>
+  <input 
+    type="checkbox" 
+    checked={file.selected} 
+    on:change={handleToggleSelect} 
+  />
   <span style="flex: 1;">{file.name}</span>
 </div>
 
+<style>
+  div {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+  }
+  input {
+    scale: 1.5;
+  }
+</style>
