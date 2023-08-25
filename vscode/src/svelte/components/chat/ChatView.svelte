@@ -1,8 +1,12 @@
 <script>
-  import { Message, InputField, Buttons } from './';
   import { onDestroy, onMount } from 'svelte';
+  import Fa from 'svelte-fa'
+  import { faPaperPlane, faStop, faArrowLeft } from '@fortawesome/free-solid-svg-icons'
   
-  export let vscode = '';
+  import Message from './Message.svelte';
+  import InputField from './InputField.svelte';
+  
+  export let vscode;
   export let restartMentat = () => {};
 
   let messages = [
@@ -12,7 +16,6 @@
   // Mentat input
   let prompt = '';
   const handleGetResponse = () => {
-    console.log(`Getting response for ${prompt}`)
     if (!prompt) {
       return;
     }
@@ -55,34 +58,65 @@
   onDestroy(() => window.removeEventListener('message', handleReceiveChunk));
 
 </script>
-
-<div class="app">
-  <button on:click={restartMentat}>Restart</button>
-  <div class="conversation">
-    {#each messages as message}
-      <Message {...message} />
-    {/each}
-  </div>
+<button class='back-button' on:click={restartMentat}>
+  <Fa icon={faArrowLeft} />
+  <div class='spacer' />
+  Start Over
+</button>
+<div class="conversation">
+  {#each messages as message}
+    <Message {...message} />
+  {/each}
+</div>
+<div class="control">
   <InputField bind:prompt handleGetResponse={handleGetResponse} />
-  <Buttons 
-    handleGetResponse={handleGetResponse}
-    handleInterrupt={handleInterrupt}
-    handleRestart={restartMentat}
-  />
+  <div class='spacer' />
+  {#if _isStreaming}
+    <button on:click={handleInterrupt}>
+      <Fa icon={faStop} />
+    </button>
+    {/if}
+    {#if !_isStreaming }
+    <button on:click={handleGetResponse}>
+      <Fa icon={faPaperPlane} />
+    </button>
+  {/if}
 </div>
 
-<style>
-  .app {
+<style>  
+  .back-button {
     display: flex;
-    flex-direction: column;
-    height: 100vh;
+    flex-direction: row;
+    justify-content: start;
+    align-items: center;
+    background-color: transparent;
+    padding: 0.5em;
   }
-  
+  .back-button:hover {
+    cursor: pointer;
+    background-color: var(--vscode-inputOption-hoverBackground);
+  }
+  .spacer {
+    padding: 0.25em;
+  }
   .conversation {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
     align-items: flex-start;
     flex-grow: 1;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  .control {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    padding: 0.5em;
+  } 
+  .spacer {
+    padding: 0.25em;
   }
 </style>

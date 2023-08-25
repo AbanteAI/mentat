@@ -47,7 +47,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     traceVerbose(`Full Server Info: ${JSON.stringify(serverInfo)}`);
 
     // Initialize webview container
-    const provider = new MentatProvider(context.extensionUri, serverName, serverId);
+    const provider = new MentatProvider(
+      context.extensionUri, 
+      context.extensionPath, 
+      serverName, 
+      serverId
+    );
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(MentatProvider.viewType, provider, {
             webviewOptions: { retainContextWhenHidden: true },

@@ -1,13 +1,13 @@
-<script>
-  export let type = "";
-  export let value = "";
+<script lang="ts">
+  import { Sender } from "../../../types/globals";
+  export let type: Sender;
+  export let value: string;
 
-  $: {
-    handleUpdateValue(value);
-  }
-  const handleUpdateValue = (value) => {
-    // TODO: Identify/render code blocks
-  }
+  // TODO: Identify/render code blocks
+  // $: {
+  //   handleUpdateValue(value);
+  // }
+  // const handleUpdateValue = (value: string) => {}
 </script>
 
 <div class={`message ${type}`}>
@@ -16,20 +16,21 @@
 
 <style>
   .message {
-    color: #fff;
     padding: 0.5em;
     margin: 0.5em;
     border-radius: 0.5em;
+    max-width: 80%;
+    overflow-wrap: break-word;
   }
   
   .message.user {
-    background-color: blue;
+    background-color: var(--vscode-button-background);
     margin-left: 3em;
     align-self: flex-end;
   }
   
   .message.assistant {
-    background-color: purple;
+    background-color: #7646b3ff;  /* A darker shade of the GPT4 color */
     margin-right: 3em;
     align-self: flex-start;
   }

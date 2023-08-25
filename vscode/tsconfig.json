@@ -1,13 +1,22 @@
 {
+    "extends": "@tsconfig/svelte/tsconfig.json",
     "compilerOptions": {
-        "module": "commonjs",
+        "module": "ESNext",
         "target": "ES2020",
-        "lib": ["ES2020"],
+        "lib": ["ES2020", "DOM"],
         "sourceMap": true,
         "rootDir": "src",
         "strict": true,
         "noImplicitReturns": true,
         "noFallthroughCasesInSwitch": true,
-        "noUnusedParameters": true
-    }
+        "noUnusedParameters": true,
+        "esModuleInterop": true,  // For smoother interoperability between CommonJS and ES6 modules
+        "moduleResolution": "node",  // Helps with module resolution
+        "skipLibCheck": true,  // Can skip checking of declaration files which sometimes can throw errors unnecessarily
+        "resolveJsonModule": true,  // If you're importing JSON, this is helpful
+        "verbatimModuleSyntax": false,
+        "typeRoots": ["src/types", "node_modules/@types"]
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules/*"]
 }

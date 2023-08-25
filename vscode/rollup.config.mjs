@@ -4,11 +4,13 @@ import terser from '@rollup/plugin-terser';
 import resolve from '@rollup/plugin-node-resolve';
 import livereload from 'rollup-plugin-livereload';
 import css from 'rollup-plugin-css-only';
+import typescript from '@rollup/plugin-typescript'; // or from 'rollup-plugin-typescript2'
+import autoPreprocess from 'svelte-preprocess';
 
 const production = !process.env.ROLLUP_WATCH;
 
 export default {
-	input: 'src/svelte/main.js',
+	input: 'src/svelte/main.ts',
 	output: {
 		sourcemap: true,
 		format: 'iife',
@@ -16,7 +18,9 @@ export default {
 		file: 'dist/bundle.js'
 	},
 	plugins: [
+    typescript(),
 		svelte({
+      preprocess: autoPreprocess(),  // typescript
 			compilerOptions: {
 				// enable run-time checks when not in production
 				dev: !production
@@ -33,6 +37,7 @@ export default {
 		// https://github.com/rollup/plugins/tree/master/packages/commonjs
 		resolve({
 			browser: true,
+      extensions: ['.mjs', '.js', '.json', '.node', '.svelte', '.ts', '.d.ts'],
 			dedupe: ['svelte'],
 			exportConditions: ['svelte']
 		}),

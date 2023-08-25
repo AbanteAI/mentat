@@ -123,7 +123,10 @@ async def handle_mentat_restart(data: list):
     global _MR
     if _MR is not None:
         _MR.cleanup()
-    _MR = MentatRunner(data)
+    args = data[0]
+    paths = args.get('paths', [])
+    exclude_paths = args.get('exclude_paths', [])
+    _MR = MentatRunner(paths, exclude_paths)
     response = f'Mentat initialized with paths={str(_MR.paths)} exclude={str(_MR.exclude_paths)}'
     async def echo():
         await asyncio.sleep(0.5)
