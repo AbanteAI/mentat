@@ -12,6 +12,7 @@ from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
 from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
+from .interface import InterfaceType, get_interface, initialize_mentat_interface
 from .llm_api import CostTracker, setup_api_key
 from .logging_config import setup_logging
 from .user_input_manager import UserInputManager, UserQuitInterrupt
@@ -37,6 +38,9 @@ def run_cli():
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
+
+    initialize_mentat_interface(InterfaceType.Terminal)
+
     run(expand_paths(paths), expand_paths(exclude_paths))
 
 
@@ -98,7 +102,9 @@ def loop(
     )
     conv = Conversation(config, cost_tracker, code_file_manager)
 
-    cprint("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")
+    get_interface().interact(
+        "Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan"
+    )
     cprint("What can I do for you?", color="light_blue")
     need_user_request = True
     while True:
