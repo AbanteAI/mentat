@@ -25,10 +25,10 @@ def test_mentat_language_server():
             actual += params
         ls_session.set_notification_callback(session.MENTAT_SEND_CHUNK, _handler)
 
-        data = ['test/path']
+        data = [{'paths': ['test-path'], 'exclude_paths': ['test-exclude']}]
         ls_session._send_command(session.MENTAT_RESTART, data)
 
         # Server currently waits 0.5 seconds before sending a response
         time.sleep(0.6)
-        expected = f'Mentat initialized with paths={data} exclude=None'
+        expected = f"Mentat initialized with paths={data[0]['paths']} exclude={data[0]['exclude_paths']}"
         assert actual == expected

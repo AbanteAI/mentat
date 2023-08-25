@@ -1,6 +1,26 @@
 // This class replaces `acquireVsCodeApi()` for testing or when running in a browser.
 
-import { VsCodeApi, Command, OutboundMessage, Sender, InboundMessage, WorkspaceFile } from '../types/globals';
+import { VsCodeApi, Command, OutboundMessage, Sender, InboundMessage, WorkspaceGraphElement } from '../types/globals';
+
+let fileId: number = 0;
+const mockFile = (prefix: string = ''): WorkspaceGraphElement => ({
+    name: `file${prefix + fileId++}`,
+    uri: `file:///src/file${prefix + fileId}`,
+    path: `/src/file${prefix + fileId}`,
+});
+const mockFiles = (): WorkspaceGraphElement => {
+    const root = mockFile();
+    root.children = [];
+    ['src', 'dist', 'node_modules'].forEach((name) => {
+        const child = mockFile(name);
+        child.children = [];
+        for (let i = 0; i < 20; i++) {
+            child.children?.push(mockFile(name));
+        }
+        root.children?.push(child);
+    });
+    return root;
+};
 
 export default class MockVSCode implements VsCodeApi {
     _streaming = false;
@@ -11,13 +31,9 @@ export default class MockVSCode implements VsCodeApi {
         // Send a message OUT to vscode.extension
         console.log('Message OUT', message);
         switch (message.command) {
-            case Command.getWorkspaceFiles:
-                const testFiles = ['main.ts', 'main.css', 'index.html'].map((name) => ({
-                    name,
-                    uri: `file:///src/${name}`,
-                    url: `http://localhost:3000/${name}`,
-                }));
-                this.respond({ type: Sender.files, value: testFiles });
+            case Command.getWorkspaceGraph:
+                const testWorkspaceGraph: WorkspaceGraphElement = mockFiles();
+                this.respond({ type: Sender.files, value: testWorkspaceGraph });
                 break;
             case Command.getResponse:
                 this.respond({ type: Sender.user, value: message.data });

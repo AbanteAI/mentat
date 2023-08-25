@@ -13,6 +13,7 @@ button {
   border: var(--vscode-button-border);
   font-size: var(--vscode-font-size);
   padding: 0.5rem;
+  cursor: pointer;
 }
 button:hover {
   background-color: var(--vscode-button-hoverBackground);

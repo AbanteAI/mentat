@@ -1,12 +1,12 @@
 <script lang="ts">
   import { ChatView, FileView } from './components';
-  import { VsCodeApi, Command } from '../types/globals';
+  import { VsCodeApi, Command, MentatArgs } from '../types/globals';
 
   export let vscode: VsCodeApi;
   
   let isRunning: boolean = false;
-  const startMentat = (include: Iterable<string>): void => {
-    vscode.postMessage({ command: Command.restart, data: include })
+  const startMentat = (args: MentatArgs): void => {
+    vscode.postMessage({ command: Command.restart, data: args })
     isRunning = true;
   }
   const restartMentat = (): void => {

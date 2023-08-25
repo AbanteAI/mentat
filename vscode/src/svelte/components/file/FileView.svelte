@@ -1,20 +1,26 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import Fa from 'svelte-fa'
+  import { faArrowsRotate } from '@fortawesome/free-solid-svg-icons'
+
+  import { VsCodeApi, Command, Sender, WorkspaceGraphElement, MentatArgs } from "../../../types/globals";
+  import { FileTreeElement } from "./FileTreeElement";
   import File from './File.svelte'
-  import { VsCodeApi, Command, WorkspaceFile, Sender } from "../../../types/globals";
 
   export let vscode: VsCodeApi;
-  export let startMentat: (include: Iterable<string>) => void;
+  export let startMentat: (args: MentatArgs) => void;
 
-  // Setup and maintain the list of files
-  let files: WorkspaceFile[] = []
+  
+  // Get the file root on mount, or when the refresh button is clicked
+  let root: FileTreeElement | null = null;
   const refreshFiles = () => {
-    vscode.postMessage({ command: Command.getWorkspaceFiles, data: null });
+    root = null;
+    vscode.postMessage({ command: Command.getWorkspaceGraph, data: null });
   }
   const handleReceiveFiles = (event: MessageEvent) => {
     const { type, value } = event.data
-    if (type === Sender.files) {
-      files = value.map((file: WorkspaceFile) => ({ ...file, selected: false }))
+    if (type === Sender.files && value) {
+      root = new FileTreeElement(value as WorkspaceGraphElement)
     }
   }
   onMount(() => {
@@ -23,23 +29,35 @@
   })
   onDestroy(() => window.removeEventListener('message', handleReceiveFiles));
 
-  // Callback to select a path
-  const toggleSelect = (i: number) => {
-    files[i].selected = !files[i].selected
-  }
-
+  
   // Start Mentat
   const handleStartMentat = () => {
-    startMentat(files.filter(file => file.selected).map(file => file.name))
+    if (!root) return;
+    const args = root.getMentatArgs();
+    startMentat(args)
   }
   
 </script>
 
-<h1>Paths</h1>
-<button on:click={refreshFiles}>Refresh</button>
-{#if files}
-    {#each files as file, index (file.uri)}
-      <File file={file} index={index} toggleSelect={toggleSelect} />
-    {/each}
-{/if}
+<div class="header">
+  <p>Select Files</p>
+  <button on:click={refreshFiles}><Fa icon={faArrowsRotate} /></button>
+</div>
+<div class="file-container">
+  {#if root}
+    <File file={root} />
+  {/if}
+</div>
 <button on:click={handleStartMentat}>Start Mentat</button>
+
+<style>
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5em;
+  }
+  .file-container {
+    overflow: auto;
+  }
+</style>

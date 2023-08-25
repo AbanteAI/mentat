@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { traceError, traceLog, traceVerbose } from './common/log/logging';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { Command, OutboundMessage, Sender, WorkspaceFile } from './types/globals';
+import { Command, OutboundMessage, Sender, WorkspaceGraphElement } from './types/globals';
 
 export class MentatProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
@@ -41,14 +41,14 @@ export class MentatProvider implements vscode.WebviewViewProvider {
         this._view.webview.onDidReceiveMessage(async (msg: OutboundMessage) => {
             const { command, data } = msg;
             switch (command) {
-                case Command.getWorkspaceFiles:
+                case Command.getWorkspaceGraph:
                     // Resolve the list of files in the workspace
-                    let files: WorkspaceFile[] = [];
+                    let workspaceGraph: WorkspaceGraphElement | undefined;
                     if (vscode.workspace.workspaceFolders) {
                         const workspaceFolder = vscode.workspace.workspaceFolders[0];
-                        files = await this._getWorkspaceFiles(workspaceFolder.uri);
+                        workspaceGraph = await this._getWorkspaceGraph(workspaceFolder.uri);
                     }
-                    this._view?.webview.postMessage({ type: Sender.files, value: files });
+                    this._view?.webview.postMessage({ type: Sender.files, value: workspaceGraph });
                     break;
                 case Command.getResponse:
                     const echo = { type: Sender.user, value: data };
@@ -61,6 +61,7 @@ export class MentatProvider implements vscode.WebviewViewProvider {
                     vscode.commands.executeCommand(`${this._serverId}.${Command.interrupt}`);
                     break;
                 case Command.restart:
+                    console.log('Restarting server', data);
                     vscode.commands.executeCommand(`${this._serverId}.${Command.restart}`, data);
                     break;
                 default:
@@ -100,30 +101,38 @@ export class MentatProvider implements vscode.WebviewViewProvider {
         return webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, ...paths));
     }
 
-    private async _getWorkspaceFiles(uri: vscode.Uri): Promise<WorkspaceFile[]> {
+    private async _getWorkspaceGraph(uri: vscode.Uri): Promise<WorkspaceGraphElement> {
+        // Recursively build a graph of the current workspace
         if (!this._view) {
-            traceError('Webview not found');
-            return [];
+            throw new Error('Webview not initialized');
         }
+
+        // Generate subgraph
         const filesAndDirectories = await vscode.workspace.fs.readDirectory(uri);
-
-        const allPaths: WorkspaceFile[] = [];
-
+        const children: WorkspaceGraphElement[] = [];
         for (const [name, type] of filesAndDirectories) {
             if (name.startsWith('.')) {
+                // TODO: Make this configurable
                 continue;
             }
             const currentUri = vscode.Uri.joinPath(uri, name);
-            const currentUrl = this._view.webview.asWebviewUri(currentUri).toString(); // Assuming 'this' context has _view
+            const currentPath = this._view.webview.asWebviewUri(currentUri).toString();
 
             if (type === vscode.FileType.File) {
-                allPaths.push({ name, uri: currentUri.toString(), url: currentUrl });
+                children.push({ name, uri: currentUri.toString(), path: currentPath });
             } else if (type === vscode.FileType.Directory) {
-                const pathsFromDirectory = await this._getWorkspaceFiles(currentUri);
-                allPaths.push(...pathsFromDirectory);
+                const directoryMap = await this._getWorkspaceGraph(currentUri);
+                children.push(directoryMap);
             }
         }
-        return allPaths;
+
+        // Return new node
+        return {
+            name: uri.path.split('/').pop() || '',
+            uri: uri.toString(),
+            path: this._view.webview.asWebviewUri(uri).toString(),
+            children: children.length ? children : undefined,
+        };
     }
 
     /**
