@@ -117,6 +117,7 @@ def test_start_project_from_scratch(mock_collect_user_input):
         elif os.path.isdir(item):
             if item != ".git":
                 shutil.rmtree(item)
+    subprocess.run(["git", "rm", "-r", "--cached", "."])
 
     mock_collect_user_input.side_effect = [
         "make a file that does fizzbuzz, named fizzbuzz.py, going up to 10",
