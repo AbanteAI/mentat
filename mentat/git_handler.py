@@ -48,18 +48,23 @@ def _get_git_root_for_path(path) -> str:
     else:
         dir_path = os.path.dirname(path)
     try:
-        git_root = (
+        relative_path = (
             subprocess.check_output(
                 [
                     "git",
                     "rev-parse",
-                    "--show-toplevel",
+                    "--show-prefix",
                 ],
                 cwd=os.path.realpath(dir_path),
                 stderr=subprocess.DEVNULL,
             )
             .decode("utf-8")
             .strip()
+        )
+        # --show-toplevel doesn't work in some windows environment with posix paths,
+        # like msys2, so we have to use --show-prefix instead
+        git_root = os.path.abspath(
+            os.path.join(dir_path, "../" * len(Path(relative_path).parts))
         )
         # call realpath to resolve symlinks, so all paths match
         return os.path.realpath(git_root)
