@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Iterable
 
-from termcolor import cprint
+from termcolor import colored, cprint
 
 from .errors import MentatError
 from .git_handler import commit
@@ -68,13 +68,26 @@ help_message_width = 60
 
 class HelpCommand(Command, command_name="help"):
     def apply(self, *args: str) -> None:
-        for command_name, command_class in Command._registered_commands.items():
-            argument_names = command_class.argument_names()
-            help_message = command_class.help_message()
-            message = " ".join(
-                [f"/{command_name}"] + [f"<{arg}>" for arg in argument_names]
-            )
-            print(message.ljust(help_message_width), help_message, sep="")
+        if not args:
+            commands = Command._registered_commands.keys()
+        else:
+            commands = args
+        for command_name in commands:
+            if command_name not in Command._registered_commands:
+                message = colored(
+                    f"Error: Command {command_name} does not exist.", color="red"
+                )
+            else:
+                command_class = Command._registered_commands[command_name]
+                argument_names = command_class.argument_names()
+                help_message = command_class.help_message()
+                message = (
+                    " ".join(
+                        [f"/{command_name}"] + [f"<{arg}>" for arg in argument_names]
+                    ).ljust(help_message_width)
+                    + help_message
+                )
+            print(message)
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -89,7 +102,7 @@ class CommitCommand(Command, command_name="commit"):
     default_message = "Automatic commit"
 
     def apply(self, *args: str) -> None:
-        if len(args) > 0:
+        if args:
             commit(args[0])
         else:
             commit(self.__class__.default_message)
