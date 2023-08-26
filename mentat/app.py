@@ -12,7 +12,7 @@ from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
 from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
-from .interface import InterfaceType, get_interface, initialize_mentat_interface
+from .interface import InterfaceType, initialize_mentat_interface, output
 from .llm_api import CostTracker, setup_api_key
 from .logging_config import setup_logging
 from .user_input_manager import UserInputManager, UserQuitInterrupt
@@ -102,9 +102,7 @@ def loop(
     )
     conv = Conversation(config, cost_tracker, code_file_manager)
 
-    get_interface().interact(
-        "Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan"
-    )
+    output("Type 'q' or use Ctrl-C to quit at any time.\n", "cyan")
     cprint("What can I do for you?", color="light_blue")
     need_user_request = True
     while True:

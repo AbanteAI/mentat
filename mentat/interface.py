@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Callable, Dict, Iterable, Optional
@@ -7,10 +9,15 @@ from termcolor import cprint
 _interface_instance = None
 
 
-def get_interface() -> "MentatInterface":
+def get_interface() -> MentatInterface:
     if _interface_instance is None:
         raise Exception("Mentat interface not initialized")
     return _interface_instance
+
+
+# convenience function for common interaction
+def output(content: str, color: str):
+    get_interface().interact(content=content, color=color)
 
 
 class InterfaceType(Enum):
