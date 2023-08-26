@@ -88,7 +88,7 @@ def loop(
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
-    user_input_manager = UserInputManager(config)
+    user_input_manager = UserInputManager(config, git_root)
     code_file_manager = CodeFileManager(
         paths,
         exclude_paths if exclude_paths is not None else [],
