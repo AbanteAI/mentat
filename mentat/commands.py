@@ -27,7 +27,6 @@ class Command(ABC):
     def get_command_completions(cls) -> Iterable[str]:
         return list(map(lambda name: "/" + name, cls._registered_commands))
 
-    # *args[0] is always the command_name, c style
     @abstractmethod
     def apply(self, *args: str) -> None:
         pass
@@ -90,8 +89,8 @@ class CommitCommand(Command, command_name="commit"):
     default_message = "Automatic commit"
 
     def apply(self, *args: str) -> None:
-        if len(args) > 1:
-            commit(args[1])
+        if len(args) > 0:
+            commit(args[0])
         else:
             commit(self.__class__.default_message)
 

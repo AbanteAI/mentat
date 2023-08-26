@@ -64,7 +64,6 @@ class MentatPromptSession(PromptSession):
     def prompt(self, *args, **kwargs):
         # Automatically capture all commands
         while (user_input := super().prompt(*args, **kwargs)).startswith("/"):
-            # argument 0 is the command name, c style
             arguments = shlex.split(user_input[1:])
             command = Command.create_command(arguments[0])
             command.apply(*arguments[1:])
