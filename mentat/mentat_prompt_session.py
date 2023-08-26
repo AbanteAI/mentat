@@ -1,4 +1,5 @@
 import os
+import shlex
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
@@ -64,7 +65,7 @@ class MentatPromptSession(PromptSession):
         # Automatically capture all commands
         while (user_input := super().prompt(*args, **kwargs)).startswith("/"):
             # argument 0 is the command name, c style
-            arguments = user_input[1:].split(" ")
+            arguments = shlex.split(user_input[1:])
             command = Command.create_command(arguments[0])
             command.apply(*arguments[1:])
         return user_input
