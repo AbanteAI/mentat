@@ -56,8 +56,8 @@
   }
   onMount(() => window.addEventListener('message', handleReceiveChunk));
   onDestroy(() => window.removeEventListener('message', handleReceiveChunk));
-
 </script>
+
 <button class='back-button' on:click={restartMentat}>
   <Fa icon={faArrowLeft} />
   <div class='spacer' />
@@ -90,7 +90,7 @@
     justify-content: start;
     align-items: center;
     background-color: transparent;
-    padding: 0.5em;
+    padding: 0.8em;
   }
   .back-button:hover {
     cursor: pointer;

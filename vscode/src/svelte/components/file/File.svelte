@@ -12,7 +12,7 @@
   let status: FileInclusionStatus;
   file.statusStore.subscribe(value => status = value);
 
-  let isOpen: boolean = false;
+  let isOpen: boolean = indent === 0;
   const handleClickRow = () => {
     if (file.file.children) {
       isOpen = !isOpen;
@@ -75,7 +75,7 @@
   .file-line {
     display: flex;
     align-items: center;
-    padding: 0.5rem;
+    padding: 0.2rem;
     color: var(--vscode-input-foreground);
   }
   .file-line:hover {
