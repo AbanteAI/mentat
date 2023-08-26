@@ -1,4 +1,3 @@
-import os
 import shlex
 
 from prompt_toolkit import PromptSession
@@ -52,7 +51,7 @@ class MentatPromptSession(PromptSession):
                 ignore_case=True,
                 sentence=True,
             ),
-            history=FilteredFileHistory(os.path.join(mentat_dir_path, "history")),
+            history=FilteredFileHistory(mentat_dir_path / "history"),
             auto_suggest=FilteredHistorySuggestions(),
             multiline=True,
             prompt_continuation=self.prompt_continuation,
