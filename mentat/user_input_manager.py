@@ -1,13 +1,20 @@
 import logging
 import sys
+from collections import defaultdict
+from functools import partial
 from pathlib import Path
-from typing import Set, cast
+from typing import DefaultDict, Dict, Set, Tuple, cast
 
 from ipdb import set_trace
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import CompleteEvent, Completer, Completion
+from prompt_toolkit.completion import (
+    CompleteEvent,
+    Completer,
+    Completion,
+    PathCompleter,
+)
 from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.history import FileHistory
@@ -15,7 +22,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 from pygments.lexer import Lexer
 from pygments.lexers import guess_lexer_for_filename
-from pygments.token import Token
+from pygments.token import Token, _TokenType
 from pygments.util import ClassNotFound
 from termcolor import cprint
 
@@ -50,51 +57,80 @@ class FilteredFileHistory(FileHistory):
 #   c. Recreate UserInputManger (probably a bad idea) for every time user is prompted
 # 4. Decide on what words to auto complete (right now it's everything)
 #   a. Use ctags to add types (e.g. function, class) to completions
+# 5. Use ctags if available, fallback to pygments lexer if not
+# 6. Consider vscode-like fuzzy matching words with something like Fzf
 
 
 class AutoCompleter(Completer):
     def __init__(self, git_root: str):
         self.git_root = git_root
-        self.words: Set[str] = set()
+        self.syntax_completions: Set[str] = set()
+        self.file_name_completions: DefaultDict[str, Set[str]] = defaultdict(set)
 
-        git_file_paths = get_non_gitignored_files(self.git_root)
-        for git_file_path in git_file_paths:
-            abs_git_file_path = Path(self.git_root).joinpath(git_file_path)
-            try:
-                with open(abs_git_file_path, "r") as f:
-                    git_file_content = f.read()
-            except (FileNotFoundError, NotADirectoryError):
-                logging.debug(f"Skipping {git_file_path}. Reason: file not found")
+        for git_file_path in get_non_gitignored_files(self.git_root):
+            self.refresh_completions(git_file_path)
+
+    def refresh_completions(self, file_path: str):
+        """Add/edit/delete completions for some filepath"""
+        try:
+            with open(file_path, "r") as f:
+                file_content = f.read()
+        except (FileNotFoundError, NotADirectoryError):
+            logging.debug(f"Skipping {file_path}. Reason: file not found")
+            return
+        try:
+            lexer = guess_lexer_for_filename(file_path, file_content)
+            lexer = cast(Lexer, lexer)
+        except ClassNotFound:
+            logging.debug(f"Skipping {file_path}. Reason: lexer not found")
+            return
+
+        file_name = Path(file_path).name
+        self.file_name_completions[file_name].add(file_path)
+
+        tokens = list(lexer.get_tokens(file_content))
+        filtered_tokens = set()
+        for token_type, token_value in tokens:
+            if token_type not in Token.Name:
                 continue
-            try:
-                lexer = guess_lexer_for_filename(git_file_path, git_file_content)
-                lexer = cast(Lexer, lexer)
-            except ClassNotFound:
-                logging.debug(f"Skipping {git_file_path}. Reason: lexer not found")
+            if len(token_value) <= 1:
                 continue
-            tokens = list(lexer.get_tokens(git_file_content))
-            self.words.update(token[1] for token in tokens if token[0] in Token.Name)
+            filtered_tokens.add(token_value)
+
+        self.syntax_completions.update(filtered_tokens)
 
     def get_completions(self, document: Document, _: CompleteEvent):
         """Used by `Completer` base class"""
+        if document.text_before_cursor[-1] == " ":
+            return
         document_words = document.text_before_cursor.split()
         if not document_words:
             return
 
         last_word = document_words[-1]
-        get_word_insert = lambda word: f"`{word}`"
+        get_completion_insert = lambda word: f"`{word}`"
         if last_word[0] == "`" and len(last_word) > 1:
             last_word = last_word.lstrip("`")
-            get_word_insert = lambda word: f"{word}`"
+            get_completion_insert = lambda word: f"{word}`"
 
-        for word in self.words:
-            if word.lower().startswith(last_word.lower()):
-                yield Completion(
-                    get_word_insert(word), start_position=-len(last_word), display=word
-                )
+        completions = self.syntax_completions.union(set(self.file_name_completions))
 
-    def refresh_completions(self, file_path: str):
-        """Add/edit/delete completions for some filepath"""
+        for completion in completions:
+            if completion.lower().startswith(last_word.lower()):
+                file_names = self.file_name_completions.get(completion)
+                if file_names:
+                    for file_name in file_names:
+                        yield Completion(
+                            get_completion_insert(file_name),
+                            start_position=-len(last_word),
+                            display=file_name,
+                        )
+                else:
+                    yield Completion(
+                        get_completion_insert(completion),
+                        start_position=-len(last_word),
+                        display=completion,
+                    )
 
 
 class UserQuitInterrupt(Exception):
@@ -152,6 +188,7 @@ class UserInputManager:
 
     def collect_user_input(self) -> str:
         self.session.completer = AutoCompleter(git_root=self.git_root)
+
         user_input = self.session.prompt().strip()
         logging.debug(f"User input:\n{user_input}")
         if user_input.lower() == "q":
