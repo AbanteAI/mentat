@@ -83,6 +83,19 @@ class Conversation:
                 token_limit=code_map_message_token_limit
             )
             if code_map_message:
+                match (code_map_message.level):
+                    case "signatures":
+                        cprint_message_level = "full syntax tree"
+                    case "no_signatures":
+                        cprint_message_level = "partial syntax tree"
+                    case "filenames":
+                        cprint_message_level = "filepaths only"
+                    case _:
+                        raise Exception(
+                            f"Unknown CodeMapMessage level '{code_map_message.level}'"
+                        )
+                cprint_message = f"\nIncluding CodeMap ({cprint_message_level})"
+                cprint(cprint_message, color="green")
                 system_message += f"\n{code_map_message}"
             else:
                 cprint_message = [

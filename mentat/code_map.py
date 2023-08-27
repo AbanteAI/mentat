@@ -1,8 +1,9 @@
 import json
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Set
+from typing import Literal, Set
 
 from termcolor import cprint
 
@@ -105,6 +106,12 @@ def _get_file_map(file_paths: Set[str]) -> str:
     return file_map_tree
 
 
+@dataclass
+class CodeMapMessage:
+    level: Literal["signatures", "no_signatures", "filenames"]
+    content: str
+
+
 class CodeMap:
     def __init__(self, git_root: str, token_limit: int | None = None):
         self.git_root = git_root
@@ -147,13 +154,13 @@ class CodeMap:
 
         self.ctags_disabled = False
 
-    def _get_code_map_message(
+    def _get_message_from_ctags(
         self,
         root: str,
         file_paths: Set[str],
         exclude_signatures: bool = False,
         token_limit: int | None = None,
-    ) -> str | None:
+    ) -> CodeMapMessage | None:
         token_limit = token_limit or self.token_limit
 
         code_maps = []
@@ -167,7 +174,7 @@ class CodeMap:
             if token_limit is not None and code_maps_token_count > token_limit:
                 if exclude_signatures is True:
                     return
-                return self._get_code_map_message(
+                return self._get_message_from_ctags(
                     root, file_paths, exclude_signatures=True, token_limit=token_limit
                 )
 
@@ -180,13 +187,20 @@ class CodeMap:
         if token_limit is not None and message_token_count > token_limit:
             if exclude_signatures is True:
                 return
-            return self._get_code_map_message(root, file_paths, exclude_signatures=True)
+            return self._get_message_from_ctags(
+                root, file_paths, exclude_signatures=True
+            )
 
-        return message
+        code_map_message = CodeMapMessage(
+            level="signatures" if not exclude_signatures else "no_signatures",
+            content=message,
+        )
 
-    def _get_file_map_message(
+        return code_map_message
+
+    def _get_message_from_file_map(
         self, file_paths: Set[str], token_limit: int | None = None
-    ) -> str | None:
+    ) -> CodeMapMessage | None:
         file_map_tree = _get_file_map(file_paths)
 
         message = "Code Map:" + "\n\n" + file_map_tree
@@ -196,19 +210,21 @@ class CodeMap:
         if token_limit is not None and message_token_count > token_limit:
             return
 
-        return message
+        code_map_message = CodeMapMessage(level="filenames", content=message)
 
-    def get_message(self, token_limit: int | None = None):
+        return code_map_message
+
+    def get_message(self, token_limit: int | None = None) -> CodeMapMessage | None:
         git_file_paths = get_non_gitignored_files(self.git_root)
 
         if not self.ctags_disabled:
-            code_map_message = self._get_code_map_message(
+            code_map_message = self._get_message_from_ctags(
                 self.git_root, git_file_paths, token_limit=token_limit
             )
             if code_map_message is not None:
                 return code_map_message
 
-        file_map_message = self._get_file_map_message(
+        file_map_message = self._get_message_from_file_map(
             git_file_paths, token_limit=token_limit
         )
         if file_map_message is not None:
