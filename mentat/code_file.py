@@ -30,6 +30,16 @@ def parse_intervals(interval_string: str) -> list[Interval] | None:
 
 
 class CodeFile:
+    """
+    Represents a file along with the lines that should be in the prompt context. Can be
+    iniitialized with a Path object or a string path with optional line information
+    such as "path/to/file.py:1-5,7,12-40".
+
+    Attributes:
+        path: The path to the file.
+        intervals: The lines in context.
+    """
+
     def __init__(self, path: str | Path):
         if Path(path).exists():
             self.path = Path(path)
