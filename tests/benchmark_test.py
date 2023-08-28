@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+from textwrap import dedent
 
 import pytest
 
@@ -117,6 +118,7 @@ def test_start_project_from_scratch(mock_collect_user_input):
         elif os.path.isdir(item):
             if item != ".git":
                 shutil.rmtree(item)
+    subprocess.run(["git", "rm", "-r", "--cached", "."])
 
     mock_collect_user_input.side_effect = [
         "make a file that does fizzbuzz, named fizzbuzz.py, going up to 10",
@@ -130,4 +132,24 @@ def test_start_project_from_scratch(mock_collect_user_input):
 
     result = subprocess.run(["python", fizzbuzz_path], capture_output=True, text=True)
     expected_output = "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n"
+    assert result.stdout.strip() == expected_output.strip()
+
+
+def test_import_from_code_map(mock_collect_user_input):
+    prompt = """
+        make a file that gets the base64 encoded value of echo_hardcoded, named 
+        encoded_echo.py, and print the encoded value as a string
+    """
+    prompt = dedent(prompt).strip()
+
+    mock_collect_user_input.side_effect = [prompt, "y", KeyboardInterrupt]
+    run([])
+
+    encoded_echo_path = "encoded_echo.py"
+    assert os.path.exists(encoded_echo_path)
+
+    result = subprocess.run(
+        ["python", encoded_echo_path], capture_output=True, text=True
+    )
+    expected_output = "MDBtcDk0ITJQZ0slaTJoQG0mNVh6azRUJlZxQypOV1FebXA5NCEyUGdLJWkyaEBtJjVYems0VCZWcUMqTldRXg=="
     assert result.stdout.strip() == expected_output.strip()

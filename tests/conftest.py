@@ -59,7 +59,6 @@ def mock_call_llm_api(mocker):
 @pytest.fixture
 def mock_collect_user_input(mocker):
     mock_method = mocker.MagicMock()
-
     mocker.patch.object(UserInputManager, "collect_user_input", new=mock_method)
 
     return mock_method
@@ -141,7 +140,10 @@ def mock_sleep_time(mocker):
 
 
 # Creating a prompt session in Github Actions on Windows throws an error
-# even though we don't use it, so we always have to mock the prompt session.
+# even though we don't use it, so we always have to mock the prompt session on Windows
 @pytest.fixture(autouse=True)
 def mock_prompt_session(mocker):
-    mocker.patch("mentat.user_input_manager.PromptSession")
+    # Only mock these on Windows
+    if os.name == "nt":
+        mocker.patch("mentat.user_input_manager.PromptSession")
+        mocker.patch("mentat.user_input_manager.MentatPromptSession")

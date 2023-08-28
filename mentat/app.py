@@ -2,6 +2,7 @@ import argparse
 import glob
 import logging
 from pathlib import Path
+from textwrap import dedent
 from typing import Iterable, Optional
 
 from termcolor import cprint
@@ -10,6 +11,7 @@ from .code_change import CodeChange
 from .code_change_display import print_change
 from .code_file import parse_intervals
 from .code_file_manager import CodeFileManager
+from .code_map import CodeMap
 from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
 from .errors import MentatError, UserError
@@ -36,9 +38,15 @@ def run_cli():
         default=[],
         help="List of file paths, directory paths, or glob patterns to exclude",
     )
+    parser.add_argument(
+        "--no-code-map",
+        action="store_true",
+        help="Exclude the file structure/syntax map from the system prompt",
+    )
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
+    no_code_map = args.no_code_map
     # Expanding paths as soon as possible because some shells such as zsh automatically
     # expand globs and we want to avoid differences in functionality between shells
     run(expand_paths(paths), expand_paths(exclude_paths))
@@ -69,7 +77,11 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
     return globbed_paths
 
 
-def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
+def run(
+    paths: Iterable[str],
+    exclude_paths: Optional[Iterable[str]] = None,
+    no_code_map: bool = False,
+):
     mentat_dir_path.mkdir(parents=True, exist_ok=True)
     setup_logging()
     logging.debug(f"Paths: {paths}")
@@ -77,7 +89,7 @@ def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
     cost_tracker = CostTracker()
     try:
         setup_api_key()
-        loop(paths, exclude_paths, cost_tracker)
+        loop(paths, exclude_paths, cost_tracker, no_code_map)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -95,6 +107,7 @@ def loop(
     paths: Iterable[str],
     exclude_paths: Optional[Iterable[str]],
     cost_tracker: CostTracker,
+    no_code_map: bool,
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
@@ -106,7 +119,15 @@ def loop(
         config,
         git_root,
     )
-    conv = Conversation(config, cost_tracker, code_file_manager)
+    code_map = CodeMap(git_root, token_limit=2048) if not no_code_map else None
+    if code_map is not None and code_map.ctags_disabled:
+        ctags_disabled_message = f"""
+            There was an error with your universal ctags installation, disabling CodeMap.
+            Reason: {code_map.ctags_disabled_reason}
+        """
+        ctags_disabled_message = dedent(ctags_disabled_message)
+        cprint(ctags_disabled_message, color="yellow")
+    conv = Conversation(config, cost_tracker, code_file_manager, code_map)
 
     cprint("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")
     cprint("What can I do for you?", color="light_blue")
