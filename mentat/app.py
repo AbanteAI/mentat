@@ -49,7 +49,7 @@ def run_cli():
     no_code_map = args.no_code_map
     # Expanding paths as soon as possible because some shells such as zsh automatically
     # expand globs and we want to avoid differences in functionality between shells
-    run(expand_paths(paths), expand_paths(exclude_paths))
+    run(expand_paths(paths), expand_paths(exclude_paths), no_code_map)
 
 
 def expand_paths(paths: Iterable[str]) -> Iterable[str]:
