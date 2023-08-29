@@ -20,7 +20,7 @@ old_config_file_path = mentat_dir_path / "config.json"
 
 class ConfigManager:
     def __init__(self, git_root: str):
-        git_root = Path(git_root)
+        self.git_root = Path(git_root)
 
         # Remove this warning after August 19
         if old_config_file_path.exists():
@@ -48,7 +48,7 @@ class ConfigManager:
         else:
             self.user_config = {}
 
-        project_config_path = git_root / config_file_name
+        project_config_path = self.git_root / config_file_name
         if project_config_path.exists():
             with open(project_config_path) as config_file:
                 try:
