@@ -1,20 +1,12 @@
 import logging
-import sys
 from collections import defaultdict
-from functools import partial
 from pathlib import Path
-from typing import DefaultDict, Dict, Set, Tuple, cast
+from typing import DefaultDict, Set, cast
 
-from ipdb import set_trace
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import (
-    CompleteEvent,
-    Completer,
-    Completion,
-    PathCompleter,
-)
+from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.history import FileHistory
@@ -22,20 +14,12 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 from pygments.lexer import Lexer
 from pygments.lexers import guess_lexer_for_filename
-from pygments.token import Token, _TokenType
+from pygments.token import Token
 from pygments.util import ClassNotFound
 from termcolor import cprint
 
 from .config_manager import ConfigManager, mentat_dir_path
 from .git_handler import get_non_gitignored_files
-from .logging_config import setup_logging
-
-# setup_logging()
-#
-# logger = logging.getLogger()
-# stream_handler = logging.StreamHandler()
-# stream_handler.setLevel(logging.DEBUG)
-# logger.addHandler(stream_handler)
 
 
 class FilteredFileHistory(FileHistory):
@@ -96,7 +80,6 @@ class AutoCompleter(Completer):
             if len(token_value) <= 1:
                 continue
             filtered_tokens.add(token_value)
-
         self.syntax_completions.update(filtered_tokens)
 
     def get_completions(self, document: Document, _: CompleteEvent):
