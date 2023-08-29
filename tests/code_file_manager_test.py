@@ -1,4 +1,5 @@
 import os
+from textwrap import dedent
 from unittest import TestCase
 
 import pytest
@@ -38,9 +39,8 @@ def test_path_gitignoring(temp_testbed, mock_config):
     ]
 
     case = TestCase()
-    case.assertListEqual(
-        sorted(expected_file_paths), sorted(code_file_manager.file_paths)
-    )
+    file_paths = [str(file.path.resolve()) for file in code_file_manager.files]
+    case.assertListEqual(sorted(expected_file_paths), sorted(file_paths))
 
 
 def test_config_glob_exclude(mocker, temp_testbed, mock_config):
@@ -73,15 +73,10 @@ def test_config_glob_exclude(mocker, temp_testbed, mock_config):
         config=mock_config,
         git_root=temp_testbed,
     )
-    assert (
-        os.path.join(temp_testbed, glob_exclude_path)
-        not in code_file_manager.file_paths
-    )
-    assert os.path.join(temp_testbed, glob_include_path) in code_file_manager.file_paths
-    assert (
-        os.path.join(temp_testbed, directly_added_glob_excluded_path)
-        in code_file_manager.file_paths
-    )
+    file_paths = [str(file.path.resolve()) for file in code_file_manager.files]
+    assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
+    assert os.path.join(temp_testbed, glob_include_path) in file_paths
+    assert os.path.join(temp_testbed, directly_added_glob_excluded_path) in file_paths
 
 
 def test_glob_include(temp_testbed, mock_config):
@@ -109,14 +104,10 @@ def test_glob_include(temp_testbed, mock_config):
         git_root=temp_testbed,
     )
 
-    assert (
-        os.path.join(temp_testbed, glob_exclude_path)
-        not in code_file_manager.file_paths
-    )
-    assert os.path.join(temp_testbed, glob_include_path) in code_file_manager.file_paths
-    assert (
-        os.path.join(temp_testbed, glob_include_path2) in code_file_manager.file_paths
-    )
+    file_paths = [str(file.path.resolve()) for file in code_file_manager.files]
+    assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
+    assert os.path.join(temp_testbed, glob_include_path) in file_paths
+    assert os.path.join(temp_testbed, glob_include_path2) in file_paths
 
 
 def test_cli_glob_exclude(temp_testbed, mock_config):
@@ -143,14 +134,9 @@ def test_cli_glob_exclude(temp_testbed, mock_config):
         git_root=temp_testbed,
     )
 
-    assert (
-        os.path.join(temp_testbed, glob_include_then_exclude_path)
-        not in code_file_manager.file_paths
-    )
-    assert (
-        os.path.join(temp_testbed, glob_exclude_path)
-        not in code_file_manager.file_paths
-    )
+    file_paths = [file.path for file in code_file_manager.files]
+    assert os.path.join(temp_testbed, glob_include_then_exclude_path) not in file_paths
+    assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
 
 
 def test_text_encoding_checking(temp_testbed, mock_config):
@@ -164,7 +150,8 @@ def test_text_encoding_checking(temp_testbed, mock_config):
     code_file_manager = CodeFileManager(
         paths, [], user_input_manager=None, config=mock_config, git_root=temp_testbed
     )
-    assert os.path.join(temp_testbed, nontext_path) not in code_file_manager.file_paths
+    file_paths = [file.path for file in code_file_manager.files]
+    assert os.path.join(temp_testbed, nontext_path) not in file_paths
 
     with pytest.raises(UserError) as e_info:
         nontext_path_requested = "iamalsonottext.py"
@@ -200,3 +187,36 @@ def test_posix_paths(temp_testbed, mock_config):
     )
     code_message = code_file_manager.get_code_message()
     assert dir_name + "/" + file_name in code_message.split("\n")
+
+
+def test_partial_files(temp_testbed, mock_config):
+    dir_name = "dir"
+    file_name = "file.txt"
+    file_path = os.path.join(dir_name, file_name)
+    os.makedirs(dir_name, exist_ok=True)
+    with open(file_path, "w") as file_file:
+        file_file.write(dedent("""\
+             I am a file
+             with 5 lines
+             third
+             fourth
+             fifth"""))
+    file_path_partial = file_path + ":1,3-5"
+
+    code_file_manager = CodeFileManager(
+        [file_path_partial],
+        [],
+        user_input_manager=None,
+        config=mock_config,
+        git_root=temp_testbed,
+    )
+    code_message = code_file_manager.get_code_message()
+    assert code_message == dedent("""\
+             Code Files:
+
+             dir/file.txt
+             1:I am a file
+             3:third
+             4:fourth
+             5:fifth
+              """)

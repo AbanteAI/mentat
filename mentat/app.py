@@ -1,6 +1,7 @@
 import argparse
 import glob
 import logging
+from pathlib import Path
 from textwrap import dedent
 from typing import Iterable, Optional
 
@@ -8,6 +9,7 @@ from termcolor import cprint
 
 from .code_change import CodeChange
 from .code_change_display import print_change
+from .code_file import parse_intervals
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager, mentat_dir_path
@@ -45,6 +47,8 @@ def run_cli():
     paths = args.paths
     exclude_paths = args.exclude
     no_code_map = args.no_code_map
+    # Expanding paths as soon as possible because some shells such as zsh automatically
+    # expand globs and we want to avoid differences in functionality between shells
     run(expand_paths(paths), expand_paths(exclude_paths), no_code_map)
 
 
@@ -56,7 +60,13 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
         if new_paths:
             globbed_paths.update(new_paths)
         else:
-            invalid_paths.append(path)
+            split = path.rsplit(":", 1)
+            p = split[0]
+            intervals = parse_intervals(split[1])
+            if Path(p).exists() and intervals is not None:
+                globbed_paths.add(path)
+            else:
+                invalid_paths.append(path)
     if invalid_paths:
         cprint(
             "The following paths do not exist:",
