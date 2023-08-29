@@ -4,6 +4,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import DefaultDict, Set, cast
 
+from ipdb import set_trace
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, Suggestion
@@ -73,6 +74,12 @@ class AutoCompleter(Completer):
         self.syntax_completions: Set[str] = set()
         self.file_name_completions: DefaultDict[str, Set[str]] = defaultdict(set)
 
+        self.command_completer = WordCompleter(
+            words=Command.get_command_completions(),
+            ignore_case=True,
+            sentence=True,
+        )
+
         for git_file_path in get_non_gitignored_files(self.git_root):
             self.refresh_completions(git_file_path)
 
@@ -104,8 +111,18 @@ class AutoCompleter(Completer):
             filtered_tokens.add(token_value)
         self.syntax_completions.update(filtered_tokens)
 
-    def get_completions(self, document: Document, _: CompleteEvent):
+    def get_completions(self, document: Document, complete_event: CompleteEvent):
         """Used by `Completer` base class"""
+        if (
+            document.text_before_cursor[0] == "/"
+            and not document.text_before_cursor[-1].isspace()
+        ):
+            command_completions = self.command_completer.get_completions(
+                document, complete_event
+            )
+            for completion in command_completions:
+                yield completion
+
         if document.text_before_cursor[-1] == " ":
             return
         document_words = document.text_before_cursor.split()
@@ -139,14 +156,10 @@ class AutoCompleter(Completer):
 
 
 class MentatPromptSession(PromptSession):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, git_root: str, *args, **kwargs):
         self._setup_bindings()
         super().__init__(
-            completer=WordCompleter(
-                words=Command.get_command_completions(),
-                ignore_case=True,
-                sentence=True,
-            ),
+            completer=AutoCompleter(git_root),
             history=FilteredFileHistory(mentat_dir_path / "history"),
             auto_suggest=FilteredHistorySuggestions(),
             multiline=True,

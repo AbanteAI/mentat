@@ -26,6 +26,7 @@ class UserQuitInterrupt(Exception):
 class UserInputManager:
     def __init__(self, config: ConfigManager):
         self.mentat_session = MentatPromptSession(
+            git_root=str(config.git_root),
             message=[("class:prompt", ">>> ")],
             style=Style(config.input_style()),
         )
