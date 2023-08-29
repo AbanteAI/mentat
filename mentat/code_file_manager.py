@@ -13,13 +13,10 @@ from .change_conflict_resolution import (
     resolve_non_insertion_conflicts,
 )
 from .code_change import CodeChange, CodeChangeAction
+from .code_file_index import CodeFileIndex
 from .config_manager import ConfigManager
-from .errors import MentatError, UserError
-from .git_handler import (
-    get_git_diff_for_path,
-    get_non_gitignored_files,
-    get_paths_with_git_diffs,
-)
+from .errors import MentatError
+from .git_handler import get_git_diff_for_path, get_paths_with_git_diffs
 from .user_input_manager import UserInputManager
 
 
@@ -59,117 +56,48 @@ def _print_path_tree(tree, changed_files, cur_path, prefix=""):
             _print_path_tree(tree[key], changed_files, cur, new_prefix)
 
 
-def _is_file_text_encoded(file_path):
-    try:
-        # The ultimate filetype test
-        with open(file_path) as f:
-            f.read()
-        return True
-    except UnicodeDecodeError:
-        return False
-
-
-def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True):
-    file_paths_direct = set()
-    file_paths_from_dirs = set()
-    for path in paths:
-        path = Path(path)
-        if path.is_file():
-            if check_for_text and not _is_file_text_encoded(path):
-                logging.info(f"File path {path} is not text encoded.")
-                raise UserError(f"File path {path} is not text encoded.")
-            file_paths_direct.add(os.path.realpath(path))
-        elif path.is_dir():
-            nonignored_files = set(
-                map(
-                    lambda f: os.path.realpath(path / f),
-                    get_non_gitignored_files(path),
-                )
-            )
-
-            file_paths_from_dirs.update(
-                filter(
-                    lambda f: (not check_for_text) or _is_file_text_encoded(f),
-                    nonignored_files,
-                )
-            )
-    return file_paths_direct, file_paths_from_dirs
-
-
 class CodeFileManager:
     def __init__(
         self,
-        paths: Iterable[str],
-        exclude_paths: Iterable[str],
+        code_file_index: CodeFileIndex,
         user_input_manager: UserInputManager,
         config: ConfigManager,
-        git_root: str,
     ):
+        self.code_file_index = code_file_index
         self.config = config
-        self.git_root = Path(git_root)
-        self._set_file_paths(paths, exclude_paths)
         self.user_input_manager = user_input_manager
 
-        if self.file_paths:
+        if self.code_file_index.file_paths:
             cprint("Files included in context:", "green")
         else:
             cprint("No files included in context.\n", "red")
             cprint("Git project: ", "green", end="")
-        cprint(self.git_root.name, "blue")
+        cprint(self.config.git_root.name, "blue")
         _print_path_tree(
-            _build_path_tree(self.file_paths, self.git_root),
-            get_paths_with_git_diffs(self.git_root),
-            self.git_root,
+            _build_path_tree(self.code_file_index.file_paths, self.config.git_root),
+            get_paths_with_git_diffs(self.config.git_root),
+            self.config.git_root,
         )
         print()
 
-    def _set_file_paths(
-        self, paths: Iterable[str], exclude_paths: Iterable[str]
-    ) -> None:
-        excluded_files, excluded_files_from_dir = _abs_file_paths_from_list(
-            exclude_paths, check_for_text=False
-        )
-
-        glob_excluded_files = set(
-            os.path.join(self.git_root, file)
-            for glob_path in self.config.file_exclude_glob_list()
-            # If the user puts a / at the beginning, it will try to look in root directory
-            for file in glob.glob(
-                pathname=glob_path,
-                root_dir=self.git_root,
-                recursive=True,
-            )
-        )
-        file_paths_direct, file_paths_from_dirs = _abs_file_paths_from_list(
-            paths, check_for_text=True
-        )
-
-        # config glob excluded files only apply to files added from directories
-        file_paths_from_dirs -= glob_excluded_files
-
-        self.file_paths = list(
-            (file_paths_direct | file_paths_from_dirs)
-            - (excluded_files | excluded_files_from_dir)
-        )
-
     def _read_file(self, rel_path) -> Iterable[str]:
-        abs_path = self.git_root / rel_path
+        abs_path = self.config.git_root / rel_path
         with open(abs_path, "r") as f:
             lines = f.read().split("\n")
         return lines
 
     def _read_all_file_lines(self) -> None:
         self.file_lines = dict()
-        for abs_path in self.file_paths:
-            rel_path = os.path.relpath(abs_path, self.git_root)
+        for abs_path in self.code_file_index.file_paths:
+            rel_path = os.path.relpath(abs_path, self.config.git_root)
             # here keys are str not path object
             self.file_lines[rel_path] = self._read_file(abs_path)
 
     def get_code_message(self):
         self._read_all_file_lines()
         code_message = ["Code Files:\n"]
-        for abs_path in self.file_paths:
-            rel_path = os.path.relpath(abs_path, self.git_root)
+        for abs_path in self.code_file_index.file_paths:
+            rel_path = os.path.relpath(abs_path, self.config.git_root)
 
             # We always want to give GPT posix paths
             posix_rel_path = Path(rel_path).as_posix()
@@ -179,7 +107,7 @@ class CodeFileManager:
                 code_message.append(f"{i}:{line}")
             code_message.append("")
 
-            git_diff_output = get_git_diff_for_path(self.git_root, rel_path)
+            git_diff_output = get_git_diff_for_path(self.config.git_root, rel_path)
             if git_diff_output:
                 code_message.append("Current git diff for this file:")
                 code_message.append(f"{git_diff_output}")
@@ -187,7 +115,7 @@ class CodeFileManager:
         return "\n".join(code_message)
 
     def _handle_delete(self, delete_change):
-        file_path = self.git_root / delete_change.file
+        file_path = self.config.git_root / delete_change.file
         if not file_path.exists():
             logging.error(f"Path {file_path} non-existent on delete")
             return
@@ -196,7 +124,7 @@ class CodeFileManager:
         if self.user_input_manager.ask_yes_no(default_yes=False):
             logging.info(f"Deleting file {file_path}")
             cprint(f"Deleting {delete_change.file}...")
-            self.file_paths.remove(str(file_path))
+            self.code_file_index.file_paths.remove(str(file_path))
             file_path.unlink()
 
         else:
@@ -264,11 +192,11 @@ class CodeFileManager:
                 files_to_write[file_path] = new_code_lines
 
         for rel_path, code_lines in files_to_write.items():
-            file_path = self.git_root / rel_path
-            if file_path not in self.file_paths:
+            file_path = self.config.git_root / rel_path
+            if file_path not in self.code_file_index.file_paths:
                 # newly created files added to Mentat's context
                 logging.info(f"Adding new file {file_path} to context")
-                self.file_paths.append(file_path)
+                self.code_file_index.file_paths.add(str(file_path))
                 # create any missing directories in the path
                 file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, "w") as f:

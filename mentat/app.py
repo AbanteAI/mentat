@@ -8,6 +8,7 @@ from termcolor import cprint
 
 from .code_change import CodeChange
 from .code_change_display import print_change
+from .code_file_index import CodeFileIndex
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager, mentat_dir_path
@@ -16,6 +17,7 @@ from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker, setup_api_key
 from .logging_config import setup_logging
+from .mentat_prompt_session import MentatCompleter
 from .user_input_manager import UserInputManager, UserQuitInterrupt
 
 
@@ -101,14 +103,9 @@ def loop(
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
-    user_input_manager = UserInputManager(config)
-    code_file_manager = CodeFileManager(
-        paths,
-        exclude_paths if exclude_paths is not None else [],
-        user_input_manager,
-        config,
-        git_root,
-    )
+    code_file_index = CodeFileIndex(config, paths, exclude_paths or [])
+    user_input_manager = UserInputManager(config, code_file_index)
+    code_file_manager = CodeFileManager(code_file_index, user_input_manager, config)
     code_map = CodeMap(git_root, token_limit=2048) if not no_code_map else None
     if code_map is not None and code_map.ctags_disabled:
         ctags_disabled_message = f"""

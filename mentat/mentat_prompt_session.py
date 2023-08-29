@@ -1,8 +1,11 @@
 import logging
+import os
 import shlex
 from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import DefaultDict, Set, cast
+from typing import DefaultDict, Dict, Iterable, Set, cast
 
 from ipdb import set_trace
 from prompt_toolkit import PromptSession
@@ -16,11 +19,13 @@ from prompt_toolkit.filters import Condition
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
-from pygments.lexer import Lexer
+from pygments.lexer import Lexer, words
 from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
 from pygments.util import ClassNotFound
+from termcolor import cprint
 
+from .code_file_index import CodeFileIndex
 from .commands import Command
 from .config_manager import mentat_dir_path
 from .git_handler import get_non_gitignored_files
@@ -56,34 +61,36 @@ class FilteredHistorySuggestions(AutoSuggestFromHistory):
 
 
 ### TODO
-# 1. get files to include autocompletions from
-# 2. use pygments to generate "tokens" for each file
-# 3. update completions whenever on file add/edit/delete
-#   a. Recreate completion instance every time `collect_user_input` is called
-#   b. Recreate completions per file on file add/edit/delete every time `collect_user_input` is called
-#   c. Recreate UserInputManger (probably a bad idea) for every time user is prompted
 # 4. Decide on what words to auto complete (right now it's everything)
 #   a. Use ctags to add types (e.g. function, class) to completions
 # 5. Use ctags if available, fallback to pygments lexer if not
-# 6. Consider vscode-like fuzzy matching words with something like Fzf
+# 6. Consider fuzzy matching completions
 
 
-class AutoCompleter(Completer):
-    def __init__(self, git_root: str):
-        self.git_root = git_root
-        self.syntax_completions: Set[str] = set()
+@dataclass
+class SyntaxCompletion:
+    words: Set[str]
+    created_at: datetime = datetime.utcnow()
+
+
+class MentatCompleter(Completer):
+    def __init__(self, code_file_index: CodeFileIndex):
+        self.code_file_index = code_file_index
+
+        self.syntax_completions: Dict[str, SyntaxCompletion] = dict()
         self.file_name_completions: DefaultDict[str, Set[str]] = defaultdict(set)
-
         self.command_completer = WordCompleter(
             words=Command.get_command_completions(),
             ignore_case=True,
             sentence=True,
         )
 
-        for git_file_path in get_non_gitignored_files(self.git_root):
-            self.refresh_completions(git_file_path)
+        self._all_syntax_words: Set[str]
+        self._last_refresh_at: datetime
 
-    def refresh_completions(self, file_path: str):
+        self.refresh_completions()
+
+    def refresh_completions_for_file_path(self, file_path: str):
         """Add/edit/delete completions for some filepath"""
         try:
             with open(file_path, "r") as f:
@@ -109,10 +116,39 @@ class AutoCompleter(Completer):
             if len(token_value) <= 1:
                 continue
             filtered_tokens.add(token_value)
-        self.syntax_completions.update(filtered_tokens)
+        self.syntax_completions[file_path] = SyntaxCompletion(words=filtered_tokens)
+
+    def refresh_completions(self):
+        # Remove syntax completions for files not in the context
+        for file_path in set(self.syntax_completions.keys()):
+            if file_path not in self.code_file_index.file_paths:
+                del self.syntax_completions[file_path]
+                file_name = Path(file_path).name
+                self.file_name_completions[file_name].remove(file_path)
+                if len(self.file_name_completions[file_name]) == 0:
+                    del self.file_name_completions[file_name]
+
+        # Add/update syntax completions for files in the context
+        for file_path in self.code_file_index.file_paths:
+            if file_path not in self.syntax_completions:
+                self.refresh_completions_for_file_path(file_path)
+
+            modified_at = datetime.utcfromtimestamp(os.path.getmtime(file_path))
+            if self.syntax_completions[file_path].created_at < modified_at:
+                self.refresh_completions_for_file_path(file_path)
+
+        # Build de-duped syntax completions
+        _all_syntax_words = set()
+        for syntax_completion in self.syntax_completions.values():
+            _all_syntax_words.update(syntax_completion.words)
+        self._all_syntax_words = _all_syntax_words
+
+        self._last_refresh_at = datetime.utcnow()
 
     def get_completions(self, document: Document, complete_event: CompleteEvent):
-        """Used by `Completer` base class"""
+        if (datetime.utcnow() - self._last_refresh_at).seconds > 5:
+            self.refresh_completions()
+
         if (
             document.text_before_cursor[0] == "/"
             and not document.text_before_cursor[-1].isspace()
@@ -135,7 +171,7 @@ class AutoCompleter(Completer):
             last_word = last_word.lstrip("`")
             get_completion_insert = lambda word: f"{word}`"
 
-        completions = self.syntax_completions.union(set(self.file_name_completions))
+        completions = self._all_syntax_words.union(set(self.file_name_completions))
 
         for completion in completions:
             if completion.lower().startswith(last_word.lower()):
@@ -156,10 +192,10 @@ class AutoCompleter(Completer):
 
 
 class MentatPromptSession(PromptSession):
-    def __init__(self, git_root: str, *args, **kwargs):
+    def __init__(self, code_file_index: CodeFileIndex, *args, **kwargs):
         self._setup_bindings()
         super().__init__(
-            completer=AutoCompleter(git_root),
+            completer=MentatCompleter(code_file_index),
             history=FilteredFileHistory(mentat_dir_path / "history"),
             auto_suggest=FilteredHistorySuggestions(),
             multiline=True,
