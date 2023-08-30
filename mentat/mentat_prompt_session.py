@@ -57,13 +57,6 @@ class FilteredHistorySuggestions(AutoSuggestFromHistory):
             return super().get_suggestion(buffer, document)
 
 
-### TODO
-# 4. Decide on what words to auto complete (right now it's everything)
-#   a. Use ctags to add types (e.g. function, class) to completions
-# 5. Use ctags if available, fallback to pygments lexer if not
-# 6. Consider fuzzy matching completions
-
-
 @dataclass
 class SyntaxCompletion:
     words: Set[str]
@@ -144,7 +137,6 @@ class MentatCompleter(Completer):
     def get_completions(self, document: Document, complete_event: CompleteEvent):
         if (datetime.utcnow() - self._last_refresh_at).seconds > 5:
             self.refresh_completions()
-
         if (
             document.text_before_cursor[0] == "/"
             and not document.text_before_cursor[-1].isspace()
