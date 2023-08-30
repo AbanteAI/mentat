@@ -25,7 +25,8 @@ from pygments.token import Token
 from pygments.util import ClassNotFound
 from termcolor import cprint
 
-from .code_file_index import CodeFileIndex
+from .code_context import CodeContext
+from .code_file import CodeFile
 from .commands import Command
 from .config_manager import mentat_dir_path
 from .git_handler import get_non_gitignored_files
@@ -74,11 +75,11 @@ class SyntaxCompletion:
 
 
 class MentatCompleter(Completer):
-    def __init__(self, code_file_index: CodeFileIndex):
-        self.code_file_index = code_file_index
+    def __init__(self, code_context: CodeContext):
+        self.code_context = code_context
 
-        self.syntax_completions: Dict[str, SyntaxCompletion] = dict()
-        self.file_name_completions: DefaultDict[str, Set[str]] = defaultdict(set)
+        self.syntax_completions: Dict[Path, SyntaxCompletion] = dict()
+        self.file_name_completions: DefaultDict[str, Set[Path]] = defaultdict(set)
         self.command_completer = WordCompleter(
             words=Command.get_command_completions(),
             ignore_case=True,
@@ -90,7 +91,7 @@ class MentatCompleter(Completer):
 
         self.refresh_completions()
 
-    def refresh_completions_for_file_path(self, file_path: str):
+    def refresh_completions_for_file_path(self, file_path: Path):
         """Add/edit/delete completions for some filepath"""
         try:
             with open(file_path, "r") as f:
@@ -105,8 +106,7 @@ class MentatCompleter(Completer):
             logging.debug(f"Skipping {file_path}. Reason: lexer not found")
             return
 
-        file_name = Path(file_path).name
-        self.file_name_completions[file_name].add(file_path)
+        self.file_name_completions[file_path.name].add(file_path)
 
         tokens = list(lexer.get_tokens(file_content))
         filtered_tokens = set()
@@ -121,21 +121,21 @@ class MentatCompleter(Completer):
     def refresh_completions(self):
         # Remove syntax completions for files not in the context
         for file_path in set(self.syntax_completions.keys()):
-            if file_path not in self.code_file_index.file_paths:
+            if file_path not in self.code_context.files:
                 del self.syntax_completions[file_path]
-                file_name = Path(file_path).name
+                file_name = file_path.name
                 self.file_name_completions[file_name].remove(file_path)
                 if len(self.file_name_completions[file_name]) == 0:
                     del self.file_name_completions[file_name]
 
         # Add/update syntax completions for files in the context
-        for file_path in self.code_file_index.file_paths:
+        for file_path in self.code_context.files:
             if file_path not in self.syntax_completions:
                 self.refresh_completions_for_file_path(file_path)
-
-            modified_at = datetime.utcfromtimestamp(os.path.getmtime(file_path))
-            if self.syntax_completions[file_path].created_at < modified_at:
-                self.refresh_completions_for_file_path(file_path)
+            else:
+                modified_at = datetime.utcfromtimestamp(os.path.getmtime(file_path))
+                if self.syntax_completions[file_path].created_at < modified_at:
+                    self.refresh_completions_for_file_path(file_path)
 
         # Build de-duped syntax completions
         _all_syntax_words = set()
@@ -181,7 +181,7 @@ class MentatCompleter(Completer):
                         yield Completion(
                             get_completion_insert(file_name),
                             start_position=-len(last_word),
-                            display=file_name,
+                            display=str(file_name),
                         )
                 else:
                     yield Completion(
@@ -192,10 +192,10 @@ class MentatCompleter(Completer):
 
 
 class MentatPromptSession(PromptSession):
-    def __init__(self, code_file_index: CodeFileIndex, *args, **kwargs):
+    def __init__(self, code_context: CodeContext, *args, **kwargs):
         self._setup_bindings()
         super().__init__(
-            completer=MentatCompleter(code_file_index),
+            completer=MentatCompleter(code_context),
             history=FilteredFileHistory(mentat_dir_path / "history"),
             auto_suggest=FilteredHistorySuggestions(),
             multiline=True,

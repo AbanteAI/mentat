@@ -2,8 +2,9 @@ import glob
 import logging
 import os
 from pathlib import Path
-from typing import Iterable, Set
+from typing import Dict, Iterable, Set
 
+from .code_file import CodeFile
 from .config_manager import ConfigManager
 from .errors import UserError
 from .git_handler import get_non_gitignored_files
@@ -19,16 +20,17 @@ def _is_file_text_encoded(file_path):
         return False
 
 
-def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True):
-    file_paths_direct = set()
+def _abs_files_from_list(paths: Iterable[str], check_for_text: bool = True):
+    files_direct = set()
     file_paths_from_dirs = set()
     for path in paths:
-        path = Path(path)
+        file = CodeFile(path)
+        path = Path(file.path)
         if path.is_file():
             if check_for_text and not _is_file_text_encoded(path):
                 logging.info(f"File path {path} is not text encoded.")
                 raise UserError(f"File path {path} is not text encoded.")
-            file_paths_direct.add(os.path.realpath(path))
+            files_direct.add(file)
         elif path.is_dir():
             nonignored_files = set(
                 map(
@@ -43,10 +45,19 @@ def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True)
                     nonignored_files,
                 )
             )
-    return file_paths_direct, file_paths_from_dirs
+
+    files_from_dirs = [CodeFile(path) for path in file_paths_from_dirs]
+    return files_direct, files_from_dirs
 
 
-class CodeFileIndex:
+def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True):
+    files_direct, files_from_dirs = _abs_files_from_list(paths, check_for_text)
+    return set(map(lambda f: f.path, files_direct)), set(
+        map(lambda f: f.path, files_from_dirs)
+    )
+
+
+class CodeContext:
     def __init__(
         self,
         config: ConfigManager,
@@ -54,12 +65,15 @@ class CodeFileIndex:
         exclude_paths: Iterable[str],
     ):
         self.config = config
-        self.file_paths: Set[str] = set()
 
-        self._init_file_paths(paths, exclude_paths)
+        self.files: Dict[Path, CodeFile]
 
-    def _init_file_paths(
-        self, paths: Iterable[str], exclude_paths: Iterable[str]
+        self._set_file_paths(paths, exclude_paths)
+
+    def _set_file_paths(
+        self,
+        paths: Iterable[str],
+        exclude_paths: Iterable[str],
     ) -> None:
         excluded_files, excluded_files_from_dir = _abs_file_paths_from_list(
             exclude_paths, check_for_text=False
@@ -75,14 +89,18 @@ class CodeFileIndex:
                 recursive=True,
             )
         )
-        file_paths_direct, file_paths_from_dirs = _abs_file_paths_from_list(
-            paths, check_for_text=True
-        )
+        files_direct, files_from_dirs = _abs_files_from_list(paths, check_for_text=True)
 
         # config glob excluded files only apply to files added from directories
-        file_paths_from_dirs -= glob_excluded_files
+        files_from_dirs = [
+            file
+            for file in files_from_dirs
+            if str(file.path.resolve()) not in glob_excluded_files
+        ]
 
-        self.file_paths = set(
-            (file_paths_direct | file_paths_from_dirs)
-            - (excluded_files | excluded_files_from_dir)
-        )
+        files_direct.update(files_from_dirs)
+
+        self.files = {}
+        for file in files_direct:
+            if file.path not in excluded_files | excluded_files_from_dir:
+                self.files[file.path] = file

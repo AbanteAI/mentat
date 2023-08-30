@@ -1,6 +1,7 @@
 import argparse
 import glob
 import logging
+from pathlib import Path
 from textwrap import dedent
 from typing import Iterable, Optional
 
@@ -8,7 +9,8 @@ from termcolor import cprint
 
 from .code_change import CodeChange
 from .code_change_display import print_change
-from .code_file_index import CodeFileIndex
+from .code_context import CodeContext
+from .code_file import parse_intervals
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager, mentat_dir_path
@@ -17,7 +19,6 @@ from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker, setup_api_key
 from .logging_config import setup_logging
-from .mentat_prompt_session import MentatCompleter
 from .user_input_manager import UserInputManager, UserQuitInterrupt
 
 
@@ -47,6 +48,8 @@ def run_cli():
     paths = args.paths
     exclude_paths = args.exclude
     no_code_map = args.no_code_map
+    # Expanding paths as soon as possible because some shells such as zsh automatically
+    # expand globs and we want to avoid differences in functionality between shells
     run(expand_paths(paths), expand_paths(exclude_paths), no_code_map)
 
 
@@ -58,7 +61,13 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
         if new_paths:
             globbed_paths.update(new_paths)
         else:
-            invalid_paths.append(path)
+            split = path.rsplit(":", 1)
+            p = split[0]
+            intervals = parse_intervals(split[1])
+            if Path(p).exists() and intervals is not None:
+                globbed_paths.add(path)
+            else:
+                invalid_paths.append(path)
     if invalid_paths:
         cprint(
             "The following paths do not exist:",
@@ -103,9 +112,9 @@ def loop(
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
-    code_file_index = CodeFileIndex(config, paths, exclude_paths or [])
-    user_input_manager = UserInputManager(config, code_file_index)
-    code_file_manager = CodeFileManager(code_file_index, user_input_manager, config)
+    code_context = CodeContext(config, paths, exclude_paths or [])
+    user_input_manager = UserInputManager(config, code_context)
+    code_file_manager = CodeFileManager(user_input_manager, config, code_context)
     code_map = CodeMap(git_root, token_limit=2048) if not no_code_map else None
     if code_map is not None and code_map.ctags_disabled:
         ctags_disabled_message = f"""

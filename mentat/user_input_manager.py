@@ -5,7 +5,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 from termcolor import cprint
 
-from .code_file_index import CodeFileIndex
+from .code_context import CodeContext
 from .config_manager import ConfigManager
 from .mentat_prompt_session import MentatPromptSession
 
@@ -25,9 +25,9 @@ class UserQuitInterrupt(Exception):
 
 
 class UserInputManager:
-    def __init__(self, config: ConfigManager, code_file_index: CodeFileIndex):
+    def __init__(self, config: ConfigManager, code_context: CodeContext):
         self.mentat_session = MentatPromptSession(
-            code_file_index,
+            code_context,
             message=[("class:prompt", ">>> ")],
             style=Style(config.input_style()),
         )
