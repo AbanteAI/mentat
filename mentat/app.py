@@ -7,7 +7,6 @@ from typing import Iterable, Optional
 
 from termcolor import cprint
 
-
 from .code_change import CodeChange
 from .code_change_display import print_change
 from .code_context import CodeContext
