@@ -2,7 +2,7 @@ import glob
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Iterable, Set
+from typing import Dict, Iterable
 
 from .code_file import CodeFile
 from .config_manager import ConfigManager

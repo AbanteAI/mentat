@@ -1,4 +1,3 @@
-import glob
 import logging
 import math
 import os
@@ -16,12 +15,8 @@ from .code_change import CodeChange, CodeChangeAction
 from .code_context import CodeContext
 from .code_file import CodeFile
 from .config_manager import ConfigManager
-from .errors import MentatError, UserError
-from .git_handler import (
-    get_git_diff_for_path,
-    get_non_gitignored_files,
-    get_paths_with_git_diffs,
-)
+from .errors import MentatError
+from .git_handler import get_git_diff_for_path, get_paths_with_git_diffs
 from .user_input_manager import UserInputManager
 
 
@@ -142,7 +137,7 @@ class CodeFileManager:
         else:
             cprint(f"Not deleting {delete_change.file}")
 
-    def _get_new_code_lines(self, changes) -> Iterable[str]:
+    def _get_new_code_lines(self, changes) -> Iterable[str] | None:
         if len(set(map(lambda change: change.file, changes))) > 1:
             raise Exception("All changes passed in must be for the same file")
 

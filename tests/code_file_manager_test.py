@@ -1,18 +1,13 @@
 import os
 from textwrap import dedent
-from unittest import TestCase
 
-import pytest
-
-from mentat.app import expand_paths
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
-from mentat.config_manager import ConfigManager
 from mentat.user_input_manager import UserInputManager
 
 
 # Make sure we always give posix paths to GPT
-def test_posix_paths(temp_testbed, mock_config):
+def test_posix_paths(mock_config):
     dir_name = "dir"
     file_name = "file.txt"
     file_path = os.path.join(dir_name, file_name)
@@ -35,7 +30,7 @@ def test_posix_paths(temp_testbed, mock_config):
     assert dir_name + "/" + file_name in code_message.split("\n")
 
 
-def test_partial_files(temp_testbed, mock_config):
+def test_partial_files(mock_config):
     dir_name = "dir"
     file_name = "file.txt"
     file_path = os.path.join(dir_name, file_name)

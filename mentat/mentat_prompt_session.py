@@ -5,9 +5,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import DefaultDict, Dict, Iterable, Set, cast
+from typing import DefaultDict, Dict, Set, cast
 
-from ipdb import set_trace
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, Suggestion
@@ -19,17 +18,14 @@ from prompt_toolkit.filters import Condition
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
-from pygments.lexer import Lexer, words
+from pygments.lexer import Lexer
 from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
 from pygments.util import ClassNotFound
-from termcolor import cprint
 
 from .code_context import CodeContext
-from .code_file import CodeFile
 from .commands import Command
 from .config_manager import mentat_dir_path
-from .git_handler import get_non_gitignored_files
 
 logger = logging.getLogger()
 
