@@ -36,16 +36,12 @@ def test_partial_files(mock_config):
     file_path = os.path.join(dir_name, file_name)
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
-        file_file.write(
-            dedent(
-                """\
+        file_file.write(dedent("""\
              I am a file
              with 5 lines
              third
              fourth
-             fifth"""
-            )
-        )
+             fifth"""))
     file_path_partial = file_path + ":1,3-5"
 
     code_context = CodeContext(
@@ -61,8 +57,7 @@ def test_partial_files(mock_config):
         code_context=code_context,
     )
     code_message = code_file_manager.get_code_message()
-    assert code_message == dedent(
-        """\
+    assert code_message == dedent("""\
              Code Files:
 
              dir/file.txt
@@ -70,5 +65,4 @@ def test_partial_files(mock_config):
              3:third
              4:fourth
              5:fifth
-              """
-    )
+              """)
