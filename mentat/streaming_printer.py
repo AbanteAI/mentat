@@ -1,11 +1,10 @@
 import asyncio
 from collections import deque
 
-from termcolor import colored
-
 
 class StreamingPrinter:
-    def __init__(self):
+    def __init__(self, interface):
+        self.interface = interface
         self.strings_to_print = deque([])
         self.chars_remaining = 0
         self.shutdown = False
@@ -14,14 +13,7 @@ class StreamingPrinter:
         if len(string) == 0:
             return
         string += end
-
-        colored_string = colored(string, color) if color is not None else string
-
-        index = colored_string.index(string)
         characters = list(string)
-        characters[0] = colored_string[:index] + characters[0]
-        characters[-1] = characters[-1] + colored_string[index + len(string) :]
-
         self.strings_to_print.extend(characters)
         self.chars_remaining += len(characters)
 
@@ -36,7 +28,7 @@ class StreamingPrinter:
         while True:
             if self.strings_to_print:
                 next_string = self.strings_to_print.popleft()
-                print(next_string, end="", flush=True)
+                self.interface.display(next_string, end="")
                 self.chars_remaining -= 1
             elif self.shutdown:
                 break

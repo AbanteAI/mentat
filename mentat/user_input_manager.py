@@ -7,7 +7,6 @@ from prompt_toolkit.filters import Condition
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
-from termcolor import cprint
 
 from .config_manager import ConfigManager, mentat_dir_path
 
@@ -73,20 +72,3 @@ class UserInputManager:
         return (
             "" if is_soft_wrap else [("class:continuation", " " * (width - 2) + "> ")]
         )
-
-    def collect_user_input(self) -> str:
-        user_input = self.session.prompt().strip()
-        logging.debug(f"User input:\n{user_input}")
-        if user_input.lower() == "q":
-            raise UserQuitInterrupt()
-        return user_input
-
-    def ask_yes_no(self, default_yes: bool) -> bool:
-        cprint("(Y/n)" if default_yes else "(y/N)")
-        while (user_input := self.collect_user_input().lower()) not in [
-            "y",
-            "n",
-            "",
-        ]:
-            cprint("(Y/n)" if default_yes else "(y/N)")
-        return user_input == "y" or (user_input != "n" and default_yes)

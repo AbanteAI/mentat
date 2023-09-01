@@ -7,10 +7,10 @@ from typing import Generator
 import openai
 import tiktoken
 from dotenv import load_dotenv
-from termcolor import cprint
 
 from .config_manager import mentat_dir_path, user_config_path
 from .errors import MentatError, UserError
+from .interface import MentatInterface
 
 package_name = __name__.split(".")[0]
 
@@ -59,12 +59,12 @@ def count_tokens(message: str) -> int:
     )
 
 
-def check_model_availability(allow_32k: bool) -> bool:
+def check_model_availability(interface: MentatInterface, allow_32k: bool) -> bool:
     available_models = [x["id"] for x in openai.Model.list()["data"]]
     if allow_32k:
         # check if user has access to gpt-4-32k
         if "gpt-4-32k-0314" not in available_models:
-            cprint(
+            interface.display(
                 "You set ALLOW_32K to true, but your OpenAI API key doesn't"
                 " have access to gpt-4-32k-0314. To remove this warning, set"
                 " ALLOW_32K to false until you have access.",
@@ -83,11 +83,11 @@ def check_model_availability(allow_32k: bool) -> bool:
     return allow_32k
 
 
-def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
+def choose_model(interface: MentatInterface, messages: list[dict[str, str]], allow_32k) -> str:
     prompt_token_count = 0
     for message in messages:
         prompt_token_count += count_tokens(message["content"])
-    cprint(f"\nTotal token count: {prompt_token_count}", "cyan")
+    interface.display(f"\nTotal token count: {prompt_token_count}", "cyan")
 
     model = "gpt-4-0314"
     token_buffer = 500
@@ -95,12 +95,12 @@ def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
         if allow_32k:
             model = "gpt-4-32k-0314"
             if prompt_token_count > 32768 - token_buffer:
-                cprint(
+                interface.display(
                     "Warning: gpt-4-32k-0314 has a token limit of 32768. Attempting"
                     " to run anyway:"
                 )
         else:
-            cprint(
+            interface.display(
                 "Warning: gpt-4-0314 has a maximum context length of 8192 tokens."
                 " If you have access to gpt-4-32k-0314, set allow-32k to `true` in"
                 f" `{user_config_path}` to use"
@@ -116,6 +116,7 @@ class CostTracker:
 
     def display_api_call_stats(
         self,
+        interface: MentatInterface,
         num_prompt_tokens: int,
         num_sampled_tokens: int,
         model: str,
@@ -134,12 +135,12 @@ class CostTracker:
         speed_and_cost_string = (
             f"Speed: {tokens_per_second:.2f} tkns/s | Cost: ${call_cost:.2f}"
         )
-        cprint(speed_and_cost_string, "cyan")
+        interface.display(speed_and_cost_string, "cyan")
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
 
         self.total_cost += call_cost
 
-    def display_total_cost(self) -> None:
-        cprint(f"\nTotal session cost: ${self.total_cost:.2f}", color="light_blue")
+    def display_total_cost(self, interface: MentatInterface) -> None:
+        interface.display(f"\nTotal session cost: ${self.total_cost:.2f}", color="light_blue")

@@ -3,8 +3,6 @@ import glob
 import logging
 from typing import Iterable, Optional
 
-from termcolor import cprint
-
 from .code_change import CodeChange
 from .code_change_display import print_change
 from .code_file_manager import CodeFileManager
@@ -12,10 +10,10 @@ from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
 from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
-from .interface import InterfaceType, initialize_mentat_interface, output
+from .interface import InterfaceType, MentatInterface, initialize_mentat_interface
 from .llm_api import CostTracker, setup_api_key
 from .logging_config import setup_logging
-from .user_input_manager import UserInputManager, UserQuitInterrupt
+from .user_input_manager import UserQuitInterrupt
 
 
 def run_cli():
@@ -35,16 +33,31 @@ def run_cli():
         default=[],
         help="List of file paths, directory paths, or glob patterns to exclude",
     )
+    parser.add_argument(
+        "--interface",
+        "-i",
+        choices=[InterfaceType.Terminal, InterfaceType.VSCode],
+        default=InterfaceType.Terminal,
+        help="Interface type",
+    )
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
+    interface_type = args.interface
 
-    initialize_mentat_interface(InterfaceType.Terminal)
+    interface = initialize_mentat_interface(interface_type)
 
-    run(expand_paths(paths), expand_paths(exclude_paths))
+    run(
+        interface, 
+        expand_paths(interface, paths), 
+        expand_paths(interface, exclude_paths)
+    )
 
 
-def expand_paths(paths: Iterable[str]) -> Iterable[str]:
+def expand_paths(
+    interface: MentatInterface, 
+    paths: Iterable[str]
+) -> Iterable[str]:
     globbed_paths = set()
     invalid_paths = []
     for path in paths:
@@ -54,16 +67,20 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
         else:
             invalid_paths.append(path)
     if invalid_paths:
-        cprint(
+        interface.display(
             "The following paths do not exist:",
             "light_yellow",
         )
-        print("\n".join(invalid_paths))
-        exit()
+        interface.display("\n".join(invalid_paths))
+        interface.exit()
     return globbed_paths
 
 
-def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
+def run(
+    interface: MentatInterface,
+    paths: Iterable[str], 
+    exclude_paths: Optional[Iterable[str]] = None
+):
     mentat_dir_path.mkdir(parents=True, exist_ok=True)
     setup_logging()
     logging.debug(f"Paths: {paths}")
@@ -71,7 +88,7 @@ def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
     cost_tracker = CostTracker()
     try:
         setup_api_key()
-        loop(paths, exclude_paths, cost_tracker)
+        loop(interface, paths, exclude_paths, cost_tracker)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -80,57 +97,58 @@ def run(paths: Iterable[str], exclude_paths: Optional[Iterable[str]] = None):
         MentatError,
     ) as e:
         if str(e):
-            cprint("\n" + str(e), "red")
+            interface.display("\n" + str(e), "red")
     finally:
-        cost_tracker.display_total_cost()
+        cost_tracker.display_total_cost(interface)
 
 
 def loop(
+    interface: MentatInterface,
     paths: Iterable[str],
     exclude_paths: Optional[Iterable[str]],
     cost_tracker: CostTracker,
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
-    config = ConfigManager(git_root)
-    user_input_manager = UserInputManager(config)
+    config = ConfigManager(git_root, interface)
+    interface.register_config(config)
     code_file_manager = CodeFileManager(
+        interface,
         paths,
         exclude_paths if exclude_paths is not None else [],
-        user_input_manager,
         config,
         git_root,
     )
-    conv = Conversation(config, cost_tracker, code_file_manager)
+    conv = Conversation(interface, config, cost_tracker, code_file_manager)
 
-    output("Type 'q' or use Ctrl-C to quit at any time.\n", "cyan")
-    cprint("What can I do for you?", color="light_blue")
+    interface.display("Type 'q' or use Ctrl-C to quit at any time.\n", "cyan")
+    interface.display("What can I do for you?", color="light_blue")
     need_user_request = True
     while True:
         if need_user_request:
-            user_response = user_input_manager.collect_user_input()
+            user_response = interface.get_user_input()
             conv.add_user_message(user_response)
         explanation, code_changes = conv.get_model_response(config)
 
         if code_changes:
             need_user_request = get_user_feedback_on_changes(
-                config, conv, user_input_manager, code_file_manager, code_changes
+                interface, config, conv, code_file_manager, code_changes
             )
         else:
             need_user_request = True
 
 
 def get_user_feedback_on_changes(
+    interface: MentatInterface,
     config: ConfigManager,
     conv: Conversation,
-    user_input_manager: UserInputManager,
     code_file_manager: CodeFileManager,
     code_changes: Iterable[CodeChange],
 ) -> bool:
-    cprint(
+    interface.display(
         "Apply these changes? 'Y/n/i' or provide feedback.",
         color="light_blue",
     )
-    user_response = user_input_manager.collect_user_input()
+    user_response = interface.get_user_input(options=['y', 'n', 'i'])
 
     need_user_request = True
     match user_response.lower():
@@ -142,7 +160,7 @@ def get_user_feedback_on_changes(
             conv.add_user_message("User chose not to apply any of your changes.")
         case "i":
             code_changes_to_apply, indices = user_filter_changes(
-                user_input_manager, code_changes
+                interface, code_changes
             )
             conv.add_user_message(
                 "User chose to apply"
@@ -162,27 +180,27 @@ def get_user_feedback_on_changes(
     if code_changes_to_apply:
         code_file_manager.write_changes_to_files(code_changes_to_apply)
         if len(code_changes_to_apply) == len(code_changes):
-            cprint("Changes applied.", color="light_blue")
+            interface.display("Changes applied.", color="light_blue")
         else:
-            cprint("Selected changes applied.", color="light_blue")
+            interface.display("Selected changes applied.", color="light_blue")
     else:
-        cprint("No changes applied.", color="light_blue")
+        interface.display("No changes applied.", color="light_blue")
 
     if need_user_request:
-        cprint("Can I do anything else for you?", color="light_blue")
+        interface.display("Can I do anything else for you?", color="light_blue")
 
     return need_user_request
 
 
 def user_filter_changes(
-    user_input_manager: UserInputManager, code_changes: Iterable[CodeChange]
+    interface: MentatInterface, code_changes: Iterable[CodeChange]
 ) -> Iterable[CodeChange]:
     new_changes = []
     indices = []
     for index, change in enumerate(code_changes, start=1):
         print_change(change)
-        cprint("Keep this change?", "light_blue")
-        if user_input_manager.ask_yes_no(default_yes=True):
+        interface.display("Keep this change?", "light_blue")
+        if interface.ask_yes_no(default_yes=True):
             new_changes.append(change)
             indices.append(index)
     return new_changes, indices

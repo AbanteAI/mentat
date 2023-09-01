@@ -4,20 +4,8 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Callable, Dict, Iterable, Optional
 
-from termcolor import cprint
-
-_interface_instance = None
-
-
-def get_interface() -> MentatInterface:
-    if _interface_instance is None:
-        raise Exception("Mentat interface not initialized")
-    return _interface_instance
-
-
-# convenience function for common interaction
-def output(content: str, color: str):
-    get_interface().interact(content=content, color=color)
+# from .config_manager import ConfigManager  # circular import; using Forward Declarations instead
+from .streaming_printer import StreamingPrinter
 
 
 class InterfaceType(Enum):
@@ -27,97 +15,115 @@ class InterfaceType(Enum):
 
 def initialize_mentat_interface(
     interface_type: InterfaceType,
-    interaction_callback: Optional[Callable[[Dict], str]] = None,
 ):
-    global _interface_instance
-
-    # should only be initizalized once
-    assert _interface_instance is None
-
-    # callback provided iff interface_type is VSCode
-    assert (interface_type == InterfaceType.VSCode) == (
-        interaction_callback is not None
-    )
-
     match interface_type:
         case InterfaceType.Terminal:
-            _interface_instance = TerminalMentatInterface()
-        case InterfaceType.VSCode:
-            _interface_instance = VSCodeMentatInterface(interaction_callback)
+            return TerminalMentatInterface()
+        # case InterfaceType.VSCode:
+        #     from .vscode_interface import VSCodeMentatInterface
+        #     return VSCodeMentatInterface()
 
 
 class MentatInterface(ABC):
-    @abstractmethod
-    def interact(
-        self,
-        content: Optional[str] = None,
-        color: Optional[str] = None,
-        is_error: Optional[bool] = False,
-        return_user_input: Optional[bool] = False,
-        user_input_options: Optional[Iterable[str]] = None,
-    ) -> str:
-        """Handle both receiving input and sending output using the provided callback."""
-        pass
+    config: Optional['ConfigManager']
+
+    def register_config(self, config: 'ConfigManager'):
+        """Required to initialize UserInputManager with Autocomplete"""
+        self.config = config
 
     @abstractmethod
-    def interrupt(self):
-        """Handle user interruptions."""
-        pass
+    def display(
+        self,
+        content: str,
+        color: Optional[str] = None,
+        end: Optional[str] = "\n",
+    ) -> None:
+        """Handle displaying output to user."""
+        raise NotImplementedError('display() not implemented')
+
+    def get_streaming_printer(self) -> StreamingPrinter:
+        """Return a streaming printer."""
+        raise NotImplementedError('get_streaming_printer() not implemented')
+
+    def get_user_input(
+        self, 
+        prompt=None, 
+        options=None
+    ) -> str:
+        """Handle getting input from user."""
+        raise NotImplementedError('get_user_input() not implemented')
+
+    def ask_yes_no(
+        self, 
+        prompt=None,
+        default_yes: bool=True
+    ) -> bool:
+        """Handle getting yes/no input from user."""
+        return self.get_user_input(prompt, options=["y", "n"]).lower() == "y"
 
     @abstractmethod
     def exit(self):
         """Handle cleanup or exit procedures."""
         pass
 
+# ------------------
+# Terminal Interface
+# ------------------
+
+from termcolor import cprint, colored
+from .user_input_manager import UserInputManager
+from .config_manager import ConfigManager
+
+class TerminalStreamingPrinter(StreamingPrinter):
+    def add_string(self, string, end="\n", color=None):
+        if len(string) == 0:
+            return
+        string += end
+
+        colored_string = colored(string, color) if color is not None else string
+
+        index = colored_string.index(string)
+        characters = list(string)
+        characters[0] = colored_string[:index] + characters[0]
+        characters[-1] = characters[-1] + colored_string[index + len(string) :]
+
+        self.strings_to_print.extend(characters)
+        self.chars_remaining += len(characters)
+
 
 class TerminalMentatInterface(MentatInterface):
-    def interact(
-        self,
-        content: Optional[str] = None,
-        color: Optional[str] = None,
-        is_error: Optional[bool] = False,
-        return_user_input: Optional[bool] = False,
-        user_input_options: Optional[Iterable[str]] = None,
+    
+    def register_config(self, config: ConfigManager):
+        self.ui = UserInputManager(config)
+
+    def get_user_input(        
+        self, 
+        prompt: str=None, 
+        options: Optional[Iterable[str]]=None
     ) -> str:
-        if content:
-            if color:
-                cprint(content, color=color)
+        while True:
+            if prompt is not None:
+                if options is None:
+                    self.display(prompt)
+                else:                
+                    self.display(f"{prompt} ({'/'.join(options)})")
+            user_input = self.ui.session.prompt().strip()
+            if options is None:
+                return user_input
+            elif user_input.lower() in options:
+                return user_input
             else:
-                print(content)
-        if return_user_input:
-            # get and return user input
-            pass
+                self.display("Invalid response")
 
-    def interrupt(self):
-        pass
+    def display(self, content, color=None, end="\n"):
+        if color:
+            cprint(content, color=color, end=end)
+        else:
+            print(content, end=end, flush=True)
 
-    def exit(self):
-        pass
-
-
-class VSCodeMentatInterface(MentatInterface):
-    def __init__(self, interaction_callback: Callable):
-        self.interaction_callback = interaction_callback
-
-    def interact(
-        self,
-        content: Optional[str] = None,
-        color: Optional[str] = None,
-        is_error: Optional[bool] = False,
-        return_user_input: Optional[bool] = False,
-        user_input_options: Optional[Iterable[str]] = None,
-    ) -> str:
-        """Handle both receiving input and sending output using the provided callback."""
-        return self.interaction_callback(
-            content=content,
-            color=color,
-            is_error=is_error,
-            return_user_input=return_user_input,
-            user_input_options=user_input_options,
-        )
-
-    def interrupt(self):
-        pass
+    def get_streaming_printer(self):
+        printer = TerminalStreamingPrinter(self)
+        return printer
 
     def exit(self):
-        pass
+        exit()

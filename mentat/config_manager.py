@@ -4,7 +4,7 @@ from importlib import resources
 from json import JSONDecodeError
 from pathlib import Path
 
-from termcolor import cprint
+from .interface import MentatInterface
 
 mentat_dir_path = Path.home() / ".mentat"
 
@@ -19,12 +19,12 @@ old_config_file_path = mentat_dir_path / "config.json"
 
 
 class ConfigManager:
-    def __init__(self, git_root: str):
+    def __init__(self, git_root: str, interface: MentatInterface):
         git_root = Path(git_root)
 
         # Remove this warning after August 19
         if old_config_file_path.exists():
-            cprint(
+            interface.display(
                 "Warning: You are still using an old config.json in your ~/.mentat"
                 " directory. The config filename has recently been changed to"
                 " .mentat_config.json, and can be present in either ~/.mentat or the"
@@ -39,7 +39,7 @@ class ConfigManager:
                     self.user_config = json.load(config_file)
                 except JSONDecodeError:
                     logging.info("User config file contains invalid json")
-                    cprint(
+                    interface.display(
                         "Warning: User .mentat_config.json contains invalid"
                         " json; ignoring user configuration file",
                         "light_yellow",
@@ -55,7 +55,7 @@ class ConfigManager:
                     self.project_config = json.load(config_file)
                 except JSONDecodeError:
                     logging.info("Project config file contains invalid json")
-                    cprint(
+                    interface.display(
                         "Warning: Git project .mentat_config.json contains invalid"
                         " json; ignoring project configuration file",
                         "light_yellow",

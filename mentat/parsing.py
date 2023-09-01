@@ -8,7 +8,6 @@ from typing import Generator
 
 import attr
 import openai
-from termcolor import cprint
 
 from .code_change import CodeChange
 from .code_change_display import (
@@ -22,6 +21,7 @@ from .code_file_manager import CodeFileManager
 from .errors import MentatError, ModelError, UserError
 from .llm_api import call_llm_api
 from .streaming_printer import StreamingPrinter
+from .interface import MentatInterface
 
 
 class _BlockIndicator(Enum):
@@ -148,6 +148,7 @@ class ParsingState:
 
 
 def run_async_stream_and_parse_llm_response(
+    interface: MentatInterface,
     messages: list[dict[str, str]],
     model: str,
     code_file_manager: CodeFileManager,
@@ -156,7 +157,7 @@ def run_async_stream_and_parse_llm_response(
     start_time = default_timer()
     try:
         asyncio.run(
-            stream_and_parse_llm_response(messages, model, state, code_file_manager)
+            stream_and_parse_llm_response(interface, messages, model, state, code_file_manager)
         )
     except openai.error.InvalidRequestError as e:
         raise MentatError(
@@ -166,7 +167,7 @@ def run_async_stream_and_parse_llm_response(
     except openai.error.RateLimitError as e:
         raise UserError("OpenAI gave a rate limit error:\n" + str(e))
     except KeyboardInterrupt:
-        print("\n\nInterrupted by user. Using the response up to this point.")
+        interface.display("\n\nInterrupted by user. Using the response up to this point.")
         # if the last change is incomplete, remove it
         if state.in_code_lines:
             state.code_changes = state.code_changes[:-1]
@@ -181,6 +182,7 @@ def run_async_stream_and_parse_llm_response(
 
 
 async def stream_and_parse_llm_response(
+    interface: MentatInterface,
     messages: list[dict[str, str]],
     model: str,
     state: ParsingState,
@@ -188,9 +190,8 @@ async def stream_and_parse_llm_response(
 ) -> None:
     response = await call_llm_api(messages, model)
 
-    print("\nstreaming...  use control-c to interrupt the model at any point\n")
-
-    printer = StreamingPrinter()
+    interface.display("\nstreaming...  use control-c to interrupt the model at any point\n")
+    printer = interface.get_streaming_printer()
     printer_task = asyncio.create_task(printer.print_lines())
     try:
         await _process_response(state, response, printer, code_file_manager)
@@ -201,9 +202,9 @@ async def stream_and_parse_llm_response(
         printer.wrap_it_up()
         # make sure we finish printing everything model sent before we encountered the crash
         await printer_task
-        cprint("\n\nFatal error while processing model response:", "red")
-        cprint(e, color="red")
-        cprint("Using response up to this point.")
+        interface.display("\n\nFatal error while processing model response:", "red")
+        interface.display(e, color="red")
+        interface.display("Using response up to this point.")
         if e.already_added_to_changelist:
             state.code_changes = state.code_changes[:-1]
     finally:

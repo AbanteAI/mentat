@@ -6,8 +6,6 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
 
-from termcolor import cprint
-
 from .change_conflict_resolution import (
     resolve_insertion_conflicts,
     resolve_non_insertion_conflicts,
@@ -20,7 +18,7 @@ from .git_handler import (
     get_non_gitignored_files,
     get_paths_with_git_diffs,
 )
-from .user_input_manager import UserInputManager
+from .interface import MentatInterface
 
 
 def _build_path_tree(file_paths, git_root):
@@ -36,15 +34,15 @@ def _build_path_tree(file_paths, git_root):
     return tree
 
 
-def _print_path_tree(tree, changed_files, cur_path, prefix=""):
+def _print_path_tree(interface, tree, changed_files, cur_path, prefix=""):
     keys = list(tree.keys())
     for i, key in enumerate(sorted(keys)):
         if i < len(keys) - 1:
             new_prefix = prefix + "│   "
-            print(f"{prefix}├── ", end="")
+            interface.display(f"{prefix}├── ", end="")
         else:
             new_prefix = prefix + "    "
-            print(f"{prefix}└── ", end="")
+            interface.display(f"{prefix}└── ", end="")
 
         cur = cur_path / key
         star = "* " if cur in changed_files else ""
@@ -54,9 +52,9 @@ def _print_path_tree(tree, changed_files, cur_path, prefix=""):
             color = "green"
         else:
             color = None
-        cprint(f"{star}{key}", color)
+        interface.display(f"{star}{key}", color)
         if tree[key]:
-            _print_path_tree(tree[key], changed_files, cur, new_prefix)
+            _print_path_tree(interface, tree[key], changed_files, cur, new_prefix)
 
 
 def _is_file_text_encoded(file_path):
@@ -99,29 +97,30 @@ def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True)
 class CodeFileManager:
     def __init__(
         self,
+        interface: MentatInterface,
         paths: Iterable[str],
         exclude_paths: Iterable[str],
-        user_input_manager: UserInputManager,
         config: ConfigManager,
         git_root: str,
     ):
+        self.interface = interface
         self.config = config
         self.git_root = Path(git_root)
         self._set_file_paths(paths, exclude_paths)
-        self.user_input_manager = user_input_manager
 
         if self.file_paths:
-            cprint("Files included in context:", "green")
+            self.interface.display("Files included in context:", "green")
         else:
-            cprint("No files included in context.\n", "red")
-            cprint("Git project: ", "green", end="")
-        cprint(self.git_root.name, "blue")
+            self.interface.display("No files included in context.\n", "red")
+            self.interface.display("Git project: ", "green", end="")
+        self.interface.display(self.git_root.name, "blue")
         _print_path_tree(
+            self.interface,
             _build_path_tree(self.file_paths, self.git_root),
             get_paths_with_git_diffs(self.git_root),
             self.git_root,
         )
-        print()
+        self.interface.display("")
 
     def _set_file_paths(
         self, paths: Iterable[str], exclude_paths: Iterable[str]
@@ -192,15 +191,15 @@ class CodeFileManager:
             logging.error(f"Path {file_path} non-existent on delete")
             return
 
-        cprint(f"Are you sure you want to delete {delete_change.file}?", "red")
-        if self.user_input_manager.ask_yes_no(default_yes=False):
+        self.interface.display(f"Are you sure you want to delete {delete_change.file}?", "red")
+        if self.interface.ask_yes_no(default_yes=False):
             logging.info(f"Deleting file {file_path}")
-            cprint(f"Deleting {delete_change.file}...")
+            self.interface.display(f"Deleting {delete_change.file}...")
             self.file_paths.remove(str(file_path))
             file_path.unlink()
 
         else:
-            cprint(f"Not deleting {delete_change.file}")
+            self.interface.display(f"Not deleting {delete_change.file}")
 
     def _get_new_code_lines(self, changes) -> Iterable[str]:
         if len(set(map(lambda change: change.file, changes))) > 1:
@@ -211,9 +210,9 @@ class CodeFileManager:
         # We resolve insertion conflicts twice because non-insertion conflicts
         # might move insert blocks outside of replace/delete blocks and cause
         # them to conflict again
-        changes = resolve_insertion_conflicts(changes, self.user_input_manager, self)
-        changes = resolve_non_insertion_conflicts(changes, self.user_input_manager)
-        changes = resolve_insertion_conflicts(changes, self.user_input_manager, self)
+        changes = resolve_insertion_conflicts(changes, self.interface, self)
+        changes = resolve_non_insertion_conflicts(changes, self.interface)
+        changes = resolve_insertion_conflicts(changes, self.interface, self)
         if not changes:
             return []
 
@@ -221,13 +220,13 @@ class CodeFileManager:
         new_code_lines = self.file_lines[rel_path].copy()
         if new_code_lines != self._read_file(rel_path):
             logging.info(f"File '{rel_path}' changed while generating changes")
-            cprint(
+            self.interface.display(
                 f"File '{rel_path}' changed while generating; current file changes"
                 " will be erased. Continue?",
                 color="light_yellow",
             )
-            if not self.user_input_manager.ask_yes_no(default_yes=False):
-                cprint(f"Not applying changes to file {rel_path}.")
+            if not self.interface.ask_yes_no(default_yes=False):
+                self.interface.display(f"Not applying changes to file {rel_path}.")
                 return None
 
         # Necessary in case the model needs to insert past the end of the file
@@ -251,7 +250,7 @@ class CodeFileManager:
             # here keys are str not path object
             rel_path = str(code_change.file)
             if code_change.action == CodeChangeAction.CreateFile:
-                cprint(f"Creating new file {rel_path}", color="light_green")
+                self.interface.display(f"Creating new file {rel_path}", color="light_green")
                 files_to_write[rel_path] = code_change.code_lines
             elif code_change.action == CodeChangeAction.DeleteFile:
                 self._handle_delete(code_change)
