@@ -135,6 +135,8 @@ class MentatCompleter(Completer):
         self._last_refresh_at = datetime.utcnow()
 
     def get_completions(self, document: Document, complete_event: CompleteEvent):
+        if document.text_before_cursor == "":
+            return
         if (datetime.utcnow() - self._last_refresh_at).seconds > 5:
             self.refresh_completions()
         if (
