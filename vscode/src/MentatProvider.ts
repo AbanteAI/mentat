@@ -1,9 +1,15 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
+import ignore from 'ignore';
 import { traceError, traceLog, traceVerbose } from './common/log/logging';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { Command, OutboundMessage, Sender, WorkspaceGraphElement } from './types/globals';
+
+const defaultIgnoredItems = [
+  '.git',
+  '.env',
+];
 
 export class MentatProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
@@ -107,12 +113,20 @@ export class MentatProvider implements vscode.WebviewViewProvider {
             throw new Error('Webview not initialized');
         }
 
+        // Configure ignore
+        const gitIgnorePath = vscode.Uri.joinPath(uri, '.gitignore');
+        let ig = ignore();
+        ig = ig.add(defaultIgnoredItems);
+        if (fs.existsSync(gitIgnorePath.fsPath)) {
+            const gitIgnore = fs.readFileSync(gitIgnorePath.fsPath, 'utf-8');
+            ig = ig.add(gitIgnore);
+        }
+
         // Generate subgraph
         const filesAndDirectories = await vscode.workspace.fs.readDirectory(uri);
         const children: WorkspaceGraphElement[] = [];
         for (const [name, type] of filesAndDirectories) {
-            if (name.startsWith('.')) {
-                // TODO: Make this configurable
+            if (ig.ignores(name)) {
                 continue;
             }
             const currentUri = vscode.Uri.joinPath(uri, name);

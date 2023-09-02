@@ -46,6 +46,8 @@
       <span class="caret {isOpen ? 'open' : ''}" >
         <Fa icon={faCaretRight} />
       </span>
+    {:else}
+      <span style="width: 0.5em" />
     {/if}
     <Checkbox 
       status={status} 
@@ -94,6 +96,7 @@
     max-height: 100%;
   }
   .caret {
+    width: 0.5em;
     transition: transform 0.3s ease;
   }
   .caret.open {
