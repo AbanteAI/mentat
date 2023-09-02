@@ -20,42 +20,6 @@ from .git_handler import get_git_diff_for_path, get_paths_with_git_diffs
 from .user_input_manager import UserInputManager
 
 
-def _build_path_tree(files: Iterable[CodeFile], git_root):
-    tree = {}
-    for file in files:
-        path = os.path.relpath(file.path, git_root)
-        parts = Path(path).parts
-        current_level = tree
-        for part in parts:
-            if part not in current_level:
-                current_level[part] = {}
-            current_level = current_level[part]
-    return tree
-
-
-def _print_path_tree(tree, changed_files, cur_path, prefix=""):
-    keys = list(tree.keys())
-    for i, key in enumerate(sorted(keys)):
-        if i < len(keys) - 1:
-            new_prefix = prefix + "│   "
-            print(f"{prefix}├── ", end="")
-        else:
-            new_prefix = prefix + "    "
-            print(f"{prefix}└── ", end="")
-
-        cur = cur_path / key
-        star = "* " if cur in changed_files else ""
-        if tree[key]:
-            color = "blue"
-        elif star:
-            color = "green"
-        else:
-            color = None
-        cprint(f"{star}{key}", color)
-        if tree[key]:
-            _print_path_tree(tree[key], changed_files, cur, new_prefix)
-
-
 class CodeFileManager:
     def __init__(
         self,
@@ -73,11 +37,7 @@ class CodeFileManager:
             cprint("No files included in context.\n", "red")
             cprint("Git project: ", "green", end="")
         cprint(self.config.git_root.name, "blue")
-        _print_path_tree(
-            _build_path_tree(self.code_context.files.values(), self.config.git_root),
-            get_paths_with_git_diffs(self.config.git_root),
-            self.config.git_root,
-        )
+        self.code_context.print_tree()
         print()
 
     def _read_file(self, file: Union[str, CodeFile]) -> Iterable[str]:
