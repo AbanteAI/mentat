@@ -113,6 +113,7 @@ def loop(
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
     code_context = CodeContext(config, paths, exclude_paths or [])
+    code_context.display_context()
     user_input_manager = UserInputManager(config, code_context)
     code_file_manager = CodeFileManager(user_input_manager, config, code_context)
     code_map = CodeMap(git_root, token_limit=2048) if not no_code_map else None

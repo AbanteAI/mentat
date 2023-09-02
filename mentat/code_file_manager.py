@@ -31,15 +31,6 @@ class CodeFileManager:
         self.config = config
         self.code_context = code_context
 
-        if self.code_context.files:
-            cprint("Files included in context:", "green")
-        else:
-            cprint("No files included in context.\n", "red")
-            cprint("Git project: ", "green", end="")
-        cprint(self.config.git_root.name, "blue")
-        self.code_context.print_tree()
-        print()
-
     def _read_file(self, file: Union[str, CodeFile]) -> Iterable[str]:
         if isinstance(file, CodeFile):
             rel_path = file.path

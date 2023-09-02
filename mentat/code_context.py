@@ -138,9 +138,16 @@ class CodeContext:
 
         self.files = _get_files(self.config, paths, exclude_paths)
 
-    def print_tree(self):
+    def display_context(self):
+        if self.files:
+            cprint("Files included in context:", "green")
+        else:
+            cprint("No files included in context.\n", "red")
+            cprint("Git project: ", "green", end="")
+        cprint(self.config.git_root.name, "blue")
         _print_path_tree(
             _build_path_tree(self.files.values(), self.config.git_root),
             get_paths_with_git_diffs(self.config.git_root),
             self.config.git_root,
         )
+        print()
