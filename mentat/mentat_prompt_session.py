@@ -102,3 +102,10 @@ class MentatPromptSession(PromptSession):
             suggestion = event.current_buffer.suggestion
             if suggestion:
                 event.current_buffer.insert_text(suggestion.text)
+
+        @self.bindings.add("c-c")
+        def _(event: KeyPressEvent):
+            if event.current_buffer.text != "":
+                event.current_buffer.reset()
+            else:
+                event.app.exit(result="q")
