@@ -2,7 +2,7 @@ import { writable } from 'svelte/store';
 import { WorkspaceGraphElement, FileInclusionStatus, MentatArgs } from '../../../types/globals';
 
 export class FileTreeElement {
-    public children: FileTreeElement[] | undefined;
+    private _children: FileTreeElement[] | undefined;
     // A svelte-subscribable store that stores broadcasts changes in status
     public statusStore = writable(FileInclusionStatus.notIncluded);
     public status: FileInclusionStatus | undefined; // A locally-accessible cache of status
@@ -10,12 +10,16 @@ export class FileTreeElement {
     constructor(
         public file: WorkspaceGraphElement, // File metadata
     ) {
-        if (this.file.children) {
-            this.children = this.file.children.map((child) => {
-                return new FileTreeElement(child);
-            });
-        }
         this.statusStore.subscribe((s) => (this.status = s));
+    }
+
+    get children(): FileTreeElement[] | undefined {
+      if (!this._children && this.file.children) {
+          this._children = this.file.children.map((child) => {
+              return new FileTreeElement(child);
+          });
+      }
+      return this._children;
     }
 
     handleClick() {
