@@ -58,7 +58,7 @@
   </div>
   
   <div class="children-container {isOpen ? 'open' : ''}">
-    {#if file.children}
+    {#if isOpen && file.children}
       {#each file.children as child}
         <File 
           file={child} 
