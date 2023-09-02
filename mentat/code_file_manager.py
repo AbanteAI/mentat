@@ -16,7 +16,7 @@ from .code_context import CodeContext
 from .code_file import CodeFile
 from .config_manager import ConfigManager
 from .errors import MentatError
-from .git_handler import get_git_diff_for_path, get_paths_with_git_diffs
+from .git_handler import get_git_diff_for_path
 from .user_input_manager import UserInputManager
 
 

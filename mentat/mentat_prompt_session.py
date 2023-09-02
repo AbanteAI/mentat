@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import DefaultDict, Dict, Set, cast
 
-from ipdb import set_trace
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, Suggestion
