@@ -43,10 +43,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install .
+      - name: Check types with pyright
+        run: |
+          pyright
       - name: Test with pytest
         run: |
           pytest
-          
+
   license-check:
     runs-on: ubuntu-latest
 
