@@ -6,10 +6,12 @@ name: lint and test
 on:
   push:
     branches:
-      - main
+      # - main
+      - add-pyright
   pull_request:
     branches:
-      - main
+      # - main
+      - add-pyright
 
 jobs:
   ruff-black-isort:
