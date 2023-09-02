@@ -26,12 +26,13 @@ export interface VsCodeApi {
     postMessage(message: OutboundMessage): void;
 }
 
-export enum FileInclusionStatus {
-    notIncluded,  // Not included, parent not included.
-    autoIncluded, // Not included, parent included
-    included,     // Included, parent not included
-    autoExcluded, // n/a, parent excluded
-    excluded,     // Excluded, parent included
+export enum FileInclusionStatus {  
+    // Based on file/parent checked:   file  prt1  prt2
+    notIncluded = 'notIncluded',   //  -     -     -
+    included = 'included',         //  X     -     -
+    excluded = 'excluded',         //  X     X     -
+    autoIncluded = 'autoIncluded', //  -     X     -
+    autoExcluded = 'autoExcluded', //  -     X     X
 }
 
 export interface WorkspaceGraphElement {

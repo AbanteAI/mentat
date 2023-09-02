@@ -56,8 +56,8 @@
   }
   onMount(() => window.addEventListener('message', handleReceiveChunk));
   onDestroy(() => window.removeEventListener('message', handleReceiveChunk));
-
 </script>
+
 <button class='back-button' on:click={restartMentat}>
   <Fa icon={faArrowLeft} />
   <div class='spacer' />
@@ -89,12 +89,13 @@
     flex-direction: row;
     justify-content: start;
     align-items: center;
-    background-color: transparent;
-    padding: 0.5em;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    padding: 0.8em;
   }
   .back-button:hover {
     cursor: pointer;
-    background-color: var(--vscode-inputOption-hoverBackground);
+    background-color: var(--vscode-button-hoverBackground);
   }
   .spacer {
     padding: 0.25em;

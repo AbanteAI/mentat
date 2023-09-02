@@ -181,6 +181,7 @@
         "@rollup/plugin-typescript": "^11.1.2",
         "@vscode/python-extension": "1.0.1",
         "fs-extra": "^11.1.1",
+        "ignore": "^5.2.4",
         "rollup": "^3.28.0",
         "rollup-plugin-css-only": "^4.3.0",
         "rollup-plugin-livereload": "^2.0.5",

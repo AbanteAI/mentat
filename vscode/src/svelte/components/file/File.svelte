@@ -12,7 +12,7 @@
   let status: FileInclusionStatus;
   file.statusStore.subscribe(value => status = value);
 
-  let isOpen: boolean = false;
+  let isOpen: boolean = indent === 0;
   const handleClickRow = () => {
     if (file.file.children) {
       isOpen = !isOpen;
@@ -46,6 +46,8 @@
       <span class="caret {isOpen ? 'open' : ''}" >
         <Fa icon={faCaretRight} />
       </span>
+    {:else}
+      <span style="width: 0.5em" />
     {/if}
     <Checkbox 
       status={status} 
@@ -75,7 +77,7 @@
   .file-line {
     display: flex;
     align-items: center;
-    padding: 0.5rem;
+    padding: 0.2rem;
     color: var(--vscode-input-foreground);
   }
   .file-line:hover {
@@ -94,6 +96,7 @@
     max-height: 100%;
   }
   .caret {
+    width: 0.5em;
     transition: transform 0.3s ease;
   }
   .caret.open {

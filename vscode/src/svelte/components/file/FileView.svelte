@@ -48,6 +48,7 @@
     <File file={root} />
   {/if}
 </div>
+<div style="padding-top: 1em" />
 <button on:click={handleStartMentat}>Start Mentat</button>
 
 <style>

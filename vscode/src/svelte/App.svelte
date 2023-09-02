@@ -28,5 +28,6 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    background-color: var(--vscode-sideBar-background);
   }
 </style>
