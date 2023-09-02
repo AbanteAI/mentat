@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import DefaultDict, Dict, Set, cast
 
+from ipdb import set_trace
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, Suggestion
@@ -231,8 +232,7 @@ class MentatPromptSession(PromptSession):
                 and app.current_buffer.text[0] != "/"
             )
 
-        # c-i is the code for tab
-        @self.bindings.add("c-i", filter=complete_suggestion)
+        @self.bindings.add("right", filter=complete_suggestion)
         def _(event: KeyPressEvent):
             suggestion = event.current_buffer.suggestion
             if suggestion:
