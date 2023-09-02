@@ -4,6 +4,7 @@
   --vscode-font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'Ubuntu', 'Droid Sans', sans-serif;
   --vscode-font-size: 1em; /* 13px, but that's small in browser */
   --vscode-editorPane-background: #1f1f1f;
+  --vscode-sideBar-background: #f3f3f3;
   --vscode-foreground: #cccccc;
   /* Buttons */
   --vscode-button-foreground: #ffffff;
