@@ -1,11 +1,23 @@
 import logging
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 from termcolor import cprint
 
+from .code_context import CodeContext
 from .config_manager import ConfigManager
 from .mentat_prompt_session import MentatPromptSession
+
+
+class FilteredFileHistory(FileHistory):
+    def __init__(self, filename: str, config: ConfigManager):
+        self.excluded_phrases = ["y", "n", "i", "q"]
+        super().__init__(filename)
+
+    def append_string(self, string):
+        if string.strip().lower() not in self.excluded_phrases:
+            super().append_string(string)
 
 
 class UserQuitInterrupt(Exception):
@@ -13,8 +25,9 @@ class UserQuitInterrupt(Exception):
 
 
 class UserInputManager:
-    def __init__(self, config: ConfigManager):
+    def __init__(self, config: ConfigManager, code_context: CodeContext):
         self.mentat_session = MentatPromptSession(
+            code_context,
             message=[("class:prompt", ">>> ")],
             style=Style(config.input_style()),
         )

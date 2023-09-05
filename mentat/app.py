@@ -9,6 +9,7 @@ from termcolor import cprint
 
 from .code_change import CodeChange
 from .code_change_display import print_change
+from .code_context import CodeContext
 from .code_file import parse_intervals
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
@@ -111,14 +112,10 @@ def loop(
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
-    user_input_manager = UserInputManager(config)
-    code_file_manager = CodeFileManager(
-        paths,
-        exclude_paths if exclude_paths is not None else [],
-        user_input_manager,
-        config,
-        git_root,
-    )
+    code_context = CodeContext(config, paths, exclude_paths or [])
+    code_context.display_context()
+    user_input_manager = UserInputManager(config, code_context)
+    code_file_manager = CodeFileManager(user_input_manager, config, code_context)
     code_map = CodeMap(git_root, token_limit=2048) if not no_code_map else None
     if code_map is not None and code_map.ctags_disabled:
         ctags_disabled_message = f"""

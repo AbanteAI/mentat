@@ -1,4 +1,3 @@
-import glob
 import logging
 import math
 import os
@@ -13,169 +12,31 @@ from .change_conflict_resolution import (
     resolve_non_insertion_conflicts,
 )
 from .code_change import CodeChange, CodeChangeAction
+from .code_context import CodeContext
 from .code_file import CodeFile
 from .config_manager import ConfigManager
-from .errors import MentatError, UserError
-from .git_handler import (
-    get_git_diff_for_path,
-    get_non_gitignored_files,
-    get_paths_with_git_diffs,
-)
+from .errors import MentatError
+from .git_handler import get_git_diff_for_path
 from .user_input_manager import UserInputManager
-
-
-def _build_path_tree(files, git_root):
-    tree = {}
-    for file in files:
-        path = os.path.relpath(file.path, git_root)
-        parts = Path(path).parts
-        current_level = tree
-        for part in parts:
-            if part not in current_level:
-                current_level[part] = {}
-            current_level = current_level[part]
-    return tree
-
-
-def _print_path_tree(tree, changed_files, cur_path, prefix=""):
-    keys = list(tree.keys())
-    for i, key in enumerate(sorted(keys)):
-        if i < len(keys) - 1:
-            new_prefix = prefix + "│   "
-            print(f"{prefix}├── ", end="")
-        else:
-            new_prefix = prefix + "    "
-            print(f"{prefix}└── ", end="")
-
-        cur = cur_path / key
-        star = "* " if cur in changed_files else ""
-        if tree[key]:
-            color = "blue"
-        elif star:
-            color = "green"
-        else:
-            color = None
-        cprint(f"{star}{key}", color)
-        if tree[key]:
-            _print_path_tree(tree[key], changed_files, cur, new_prefix)
-
-
-def _is_file_text_encoded(file_path):
-    try:
-        # The ultimate filetype test
-        with open(file_path) as f:
-            f.read()
-        return True
-    except UnicodeDecodeError:
-        return False
-
-
-def _abs_files_from_list(paths: Iterable[str], check_for_text: bool = True):
-    files_direct = set()
-    file_paths_from_dirs = set()
-    for path in paths:
-        file = CodeFile(path)
-        path = Path(file.path)
-        if path.is_file():
-            if check_for_text and not _is_file_text_encoded(path):
-                logging.info(f"File path {path} is not text encoded.")
-                raise UserError(f"File path {path} is not text encoded.")
-            files_direct.add(file)
-        elif path.is_dir():
-            nonignored_files = set(
-                map(
-                    lambda f: os.path.realpath(path / f),
-                    get_non_gitignored_files(path),
-                )
-            )
-
-            file_paths_from_dirs.update(
-                filter(
-                    lambda f: (not check_for_text) or _is_file_text_encoded(f),
-                    nonignored_files,
-                )
-            )
-
-    files_from_dirs = [CodeFile(path) for path in file_paths_from_dirs]
-    return files_direct, files_from_dirs
-
-
-def _abs_file_paths_from_list(paths: Iterable[str], check_for_text: bool = True):
-    files_direct, files_from_dirs = _abs_files_from_list(paths, check_for_text)
-    return set(map(lambda f: f.path, files_direct)), set(
-        map(lambda f: f.path, files_from_dirs)
-    )
 
 
 class CodeFileManager:
     def __init__(
         self,
-        paths: Iterable[str],
-        exclude_paths: Iterable[str],
         user_input_manager: UserInputManager,
         config: ConfigManager,
-        git_root: str,
+        code_context: CodeContext,
     ):
-        self.config = config
-        self.git_root = Path(git_root)
-        self._set_file_paths(paths, exclude_paths)
         self.user_input_manager = user_input_manager
-
-        if self.files:
-            cprint("Files included in context:", "green")
-        else:
-            cprint("No files included in context.\n", "red")
-            cprint("Git project: ", "green", end="")
-        cprint(self.git_root.name, "blue")
-        _print_path_tree(
-            _build_path_tree(self.files, self.git_root),
-            get_paths_with_git_diffs(self.git_root),
-            self.git_root,
-        )
-        print()
-
-    def _set_file_paths(
-        self,
-        paths: Iterable[str],
-        exclude_paths: Iterable[str],
-    ) -> None:
-        excluded_files, excluded_files_from_dir = _abs_file_paths_from_list(
-            exclude_paths, check_for_text=False
-        )
-
-        glob_excluded_files = set(
-            os.path.join(self.git_root, file)
-            for glob_path in self.config.file_exclude_glob_list()
-            # If the user puts a / at the beginning, it will try to look in root directory
-            for file in glob.glob(
-                pathname=glob_path,
-                root_dir=self.git_root,
-                recursive=True,
-            )
-        )
-        files_direct, files_from_dirs = _abs_files_from_list(paths, check_for_text=True)
-
-        # config glob excluded files only apply to files added from directories
-        files_from_dirs = [
-            file
-            for file in files_from_dirs
-            if str(file.path.resolve()) not in glob_excluded_files
-        ]
-
-        files_direct.update(files_from_dirs)
-
-        self.files = [
-            file
-            for file in files_direct
-            if file.path not in excluded_files | excluded_files_from_dir
-        ]
+        self.config = config
+        self.code_context = code_context
 
     def _read_file(self, file: Union[str, CodeFile]) -> Iterable[str]:
         if isinstance(file, CodeFile):
             rel_path = file.path
         else:
-            rel_path = self.git_root / file
-        abs_path = self.git_root / rel_path
+            rel_path = self.config.git_root / file
+        abs_path = self.config.git_root / rel_path
 
         with open(abs_path, "r") as f:
             lines = f.read().split("\n")
@@ -183,17 +44,17 @@ class CodeFileManager:
 
     def _read_all_file_lines(self) -> None:
         self.file_lines = dict()
-        for file in self.files:
-            rel_path = os.path.relpath(file.path, self.git_root)
+        for file in self.code_context.files.values():
+            rel_path = os.path.relpath(file.path, self.config.git_root)
             # here keys are str not path object
             self.file_lines[rel_path] = self._read_file(file)
 
     def get_code_message(self):
         self._read_all_file_lines()
         code_message = ["Code Files:\n"]
-        for file in self.files:
+        for file in self.code_context.files.values():
             abs_path = file.path
-            rel_path = os.path.relpath(abs_path, self.git_root)
+            rel_path = os.path.relpath(abs_path, self.config.git_root)
 
             # We always want to give GPT posix paths
             posix_rel_path = Path(rel_path).as_posix()
@@ -204,7 +65,7 @@ class CodeFileManager:
                     code_message.append(f"{i}:{line}")
             code_message.append("")
 
-            git_diff_output = get_git_diff_for_path(self.git_root, rel_path)
+            git_diff_output = get_git_diff_for_path(self.config.git_root, rel_path)
             if git_diff_output:
                 code_message.append("Current git diff for this file:")
                 code_message.append(f"{git_diff_output}")
@@ -212,7 +73,7 @@ class CodeFileManager:
         return "\n".join(code_message)
 
     def _handle_delete(self, delete_change):
-        file_path = self.git_root / delete_change.file
+        file_path = self.config.git_root / delete_change.file
         if not file_path.exists():
             logging.error(f"Path {file_path} non-existent on delete")
             return
@@ -221,12 +82,13 @@ class CodeFileManager:
         if self.user_input_manager.ask_yes_no(default_yes=False):
             logging.info(f"Deleting file {file_path}")
             cprint(f"Deleting {delete_change.file}...")
-            self.files = [file for file in self.files if file.path != file_path]
+            if file_path in self.code_context.files:
+                del self.code_context.files[file_path]
             file_path.unlink()
         else:
             cprint(f"Not deleting {delete_change.file}")
 
-    def _get_new_code_lines(self, changes) -> Iterable[str]:
+    def _get_new_code_lines(self, changes) -> Iterable[str] | None:
         if len(set(map(lambda change: change.file, changes))) > 1:
             raise Exception("All changes passed in must be for the same file")
 
@@ -288,11 +150,11 @@ class CodeFileManager:
                 files_to_write[file_path] = new_code_lines
 
         for rel_path, code_lines in files_to_write.items():
-            file_path = self.git_root / rel_path
-            if not any(file.path == file_path for file in self.files):
+            file_path = self.config.git_root / rel_path
+            if file_path not in self.code_context.files:
                 # newly created files added to Mentat's context
                 logging.info(f"Adding new file {file_path} to context")
-                self.files.append(CodeFile(file_path))
+                self.code_context.files[file_path] = CodeFile(file_path)
                 # create any missing directories in the path
                 file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, "w") as f:

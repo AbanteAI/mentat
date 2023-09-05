@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Iterable
+from typing import List
 
 from termcolor import colored, cprint
 
@@ -24,7 +24,7 @@ class Command(ABC):
             return cls._registered_commands[command_name]()
 
     @classmethod
-    def get_command_completions(cls) -> Iterable[str]:
+    def get_command_completions(cls) -> List[str]:
         return list(map(lambda name: "/" + name, cls._registered_commands))
 
     @abstractmethod
