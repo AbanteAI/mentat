@@ -101,3 +101,77 @@ def commit(message: str) -> None:
     """
     subprocess.run(["git", "add", "."])
     subprocess.run(["git", "commit", "-m", message])
+
+
+def get_history_diff(git_root: str, depth: int) -> dict:
+    """Return commit data & diff for <depth> commits ago w/r/t HEAD."""
+    try:
+        commit_info = subprocess.check_output(
+            ["git", "log", "--pretty=format:%H|%s", f"-n1", f"HEAD~{depth}"],
+            cwd=git_root,
+            text=True
+        ).split("|")
+        
+        diff_content = subprocess.check_output(
+            ["git", "diff", f"HEAD~{depth}..HEAD"],
+            cwd=git_root,
+            text=True
+        ).strip()
+
+        return {
+            "hash": commit_info[0],
+            "message": commit_info[1],
+            "diff": diff_content
+        }
+    except subprocess.CalledProcessError:
+        logging.error(f"Error obtaining diff for depth {depth}.")
+        raise UserError()
+
+
+def get_commit_diff(git_root: str, commit: str) -> dict:
+    """Return commit data & diff for <commit> w/r/t HEAD"""
+    try:
+        commit_info = subprocess.check_output(
+            ["git", "log", "--pretty=format:%H|%s", f"-n1", commit],
+            cwd=git_root,
+            text=True
+        ).split("|")
+        
+        diff_content = subprocess.check_output(
+            ["git", "diff", f"{commit}..HEAD"],
+            cwd=git_root,
+            text=True
+        ).strip()
+
+        return {
+            "hash": commit_info[0],
+            "message": commit_info[1],
+            "diff": diff_content
+        }
+    except subprocess.CalledProcessError:
+        logging.error(f"Error obtaining diff for commit {commit}.")
+        raise UserError()
+
+
+def get_branch_diff(git_root: str, branch: str) -> dict:
+    """Return branch data & diff for <branch> w/r/t HEAD"""
+    try:
+        branch_path = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", branch],
+            cwd=git_root,
+            text=True
+        ).strip()
+        
+        diff_content = subprocess.check_output(
+            ["git", "diff", f"{branch}..HEAD"],
+            cwd=git_root,
+            text=True
+        ).strip()
+
+        return {
+            "branch_path": branch_path,
+            "diff": diff_content
+        }
+    except subprocess.CalledProcessError:
+        logging.error(f"Error obtaining diff for branch {branch}.")
+        raise UserError()
