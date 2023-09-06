@@ -101,3 +101,45 @@ def commit(message: str) -> None:
     """
     subprocess.run(["git", "add", "."])
     subprocess.run(["git", "commit", "-m", message])
+
+
+def get_commit_history(git_root: str, depth: int) -> list[str]:
+    """
+    Return a list of commit hashes to some depth.
+    """
+    commit_hashes = subprocess.check_output(
+        ["git", "log", "--pretty=format:%H", f"-n{depth}"],
+        cwd=git_root,
+        text=True
+    ).split("\n")
+    return [hash.strip() for hash in commit_hashes if hash.strip()]
+
+
+def get_commit_diff(git_root: str, commit_hash: str) -> str:
+    """
+    Return the text content of the diff for a given commit.
+    """
+    try:
+        diff_content = subprocess.check_output(
+            ["git", "show", "--format=", commit_hash],
+            cwd=git_root
+        ).decode("utf-8")
+        return diff_content.strip()
+    except subprocess.CalledProcessError:
+        logging.error(f"Commit hash {commit_hash} does not exist.")
+        raise UserError()
+
+
+def get_branch_diff(git_root: str, branch_name: str) -> str:
+    """
+    Return the text content of the diff for a given branch.
+    """
+    try:
+        diff_content = subprocess.check_output(
+            ["git", "diff", f"{branch_name}..{branch_name}@{{upstream}}"],
+            cwd=git_root
+        ).decode("utf-8")
+        return diff_content.strip()
+    except subprocess.CalledProcessError:
+        logging.error(f"Branch {branch_name} does not exist.")
+        raise UserError()

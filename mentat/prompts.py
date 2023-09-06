@@ -42,6 +42,19 @@ system_prompt = """
     13:    print("Done!")
     14:
 
+    active diff
+    
+
+    commit diff #48273934uf (commit message)
+    +1  from x inmport y
+
+    commit diff #5ds;fiv;seioj
+
+
+    branch diff working-branch
+    +1
+
+
     core/hello_world.py
     1:
     2:def hello_world():

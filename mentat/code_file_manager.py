@@ -18,6 +18,7 @@ from .config_manager import ConfigManager
 from .errors import MentatError
 from .git_handler import get_git_diff_for_path
 from .user_input_manager import UserInputManager
+from .diff_context import DiffContext
 
 
 class CodeFileManager:
@@ -26,10 +27,12 @@ class CodeFileManager:
         user_input_manager: UserInputManager,
         config: ConfigManager,
         code_context: CodeContext,
+        diff_context: DiffContext,
     ):
         self.user_input_manager = user_input_manager
         self.config = config
         self.code_context = code_context
+        self.diff_context = diff_context
 
     def _read_file(self, file: Union[str, CodeFile]) -> Iterable[str]:
         if isinstance(file, CodeFile):
@@ -69,6 +72,10 @@ class CodeFileManager:
             if git_diff_output:
                 code_message.append("Current git diff for this file:")
                 code_message.append(f"{git_diff_output}")
+
+            diffs = self.diff_context.get_diffs_for_file(rel_path)
+            if diffs:
+                
 
         return "\n".join(code_message)
 
