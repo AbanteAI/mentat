@@ -72,8 +72,8 @@ def run_cli():
     exclude_paths = args.exclude
     no_code_map = args.no_code_map
     history = args.history
-    commit = args.commit
-    branch = args.branch
+    commit = None if not args.commit else args.commit[0]
+    branch = None if not args.branch else args.branch[0]
     # Expanding paths as soon as possible because some shells such as zsh automatically
     # expand globs and we want to avoid differences in functionality between shells
     run(
@@ -152,11 +152,11 @@ def loop(
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
     diff_context = DiffContext(config, history, commit, branch)
-    diff_context.display_context()
     if not paths:
         paths = diff_context.files
     code_context = CodeContext(config, paths, exclude_paths or [])
     code_context.display_context()
+    diff_context.display_context()
     user_input_manager = UserInputManager(config, code_context)
     code_file_manager = CodeFileManager(user_input_manager, config, code_context, diff_context)
     code_map = CodeMap(git_root, token_limit=2048) if not no_code_map else None

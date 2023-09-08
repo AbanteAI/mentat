@@ -58,7 +58,7 @@ class CodeFileManager:
             code_message += [
                 'Diff References:',
                 f' "-" = {self.diff_context.name}',
-                f' "+" = {self.diff_context.base}',
+                f' "+" = Active Changes',
                 '',
             ]
 
