@@ -16,7 +16,6 @@ from .code_context import CodeContext
 from .code_file import CodeFile
 from .config_manager import ConfigManager
 from .errors import MentatError
-from .git_handler import get_git_diff_for_path
 from .user_input_manager import UserInputManager
 from .diff_context import DiffContext
 
@@ -58,7 +57,7 @@ class CodeFileManager:
             code_message += [
                 "Diff References:",
                 f' "-" = {self.diff_context.name}',
-                f' "+" = Active Changes',
+                ' "+" = Active Changes',
                 "",
             ]
 

@@ -112,7 +112,7 @@ class DiffContext:
     def display_context(self) -> None:
         if not self.files:
             return
-        cprint(f"Diff annotations:", "green")
+        cprint("Diff annotations:", "green")
         num_files = len(self.files)
         num_lines = 0
         for file in self.files:
