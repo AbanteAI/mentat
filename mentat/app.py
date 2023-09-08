@@ -55,14 +55,14 @@ def run_cli():
     parser.add_argument(
         "--commit",
         "-c",
-        nargs="*",
+        type=str,
         default=None,
         help="Commit hash to include diff for in system prompt",
     )
     parser.add_argument(
         "--branch",
         "-b",
-        nargs="*",
+        type=str,
         default=None,
         help="Branch to include diff for in system prompt",
     )
@@ -72,13 +72,13 @@ def run_cli():
     exclude_paths = args.exclude
     no_code_map = args.no_code_map
     history = args.history
-    commit = None if not args.commit else args.commit[0]
-    branch = None if not args.branch else args.branch[0]
+    commit = args.commit
+    branch = args.branch
     # Expanding paths as soon as possible because some shells such as zsh automatically
     # expand globs and we want to avoid differences in functionality between shells
     run(
-        expand_paths(paths), 
-        expand_paths(exclude_paths), 
+        expand_paths(paths),
+        expand_paths(exclude_paths),
         no_code_map,
         history,
         commit,
@@ -116,8 +116,8 @@ def run(
     exclude_paths: Optional[Iterable[str]] = None,
     no_code_map: bool = False,
     history: int = 0,
-    commit: Iterable[str] = [],
-    branch: Iterable[str] = [],
+    commit: Optional[str] = None,
+    branch: Optional[str] = None,
 ):
     mentat_dir_path.mkdir(parents=True, exist_ok=True)
     setup_logging()
@@ -146,8 +146,8 @@ def loop(
     cost_tracker: CostTracker,
     no_code_map: bool,
     history: int,
-    commit: Iterable[str],
-    branch: Iterable[str],
+    commit: Optional[str],
+    branch: Optional[str],
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
@@ -158,7 +158,9 @@ def loop(
     code_context.display_context()
     diff_context.display_context()
     user_input_manager = UserInputManager(config, code_context)
-    code_file_manager = CodeFileManager(user_input_manager, config, code_context, diff_context)
+    code_file_manager = CodeFileManager(
+        user_input_manager, config, code_context, diff_context
+    )
     code_map = CodeMap(git_root, token_limit=2048) if not no_code_map else None
     if code_map is not None and code_map.ctags_disabled:
         ctags_disabled_message = f"""

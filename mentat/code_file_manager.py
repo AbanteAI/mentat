@@ -56,10 +56,10 @@ class CodeFileManager:
         code_message = []
         if self.diff_context.files:
             code_message += [
-                'Diff References:',
+                "Diff References:",
                 f' "-" = {self.diff_context.name}',
                 f' "+" = Active Changes',
-                '',
+                "",
             ]
 
         self._read_all_file_lines()
@@ -79,11 +79,12 @@ class CodeFileManager:
             file_message.append("")
 
             if rel_path in self.diff_context.files:
-                file_message = self.diff_context.annotate_file_message(rel_path, file_message)
-            
+                file_message = self.diff_context.annotate_file_message(
+                    rel_path, file_message
+                )
+
             code_message += file_message
 
-        logging.info("Code message:\n" + "\n".join(code_message))
         return "\n".join(code_message)
 
     def _handle_delete(self, delete_change):

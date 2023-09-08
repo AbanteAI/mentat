@@ -104,15 +104,12 @@ def commit(message: str) -> None:
 
 
 def get_diff_for_file(git_root: str, target: str, path: str) -> str:
-    """Return commit data & diff for <commit> w/r/t active code"""
+    """Return commit data & diff for target versus active code"""
     try:
         diff_content = subprocess.check_output(
-            ["git", "diff", "-U0", f"{target}", "--", path],
-            cwd=git_root,
-            text=True
+            ["git", "diff", "-U0", f"{target}", "--", path], cwd=git_root, text=True
         ).strip()
         return diff_content
     except subprocess.CalledProcessError:
-        logging.error(f"Error obtaining for commit {target}.")
+        logging.error(f"Error obtaining diff for commit '{target}'.")
         raise UserError()
-    
