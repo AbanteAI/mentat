@@ -3,7 +3,7 @@ import math
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import Iterable, Union, Optional
+from typing import Iterable, Optional, Union
 
 from termcolor import cprint
 
@@ -15,9 +15,9 @@ from .code_change import CodeChange, CodeChangeAction
 from .code_context import CodeContext
 from .code_file import CodeFile
 from .config_manager import ConfigManager
+from .diff_context import DiffContext
 from .errors import MentatError
 from .user_input_manager import UserInputManager
-from .diff_context import DiffContext
 
 
 class CodeFileManager:

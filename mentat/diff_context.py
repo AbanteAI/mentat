@@ -1,11 +1,12 @@
-from typing import List
 from dataclasses import dataclass
-from mentat.config_manager import ConfigManager
-from termcolor import cprint
-from git import Repo, GitCommandError
-from .git_handler import get_diff_for_file
+from typing import List
 
+from git import GitCommandError, Repo
+from termcolor import cprint
+
+from .config_manager import ConfigManager
 from .errors import UserError
+from .git_handler import get_diff_for_file
 
 
 @dataclass
@@ -89,7 +90,9 @@ class DiffContext:
         if history:
             _commit = list(self.repo.iter_commits())[history]
             self.target = _commit.hexsha
-            self.name = f"History depth={history}: Commit {self.target[:8]} {_commit.summary}"
+            self.name = (
+                f"History depth={history}: Commit {self.target[:8]} {_commit.summary}"
+            )
         elif commit:
             _commit = self.repo.commit(commit)
             self.target = _commit.hexsha
@@ -101,13 +104,14 @@ class DiffContext:
             self.target = "HEAD"
             self.name = "HEAD (last commit)"
 
-        try:
-            self.files = self.repo.git.diff(
-                self.target, "--", name_only=True
-            ).splitlines()
-        except GitCommandError:
-            cprint(f"Invalid target: {self.target}", "light_yellow")
-            exit()
+        if history or commit or branch:
+            try:
+                self.files = self.repo.git.diff(
+                    self.target, "--", name_only=True
+                ).splitlines()
+            except GitCommandError:
+                cprint(f"Invalid target: {self.target}", "light_yellow")
+                exit()
 
     def display_context(self) -> None:
         if not self.files:

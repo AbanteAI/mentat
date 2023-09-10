@@ -15,12 +15,12 @@ from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
+from .diff_context import DiffContext
 from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker, setup_api_key
 from .logging_config import setup_logging
 from .user_input_manager import UserInputManager, UserQuitInterrupt
-from .diff_context import DiffContext
 
 
 def run_cli():
