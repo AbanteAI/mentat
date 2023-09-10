@@ -2,7 +2,7 @@ import os
 import subprocess
 
 from mentat.diff_context import DiffContext
-
+from mentat.git_handler import get_commit_metadata
 
 def _run_subprocess(command, cwd):
     return subprocess.run(
@@ -31,7 +31,7 @@ def test_diff_context(mock_config, temp_testbed):
     diff_context = DiffContext(mock_config, history=1)
     assert diff_context.files == ["test_file.txt"]
     _hash = diff_context.target[:8]
-    assert diff_context.name == f"History depth=1: Commit {_hash} add testbed"
+    assert diff_context.name == f"HEAD~1: add testbed"
     file_message = ["/test_file.txt", "1:I am a file"]
     annotated_message = diff_context.annotate_file_message(
         "test_file.txt", file_message
@@ -45,11 +45,11 @@ def test_diff_context(mock_config, temp_testbed):
     _run_subprocess(["git", "commit", "-m", "update test_file"], temp_testbed)
 
     # Test commit / update file
-    last_commit = list(diff_context.repo.iter_commits())[1]
+    last_commit = get_commit_metadata(mock_config.git_root, "HEAD~1")['hexsha']
     diff_context = DiffContext(mock_config, commit=last_commit)
     assert diff_context.files == ["test_file.txt"]
     _hash = diff_context.target[:8]
-    assert diff_context.name == f"Commit {_hash} add test_file"
+    assert diff_context.name == f"{_hash}: add test_file"
     file_message = ["/test_file.txt", "1:I am a file", "2:I am updated"]
     annotated_message = diff_context.annotate_file_message(
         "test_file.txt", file_message
@@ -64,7 +64,7 @@ def test_diff_context(mock_config, temp_testbed):
     # Test branch / remove lines
     diff_context = DiffContext(mock_config, branch="master")
     assert diff_context.files == ["test_file.txt"]
-    assert diff_context.name == "Branch master"
+    assert diff_context.name == "Branch: master"
     file_message = ["/test_file.txt", "1:I am updated"]
     annotated_message = diff_context.annotate_file_message(
         "test_file.txt", file_message

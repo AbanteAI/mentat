@@ -113,3 +113,31 @@ def get_diff_for_file(git_root: str, target: str, path: str) -> str:
     except subprocess.CalledProcessError:
         logging.error(f"Error obtaining diff for commit '{target}'.")
         raise UserError()
+
+
+def get_commit_metadata(git_root, target):
+    try:
+        commit_info = subprocess.check_output(
+            ["git", "log", target, "-n", "1", "--pretty=format:%H %s"],
+            cwd=git_root,
+            text=True,
+        ).strip()
+
+        # Split the returned string into the hash and summary
+        commit_hash, commit_summary = commit_info.split(" ", 1)
+        return {"hexsha": commit_hash, "summary": commit_summary}
+    except subprocess.CalledProcessError:
+        logging.error(f"Error obtaining commit data for target '{target}'.")
+        raise UserError()
+
+
+def get_files_in_diff(git_root: str, target: str) -> set[str]:
+    """Return commit data & diff for target versus active code"""
+    try:
+        diff_content = subprocess.check_output(
+            ["git", "diff", "--name-only", f"{target}"], cwd=git_root, text=True
+        ).strip()
+        return diff_content.splitlines()
+    except subprocess.CalledProcessError:
+        logging.error(f"Error obtaining diff for commit '{target}'.")
+        raise UserError()

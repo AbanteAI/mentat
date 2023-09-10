@@ -1,12 +1,11 @@
 from dataclasses import dataclass
 from typing import List
 
-from git import GitCommandError, Repo
 from termcolor import cprint
 
 from .config_manager import ConfigManager
 from .errors import UserError
-from .git_handler import get_diff_for_file
+from .git_handler import get_commit_metadata, get_diff_for_file, get_files_in_diff
 
 
 @dataclass
@@ -83,7 +82,6 @@ def _annotate_file_message(
 
 class DiffContext:
     config: ConfigManager
-    repo: Repo
     target: str
     files: List[str] = []
 
@@ -92,36 +90,26 @@ class DiffContext:
             cprint("Only one of history, commit, or branch can be set", "light_yellow")
             exit()
 
-        self.repo = Repo(config.git_root)
+        self.config = config
         if history:
-            _commit = list(self.repo.iter_commits())[history]
-            self.target = _commit.hexsha
-            self.name = (
-                f"History depth={history}: Commit {self.target[:8]} {_commit.summary}"
-            )
+            self.target = f"HEAD~{history}"
+            meta = get_commit_metadata(self.config.git_root, self.target)
+            self.name = f'{self.target}: {meta["summary"]}'
         elif commit:
-            _commit = self.repo.commit(commit)
-            self.target = _commit.hexsha
-            self.name = f"Commit {self.target[:8]} {_commit.summary}"
+            meta = get_commit_metadata(self.config.git_root, commit)
+            self.target = meta["hexsha"]
+            self.name = f'{self.target[:8]}: {meta["summary"]}'
         elif branch:
             self.target = branch
-            self.name = f"Branch {self.target}"
+            self.name = f"Branch: {self.target}"
         else:
             self.target = "HEAD"
             self.name = "HEAD (last commit)"
 
-        # This try block is failing on ubuntu and windows tests which include the
-        # run() method (19 tests over 4 files). It seems the default target ('HEAD')
-        # raises an exception for self.repo.git.diff().
-        #
-        # Question: Is it an issue with the tests, or with GitPython on other platforms?
-        #   > Get rid of GitPython, just use subprocess calls
         try:
-            self.files = self.repo.git.diff(
-                self.target, "--", name_only=True
-            ).splitlines()
-        except GitCommandError:
-            cprint(f"Invalid target: {self.target}", "light_yellow")
+            self.files = get_files_in_diff(self.config.git_root, self.target)
+        except UserError:
+            cprint(f"Invalid diff target: {self.target}", "light_yellow")
             exit()
 
     def display_context(self) -> None:
@@ -131,7 +119,7 @@ class DiffContext:
         num_files = len(self.files)
         num_lines = 0
         for file in self.files:
-            diff = get_diff_for_file(self.repo.working_tree_dir, self.target, file)
+            diff = get_diff_for_file(self.config.git_root, self.target, file)
             diff_lines = diff.splitlines()
             num_lines += len(
                 [line for line in diff_lines if line.startswith(("+ ", "- "))]
@@ -145,6 +133,6 @@ class DiffContext:
         if not self.files:
             return file_message
 
-        diff = get_diff_for_file(self.repo.working_tree_dir, self.target, rel_path)
+        diff = get_diff_for_file(self.config.git_root, self.target, rel_path)
         annotations = _parse_diff(diff)
         return _annotate_file_message(file_message, annotations)
