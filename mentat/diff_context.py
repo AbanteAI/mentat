@@ -103,7 +103,7 @@ class DiffContext:
             self.target = branch
             self.name = f"Branch: {self.target}"
         else:
-            self.target = "HEAD"
+            self.target = "HEAD~"
             self.name = "HEAD (last commit)"
 
         try:

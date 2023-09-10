@@ -4,6 +4,7 @@ import subprocess
 from mentat.diff_context import DiffContext
 from mentat.git_handler import get_commit_metadata
 
+
 def _run_subprocess(command, cwd):
     return subprocess.run(
         command,
@@ -12,7 +13,9 @@ def _run_subprocess(command, cwd):
         stderr=subprocess.DEVNULL,
     )
 
+
 # TODO: Split into separate tests
+
 
 # Make sure it initialized properly with a commit, branch, History or None
 def test_diff_context(mock_config, temp_testbed):
@@ -45,7 +48,7 @@ def test_diff_context(mock_config, temp_testbed):
     _run_subprocess(["git", "commit", "-m", "update test_file"], temp_testbed)
 
     # Test commit / update file
-    last_commit = get_commit_metadata(mock_config.git_root, "HEAD~1")['hexsha']
+    last_commit = get_commit_metadata(mock_config.git_root, "HEAD~1")["hexsha"]
     diff_context = DiffContext(mock_config, commit=last_commit)
     assert diff_context.files == ["test_file.txt"]
     _hash = diff_context.target[:8]
