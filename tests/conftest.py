@@ -9,6 +9,7 @@ import pytest
 from mentat.config_manager import ConfigManager
 from mentat.streaming_printer import StreamingPrinter
 from mentat.user_input_manager import UserInputManager
+from mentat.diff_context import DiffContext
 
 pytest_plugins = ("pytest_reportlog",)
 
@@ -147,3 +148,15 @@ def mock_prompt_session(mocker):
     if os.name == "nt":
         mocker.patch("mentat.user_input_manager.PromptSession")
         mocker.patch("mentat.user_input_manager.MentatPromptSession")
+
+
+@pytest.fixture
+def mock_diff_context(mocker):
+    # Mocking the __init__ to do nothing on instantiation
+    mocker.patch.object(DiffContext, "__init__", lambda *args, **kwargs: None)
+
+    # Mocking the display_context method to return empty
+    mocker.patch.object(DiffContext, "display_context", lambda self: "")
+
+    # Mocking the files property to return an empty list
+    mocker.patch.object(DiffContext, "files", property(lambda self: []))

@@ -25,7 +25,9 @@ def _parse_diff(diff: str) -> List[DiffAnnotation]:
     active_annotation = None
     lines = diff.splitlines()
     for line in lines[4:]:  # Ignore header
-        if line.startswith("@@"):
+        if line.startswith(("---", "+++", "//")):
+            continue
+        elif line.startswith("@@"):
             if active_annotation:
                 annotations.append(active_annotation)
             _new_index = line.split(" ")[2]
@@ -56,6 +58,10 @@ def _annotate_file_message(
             unaffected_lines = code_message[active_index : annotation.start]
             annotated_message += unaffected_lines
         active_index = annotation.start
+        if annotation.start == 0:
+            # Make sure the PATH stays on line 1
+            annotated_message.append(code_message[0])
+            active_index += 1
         i_minus = None
         for line in annotation.message:
             sign = line[0]
@@ -104,14 +110,19 @@ class DiffContext:
             self.target = "HEAD"
             self.name = "HEAD (last commit)"
 
-        if history or commit or branch:
-            try:
-                self.files = self.repo.git.diff(
-                    self.target, "--", name_only=True
-                ).splitlines()
-            except GitCommandError:
-                cprint(f"Invalid target: {self.target}", "light_yellow")
-                exit()
+        # This try block is failing on ubuntu and windows tests which include the
+        # run() method (19 tests over 4 files). It seems the default target ('HEAD')
+        # raises an exception for self.repo.git.diff().
+        #
+        # Question: Is it an issue with the tests, or with GitPython on other platforms?
+        #   > Get rid of GitPython, just use subprocess calls
+        try:
+            self.files = self.repo.git.diff(
+                self.target, "--", name_only=True
+            ).splitlines()
+        except GitCommandError:
+            cprint(f"Invalid target: {self.target}", "light_yellow")
+            exit()
 
     def display_context(self) -> None:
         if not self.files:

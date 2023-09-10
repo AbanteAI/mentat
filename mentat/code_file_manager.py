@@ -26,7 +26,7 @@ class CodeFileManager:
         user_input_manager: UserInputManager,
         config: ConfigManager,
         code_context: CodeContext,
-        diff_context: Optional[DiffContext] = None,
+        diff_context: DiffContext,
     ):
         self.user_input_manager = user_input_manager
         self.config = config
@@ -53,7 +53,7 @@ class CodeFileManager:
 
     def get_code_message(self):
         code_message = []
-        if self.diff_context and self.diff_context.files:
+        if self.diff_context.files:
             code_message += [
                 "Diff References:",
                 f' "-" = {self.diff_context.name}',
@@ -77,7 +77,7 @@ class CodeFileManager:
                     file_message.append(f"{i}:{line}")
             file_message.append("")
 
-            if self.diff_context and rel_path in self.diff_context.files:
+            if rel_path in self.diff_context.files:
                 file_message = self.diff_context.annotate_file_message(
                     rel_path, file_message
                 )
