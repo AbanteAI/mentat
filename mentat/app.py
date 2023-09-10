@@ -15,7 +15,7 @@ from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
-from .diff_context import DiffContext
+from .diff_context import get_diff_context
 from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker, setup_api_key
@@ -151,7 +151,7 @@ def loop(
 ) -> None:
     git_root = get_shared_git_root_for_paths(paths)
     config = ConfigManager(git_root)
-    diff_context = DiffContext(config, history, commit, branch)
+    diff_context = get_diff_context(config, history, commit, branch)
     if not paths:
         paths = diff_context.files
     code_context = CodeContext(config, paths, exclude_paths or [])

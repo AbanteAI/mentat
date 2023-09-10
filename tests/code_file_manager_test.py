@@ -3,8 +3,8 @@ from textwrap import dedent
 
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
+from mentat.diff_context import get_diff_context
 from mentat.user_input_manager import UserInputManager
-from mentat.diff_context import DiffContext
 
 
 # Make sure we always give posix paths to GPT
@@ -15,7 +15,7 @@ def test_posix_paths(mock_config):
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
         file_file.write("I am a file")
-    diff_context = DiffContext(
+    diff_context = get_diff_context(
         config=mock_config,
     )
     code_context = CodeContext(
@@ -49,7 +49,7 @@ def test_partial_files(mock_config):
              fifth"""))
     file_path_partial = file_path + ":1,3-5"
 
-    diff_context = DiffContext(
+    diff_context = get_diff_context(
         config=mock_config,
     )
     code_context = CodeContext(

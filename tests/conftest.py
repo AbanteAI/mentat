@@ -7,9 +7,9 @@ import tempfile
 import pytest
 
 from mentat.config_manager import ConfigManager
+from mentat.diff_context import DiffContext
 from mentat.streaming_printer import StreamingPrinter
 from mentat.user_input_manager import UserInputManager
-from mentat.diff_context import DiffContext
 
 pytest_plugins = ("pytest_reportlog",)
 

@@ -82,35 +82,15 @@ def _annotate_file_message(
 
 class DiffContext:
     config: ConfigManager
-    target: str
-    files: List[str] = []
+    target: str = "HEAD"
+    name: str = "HEAD (last commit)"
 
-    def __init__(self, config, history=0, commit=None, branch=None):
-        if sum([bool(history), bool(commit), bool(branch)]) > 1:
-            cprint("Only one of history, commit, or branch can be set", "light_yellow")
-            exit()
-
+    def __init__(self, config):
         self.config = config
-        if history:
-            self.target = f"HEAD~{history}"
-            meta = get_commit_metadata(self.config.git_root, self.target)
-            self.name = f'{self.target}: {meta["summary"]}'
-        elif commit:
-            meta = get_commit_metadata(self.config.git_root, commit)
-            self.target = meta["hexsha"]
-            self.name = f'{self.target[:8]}: {meta["summary"]}'
-        elif branch:
-            self.target = branch
-            self.name = f"Branch: {self.target}"
-        else:
-            self.target = "HEAD~"
-            self.name = "HEAD (last commit)"
 
-        try:
-            self.files = get_files_in_diff(self.config.git_root, self.target)
-        except UserError:
-            cprint(f"Invalid diff target: {self.target}", "light_yellow")
-            exit()
+    @property
+    def files(self) -> List[str]:
+        return get_files_in_diff(self.config.git_root, self.target)
 
     def display_context(self) -> None:
         if not self.files:
@@ -136,3 +116,55 @@ class DiffContext:
         diff = get_diff_for_file(self.config.git_root, self.target, rel_path)
         annotations = _parse_diff(diff)
         return _annotate_file_message(file_message, annotations)
+
+
+class HistoryDiffContext(DiffContext):
+    def __init__(self, config, history):
+        super().__init__(config)
+        self.target = f"HEAD~{history}"
+        try:
+            meta = get_commit_metadata(self.config.git_root, self.target)
+        except UserError:
+            cprint(f"Cannot get history to depth {history}.", "light_yellow")
+            exit()
+        self.name = f'{self.target}: {meta["summary"]}'
+
+
+class CommitDiffContext(DiffContext):
+    def __init__(self, config, commit):
+        super().__init__(config)
+        self.target = commit
+        try:
+            meta = get_commit_metadata(self.config.git_root, commit)
+        except UserError:
+            cprint(f"Invalid commit hash {commit}.", "light_yellow")
+            exit()
+        self.name = f'{self.target[:8]}: {meta["summary"]}'
+
+
+class BranchDiffContext(DiffContext):
+    def __init__(self, config, branch):
+        super().__init__(config)
+        self.target = branch
+        self.name = f"Branch: {self.target}"
+        try:  # Validate branch b/c metadata wasn't tried
+            _ = self.files
+        except UserError:
+            cprint(f"Invalid branch {branch}.", "light_yellow")
+            exit()
+
+
+def get_diff_context(config, history=None, commit=None, branch=None):
+    num_args = sum([bool(history), bool(commit), bool(branch)])
+    if num_args > 1:
+        cprint("Cannot specify more than one type of diff.", "light_yellow")
+        exit()
+
+    if history:
+        return HistoryDiffContext(config, history)
+    elif commit:
+        return CommitDiffContext(config, commit)
+    elif branch:
+        return BranchDiffContext(config, branch)
+    else:
+        return DiffContext(config)
