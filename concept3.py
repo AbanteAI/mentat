@@ -1,7 +1,9 @@
-import sys
-from prompt_toolkit import PromptSession
-import signal
 import asyncio
+import signal
+import sys
+
+from prompt_toolkit import PromptSession
+from prompt_toolkit.key_binding import KeyBindings
 
 
 class MentatInterrupt(Exception):
@@ -26,7 +28,17 @@ class TerminalMentatInterface(MentatInterface):
     """Used to communicate with the terminal"""
 
     def __init__(self):
-        self.session = PromptSession()
+        self.loop = None
+        self.bindings = KeyBindings()
+        self.session = PromptSession(key_bindings=self.bindings)
+
+        @self.bindings.add("c-c")
+        def _(event):
+            print("### control-c caught by binding ###")
+            signal_handler()
+
+    def set_loop(self, loop):
+        self.loop = loop
 
     def display(self, content, color=None, end="\n"):
         print(content, end=end, flush=True)
@@ -40,7 +52,31 @@ class TerminalMentatInterface(MentatInterface):
             if prompt is not None:
                 self.display(f"{prompt} ({'/'.join(options)})")
 
-            user_input =  await self.session.prompt_async()
+            # user_input = await self.session.prompt_async(handle_sigint=False)
+
+            async def check_sigint():
+                # run until sigint is set
+                while not sigint:
+                    await asyncio.sleep(0.1)
+
+            # make into tasks, run both until one returns
+            sigint_task = asyncio.create_task(check_sigint())
+            user_input_task = asyncio.create_task(self.session.prompt_async())
+            done, pending = await asyncio.wait(
+                [sigint_task, user_input_task], return_when=asyncio.FIRST_COMPLETED
+            )
+
+            # cancel the other task
+            for task in pending:
+                task.cancel()
+
+            # reset sigint handler
+            self.loop.add_signal_handler(signal.SIGINT, signal_handler)
+
+            if user_input_task not in done:
+                raise MentatInterrupt()
+
+            user_input = user_input_task.result()
 
             if options is None:
                 return user_input
@@ -51,17 +87,14 @@ class TerminalMentatInterface(MentatInterface):
 
 
 async def run_mentat(interface):
-    for i in range(5):
-        print(i)
-        await asyncio.sleep(1)
-
     try:
         interface.display("Welcome to Mentat!\nWhat can I do for you?")
         while True:
             prompt = await interface.get_user_input()
             await get_llm_response(interface, prompt)
     except MentatInterrupt:
-        print('Closing Mentat')
+        print("Closing Mentat")
+
 
 async def get_llm_response(interface, prompt: str):
     message = f"Ok, I'll {prompt}.\n"
@@ -79,30 +112,30 @@ async def get_llm_response(interface, prompt: str):
         interface.display("Not applying changes")
     interface.display("What else can I do for you?")
 
+
 sigint = False
 
+
 def signal_handler():
-    print("### SIGINT ###")
+    print("### signal-handler ###")
     global sigint
     sigint = True
 
-class AsyncController:
 
-    def __init__(self):
+class AsyncController:
+    def __init__(self, interface):
         self.loop = asyncio.get_event_loop()
         self.loop.add_signal_handler(signal.SIGINT, signal_handler)
+        self.interface = interface
+        self.interface.set_loop(self.loop)
 
-    def start_mentat_with_interface(self, interface):
+    def start_mentat(self):
         print("starting!")
-        self.loop.run_until_complete(run_mentat(interface))
+        self.loop.run_until_complete(run_mentat(self.interface))
         print("done!")
 
 
 if __name__ == "__main__":
-    ac = AsyncController()
-
     interface = TerminalMentatInterface()
-    ac.start_mentat_with_interface(interface)
-
-
-
+    ac = AsyncController(interface)
+    ac.start_mentat()
