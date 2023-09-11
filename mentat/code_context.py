@@ -86,7 +86,7 @@ def _get_files(
     files = {}
     for file in files_direct:
         if file.path not in excluded_files | excluded_files_from_dir:
-            files[file.path] = file
+            files[Path(os.path.realpath(file.path))] = file
 
     return files
 
@@ -135,7 +135,6 @@ class CodeContext:
         exclude_paths: Iterable[str],
     ):
         self.config = config
-
         self.files = _get_files(self.config, paths, exclude_paths)
 
     def display_context(self):

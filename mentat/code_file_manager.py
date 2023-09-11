@@ -145,7 +145,7 @@ class CodeFileManager:
         for code_change in code_changes:
             # here keys are str not path object
             rel_path = str(code_change.file)
-            abs_path = self.git_root / rel_path
+            abs_path = self.config.git_root / rel_path
             match code_change.action:
                 case CodeChangeAction.CreateFile:
                     cprint(f"Creating new file {rel_path}", color="light_green")
@@ -155,7 +155,7 @@ class CodeFileManager:
                 case CodeChangeAction.DeleteFile:
                     self._handle_delete(code_change)
                 case CodeChangeAction.RenameFile:
-                    abs_new_path = self.git_root / code_change.name
+                    abs_new_path = self.config.git_root / code_change.name
                     self._add_file(abs_new_path)
                     code_lines = self.file_lines[rel_path]
                     with open(abs_new_path, "w") as f:
@@ -170,7 +170,7 @@ class CodeFileManager:
                     file_changes[rel_path].append(code_change)
 
         for rel_path, changes in file_changes.items():
-            abs_path = self.git_root / rel_path
+            abs_path = self.config.git_root / rel_path
             new_code_lines = self._get_new_code_lines(rel_path, changes)
             if new_code_lines:
                 if abs_path not in self.code_context.files:
