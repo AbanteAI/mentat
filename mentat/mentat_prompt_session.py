@@ -24,7 +24,7 @@ from pygments.token import Token
 from pygments.util import ClassNotFound
 
 from .code_context import CodeContext
-from .commands import Command
+from .commands import AddCommand, Command, RemoveCommand
 from .config_manager import mentat_dir_path
 
 logger = logging.getLogger()
@@ -183,9 +183,11 @@ class MentatCompleter(Completer):
 
 class MentatPromptSession(PromptSession):
     def __init__(self, code_context: CodeContext, *args, **kwargs):
+        self.code_context = code_context
+
         self._setup_bindings()
         super().__init__(
-            completer=MentatCompleter(code_context),
+            completer=MentatCompleter(self.code_context),
             history=FilteredFileHistory(mentat_dir_path / "history"),
             auto_suggest=FilteredHistorySuggestions(),
             multiline=True,
@@ -200,7 +202,10 @@ class MentatPromptSession(PromptSession):
         while (user_input := super().prompt(*args, **kwargs)).startswith("/"):
             arguments = shlex.split(user_input[1:])
             command = Command.create_command(arguments[0])
-            command.apply(*arguments[1:])
+            if isinstance(command, (AddCommand, RemoveCommand)):
+                command.apply(*arguments[1:], code_context=self.code_context)
+            else:
+                command.apply(*arguments[1:])
         return user_input
 
     def prompt_continuation(self, width, line_number, is_soft_wrap):

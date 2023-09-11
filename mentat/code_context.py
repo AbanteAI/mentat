@@ -151,3 +151,23 @@ class CodeContext:
             self.config.git_root,
         )
         print()
+
+    def add_file(self, code_file: CodeFile):
+        if not os.path.exists(code_file.path):
+            cprint(f"File does not exist: {code_file.path}\n", "red")
+            return
+        if code_file.path in self.files:
+            cprint(f"File already in context: {code_file.path}\n", "yellow")
+            return
+        self.files[code_file.path] = code_file
+        cprint(f"File added to context: {code_file.path}\n", "green")
+
+    def remove_file(self, code_file: CodeFile):
+        if not os.path.exists(code_file.path):
+            cprint(f"File does not exist: {code_file.path}\n", "red")
+            return
+        if code_file.path not in self.files:
+            cprint(f"File not in context: {code_file.path}\n", "yellow")
+            return
+        del self.files[code_file.path]
+        cprint(f"File removed from context: {code_file.path}\n", "green")

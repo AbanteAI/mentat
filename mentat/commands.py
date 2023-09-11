@@ -5,6 +5,8 @@ from typing import List
 
 from termcolor import colored, cprint
 
+from .code_context import CodeContext
+from .code_file import CodeFile
 from .errors import MentatError
 from .git_handler import commit
 
@@ -114,3 +116,33 @@ class CommitCommand(Command, command_name="commit"):
     @classmethod
     def help_message(cls) -> str:
         return "Commits all of your unstaged and staged changes to git"
+
+
+class AddCommand(Command, command_name="add"):
+    def apply(self, *args: str, code_context: CodeContext) -> None:
+        for file_path in args:
+            code_file = CodeFile(file_path)
+            code_context.add_file(code_file)
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return ["file1", "file2", "..."]
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Add files to the code context"
+
+
+class RemoveCommand(Command, command_name="remove"):
+    def apply(self, *args: str, code_context: CodeContext) -> None:
+        for file_path in args:
+            code_file = CodeFile(file_path)
+            code_context.remove_file(code_file)
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return ["file1", "file2", "..."]
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Remove files from the code context"
