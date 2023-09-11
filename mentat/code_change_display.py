@@ -45,12 +45,12 @@ def _prefixed_lines(code_change, lines, prefix):
 def print_change(code_change):
     to_print = [
         get_file_name(code_change),
-        change_delimiter,
+        change_delimiter if code_change.action != CodeChangeAction.RenameFile else "",
         get_previous_lines(code_change),
         get_removed_block(code_change),
         get_added_block(code_change),
         get_later_lines(code_change),
-        change_delimiter,
+        change_delimiter if code_change.action != CodeChangeAction.RenameFile else "",
     ]
     for s in to_print:
         if s:

@@ -43,6 +43,7 @@ class CodeChange:
         json_data: dict,
         code_lines: list[str],
         code_file_manager,
+        rename_map: dict = {},
     ):
         self.json_data = json_data
         # Sometimes GPT puts quotes around numbers, so we have to convert those
@@ -130,7 +131,10 @@ class CodeChange:
                     f" already exists: {self.name}"
                 )
 
-            rel_path = str(self.file)
+            # This rename_map is a bit hacky; it shouldn't be used outside of streaming/parsing
+            rel_path = str(
+                self.file if self.file not in rename_map else rename_map[self.file]
+            )
             try:
                 self.file_lines = code_file_manager.file_lines[rel_path]
                 self.line_number_buffer = len(str(len(self.file_lines) + 1)) + 1

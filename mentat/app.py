@@ -7,7 +7,7 @@ from typing import Iterable, Optional
 
 from termcolor import cprint
 
-from .code_change import CodeChange
+from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import print_change
 from .code_context import CodeContext
 from .code_file import parse_intervals
@@ -205,8 +205,16 @@ def user_filter_changes(
     indices = []
     for index, change in enumerate(code_changes, start=1):
         print_change(change)
+        # Allowing the user to remove rename file changes introduces a lot of edge cases
+        if change.action == CodeChangeAction.RenameFile:
+            new_changes.append(change)
+            indices.append(index)
+            cprint("Cannot remove rename file change", "light_yellow")
+            continue
+
         cprint("Keep this change?", "light_blue")
         if user_input_manager.ask_yes_no(default_yes=True):
             new_changes.append(change)
             indices.append(index)
+
     return new_changes, indices
