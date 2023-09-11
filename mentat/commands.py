@@ -3,7 +3,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List
 
-from ipdb import set_trace
 from termcolor import colored, cprint
 
 from .code_context import CodeContext
