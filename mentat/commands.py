@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List
 
+from ipdb import set_trace
 from termcolor import colored, cprint
 
 from .code_context import CodeContext
@@ -120,6 +121,9 @@ class CommitCommand(Command, command_name="commit"):
 
 class AddCommand(Command, command_name="add"):
     def apply(self, *args: str, code_context: CodeContext) -> None:
+        if len(args) == 0:
+            cprint("No files specified\n", "yellow")
+            return
         for file_path in args:
             code_file = CodeFile(file_path)
             code_context.add_file(code_file)
@@ -135,6 +139,9 @@ class AddCommand(Command, command_name="add"):
 
 class RemoveCommand(Command, command_name="remove"):
     def apply(self, *args: str, code_context: CodeContext) -> None:
+        if len(args) == 0:
+            cprint("No files specified\n", "yellow")
+            return
         for file_path in args:
             code_file = CodeFile(file_path)
             code_context.remove_file(code_file)
