@@ -16,7 +16,7 @@ load_dotenv("mentat/.env")
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
-def run(prompt, model: str = "gpt-4-0314") -> str:
+def run(prompt, model: str = "gpt-4-0314") -> None:
     messages = [
         {"role": "system", "content": "be a helpful assistant"},
         {"role": "user", "content": prompt},
