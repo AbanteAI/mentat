@@ -1,1 +1,1 @@
-{"typeCheckingMode": "strict"}
+{"include": ["mentat"], "typeCheckingMode": "strict"}

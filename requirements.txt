@@ -18,6 +18,7 @@ isort==5.12.0
 mccabe==0.7.0
 multidict==6.0.4
 mypy-extensions==1.0.0
+nodeenv==1.8.0
 openai==0.27.8
 packaging==23.1
 pathspec==0.11.2
@@ -27,6 +28,7 @@ prompt-toolkit==3.0.39
 pycodestyle==2.10.0
 pyflakes==3.0.1
 Pygments==2.15.1
+pyright==1.1.325
 pytest==7.4.0
 pytest-mock==3.11.1
 pytest-repeat==0.9.1
@@ -41,7 +43,7 @@ termcolor==2.3.0
 tiktoken==0.4.0
 tomli==2.0.1
 tqdm==4.65.0
+typing_extensions==4.7.1
 urllib3==2.0.4
 wcwidth==0.2.6
 yarl==1.9.2
-pyright==1.1.325

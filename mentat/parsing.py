@@ -5,10 +5,10 @@ from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
 from timeit import default_timer
-from typing import Generator
+from typing import Any, AsyncGenerator
 
 import attr
-import openai
+from openai.error import InvalidRequestError, RateLimitError
 from termcolor import cprint
 
 from .code_change import CodeChange, CodeChangeAction
@@ -46,7 +46,7 @@ class ParsingState:
     code_lines: list[str] = attr.ib(factory=list)
     rename_map: dict[Path, Path] = attr.ib(factory=dict)
 
-    def parse_line_printing(self, content):
+    def parse_line_printing(self, content: str):
         to_print = ""
         if self.cur_printed:
             to_print = content
@@ -165,12 +165,12 @@ def run_async_stream_and_parse_llm_response(
         asyncio.run(
             stream_and_parse_llm_response(messages, model, state, code_file_manager)
         )
-    except openai.error.InvalidRequestError as e:
+    except InvalidRequestError as e:
         raise MentatError(
             "Something went wrong - invalid request to OpenAI API. OpenAI returned:\n"
             + str(e)
         )
-    except openai.error.RateLimitError as e:
+    except RateLimitError as e:
         raise UserError("OpenAI gave a rate limit error:\n" + str(e))
     except KeyboardInterrupt:
         print("\n\nInterrupted by user. Using the response up to this point.")
@@ -209,7 +209,7 @@ async def stream_and_parse_llm_response(
         # make sure we finish printing everything model sent before we encountered the crash
         await printer_task
         cprint("\n\nFatal error while processing model response:", "red")
-        cprint(e, color="red")
+        cprint(str(e), color="red")
         cprint("Using response up to this point.")
         if e.already_added_to_changelist:
             state.code_changes = state.code_changes[:-1]
@@ -219,11 +219,11 @@ async def stream_and_parse_llm_response(
 
 async def _process_response(
     state: ParsingState,
-    response: Generator,
+    response: AsyncGenerator[Any, None],
     printer: StreamingPrinter,
     code_file_manager: CodeFileManager,
 ):
-    def chunk_to_lines(chunk):
+    def chunk_to_lines(chunk: Any) -> list[str]:
         return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)
 
     async for chunk in response:
@@ -242,7 +242,10 @@ async def _process_response(
 
 
 def _process_content_line(
-    state, content, printer: StreamingPrinter, code_file_manager: CodeFileManager
+    state: ParsingState,
+    content: str,
+    printer: StreamingPrinter,
+    code_file_manager: CodeFileManager,
 ):
     beginning = state.cur_line == ""
     state.cur_line += content
@@ -263,7 +266,7 @@ def _process_content_line(
     if "\n" in content:
         (
             to_print,
-            entered_code_lines,
+            entered_code_lines,  # pyright: ignore[reportUnusedVariable]
             exited_code_lines,
             created_code_change,
         ) = state.new_line(code_file_manager)

@@ -17,7 +17,7 @@ class Conversation:
         code_file_manager: CodeFileManager,
         code_map: CodeMap | None = None,
     ):
-        self.messages = []
+        self.messages = list[dict[str, str]]()
         self.add_system_message(system_prompt)
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
@@ -55,7 +55,7 @@ class Conversation:
     def add_assistant_message(self, message: str):
         self.messages.append({"role": "assistant", "content": message})
 
-    def get_model_response(self, config: ConfigManager) -> (str, list[CodeChange]):
+    def get_model_response(self, config: ConfigManager) -> tuple[str, list[CodeChange]]:
         messages = self.messages.copy()
 
         code_message = self.code_file_manager.get_code_message()
@@ -90,10 +90,7 @@ class Conversation:
                         cprint_message_level = "partial syntax tree"
                     case "filenames":
                         cprint_message_level = "filepaths only"
-                    case _:
-                        raise Exception(
-                            f"Unknown CodeMapMessage level '{code_map_message.level}'"
-                        )
+
                 cprint_message = f"\nIncluding CodeMap ({cprint_message_level})"
                 cprint(cprint_message, color="green")
                 system_message += f"\n{code_map_message}"

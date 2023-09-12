@@ -2,11 +2,12 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from typing import Generator
+from typing import Any, AsyncGenerator, cast
 
 import openai
 import tiktoken
 from dotenv import load_dotenv
+from openai.error import AuthenticationError
 from termcolor import cprint
 
 from .config_manager import mentat_dir_path, user_config_path
@@ -14,11 +15,12 @@ from .errors import MentatError, UserError
 
 package_name = __name__.split(".")[0]
 
+# openai doesn't seem to use type hints, so we have to use type: ignore and cast everywhere
+
 
 # Check for .env file or already exported API key
 # If no api key found, raise an error
 def setup_api_key():
-    mentat_dir_path / ".env"
     if not load_dotenv(mentat_dir_path / ".env"):
         load_dotenv()
     key = os.getenv("OPENAI_API_KEY")
@@ -29,12 +31,14 @@ def setup_api_key():
         )
     try:
         openai.api_key = key
-        openai.Model.list()  # Test the API key
-    except openai.error.AuthenticationError as e:
+        openai.Model.list()  # type: ignore Test the API key
+    except AuthenticationError as e:
         raise UserError(f"OpenAI gave an Authentication Error:\n{e}")
 
 
-async def call_llm_api(messages: list[dict[str, str]], model) -> Generator:
+async def call_llm_api(
+    messages: list[dict[str, str]], model: str
+) -> AsyncGenerator[Any, None]:
     if (
         "PYTEST_CURRENT_TEST" in os.environ
         and "--benchmark" not in sys.argv
@@ -43,11 +47,14 @@ async def call_llm_api(messages: list[dict[str, str]], model) -> Generator:
         logging.critical("OpenAI call attempted in non benchmark test environment!")
         raise MentatError("OpenAI call attempted in non benchmark test environment!")
 
-    response = await openai.ChatCompletion.acreate(
-        model=model,
-        messages=messages,
-        temperature=0.5,
-        stream=True,
+    response: AsyncGenerator[Any, None] = cast(
+        AsyncGenerator[Any, None],
+        await openai.ChatCompletion.acreate(  # type: ignore
+            model=model,
+            messages=messages,
+            temperature=0.5,
+            stream=True,
+        ),
     )
 
     return response
@@ -60,7 +67,10 @@ def count_tokens(message: str) -> int:
 
 
 def check_model_availability(allow_32k: bool) -> bool:
-    available_models = [x["id"] for x in openai.Model.list()["data"]]
+    available_models: list[str] = cast(
+        list[str], [x["id"] for x in openai.Model.list()["data"]]  # type: ignore
+    )
+
     if allow_32k:
         # check if user has access to gpt-4-32k
         if "gpt-4-32k-0314" not in available_models:
@@ -83,7 +93,7 @@ def check_model_availability(allow_32k: bool) -> bool:
     return allow_32k
 
 
-def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
+def choose_model(messages: list[dict[str, str]], allow_32k: bool) -> tuple[str, int]:
     prompt_token_count = 0
     for message in messages:
         prompt_token_count += count_tokens(message["content"])
@@ -112,7 +122,7 @@ def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
 
 @dataclass
 class CostTracker:
-    total_cost: int = 0
+    total_cost: float = 0
 
     def display_api_call_stats(
         self,
