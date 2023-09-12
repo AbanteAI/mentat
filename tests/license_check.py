@@ -14,6 +14,7 @@ accepted_licenses = [
     "MIT License",
     "MIT",
     "Mozilla Public License 2.0 (MPL 2.0)",
+    "Python Software Foundation License",
 ]
 
 
