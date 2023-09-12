@@ -1,7 +1,7 @@
-from git import Repo
 import os
 
 import pytest
+from git import Repo
 from prompt_toolkit import PromptSession
 
 from mentat.app import run
