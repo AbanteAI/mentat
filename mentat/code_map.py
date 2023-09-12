@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Set
+from typing import Any, Literal
 
 from termcolor import cprint
 
@@ -11,7 +11,7 @@ from .git_handler import get_non_gitignored_files
 from .llm_api import count_tokens
 
 
-def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
+def _get_code_map(root: Path, file_path: Path, exclude_signatures: bool = False) -> str:
     # Create ctags from executable in a subprocess
     ctags_cmd_args = [
         "--extras=-F",
@@ -28,7 +28,7 @@ def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
     output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
-    ctags = set()
+    ctags = set[tuple[Path, ...]]()
     for output_line in output_lines:
         try:
             tag = json.loads(output_line)
@@ -76,24 +76,24 @@ def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
         rest = tag[num_common:]
 
         for item in rest:
-            output += indent + item + "\n"
+            output += indent + str(item) + "\n"
             indent += tab
         last = tag
 
     return output
 
 
-def _get_file_map(file_paths: Set[str]) -> str:
-    tree = {}
+def _get_file_map(file_paths: set[Path]) -> str:
+    tree = dict[str, Any]()
     for file_path in file_paths:
-        parts = file_path.split("/")
+        parts = file_path.parts
         node = tree
         for part in parts:
             if part not in node:
                 node[part] = {}
             node = node[part]
 
-    def tree_to_string(tree, indent=0):
+    def tree_to_string(tree: dict[str, Any], indent: int = 0) -> str:
         s = ""
         sorted_keys = sorted(tree.keys())
         for key in sorted_keys:
@@ -102,7 +102,6 @@ def _get_file_map(file_paths: Set[str]) -> str:
         return s
 
     file_map_tree = tree_to_string(tree)
-
     return file_map_tree
 
 
@@ -113,7 +112,7 @@ class CodeMapMessage:
 
 
 class CodeMap:
-    def __init__(self, git_root: str, token_limit: int | None = None):
+    def __init__(self, git_root: Path, token_limit: int | None = None):
         self.git_root = git_root
         self.token_limit = token_limit
 
@@ -141,10 +140,10 @@ class CodeMap:
                 return
 
             with tempfile.TemporaryDirectory() as tempdir:
-                hello_py = Path(tempdir).joinpath("hello.py")
+                hello_py = Path(tempdir) / "hello.py"
                 with open(hello_py, "w", encoding="utf-8") as f:
                     f.write("def hello():\n    print('Hello, world!')\n")
-                _get_code_map(tempdir, str(hello_py))
+                _get_code_map(Path(tempdir), hello_py)
         except FileNotFoundError:
             self.ctags_disabled_reason = "ctags executable not found"
             return
@@ -156,14 +155,14 @@ class CodeMap:
 
     def _get_message_from_ctags(
         self,
-        root: str,
-        file_paths: Set[str],
+        root: Path,
+        file_paths: set[Path],
         exclude_signatures: bool = False,
         token_limit: int | None = None,
     ) -> CodeMapMessage | None:
         token_limit = token_limit or self.token_limit
 
-        code_maps = []
+        code_maps = list[str]()
         code_maps_token_count = 0
         for file_path in file_paths:
             code_map = _get_code_map(
@@ -199,7 +198,7 @@ class CodeMap:
         return code_map_message
 
     def _get_message_from_file_map(
-        self, file_paths: Set[str], token_limit: int | None = None
+        self, file_paths: set[Path], token_limit: int | None = None
     ) -> CodeMapMessage | None:
         file_map_tree = _get_file_map(file_paths)
 

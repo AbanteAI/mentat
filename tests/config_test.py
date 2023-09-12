@@ -1,3 +1,4 @@
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -15,7 +16,7 @@ def test_config_priority(temp_testbed):
 
     # Since we don't want to actually change user config file or default config file,
     # we have to just mock them
-    config = ConfigManager(temp_testbed)
+    config = ConfigManager(Path(temp_testbed))
     config.user_config = {"project-first": "I will not be used", "user-second": "user"}
     config.default_config = {
         "project-first": "I also am not used",
@@ -41,6 +42,6 @@ def test_invalid_config(temp_testbed):
             "invalid-json: []]
         }"""))
 
-    config = ConfigManager(temp_testbed)
+    config = ConfigManager(Path(temp_testbed))
     config.user_config = {"mykey": "user"}
     assert config._get_key("mykey") == "user"

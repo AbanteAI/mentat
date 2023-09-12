@@ -3,6 +3,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -73,7 +74,7 @@ def mock_setup_api_key(mocker):
 
 @pytest.fixture
 def mock_config(temp_testbed):
-    config = ConfigManager(temp_testbed)
+    config = ConfigManager(Path(temp_testbed))
     config.project_config = {}
     return config
 

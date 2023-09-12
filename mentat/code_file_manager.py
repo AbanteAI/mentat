@@ -3,7 +3,7 @@ import math
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import Iterable, Union
+from typing import Union
 
 from termcolor import cprint
 
@@ -31,7 +31,7 @@ class CodeFileManager:
         self.config = config
         self.code_context = code_context
 
-    def _read_file(self, file: Union[str, CodeFile]) -> Iterable[str]:
+    def _read_file(self, file: Union[Path, CodeFile]) -> list[str]:
         if isinstance(file, CodeFile):
             rel_path = file.path
         else:
@@ -43,9 +43,9 @@ class CodeFileManager:
         return lines
 
     def _read_all_file_lines(self) -> None:
-        self.file_lines = dict()
+        self.file_lines = dict[Path, list[str]]()
         for file in self.code_context.files.values():
-            rel_path = os.path.relpath(file.path, self.config.git_root)
+            rel_path = Path(os.path.relpath(file.path, self.config.git_root))
             # here keys are str not path object
             self.file_lines[rel_path] = self._read_file(file)
 
@@ -54,7 +54,7 @@ class CodeFileManager:
         code_message = ["Code Files:\n"]
         for file in self.code_context.files.values():
             abs_path = file.path
-            rel_path = os.path.relpath(abs_path, self.config.git_root)
+            rel_path = Path(os.path.relpath(abs_path, self.config.git_root))
 
             # We always want to give GPT posix paths
             posix_rel_path = Path(rel_path).as_posix()
@@ -72,7 +72,7 @@ class CodeFileManager:
 
         return "\n".join(code_message)
 
-    def _add_file(self, abs_path):
+    def _add_file(self, abs_path: Path):
         logging.info(f"Adding new file {abs_path} to context")
         self.code_context.files[abs_path] = CodeFile(abs_path)
         # create any missing directories in the path
@@ -84,7 +84,7 @@ class CodeFileManager:
             del self.code_context.files[abs_path]
         abs_path.unlink()
 
-    def _handle_delete(self, delete_change):
+    def _handle_delete(self, delete_change: CodeChange):
         abs_path = self.config.git_root / delete_change.file
         if not abs_path.exists():
             logging.error(f"Path {abs_path} non-existent on delete")
@@ -97,7 +97,9 @@ class CodeFileManager:
         else:
             cprint(f"Not deleting {delete_change.file}")
 
-    def _get_new_code_lines(self, rel_path, changes) -> Iterable[str]:
+    def _get_new_code_lines(
+        self, rel_path: Path, changes: list[CodeChange]
+    ) -> list[str] | None:
         if not changes:
             return []
         if len(set(map(lambda change: change.file, changes))) > 1:
@@ -133,7 +135,7 @@ class CodeFileManager:
             new_code_lines += [""] * (largest_changed_line - last_line)
 
         min_changed_line = largest_changed_line + 1
-        for i, change in enumerate(changes):
+        for change in changes:
             if change.last_changed_line >= min_changed_line:
                 raise MentatError(f"Change line number overlap in file {change.file}")
             min_changed_line = change.first_changed_line
@@ -141,10 +143,9 @@ class CodeFileManager:
         return new_code_lines
 
     def write_changes_to_files(self, code_changes: list[CodeChange]) -> None:
-        file_changes = defaultdict(list)
+        file_changes = defaultdict[Path, list[CodeChange]](list)
         for code_change in code_changes:
-            # here keys are str not path object
-            rel_path = str(code_change.file)
+            rel_path = code_change.file
             abs_path = self.config.git_root / rel_path
             match code_change.action:
                 case CodeChangeAction.CreateFile:
@@ -161,11 +162,9 @@ class CodeFileManager:
                     with open(abs_new_path, "w") as f:
                         f.write("\n".join(code_lines))
                     self._delete_file(abs_path)
-                    file_changes[str(code_change.name)] += file_changes[rel_path]
+                    file_changes[code_change.name] += file_changes[rel_path]
                     file_changes[rel_path] = []
-                    self.file_lines[str(code_change.name)] = self._read_file(
-                        abs_new_path
-                    )
+                    self.file_lines[code_change.name] = self._read_file(abs_new_path)
                 case _:
                     file_changes[rel_path].append(code_change)
 

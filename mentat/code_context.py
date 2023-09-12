@@ -2,7 +2,7 @@ import glob
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Iterable
+from typing import Any, Dict
 
 from termcolor import cprint
 
@@ -12,7 +12,7 @@ from .errors import UserError
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 
 
-def _is_file_text_encoded(file_path):
+def _is_file_text_encoded(file_path: Path):
     try:
         # The ultimate filetype test
         with open(file_path) as f:
@@ -22,9 +22,9 @@ def _is_file_text_encoded(file_path):
         return False
 
 
-def _abs_files_from_list(paths: Iterable[str], check_for_text: bool = True):
-    files_direct = set()
-    file_paths_from_dirs = set()
+def _abs_files_from_list(paths: list[Path], check_for_text: bool = True):
+    files_direct = set[CodeFile]()
+    file_paths_from_dirs = set[Path]()
     for path in paths:
         file = CodeFile(path)
         path = Path(file.path)
@@ -36,7 +36,7 @@ def _abs_files_from_list(paths: Iterable[str], check_for_text: bool = True):
         elif path.is_dir():
             nonignored_files = set(
                 map(
-                    lambda f: os.path.realpath(path / f),
+                    lambda f: Path(os.path.realpath(path / f)),
                     get_non_gitignored_files(path),
                 )
             )
@@ -53,7 +53,7 @@ def _abs_files_from_list(paths: Iterable[str], check_for_text: bool = True):
 
 
 def _get_files(
-    config: ConfigManager, paths: Iterable[str], exclude_paths: Iterable[str]
+    config: ConfigManager, paths: list[Path], exclude_paths: list[Path]
 ) -> Dict[Path, CodeFile]:
     excluded_files_direct, excluded_files_from_dirs = _abs_files_from_list(
         exclude_paths, check_for_text=False
@@ -83,7 +83,7 @@ def _get_files(
 
     files_direct.update(files_from_dirs)
 
-    files = {}
+    files = dict[Path, CodeFile]()
     for file in files_direct:
         if file.path not in excluded_files | excluded_files_from_dir:
             files[Path(os.path.realpath(file.path))] = file
@@ -91,8 +91,8 @@ def _get_files(
     return files
 
 
-def _build_path_tree(files: Iterable[CodeFile], git_root):
-    tree = {}
+def _build_path_tree(files: list[CodeFile], git_root: Path):
+    tree = dict[str, Any]()
     for file in files:
         path = os.path.relpath(file.path, git_root)
         parts = Path(path).parts
@@ -104,7 +104,9 @@ def _build_path_tree(files: Iterable[CodeFile], git_root):
     return tree
 
 
-def _print_path_tree(tree, changed_files, cur_path, prefix=""):
+def _print_path_tree(
+    tree: dict[str, Any], changed_files: set[Path], cur_path: Path, prefix: str = ""
+):
     keys = list(tree.keys())
     for i, key in enumerate(sorted(keys)):
         if i < len(keys) - 1:
@@ -131,8 +133,8 @@ class CodeContext:
     def __init__(
         self,
         config: ConfigManager,
-        paths: Iterable[str],
-        exclude_paths: Iterable[str],
+        paths: list[Path],
+        exclude_paths: list[Path],
     ):
         self.config = config
         self.files = _get_files(self.config, paths, exclude_paths)
@@ -145,7 +147,7 @@ class CodeContext:
             cprint("Git project: ", "green", end="")
         cprint(self.config.git_root.name, "blue")
         _print_path_tree(
-            _build_path_tree(self.files.values(), self.config.git_root),
+            _build_path_tree(list(self.files.values()), self.config.git_root),
             get_paths_with_git_diffs(self.config.git_root),
             self.config.git_root,
         )

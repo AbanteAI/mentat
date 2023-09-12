@@ -3,6 +3,7 @@ import logging
 from importlib import resources
 from json import JSONDecodeError
 from pathlib import Path
+from typing import Any, cast
 
 from termcolor import cprint
 
@@ -14,24 +15,10 @@ default_config_file_name = "default_config.json"
 config_file_name = ".mentat_config.json"
 user_config_path = mentat_dir_path / config_file_name
 
-# Remove this warning after August 19
-old_config_file_path = mentat_dir_path / "config.json"
-
 
 class ConfigManager:
-    def __init__(self, git_root: str):
-        self.git_root = Path(git_root)
-
-        # Remove this warning after August 19
-        if old_config_file_path.exists():
-            cprint(
-                "Warning: You are still using an old config.json in your ~/.mentat"
-                " directory. The config filename has recently been changed to"
-                " .mentat_config.json, and can be present in either ~/.mentat or the"
-                " git project you are working in. Your current config.json file will"
-                " not be used.",
-                color="light_yellow",
-            )
+    def __init__(self, git_root: Path):
+        self.git_root = git_root
 
         if user_config_path.exists():
             with open(user_config_path) as config_file:
@@ -44,9 +31,9 @@ class ConfigManager:
                         " json; ignoring user configuration file",
                         "light_yellow",
                     )
-                    self.user_config = {}
+                    self.user_config = dict[str, str]()
         else:
-            self.user_config = {}
+            self.user_config = dict[str, str]()
 
         project_config_path = self.git_root / config_file_name
         if project_config_path.exists():
@@ -60,9 +47,9 @@ class ConfigManager:
                         " json; ignoring project configuration file",
                         "light_yellow",
                     )
-                    self.project_config = {}
+                    self.project_config = dict[str, str]()
         else:
-            self.project_config = {}
+            self.project_config = dict[str, str]()
 
         default_config_path = resources.files(package_name).joinpath(
             default_config_file_name
@@ -70,16 +57,16 @@ class ConfigManager:
         with default_config_path.open("r") as config_file:
             self.default_config = json.load(config_file)
 
-    def input_style(self) -> list[list[str]]:
-        return self._get_key("input-style")
+    def input_style(self) -> list[tuple[str, str]]:
+        return cast(list[tuple[str, str]], self._get_key("input-style"))
 
     def allow_32k(self) -> bool:
-        return self._get_key("allow-32k")
+        return cast(bool, self._get_key("allow-32k"))
 
     def file_exclude_glob_list(self) -> list[str]:
-        return self._get_key("file-exclude-glob-list")
+        return cast(list[str], self._get_key("file-exclude-glob-list"))
 
-    def _get_key(self, key: str):
+    def _get_key(self, key: str) -> Any:
         if key in self.project_config:
             return self.project_config[key]
         elif key in self.user_config:
