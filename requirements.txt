@@ -11,7 +11,7 @@ fire==0.5.0
 flake8==6.0.0
 frozenlist==1.4.0
 gitdb==4.0.10
-GitPython==3.1.32
+GitPython==3.1.35
 idna==3.4
 iniconfig==2.0.0
 isort==5.12.0
