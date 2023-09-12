@@ -3,6 +3,7 @@ import json
 import logging
 from enum import Enum
 from json import JSONDecodeError
+from pathlib import Path
 from timeit import default_timer
 from typing import Generator
 
@@ -10,7 +11,7 @@ import attr
 import openai
 from termcolor import cprint
 
-from .code_change import CodeChange
+from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import (
     change_delimiter,
     get_file_name,
@@ -43,6 +44,7 @@ class ParsingState:
     code_changes: list[CodeChange] = attr.ib(factory=list)
     json_lines: list[str] = attr.ib(factory=list)
     code_lines: list[str] = attr.ib(factory=list)
+    rename_map: dict[Path, Path] = attr.ib(factory=dict)
 
     def parse_line_printing(self, content):
         to_print = ""
@@ -75,9 +77,14 @@ class ParsingState:
                 already_added_to_changelist=False,
             )
 
-        new_change = CodeChange(json_data, self.code_lines, code_file_manager)
+        new_change = CodeChange(
+            json_data, self.code_lines, code_file_manager, self.rename_map
+        )
         self.code_changes.append(new_change)
         self.json_lines, self.code_lines = [], []
+        if new_change.action == CodeChangeAction.RenameFile:
+            # This rename_map is a bit hacky; it shouldn't be used outside of streaming/parsing
+            self.rename_map[new_change.name] = new_change.file
 
     def new_line(self, code_file_manager: CodeFileManager):
         to_print = ""
@@ -277,13 +284,21 @@ def _process_content_line(
                     len(state.code_changes) < 2
                     or state.code_changes[-2].file != cur_change.file
                     or state.explained_since_change
+                    or state.code_changes[-1].action == CodeChangeAction.RenameFile
                 ):
                     printer.add_string(get_file_name(cur_change))
-                    printer.add_string(change_delimiter)
+                    if (
+                        cur_change.action.has_additions()
+                        or cur_change.action.has_removals()
+                    ):
+                        printer.add_string(change_delimiter)
                 state.explained_since_change = False
                 printer.add_string(get_previous_lines(cur_change))
                 printer.add_string(get_removed_block(cur_change))
-                if not cur_change.action.has_additions():
+                if (
+                    not cur_change.action.has_additions()
+                    and cur_change.action.has_removals()
+                ):
                     printer.add_string(get_later_lines(cur_change))
                     printer.add_string(change_delimiter)
 
