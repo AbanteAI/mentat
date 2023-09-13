@@ -190,7 +190,7 @@ class MentatPromptSession(PromptSession[str]):
         self._setup_bindings()
         super().__init__(
             completer=MentatCompleter(self.code_context),
-            history=FilteredFileHistory(mentat_dir_path / "history"),
+            history=FilteredFileHistory(str(mentat_dir_path / "history")),
             auto_suggest=FilteredHistorySuggestions(),
             multiline=True,
             prompt_continuation=self.prompt_continuation,
