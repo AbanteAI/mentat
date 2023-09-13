@@ -6,7 +6,12 @@ from termcolor import cprint
 
 from .config_manager import ConfigManager
 from .errors import UserError
-from .git_handler import get_commit_metadata, get_diff_for_file, get_files_in_diff
+from .git_handler import (
+    check_head_exists,
+    get_commit_metadata,
+    get_diff_for_file,
+    get_files_in_diff,
+)
 
 
 @dataclass
@@ -91,6 +96,8 @@ class DiffContext:
 
     @property
     def files(self) -> list[Path]:
+        if self.target == "HEAD" and not check_head_exists(self.config.git_root):
+            return []  # A new repo without any commits
         return get_files_in_diff(self.config.git_root, self.target)
 
     def display_context(self) -> None:

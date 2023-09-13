@@ -141,3 +141,11 @@ def get_files_in_diff(git_root: Path, target: str) -> list[Path]:
     except subprocess.CalledProcessError:
         logging.error(f"Error obtaining diff for commit '{target}'.")
         raise UserError()
+
+
+def check_head_exists(git_root: Path) -> bool:
+    try:
+        subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=git_root)
+        return True
+    except subprocess.CalledProcessError:
+        return False
