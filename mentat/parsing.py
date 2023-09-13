@@ -33,18 +33,18 @@ class _BlockIndicator(Enum):
 
 @attr.s
 class ParsingState:
-    message: str = attr.ib(default="")
-    cur_line: str = attr.ib(default="")
-    cur_printed: bool = attr.ib(default=False)
-    time_elapsed: float = attr.ib(default=0)
-    in_special_lines: bool = attr.ib(default=False)
-    in_code_lines: bool = attr.ib(default=False)
-    explanation: str = attr.ib(default="")
-    explained_since_change: bool = attr.ib(default=True)
-    code_changes: list[CodeChange] = attr.ib(factory=list)
-    json_lines: list[str] = attr.ib(factory=list)
-    code_lines: list[str] = attr.ib(factory=list)
-    rename_map: dict[Path, Path] = attr.ib(factory=dict)
+    message: str = attr.field(default="")
+    cur_line: str = attr.field(default="")
+    cur_printed: bool = attr.field(default=False)
+    time_elapsed: float = attr.field(default=0)
+    in_special_lines: bool = attr.field(default=False)
+    in_code_lines: bool = attr.field(default=False)
+    explanation: str = attr.field(default="")
+    explained_since_change: bool = attr.field(default=True)
+    code_changes: list[CodeChange] = attr.field(factory=list)
+    json_lines: list[str] = attr.field(factory=list)
+    code_lines: list[str] = attr.field(factory=list)
+    rename_map: dict[Path, Path] = attr.field(factory=dict)
 
     def parse_line_printing(self, content: str):
         to_print = ""
