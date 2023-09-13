@@ -56,7 +56,8 @@ def mock_user_input_manager(max_iterations, mocker):
                 threadLocal.iterations += 1
                 threadLocal.confirm = True
                 return (
-                    "When I ran the test I got the following error message. Can you try again?\n"
+                    "When I ran the test I got the following error message. Can you try"
+                    " again?\n"
                     + get_error_message()
                 )
 
