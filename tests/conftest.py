@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from mentat.config_manager import ConfigManager
-from mentat.diff_context import DiffContext
 from mentat.streaming_printer import StreamingPrinter
 from mentat.user_input_manager import UserInputManager
 
@@ -121,7 +120,7 @@ def temp_testbed(monkeypatch):
     # Initialize git repo
     run_git_command(temp_testbed, "init")
 
-    # Set local config for user.name and user.email. Set automatically on 
+    # Set local config for user.name and user.email. Set automatically on
     # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
     run_git_command(temp_testbed, "config", "user.email", "test@example.com")
     run_git_command(temp_testbed, "config", "user.name", "Test User")
