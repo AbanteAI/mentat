@@ -24,7 +24,7 @@ from pygments.token import Token
 from pygments.util import ClassNotFound
 
 from .code_context import CodeContext
-from .commands import AddCommand, Command, RemoveCommand
+from .commands import Command
 from .config_manager import mentat_dir_path
 
 logger = logging.getLogger()
