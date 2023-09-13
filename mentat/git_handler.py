@@ -6,15 +6,15 @@ from pathlib import Path
 from mentat.errors import UserError
 
 
-def get_git_diff_for_path(git_root, path: str) -> str:
+def get_git_diff_for_path(git_root: Path, path: Path) -> str:
     return subprocess.check_output(["git", "diff", path], cwd=git_root).decode("utf-8")
 
 
-def get_non_gitignored_files(path: str) -> set[str]:
+def get_non_gitignored_files(path: Path) -> set[Path]:
     return set(
         # git returns / separated paths even on windows, convert so we can remove
         # glob_excluded_files, which have windows paths on windows
-        os.path.normpath(p)
+        Path(os.path.normpath(p))
         for p in filter(
             lambda p: p != "",
             subprocess.check_output(
@@ -27,7 +27,7 @@ def get_non_gitignored_files(path: str) -> set[str]:
     )
 
 
-def get_paths_with_git_diffs(git_root) -> set[str]:
+def get_paths_with_git_diffs(git_root: Path) -> set[Path]:
     changed = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd=git_root, text=True
     ).split("\n")
@@ -36,13 +36,13 @@ def get_paths_with_git_diffs(git_root) -> set[str]:
     ).split("\n")
     return set(
         map(
-            lambda path: os.path.realpath(os.path.join(git_root, Path(path))),
+            lambda path: Path(os.path.realpath(os.path.join(git_root, Path(path)))),
             changed + new,
         )
     )
 
 
-def _get_git_root_for_path(path) -> str:
+def _get_git_root_for_path(path: Path) -> Path:
     if os.path.isdir(path):
         dir_path = path
     else:
@@ -67,19 +67,19 @@ def _get_git_root_for_path(path) -> str:
             os.path.join(dir_path, "../" * len(Path(relative_path).parts))
         )
         # call realpath to resolve symlinks, so all paths match
-        return os.path.realpath(git_root)
+        return Path(os.path.realpath(git_root))
     except subprocess.CalledProcessError:
         logging.error(f"File {path} isn't part of a git project.")
         raise UserError()
 
 
-def get_shared_git_root_for_paths(paths) -> str:
-    git_roots = set()
+def get_shared_git_root_for_paths(paths: list[Path]) -> Path:
+    git_roots = set[Path]()
     for path in paths:
         git_root = _get_git_root_for_path(path)
         git_roots.add(git_root)
     if not paths:
-        git_root = _get_git_root_for_path(os.getcwd())
+        git_root = _get_git_root_for_path(Path(os.getcwd()))
         git_roots.add(git_root)
 
     if len(git_roots) > 1:
