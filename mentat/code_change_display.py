@@ -1,15 +1,15 @@
 import math
 
-from pygments import highlight
+from pygments import highlight  # pyright: ignore[reportUnknownVariableType]
 from pygments.formatters import TerminalFormatter
 from termcolor import colored
 
-from .code_change import CodeChangeAction
+from .code_change import CodeChange, CodeChangeAction
 
 change_delimiter = 60 * "="
 
 
-def _remove_extra_empty_lines(lines):
+def _remove_extra_empty_lines(lines: list[str]) -> list[str]:
     if not lines:
         return []
 
@@ -31,7 +31,7 @@ def _remove_extra_empty_lines(lines):
     return lines[max(start - 1, 0) : end + 2]
 
 
-def _prefixed_lines(code_change, lines, prefix):
+def _prefixed_lines(code_change: CodeChange, lines: list[str], prefix: str):
     return "\n".join(
         [
             prefix
@@ -42,36 +42,39 @@ def _prefixed_lines(code_change, lines, prefix):
     )
 
 
-def print_change(code_change):
+def print_change(code_change: CodeChange):
     to_print = [
         get_file_name(code_change),
-        change_delimiter,
+        change_delimiter if code_change.action != CodeChangeAction.RenameFile else "",
         get_previous_lines(code_change),
         get_removed_block(code_change),
         get_added_block(code_change),
         get_later_lines(code_change),
-        change_delimiter,
+        change_delimiter if code_change.action != CodeChangeAction.RenameFile else "",
     ]
     for s in to_print:
         if s:
             print(s)
 
 
-def get_file_name(code_change):
+def get_file_name(code_change: CodeChange):
     file_name = code_change.file
-    action = code_change.action
-    color = (
-        "light_red"
-        if action == CodeChangeAction.DeleteFile
-        else ("light_green" if action == CodeChangeAction.CreateFile else "light_blue")
-    )
-    return colored(
-        f"\n{file_name}{'*' if action == CodeChangeAction.CreateFile else ''}",
-        color=color,
-    )
+    match code_change.action:
+        case CodeChangeAction.CreateFile:
+            return colored(f"\n{file_name}*", color="light_green")
+        case CodeChangeAction.DeleteFile:
+            return colored(f"\n{file_name}", color="light_red")
+        case CodeChangeAction.RenameFile:
+            return colored(
+                f"\nRename: {file_name} -> {code_change.name}", color="yellow"
+            )
+        case _:
+            return colored(f"\n{file_name}", color="light_blue")
 
 
-def get_removed_block(code_change, prefix="-", color="red"):
+def get_removed_block(
+    code_change: CodeChange, prefix: str = "-", color: str | None = "red"
+):
     if code_change.action.has_removals():
         if code_change.action == CodeChangeAction.DeleteFile:
             changed_lines = code_change.file_lines
@@ -86,7 +89,9 @@ def get_removed_block(code_change, prefix="-", color="red"):
     return ""
 
 
-def get_added_block(code_change, prefix="+", color="green"):
+def get_added_block(
+    code_change: CodeChange, prefix: str = "+", color: str | None = "green"
+):
     if code_change.action.has_additions():
         added = _prefixed_lines(code_change, code_change.code_lines, prefix)
         if added:
@@ -94,7 +99,7 @@ def get_added_block(code_change, prefix="+", color="green"):
     return ""
 
 
-def get_previous_lines(code_change, num=2):
+def get_previous_lines(code_change: CodeChange, num: int = 2):
     if not code_change.action.has_surrounding_lines():
         return ""
     lines = _remove_extra_empty_lines(
@@ -119,12 +124,13 @@ def get_previous_lines(code_change, num=2):
 
     prev = "\n".join(numbered)
     if prev:
-        h_prev = highlight(prev, code_change.lexer, TerminalFormatter(bg="dark"))
+        # pygments doesn't have type hints on TerminalFormatter
+        h_prev: str = highlight(prev, code_change.lexer, TerminalFormatter(bg="dark"))  # type: ignore
         return h_prev
     return ""
 
 
-def get_later_lines(code_change, num=2):
+def get_later_lines(code_change: CodeChange, num: int = 2):
     if not code_change.action.has_surrounding_lines():
         return ""
     lines = _remove_extra_empty_lines(
@@ -149,6 +155,7 @@ def get_later_lines(code_change, num=2):
 
     later = "\n".join(numbered)
     if later:
-        h_later = highlight(later, code_change.lexer, TerminalFormatter(bg="dark"))
+        # pygments doesn't have type hints on TerminalFormatter
+        h_later: str = highlight(later, code_change.lexer, TerminalFormatter(bg="dark"))  # type: ignore
         return h_later
     return ""

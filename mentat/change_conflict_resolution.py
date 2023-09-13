@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import logging
 import string
+from typing import TYPE_CHECKING
 
 from termcolor import cprint
 
@@ -7,9 +10,15 @@ from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import get_added_block, get_removed_block
 from .user_input_manager import UserInputManager
 
+if TYPE_CHECKING:
+    # This normally will cause a circular import
+    from .code_file_manager import CodeFileManager
+
 
 def resolve_insertion_conflicts(
-    changes: list[CodeChange], user_input_manager: UserInputManager, code_file_manager
+    changes: list[CodeChange],
+    user_input_manager: UserInputManager,
+    code_file_manager: CodeFileManager,
 ) -> list[CodeChange]:
     """merges insertion conflicts into one singular code change"""
     insert_changes = list(
@@ -18,7 +27,7 @@ def resolve_insertion_conflicts(
             sorted(changes, reverse=True),
         )
     )
-    new_insert_changes = []
+    new_insert_changes = list[CodeChange]()
     cur = 0
     while cur < len(insert_changes):
         end = cur + 1
@@ -38,8 +47,8 @@ def resolve_insertion_conflicts(
                 "Type the order in which to insert changes (omit for no preference):"
             )
             user_input = user_input_manager.collect_user_input()
-            new_code_lines = []
-            used = set()
+            new_code_lines = list[str]()
+            used = set[int]()
             for c in user_input:
                 index = string.printable.index(c) if c in string.printable else -1
                 if index < end - cur and index != -1:
@@ -69,7 +78,7 @@ def resolve_non_insertion_conflicts(
 ) -> list[CodeChange]:
     """resolves delete-replace conflicts and asks user on delete-insert or replace-insert conflicts"""
     min_changed_line = changes[0].last_changed_line + 1
-    removed_changes = set()
+    removed_changes = set[int]()
     for i, change in enumerate(changes):
         if change.last_changed_line >= min_changed_line:
             if change.action == CodeChangeAction.Insert:

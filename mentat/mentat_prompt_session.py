@@ -5,7 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import DefaultDict, Dict, Set, cast
+from typing import Any, Callable, DefaultDict, Dict, Set, cast
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
@@ -15,6 +15,7 @@ from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.completion.word_completer import WordCompleter
 from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
+from prompt_toolkit.formatted_text import AnyFormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
@@ -22,6 +23,7 @@ from pygments.lexer import Lexer
 from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
 from pygments.util import ClassNotFound
+from typing_extensions import override
 
 from .code_context import CodeContext
 from .commands import Command
@@ -35,7 +37,7 @@ class FilteredFileHistory(FileHistory):
         self.excluded_phrases = ["y", "n", "i", "q"]
         super().__init__(filename)
 
-    def append_string(self, string):
+    def append_string(self, string: str):
         if (
             string.strip().lower() not in self.excluded_phrases
             # If the user mistypes a command, we don't want it to appear later
@@ -98,7 +100,7 @@ class MentatCompleter(Completer):
         self.file_name_completions[file_path.name].add(file_path)
 
         tokens = list(lexer.get_tokens(file_content))
-        filtered_tokens = set()
+        filtered_tokens = set[str]()
         for token_type, token_value in tokens:
             if token_type not in Token.Name:
                 continue
@@ -127,7 +129,7 @@ class MentatCompleter(Completer):
                     self.refresh_completions_for_file_path(file_path)
 
         # Build de-duped syntax completions
-        _all_syntax_words = set()
+        _all_syntax_words = set[str]()
         for syntax_completion in self.syntax_completions.values():
             _all_syntax_words.update(syntax_completion.words)
         self._all_syntax_words = _all_syntax_words
@@ -156,10 +158,10 @@ class MentatCompleter(Completer):
             return
 
         last_word = document_words[-1]
-        get_completion_insert = lambda word: f"`{word}`"
+        get_completion_insert: Callable[[str], str] = lambda word: f"`{word}`"
         if last_word[0] == "`" and len(last_word) > 1:
             last_word = last_word.lstrip("`")
-            get_completion_insert = lambda word: f"{word}`"
+            get_completion_insert: Callable[[str], str] = lambda word: f"{word}`"
 
         completions = self._all_syntax_words.union(set(self.file_name_completions))
 
@@ -169,7 +171,7 @@ class MentatCompleter(Completer):
                 if file_names:
                     for file_name in file_names:
                         yield Completion(
-                            get_completion_insert(file_name),
+                            get_completion_insert(str(file_name)),
                             start_position=-len(last_word),
                             display=str(file_name),
                         )
@@ -181,8 +183,8 @@ class MentatCompleter(Completer):
                     )
 
 
-class MentatPromptSession(PromptSession):
-    def __init__(self, code_context: CodeContext, *args, **kwargs):
+class MentatPromptSession(PromptSession[str]):
+    def __init__(self, code_context: CodeContext, *args: Any, **kwargs: Any):
         self.code_context = code_context
 
         self._setup_bindings()
@@ -197,7 +199,8 @@ class MentatPromptSession(PromptSession):
             **kwargs,
         )
 
-    def prompt(self, *args, **kwargs):
+    @override
+    def prompt(self, *args: Any, **kwargs: Any) -> str:
         # Automatically capture all commands
         while (user_input := super().prompt(*args, **kwargs)).startswith("/"):
             arguments = shlex.split(user_input[1:])
@@ -205,7 +208,10 @@ class MentatPromptSession(PromptSession):
             command.apply(*arguments[1:])
         return user_input
 
-    def prompt_continuation(self, width, line_number, is_soft_wrap):
+    @override
+    def prompt_continuation(
+        self, width: int, line_number: int, is_soft_wrap: int
+    ) -> AnyFormattedText:
         return (
             "" if is_soft_wrap else [("class:continuation", " " * (width - 2) + "> ")]
         )
@@ -229,7 +235,7 @@ class MentatPromptSession(PromptSession):
                 app.current_buffer.suggestion is not None
                 and len(app.current_buffer.suggestion.text) > 0
                 and app.current_buffer.document.is_cursor_at_the_end
-                and app.current_buffer.text
+                and bool(app.current_buffer.text)
                 and app.current_buffer.text[0] != "/"
             )
 

@@ -15,7 +15,7 @@ class FilteredFileHistory(FileHistory):
         self.excluded_phrases = ["y", "n", "i", "q"]
         super().__init__(filename)
 
-    def append_string(self, string):
+    def append_string(self, string: str):
         if string.strip().lower() not in self.excluded_phrases:
             super().append_string(string)
 
@@ -32,7 +32,7 @@ class UserInputManager:
             style=Style(config.input_style()),
         )
         # Won't have suggestions, completions, commands, etc.
-        self.plain_session = PromptSession(
+        self.plain_session = PromptSession[str](
             message=[("class:prompt", ">>> ")],
             style=Style(config.input_style()),
         )

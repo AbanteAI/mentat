@@ -12,7 +12,8 @@ from .git_handler import commit
 
 
 class Command(ABC):
-    _registered_commands = {}
+    # Unfortunately, Command isn't defined here yet, so even with annotations we need quotation marks
+    _registered_commands = dict[str, type["Command"]]()
 
     def __init_subclass__(cls, command_name: str | None) -> None:
         if command_name is not None:
@@ -56,7 +57,7 @@ class Command(ABC):
 
 
 class InvalidCommand(Command, command_name=None):
-    def __init__(self, invalid_name):
+    def __init__(self, invalid_name: str):
         self.invalid_name = invalid_name
 
     def apply(self, *args: str) -> None:

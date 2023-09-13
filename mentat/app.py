@@ -3,11 +3,11 @@ import glob
 import logging
 from pathlib import Path
 from textwrap import dedent
-from typing import Iterable, Optional
+from typing import Optional
 
 from termcolor import cprint
 
-from .code_change import CodeChange
+from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import print_change
 from .code_context import CodeContext
 from .code_file import parse_intervals
@@ -53,9 +53,9 @@ def run_cli():
     run(expand_paths(paths), expand_paths(exclude_paths), no_code_map)
 
 
-def expand_paths(paths: Iterable[str]) -> Iterable[str]:
-    globbed_paths = set()
-    invalid_paths = []
+def expand_paths(paths: list[str]) -> list[Path]:
+    globbed_paths = set[str]()
+    invalid_paths = list[str]()
     for path in paths:
         new_paths = glob.glob(pathname=path, recursive=True)
         if new_paths:
@@ -64,7 +64,7 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
             split = path.rsplit(":", 1)
             p = split[0]
             intervals = parse_intervals(split[1])
-            if Path(p).exists() and intervals is not None:
+            if Path(p).exists() and intervals:
                 globbed_paths.add(path)
             else:
                 invalid_paths.append(path)
@@ -75,12 +75,12 @@ def expand_paths(paths: Iterable[str]) -> Iterable[str]:
         )
         print("\n".join(invalid_paths))
         exit()
-    return globbed_paths
+    return [Path(path) for path in globbed_paths]
 
 
 def run(
-    paths: Iterable[str],
-    exclude_paths: Optional[Iterable[str]] = None,
+    paths: list[Path],
+    exclude_paths: Optional[list[Path]] = None,
     no_code_map: bool = False,
 ):
     mentat_dir_path.mkdir(parents=True, exist_ok=True)
@@ -105,12 +105,12 @@ def run(
 
 
 def loop(
-    paths: Iterable[str],
-    exclude_paths: Optional[Iterable[str]],
+    paths: list[Path],
+    exclude_paths: Optional[list[Path]],
     cost_tracker: CostTracker,
     no_code_map: bool,
 ) -> None:
-    git_root = get_shared_git_root_for_paths(paths)
+    git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
     config = ConfigManager(git_root)
     code_context = CodeContext(config, paths, exclude_paths or [])
     code_context.display_context()
@@ -133,7 +133,8 @@ def loop(
         if need_user_request:
             user_response = user_input_manager.collect_user_input()
             conv.add_user_message(user_response)
-        explanation, code_changes = conv.get_model_response(config)
+
+        _, code_changes = conv.get_model_response(config)
 
         if code_changes:
             need_user_request = get_user_feedback_on_changes(
@@ -148,7 +149,7 @@ def get_user_feedback_on_changes(
     conv: Conversation,
     user_input_manager: UserInputManager,
     code_file_manager: CodeFileManager,
-    code_changes: Iterable[CodeChange],
+    code_changes: list[CodeChange],
 ) -> bool:
     cprint(
         "Apply these changes? 'Y/n/i' or provide feedback.",
@@ -199,14 +200,22 @@ def get_user_feedback_on_changes(
 
 
 def user_filter_changes(
-    user_input_manager: UserInputManager, code_changes: Iterable[CodeChange]
-) -> Iterable[CodeChange]:
-    new_changes = []
-    indices = []
+    user_input_manager: UserInputManager, code_changes: list[CodeChange]
+) -> tuple[list[CodeChange], list[int]]:
+    new_changes = list[CodeChange]()
+    indices = list[int]()
     for index, change in enumerate(code_changes, start=1):
         print_change(change)
+        # Allowing the user to remove rename file changes introduces a lot of edge cases
+        if change.action == CodeChangeAction.RenameFile:
+            new_changes.append(change)
+            indices.append(index)
+            cprint("Cannot remove rename file change", "light_yellow")
+            continue
+
         cprint("Keep this change?", "light_blue")
         if user_input_manager.ask_yes_no(default_yes=True):
             new_changes.append(change)
             indices.append(index)
+
     return new_changes, indices

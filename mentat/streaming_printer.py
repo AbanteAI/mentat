@@ -6,11 +6,11 @@ from termcolor import colored
 
 class StreamingPrinter:
     def __init__(self):
-        self.strings_to_print = deque([])
+        self.strings_to_print = deque[str]([])
         self.chars_remaining = 0
         self.shutdown = False
 
-    def add_string(self, string, end="\n", color=None):
+    def add_string(self, string: str, end: str = "\n", color: str | None = None):
         if len(string) == 0:
             return
         string += end
@@ -25,7 +25,7 @@ class StreamingPrinter:
         self.strings_to_print.extend(characters)
         self.chars_remaining += len(characters)
 
-    def sleep_time(self):
+    def sleep_time(self) -> float:
         max_finish_time = 1.0
         required_sleep_time = max_finish_time / (self.chars_remaining + 1)
         max_sleep = 0.002 if self.shutdown else 0.006
