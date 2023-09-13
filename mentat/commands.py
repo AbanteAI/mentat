@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
 from termcolor import colored, cprint
 
@@ -19,11 +19,21 @@ class Command(ABC):
             Command._registered_commands[command_name] = cls
 
     @classmethod
-    def create_command(cls, command_name: str) -> Command:
+    def create_command(
+        cls, command_name: str, code_context: Optional[CodeContext] = None
+    ) -> Command:
         if command_name not in cls._registered_commands:
             return InvalidCommand(command_name)
+
+        command_cls = cls._registered_commands[command_name]
+        if command_cls in [AddCommand, RemoveCommand]:
+            if code_context is None:
+                raise MentatError(
+                    f"Code context must be provided for {command_cls.__name__}"
+                )
+            return command_cls(code_context)
         else:
-            return cls._registered_commands[command_name]()
+            return command_cls()
 
     @classmethod
     def get_command_completions(cls) -> List[str]:
@@ -119,13 +129,16 @@ class CommitCommand(Command, command_name="commit"):
 
 
 class AddCommand(Command, command_name="add"):
-    def apply(self, *args: str, code_context: CodeContext) -> None:
+    def __init__(self, code_context: CodeContext):
+        self.code_context = code_context
+
+    def apply(self, *args: str) -> None:
         if len(args) == 0:
             cprint("No files specified\n", "yellow")
             return
         for file_path in args:
             code_file = CodeFile(file_path)
-            code_context.add_file(code_file)
+            self.code_context.add_file(code_file)
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -137,13 +150,16 @@ class AddCommand(Command, command_name="add"):
 
 
 class RemoveCommand(Command, command_name="remove"):
-    def apply(self, *args: str, code_context: CodeContext) -> None:
+    def __init__(self, code_context: CodeContext):
+        self.code_context = code_context
+
+    def apply(self, *args: str) -> None:
         if len(args) == 0:
             cprint("No files specified\n", "yellow")
             return
         for file_path in args:
             code_file = CodeFile(file_path)
-            code_context.remove_file(code_file)
+            self.code_context.remove_file(code_file)
 
     @classmethod
     def argument_names(cls) -> list[str]:
