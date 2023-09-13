@@ -91,4 +91,9 @@ class CodeFileManager:
                         cprint(f"Not applying changes to file {change.file_path}")
             else:
                 code_lines = []
-            change.apply(code_lines, self.code_context, self.user_input_manager)
+            code_lines = change.apply(
+                code_lines, self.code_context, self.user_input_manager
+            )
+            if change.file_path is not None:
+                with open(change.file_path) as f:
+                    f.write("\n".join(code_lines))

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from mentat.code_context import CodeContext
 from mentat.config_manager import ConfigManager
 from mentat.streaming_printer import StreamingPrinter
 from mentat.user_input_manager import UserInputManager
@@ -77,6 +78,16 @@ def mock_config(temp_testbed):
     config = ConfigManager(Path(temp_testbed))
     config.project_config = {}
     return config
+
+
+@pytest.fixture
+def mock_context(mock_config):
+    return CodeContext(mock_config, [], [])
+
+
+@pytest.fixture
+def mock_user_input_manager(mock_config, mock_context):
+    return UserInputManager(mock_config, mock_context)
 
 
 def add_permissions(func, path, exc_info):

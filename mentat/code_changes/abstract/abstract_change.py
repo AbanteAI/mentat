@@ -99,7 +99,7 @@ class AbstractChange:
         additions.sort(reverse=True, key=lambda change: change.line_number)
         cur_deletion = 0
         cur_addition = 0
-        while True:
+        while cur_addition < len(additions):
             while (
                 cur_deletion < len(deletions)
                 and deletions[cur_deletion].starting_line
@@ -140,12 +140,10 @@ class AbstractChange:
             if type(subchange) == Rename:
                 self._apply_rename(subchange, code_context, user_input_manager)
             elif type(subchange) == Addition:
-                self._apply_addition(subchange, code_lines, code_context)
+                code_lines = self._apply_addition(subchange, code_lines, code_context)
             elif type(subchange) == Deletion:
-                self._apply_deletion(subchange, code_lines, code_context)
-        if self.file_path is not None:
-            with open(self.file_path) as f:
-                f.write("\n".join(code_lines))
+                code_lines = self._apply_deletion(subchange, code_lines, code_context)
+        return code_lines
 
     def _apply_rename(
         self,
@@ -181,6 +179,10 @@ class AbstractChange:
         else:
             orig_abs_path = code_context.config.git_root / self.file_path
             new_abs_path = code_context.config.git_root / subchange.name
+            if not orig_abs_path.exists():
+                raise MentatError(
+                    f"Tried to rename file {orig_abs_path} does not exist"
+                )
             if new_abs_path.exists():
                 logging.error(
                     f"Tried to rename file to {new_abs_path} which already exists"
@@ -199,6 +201,7 @@ class AbstractChange:
             + subchange.content
             + code_lines[subchange.line_number :]
         )
+        return code_lines
 
     def _apply_deletion(
         self, subchange: Deletion, code_lines: list[str], code_context: CodeContext
@@ -209,6 +212,7 @@ class AbstractChange:
                 code_lines[: subchange.starting_line]
                 + code_lines[subchange.ending_line :]
             )
+        return code_lines
 
     def _create_file(self, abs_path: Path, code_context: CodeContext):
         logging.info(f"Adding new file {abs_path} to context")
