@@ -52,7 +52,7 @@ class CodeFileManager:
             self.file_lines[rel_path] = self._read_file(file)
 
     def get_code_message(self):
-        code_message = []
+        code_message: list[str] = []
         if self.diff_context.files:
             code_message += [
                 "Diff References:",
@@ -64,7 +64,7 @@ class CodeFileManager:
         self._read_all_file_lines()
         code_message += ["Code Files:\n"]
         for file in self.code_context.files.values():
-            file_message = []
+            file_message: list[str] = []
             abs_path = file.path
             rel_path = Path(os.path.relpath(abs_path, self.config.git_root))
 

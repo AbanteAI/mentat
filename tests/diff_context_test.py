@@ -1,5 +1,6 @@
 import os
 import subprocess
+from pathlib import Path
 
 from mentat.diff_context import DiffContext, get_diff_context
 from mentat.git_handler import get_commit_metadata
@@ -24,12 +25,11 @@ def test_default_diff_context(mock_config, temp_testbed):
     assert diff_context.config
     assert diff_context.target == "HEAD"
     assert diff_context.name == "HEAD (last commit)"
-    assert diff_context.files == []
+    assert diff_context.files == [Path(".")]
 
     # DiffContext.files (property): return git-tracked files with active changes
-    assert diff_context.files == []
     file_path, modified_file = _modify_git_file(temp_testbed)
-    assert diff_context.files == ["multifile_calculator/operations.py"]
+    assert diff_context.files == [Path("multifile_calculator/operations.py")]
 
     # DiffContext.annotate_file_message(): modify file_message with diff
     file_message = [
@@ -55,7 +55,7 @@ def test_history_diff_context(mock_config, temp_testbed):
     assert diff_context.config
     assert diff_context.target == "HEAD~1"
     assert diff_context.name == "HEAD~1: add testbed"
-    assert diff_context.files == ["multifile_calculator/operations.py"]
+    assert diff_context.files == [Path("multifile_calculator/operations.py")]
 
 
 def test_commit_diff_context(mock_config, temp_testbed):
@@ -68,7 +68,7 @@ def test_commit_diff_context(mock_config, temp_testbed):
     assert diff_context.config
     assert diff_context.target == last_commit
     assert diff_context.name == f"{last_commit[:8]}: add testbed"
-    assert diff_context.files == ["multifile_calculator/operations.py"]
+    assert diff_context.files == [Path("multifile_calculator/operations.py")]
 
 
 def test_branch_diff_context(mock_config, temp_testbed):
@@ -79,4 +79,4 @@ def test_branch_diff_context(mock_config, temp_testbed):
     assert diff_context.config
     assert diff_context.target == "master"
     assert diff_context.name == "Branch: master"
-    assert diff_context.files == ["multifile_calculator/operations.py"]
+    assert diff_context.files == [Path("multifile_calculator/operations.py")]

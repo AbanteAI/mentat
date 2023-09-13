@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import List
+from pathlib import Path
+from typing import Optional
 
 from termcolor import cprint
 
@@ -11,17 +12,17 @@ from .git_handler import get_commit_metadata, get_diff_for_file, get_files_in_di
 @dataclass
 class DiffAnnotation:
     start: int
-    message: List[str]
+    message: list[str]
 
     @property
     def length(self):
         return sum(bool(line.startswith("+")) for line in self.message)
 
 
-def _parse_diff(diff: str) -> List[DiffAnnotation]:
+def _parse_diff(diff: str) -> list[DiffAnnotation]:
     """Parse diff into a list of annotations."""
-    annotations = []
-    active_annotation = None
+    annotations: list[DiffAnnotation] = []
+    active_annotation: Optional[DiffAnnotation] = None
     lines = diff.splitlines()
     for line in lines[4:]:  # Ignore header
         if line.startswith(("---", "+++", "//")):
@@ -46,11 +47,11 @@ def _parse_diff(diff: str) -> List[DiffAnnotation]:
 
 
 def _annotate_file_message(
-    code_message: List[str], annotations: List[DiffAnnotation]
-) -> List[str]:
+    code_message: list[str], annotations: list[DiffAnnotation]
+) -> list[str]:
     """Return the code_message with annotations inserted."""
     active_index = 0
-    annotated_message = []
+    annotated_message: list[str] = []
     for annotation in annotations:
         # Fill-in lines between annotations
         if active_index < annotation.start:
@@ -85,11 +86,11 @@ class DiffContext:
     target: str = "HEAD"
     name: str = "HEAD (last commit)"
 
-    def __init__(self, config):
+    def __init__(self, config: ConfigManager):
         self.config = config
 
     @property
-    def files(self) -> List[str]:
+    def files(self) -> list[Path]:
         return get_files_in_diff(self.config.git_root, self.target)
 
     def display_context(self) -> None:
@@ -107,8 +108,8 @@ class DiffContext:
         print(f" ─•─ {self.name} | {num_files} files | {num_lines} lines\n")
 
     def annotate_file_message(
-        self, rel_path: str, file_message: List[str]
-    ) -> List[str]:
+        self, rel_path: Path, file_message: list[str]
+    ) -> list[str]:
         """Return file_message annotated with active diff."""
         if not self.files:
             return file_message
@@ -119,7 +120,7 @@ class DiffContext:
 
 
 class HistoryDiffContext(DiffContext):
-    def __init__(self, config, history):
+    def __init__(self, config: ConfigManager, history: int):
         super().__init__(config)
         self.target = f"HEAD~{history}"
         try:
@@ -131,7 +132,7 @@ class HistoryDiffContext(DiffContext):
 
 
 class CommitDiffContext(DiffContext):
-    def __init__(self, config, commit):
+    def __init__(self, config: ConfigManager, commit: str):
         super().__init__(config)
         self.target = commit
         try:
@@ -143,7 +144,7 @@ class CommitDiffContext(DiffContext):
 
 
 class BranchDiffContext(DiffContext):
-    def __init__(self, config, branch):
+    def __init__(self, config: ConfigManager, branch: str):
         super().__init__(config)
         self.target = branch
         self.name = f"Branch: {self.target}"
@@ -154,7 +155,12 @@ class BranchDiffContext(DiffContext):
             exit()
 
 
-def get_diff_context(config, history=None, commit=None, branch=None):
+def get_diff_context(
+    config: ConfigManager,
+    history: Optional[int] = None,
+    commit: Optional[str] = None,
+    branch: Optional[str] = None,
+):
     num_args = sum([bool(history), bool(commit), bool(branch)])
     if num_args > 1:
         cprint("Cannot specify more than one type of diff.", "light_yellow")

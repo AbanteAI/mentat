@@ -67,11 +67,15 @@ def test_partial_files(mock_config):
     )
     code_message = code_file_manager.get_code_message()
     assert code_message == dedent("""\
-             Code Files:
+            Diff References:
+             "-" = HEAD (last commit)
+             "+" = Active Changes
 
-             dir/file.txt
-             1:I am a file
-             3:third
-             4:fourth
-             5:fifth
+            Code Files:
+
+            dir/file.txt
+            1:I am a file
+            3:third
+            4:fourth
+            5:fifth
               """)

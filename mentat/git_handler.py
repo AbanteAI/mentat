@@ -103,7 +103,7 @@ def commit(message: str) -> None:
     subprocess.run(["git", "commit", "-m", message])
 
 
-def get_diff_for_file(git_root: str, target: str, path: str) -> str:
+def get_diff_for_file(git_root: Path, target: str, path: Path) -> str:
     """Return commit data & diff for target versus active code"""
     try:
         diff_content = subprocess.check_output(
@@ -115,7 +115,7 @@ def get_diff_for_file(git_root: str, target: str, path: str) -> str:
         raise UserError()
 
 
-def get_commit_metadata(git_root, target):
+def get_commit_metadata(git_root: Path, target: str) -> dict[str, str]:
     try:
         commit_info = subprocess.check_output(
             ["git", "log", target, "-n", "1", "--pretty=format:%H %s"],
@@ -131,13 +131,13 @@ def get_commit_metadata(git_root, target):
         raise UserError()
 
 
-def get_files_in_diff(git_root: str, target: str) -> set[str]:
+def get_files_in_diff(git_root: Path, target: str) -> list[Path]:
     """Return commit data & diff for target versus active code"""
     try:
         diff_content = subprocess.check_output(
             ["git", "diff", "--name-only", f"{target}", "--"], cwd=git_root, text=True
         ).strip()
-        return diff_content.splitlines()
+        return [Path(path) for path in diff_content.split("\n")]
     except subprocess.CalledProcessError:
         logging.error(f"Error obtaining diff for commit '{target}'.")
         raise UserError()
