@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 from mentat.diff_context import DiffContext, get_diff_context
-from mentat.git_handler import get_commit_metadata
+from mentat.git_handler import get_commit_metadata, get_default_branch
 
 
 def _modify_git_file(temp_testbed):
@@ -74,9 +74,10 @@ def test_commit_diff_context(mock_config, temp_testbed):
 def test_branch_diff_context(mock_config, temp_testbed):
     # Create and switch to a new branch, make changes and to master
     subprocess.run(["git", "checkout", "-b", "test_branch"], cwd=temp_testbed)
-    file_path, modified_file = _modify_git_file(temp_testbed)
-    diff_context = get_diff_context(mock_config, branch="master")
+    _, _ = _modify_git_file(temp_testbed)
+    default_branch = get_default_branch(mock_config.git_root)  # `master` or `main`
+    diff_context = get_diff_context(mock_config, branch=default_branch)
     assert diff_context.config
-    assert diff_context.target == "master"
-    assert diff_context.name == "Branch: master"
+    assert diff_context.target == default_branch
+    assert diff_context.name == f"Branch: {default_branch}"
     assert diff_context.files == [Path("multifile_calculator/operations.py")]

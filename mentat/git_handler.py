@@ -145,7 +145,19 @@ def get_files_in_diff(git_root: Path, target: str) -> list[Path]:
 
 def check_head_exists(git_root: Path) -> bool:
     try:
-        subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=git_root)
+        subprocess.check_output(["git", "rev-parse", "HEAD", "--"], cwd=git_root)
         return True
     except subprocess.CalledProcessError:
         return False
+
+
+def get_default_branch(git_root: Path) -> str:
+    try:
+        # Fetch the symbolic ref of HEAD which points to the default branch
+        default_branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=git_root, text=True
+        ).strip()
+        return default_branch
+    except subprocess.CalledProcessError:
+        # Handle error if needed or raise an exception
+        raise Exception("Unable to determine the default branch.")
