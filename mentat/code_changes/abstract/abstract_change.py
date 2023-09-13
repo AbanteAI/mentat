@@ -30,13 +30,13 @@ class Deletion:
 
 
 @attr.s
-class Rename:
+class FileUpdate:
     # None represents deleting this file
     name: Path | None = attr.field()
     owner: int = attr.field()
 
 
-AbstractSubChange = Addition | Deletion | Rename
+AbstractSubChange = Addition | Deletion | FileUpdate
 
 
 def subchange_order(sub_1: AbstractSubChange, sub_2: AbstractSubChange) -> int:
@@ -65,7 +65,7 @@ class AbstractChange:
         The changes will be applied from the end of the file to the start.
         Multiple Additions on the same line will give the first Addition in the list priority;
         this will place it's content later in the file than the other Additions
-        A Rename with name = None is a deletion, and a Rename when file_path is None is a file creation.
+        A FileUpdate with name = None is a deletion, and a FileUpdate when file_path is None is a file creation.
         """
 
         self.file_path = file_path
@@ -78,7 +78,7 @@ class AbstractChange:
     def _fix_changes(self, changes: list[AbstractSubChange]):
         deletions = [change for change in changes if type(change) == Deletion]
         additions = [change for change in changes if type(change) == Addition]
-        renames = [change for change in changes if type(change) == Rename]
+        file_updates = [change for change in changes if type(change) == FileUpdate]
 
         # Remove all overlapping parts of Deletions
         deletions.sort(reverse=True, key=lambda change: change.ending_line)
@@ -128,7 +128,7 @@ class AbstractChange:
                     cur_deletion
                 ].starting_line
 
-        return additions + deletions + renames
+        return additions + deletions + file_updates
 
     def apply(
         self,
@@ -137,17 +137,17 @@ class AbstractChange:
         user_input_manager: UserInputManager,
     ):
         for subchange in self.changes:
-            if type(subchange) == Rename:
-                self._apply_rename(subchange, code_context, user_input_manager)
+            if type(subchange) == FileUpdate:
+                self._apply_file_update(subchange, code_context, user_input_manager)
             elif type(subchange) == Addition:
                 code_lines = self._apply_addition(subchange, code_lines, code_context)
             elif type(subchange) == Deletion:
                 code_lines = self._apply_deletion(subchange, code_lines, code_context)
         return code_lines
 
-    def _apply_rename(
+    def _apply_file_update(
         self,
-        subchange: Rename,
+        subchange: FileUpdate,
         code_context: CodeContext,
         user_input_manager: UserInputManager,
     ):

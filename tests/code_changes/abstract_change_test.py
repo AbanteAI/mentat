@@ -4,7 +4,7 @@ from mentat.code_changes.abstract.abstract_change import (
     AbstractChange,
     Addition,
     Deletion,
-    Rename,
+    FileUpdate,
 )
 
 
@@ -45,7 +45,7 @@ def test_deletions(temp_testbed, mock_context, mock_user_input_manager):
 
 def test_overlap(temp_testbed, mock_context, mock_user_input_manager):
     # Test that additions on top of deletions and overlapping deletions are handled correctly
-    # Additionally test that Rename along with Additions and Deletions works correctly
+    # Additionally test that FileUpdate along with Additions and Deletions works correctly
     file_path = Path("test.py")
     with open(file_path, "w") as f:
         f.write("")
@@ -58,7 +58,7 @@ def test_overlap(temp_testbed, mock_context, mock_user_input_manager):
             Addition(4, ["I end up on Line 1"], 0),
             Deletion(6, 9, 0),
             Deletion(7, 8, 0),
-            Rename(new_file_path, 0),
+            FileUpdate(new_file_path, 0),
         ],
     )
     code_lines = [
@@ -79,12 +79,12 @@ def test_overlap(temp_testbed, mock_context, mock_user_input_manager):
     assert change.file_path == new_file_path
 
 
-def test_rename_create(temp_testbed, mock_context, mock_user_input_manager):
-    # Test that creating a file with Rename works
+def test_create(temp_testbed, mock_context, mock_user_input_manager):
+    # Test that creating a file with FileUpdate works
     new_file_path = Path("test.py")
     change = AbstractChange(
         None,
-        [Rename(new_file_path, 0), Addition(2, ["Line 2", "Line 3"], 0)],
+        [FileUpdate(new_file_path, 0), Addition(2, ["Line 2", "Line 3"], 0)],
     )
     code_lines = []
     new_code_lines = change.apply(code_lines, mock_context, mock_user_input_manager)
@@ -97,12 +97,12 @@ def test_rename_create(temp_testbed, mock_context, mock_user_input_manager):
     assert new_file_path.exists()
 
 
-def test_rename_delete(
+def test_delete(
     temp_testbed, mock_context, mock_user_input_manager, mock_collect_user_input
 ):
     mock_collect_user_input.side_effect = ["y"]
 
-    # Test that deleting a file with Rename works
+    # Test that deleting a file with FileUpdate works
     file_path = Path("test.py")
     with open(file_path, "w") as f:
         f.write("")
@@ -110,7 +110,7 @@ def test_rename_delete(
     change = AbstractChange(
         file_path,
         [
-            Rename(None, 0),
+            FileUpdate(None, 0),
         ],
     )
     code_lines = ["Line 0", "Line 1", "Line 2"]
@@ -119,8 +119,8 @@ def test_rename_delete(
     assert not file_path.exists()
 
 
-def test_rename_rename(temp_testbed, mock_context, mock_user_input_manager):
-    # Test that renaming a file works
+def test_rename(temp_testbed, mock_context, mock_user_input_manager):
+    # Test that renaming a file with FileUpdate works
     file_path = Path("test.py")
     with open(file_path, "w") as f:
         f.write("")
@@ -128,7 +128,7 @@ def test_rename_rename(temp_testbed, mock_context, mock_user_input_manager):
     newest_file_path = Path("test3.py")
     change = AbstractChange(
         file_path,
-        [Rename(new_file_path, 0), Rename(newest_file_path, 0)],
+        [FileUpdate(new_file_path, 0), FileUpdate(newest_file_path, 0)],
     )
     code_lines = ["Line 0", "Line 1", "Line 2"]
     new_code_lines = change.apply(code_lines, mock_context, mock_user_input_manager)
