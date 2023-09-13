@@ -135,7 +135,7 @@ def get_files_in_diff(git_root: str, target: str) -> set[str]:
     """Return commit data & diff for target versus active code"""
     try:
         diff_content = subprocess.check_output(
-            ["git", "diff", "--name-only", f"{target}"], cwd=git_root, text=True
+            ["git", "diff", "--name-only", f"{target}", "--"], cwd=git_root, text=True
         ).strip()
         return diff_content.splitlines()
     except subprocess.CalledProcessError:
