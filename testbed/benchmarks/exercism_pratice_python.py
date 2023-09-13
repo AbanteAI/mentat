@@ -17,8 +17,8 @@ def exercise_passed():
     try:
         with open(threadLocal.test_output_file, "r") as f:
             lines = f.readlines()
-            return not "failed" in lines[-1] and "passed" in lines[-1]
-    except:
+            return "failed" not in lines[-1] and "passed" in lines[-1]
+    except FileNotFoundError:
         return False
 
 
@@ -138,5 +138,6 @@ def test_practice_directory_performance(
         )
         eventually = len([result for result in results if result["passed"]])
         print(
-            f"Results: {first_iteration}/{num_exercises} passed in the first attempt and {eventually}/{num_exercises} passed in {max_iterations} attempts"
+            f"Results: {first_iteration}/{num_exercises} passed in the first attempt\n"
+            + f"{eventually}/{num_exercises} passed in {max_iterations} attempts"
         )
