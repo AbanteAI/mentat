@@ -47,7 +47,7 @@ class CodeFileManager:
         for file in self.code_context.files.values():
             rel_path = Path(os.path.relpath(file.path, self.config.git_root))
             # here keys are str not path object
-            self.file_lines[rel_path] = self._read_file(file)
+            self.file_lines[rel_path] = self._read_file(rel_path)
 
     def get_code_message(self):
         self._read_all_file_lines()
