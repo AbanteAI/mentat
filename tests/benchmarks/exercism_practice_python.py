@@ -31,9 +31,15 @@ def get_error_message():
 
 
 def run_exercise_test():
-    results = subprocess.run(["pytest", threadLocal.exercise], stdout=subprocess.PIPE)
+    try:
+        proc = subprocess.run(
+            ["pytest", threadLocal.exercise], stdout=subprocess.PIPE, timeout=1
+        )
+        results = proc.stdout.decode("utf-8")
+    except subprocess.TimeoutExpired:
+        results = "Test timed out"
     with open(threadLocal.test_output_file, "w") as f:
-        f.write(results.stdout.decode("utf-8"))
+        f.write(results)
 
 
 @pytest.fixture
