@@ -14,8 +14,8 @@ with open(readme_path, "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="mentat-ai",
-    version="0.1.12",
+    name="mentat",
+    version="0.1.13",
     python_requires=">=3.10",
     packages=find_packages(),
     install_requires=read_requirements("requirements.txt"),
