@@ -39,7 +39,7 @@ def run_exercise_test():
 @pytest.fixture
 def mock_user_input_manager(max_iterations, mocker):
     def mocked_collect_user_input(self, use_plain_session=False):
-        if not hasattr(threadLocal, "iterations"):
+        if threadLocal.iterations == 0:
             threadLocal.iterations = 1
             threadLocal.confirm = True
             return "Please complete the stub program you have been given."
@@ -93,6 +93,7 @@ def run_exercise(problem_dir):
     sys.__stdout__.write(f"\nStarting {problem_dir}")
     threadLocal.exercise = f"exercises/practice/{problem_dir}"
     threadLocal.test_output_file = f"{threadLocal.exercise}/test_output.txt"
+    threadLocal.iterations = 0
     problem_file = problem_dir.replace("-", "_")
     run(
         [f"{threadLocal.exercise}/{problem_file}.py"],
