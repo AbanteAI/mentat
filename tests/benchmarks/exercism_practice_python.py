@@ -1,8 +1,9 @@
 import concurrent.futures
 import os
 import subprocess
+import sys
 import threading
-import time
+from textwrap import dedent
 
 import pytest
 from git import Repo
@@ -25,41 +26,34 @@ def exercise_passed():
 def get_error_message():
     with open(threadLocal.test_output_file, "r") as f:
         lines = f.readlines()
-        if len(lines) > 30:
-            lines = lines[-30:]
+        lines = lines[-30:]
         return "\n".join(lines)
+
+
+def run_exercise_test():
+    results = subprocess.run(["pytest", threadLocal.exercise], stdout=subprocess.PIPE)
+    with open(threadLocal.test_output_file, "w") as f:
+        f.write(results.stdout.decode("utf-8"))
 
 
 @pytest.fixture
 def mock_user_input_manager(max_iterations, mocker):
-    def mocked_collect_user_input(self, use_plain_session: bool = False) -> str:
-        if not hasattr(self, "call_count"):
-            self.call_count = 0
-        self.call_count += 1
-
-        if self.call_count == 1:
+    def mocked_collect_user_input(self, use_plain_session=False):
+        if not hasattr(threadLocal, "iterations"):
+            threadLocal.iterations = 1
+            threadLocal.confirm = True
             return "Please complete the stub program you have been given."
-        elif self.call_count == 2:
-            return "y"
         else:
-            results = subprocess.run(
-                ["pytest", threadLocal.exercise], stdout=subprocess.PIPE
-            )
-            with open(threadLocal.test_output_file, "w") as f:
-                f.write(results.stdout.decode("utf-8"))
-            if exercise_passed() or threadLocal.iterations >= max_iterations:
-                raise UserQuitInterrupt()
             if threadLocal.confirm:
                 threadLocal.confirm = False
                 return "y"
+            run_exercise_test()
+            if threadLocal.iterations >= max_iterations or exercise_passed():
+                raise UserQuitInterrupt()
             else:
                 threadLocal.iterations += 1
                 threadLocal.confirm = True
-                return (
-                    "When I ran the test I got the following error message. Can you try"
-                    " again?\n"
-                    + get_error_message()
-                )
+                return "Please fix this error:\n" + get_error_message()
 
     mocker.patch.object(
         UserInputManager, "collect_user_input", new=mocked_collect_user_input
@@ -69,15 +63,15 @@ def mock_user_input_manager(max_iterations, mocker):
 @pytest.fixture
 def clone_exercism_python_repo():
     exercism_url = "https://github.com/exercism/python.git"
-    local_dir = "../exercism-python"
+
+    local_dir = f"{os.path.dirname(__file__)}/../../../exercism-python"
     if os.path.exists(local_dir):
         repo = Repo(local_dir)
         repo.git.reset("--hard")
         repo.remotes.origin.pull()
     else:
         repo = Repo.clone_from(exercism_url, local_dir)
-    # Mentat uses git history so running this test from mentat/ can lead to errors.
-    os.chdir(f"{local_dir}/exercises/practice")
+    os.chdir(local_dir)
 
 
 @pytest.fixture
@@ -96,21 +90,14 @@ def max_workers(request):
 
 
 def run_exercise(problem_dir):
-    threadLocal.test_output_file = f"{problem_dir}/test_output.txt"
-    threadLocal.exercise = problem_dir
-    threadLocal.iterations = 1
-    threadLocal.confirm = False
-    time.sleep(0.3)
+    sys.__stdout__.write(f"\nStarting {problem_dir}")
+    threadLocal.exercise = f"exercises/practice/{problem_dir}"
+    threadLocal.test_output_file = f"{threadLocal.exercise}/test_output.txt"
     run(
-        [problem_dir],
-        exclude_paths=[
-            f"{problem_dir}/.meta",
-            f"{problem_dir}/.approaches",
-            f"{problem_dir}/.docs",
-            f"{problem_dir}/{problem_dir}_test.py",
-        ],
+        [f"{threadLocal.exercise}/{problem_dir}.py"],
         no_code_map=True,
     )
+    sys.__stdout__.write(f"\nFinished {problem_dir}")
     return {
         "iterations": threadLocal.iterations,
         "passed": exercise_passed(),
@@ -125,11 +112,12 @@ def test_practice_directory_performance(
     max_iterations,
     max_workers,
 ):
-    exercises = os.listdir(".")[:num_exercises]
+    exercises = os.listdir("exercises/practice")[:num_exercises]
+    num_exercises = len(exercises)
+    sys.stdout = open("mentat_output.txt", "w")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(run_exercise, exercises))
-        print("Results: ", results)
         first_iteration = len(
             [
                 result
@@ -138,7 +126,9 @@ def test_practice_directory_performance(
             ]
         )
         eventually = len([result for result in results if result["passed"]])
-        print(
-            f"Results: {first_iteration}/{num_exercises} passed in the first attempt\n"
-            + f"{eventually}/{num_exercises} passed in {max_iterations} attempts"
-        )
+        sys.stdout.close()
+        sys.stdout = sys.__stdout__
+        print(dedent(f"""
+            Results: {results}
+            Passed in first attempt: {first_iteration}/{num_exercises}
+            Passed in {max_iterations} attempts: {eventually}/{num_exercises}"""))

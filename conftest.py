@@ -1,9 +1,9 @@
 def pytest_addoption(parser):
-    # To be used by benchmarks for easy testing on subsets.
+    # The following flags are used by benchmark tests
     parser.addoption(
         "--num_exercises",
         action="store",
-        default="200",
+        default="1",
         help="Number of exercises to run",
     )
     parser.addoption(
