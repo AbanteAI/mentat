@@ -61,16 +61,17 @@ def mock_user_input_manager(max_iterations, mocker):
 
 
 @pytest.fixture
-def clone_exercism_python_repo():
+def clone_exercism_python_repo(start_at):
     exercism_url = "https://github.com/exercism/python.git"
 
     local_dir = f"{os.path.dirname(__file__)}/../../../exercism-python"
-    if os.path.exists(local_dir):
-        repo = Repo(local_dir)
-        repo.git.reset("--hard")
-        repo.remotes.origin.pull()
-    else:
-        repo = Repo.clone_from(exercism_url, local_dir)
+    if start_at != 0:
+        if os.path.exists(local_dir):
+            repo = Repo(local_dir)
+            repo.git.reset("--hard")
+            repo.remotes.origin.pull()
+        else:
+            repo = Repo.clone_from(exercism_url, local_dir)
     os.chdir(local_dir)
 
 
@@ -82,6 +83,11 @@ def num_exercises(request):
 @pytest.fixture
 def max_iterations(request):
     return int(request.config.getoption("--max_iterations"))
+
+
+@pytest.fixture
+def start_at(request):
+    return int(request.config.getoption("--start_at"))
 
 
 @pytest.fixture
@@ -99,10 +105,13 @@ def run_exercise(problem_dir):
         [f"{threadLocal.exercise}/{problem_file}.py"],
         no_code_map=True,
     )
-    sys.__stdout__.write(f"\nFinished {problem_dir}")
+    passed = exercise_passed()
+    sys.__stdout__.write(
+        f"\nFinished {problem_dir} in {threadLocal.iterations} iterations {passed}"
+    )
     return {
         "iterations": threadLocal.iterations,
-        "passed": exercise_passed(),
+        "passed": passed,
         "test": problem_dir,
     }
 
@@ -113,8 +122,9 @@ def test_practice_directory_performance(
     num_exercises,
     max_iterations,
     max_workers,
+    start_at,
 ):
-    exercises = os.listdir("exercises/practice")[:num_exercises]
+    exercises = os.listdir("exercises/practice")[start_at:num_exercises]
     num_exercises = len(exercises)
     sys.stdout = open("mentat_output.txt", "w")
 

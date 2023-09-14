@@ -18,3 +18,9 @@ def pytest_addoption(parser):
         default="1",
         help="Number of workers to use for multiprocessing",
     )
+    parser.addoption(
+        "--start_at",
+        action="store",
+        default="0",
+        help="Number of workers to use for multiprocessing",
+    )
