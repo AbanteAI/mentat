@@ -66,3 +66,26 @@ def test_partial_files(mock_config):
              4:fourth
              5:fifth
               """)
+
+def test_run_from_subdirectory(mock_config, temp_testbed):
+    """Run mentat from a subdirectory of the git root"""
+    # Change to the subdirectory
+    run_from_dir = mock_config.git_root / "multifile_calculator"
+    os.chdir(run_from_dir)
+    # Setup an instance of CodeFileManager
+    code_context = CodeContext(
+        config=mock_config,
+        paths=["calculator.py"], # relative to run_from_dir
+        exclude_paths=[],
+    )
+    code_file_manager = CodeFileManager(
+        user_input_manager=UserInputManager(
+            config=mock_config, code_context=code_context
+        ),
+        config=mock_config,
+        code_context=code_context,
+    )
+    # Check that it works
+    code_message = code_file_manager.get_code_message()
+    assert code_message
+    
