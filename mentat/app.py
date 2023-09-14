@@ -63,7 +63,11 @@ def expand_paths(paths: list[str]) -> list[Path]:
         else:
             split = path.rsplit(":", 1)
             p = split[0]
-            intervals = parse_intervals(split[1])
+            if len(split) > 1:
+                # Parse additional syntax, e.g. "path/to/file.py:1-5,7,12-40"
+                intervals = parse_intervals(split[1])
+            else:
+                intervals = None
             if Path(p).exists() and intervals:
                 globbed_paths.add(path)
             else:
