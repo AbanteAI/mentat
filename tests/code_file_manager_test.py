@@ -1,6 +1,7 @@
 import os
 from textwrap import dedent
 
+from mentat.app import run
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.user_input_manager import UserInputManager
@@ -68,24 +69,48 @@ def test_partial_files(mock_config):
               """)
 
 
-def test_run_from_subdirectory(mock_config, temp_testbed):
+def test_run_from_subdirectory(mock_collect_user_input, mock_call_llm_api):
     """Run mentat from a subdirectory of the git root"""
     # Change to the subdirectory
-    run_from_dir = mock_config.git_root / "multifile_calculator"
-    os.chdir(run_from_dir)
-    # Setup an instance of CodeFileManager
-    code_context = CodeContext(
-        config=mock_config,
-        paths=["calculator.py"],  # relative to run_from_dir
-        exclude_paths=[],
-    )
-    code_file_manager = CodeFileManager(
-        user_input_manager=UserInputManager(
-            config=mock_config, code_context=code_context
+    os.chdir("multifile_calculator")
+    mock_collect_user_input.side_effect = [
+        (
+            "Insert the comment # Hello on the first line of"
+            " multifile_calculator/calculator.py and scripts/echo.py"
         ),
-        config=mock_config,
-        code_context=code_context,
-    )
+        "y",
+        KeyboardInterrupt,
+    ]
+    mock_call_llm_api.set_generator_values([dedent("""\
+        I will insert a comment in both files.
+
+        @@start
+        {
+            "file": "multifile_calculator/calculator.py",
+            "action": "insert",
+            "insert-after-line": 0,
+            "insert-before-line": 1
+        }
+        @@code
+        # Hello
+        @@end
+        @@start
+        {
+            "file": "scripts/echo.py",
+            "action": "insert",
+            "insert-after-line": 0,
+            "insert-before-line": 1
+        }
+        @@code
+        # Hello
+        @@end""")])
+
+    run(["calculator.py", "../scripts"])
+
     # Check that it works
-    code_message = code_file_manager.get_code_message()
-    assert code_message
+    with open("calculator.py") as f:
+        calculator_output = f.readlines()
+    with open("../scripts/echo.py") as f:
+        echo_output = f.readlines()
+    assert calculator_output[0].strip() == "# Hello"
+    assert echo_output[0].strip() == "# Hello"

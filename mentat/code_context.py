@@ -26,7 +26,7 @@ def _abs_files_from_list(paths: list[Path], check_for_text: bool = True):
     files_direct = set[CodeFile]()
     file_paths_from_dirs = set[Path]()
     for path in paths:
-        file = CodeFile(path)
+        file = CodeFile(os.path.realpath(path))
         path = Path(file.path)
         if path.is_file():
             if check_for_text and not _is_file_text_encoded(path):
@@ -48,7 +48,9 @@ def _abs_files_from_list(paths: list[Path], check_for_text: bool = True):
                 )
             )
 
-    files_from_dirs = [CodeFile(path) for path in file_paths_from_dirs]
+    files_from_dirs = [
+        CodeFile(os.path.realpath(path)) for path in file_paths_from_dirs
+    ]
     return files_direct, files_from_dirs
 
 

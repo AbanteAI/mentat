@@ -35,7 +35,7 @@ class CodeFileManager:
         if isinstance(file, CodeFile):
             rel_path = file.path
         else:
-            rel_path = self.config.git_root / file
+            rel_path = file
         abs_path = self.config.git_root / rel_path
 
         with open(abs_path, "r") as f:
@@ -46,8 +46,7 @@ class CodeFileManager:
         self.file_lines = dict[Path, list[str]]()
         for file in self.code_context.files.values():
             rel_path = Path(os.path.relpath(file.path, self.config.git_root))
-            # here keys are str not path object
-            self.file_lines[rel_path] = self._read_file(rel_path)
+            self.file_lines[rel_path] = self._read_file(file)
 
     def get_code_message(self):
         self._read_all_file_lines()
@@ -164,7 +163,9 @@ class CodeFileManager:
                     self._delete_file(abs_path)
                     file_changes[code_change.name] += file_changes[rel_path]
                     file_changes[rel_path] = []
-                    self.file_lines[code_change.name] = self._read_file(abs_new_path)
+                    self.file_lines[code_change.name] = self._read_file(
+                        code_change.name
+                    )
                 case _:
                     file_changes[rel_path].append(code_change)
 
