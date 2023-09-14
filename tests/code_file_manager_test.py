@@ -69,7 +69,9 @@ def test_partial_files(mock_config):
               """)
 
 
-def test_run_from_subdirectory(mock_collect_user_input, mock_call_llm_api):
+def test_run_from_subdirectory(
+    mock_collect_user_input, mock_call_llm_api, mock_setup_api_key
+):
     """Run mentat from a subdirectory of the git root"""
     # Change to the subdirectory
     os.chdir("multifile_calculator")
