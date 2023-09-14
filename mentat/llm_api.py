@@ -112,7 +112,8 @@ def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
 
 @dataclass
 class CostTracker:
-    total_cost: int = 0
+    def __init__(self):
+        self.total_cost = 0
 
     def display_api_call_stats(
         self,

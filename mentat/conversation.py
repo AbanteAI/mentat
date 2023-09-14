@@ -1,3 +1,10 @@
+import logging
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from textwrap import dedent
+from typing import Any, Dict, List, Literal, Set
+
+from ipdb import set_trace
 from termcolor import cprint
 
 from .code_change import CodeChange
@@ -5,8 +12,191 @@ from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager
 from .llm_api import CostTracker, check_model_availability, choose_model, count_tokens
-from .parsing import run_async_stream_and_parse_llm_response
+from .parsing import (
+    async_stream_and_parse_llm_response,
+    run_async_stream_and_parse_llm_response,
+)
 from .prompts import system_prompt
+
+logger = logging.getLogger()
+
+
+@dataclass
+class Message:
+    content: str
+    extra: Dict[str, Any] | None = None
+
+
+@dataclass
+class ConversationMessage:
+    role: Literal["system"] | Literal["assistant"] | Literal["user"]
+    content: str
+
+
+@dataclass
+class QuestionMessage:
+    content: str
+    options: Set[str] | None = None
+
+
+@dataclass
+class AnswerMessage:
+    content: str
+
+
+class MentatConversation:
+    def __init__(self, config: ConfigManager, include_code_map: bool = True):
+        self.config = config
+
+        self.messages: List[Message | ConversationMessage] = []
+        self.add_system_message(system_prompt)
+        self.code_file_manager = CodeFileManager(config=self.config)
+        self.cost_tracker = CostTracker()
+
+        # NOTE: The code map will be outdated whenever any file inside of it changes
+        if include_code_map:
+            self.code_map = CodeMap(str(self.config.git_root), token_limit=2048)
+            if self.code_map.ctags_disabled:
+                self.add_message(
+                    content=f"""
+                        There was an error with your universal ctags installation,
+                        disabling CodeMap. Reason: {self.code_map.ctags_disabled_reason}
+                    """,
+                    color="yellow",
+                )
+        else:
+            self.code_map = None
+
+        self.allow_32k = check_model_availability(config.allow_32k())
+
+        tokens = count_tokens(self.code_file_manager.get_code_message()) + count_tokens(
+            system_prompt
+        )
+        self.token_limit = 32768 if self.allow_32k else 8192
+        if tokens > self.token_limit:
+            raise KeyboardInterrupt(
+                f"Included files already exceed token limit ({tokens} /"
+                f" {self.token_limit}). Please try running again with a reduced number"
+                " of files."
+            )
+        elif tokens + 1000 > self.token_limit:
+            self.add_message(
+                f"Warning: Included files are close to token limit ({tokens} /"
+                f" {self.token_limit}), you may not be able to have a long"
+                " conversation.",
+                color="red",
+            )
+        else:
+            self.add_message(
+                f"File and prompt token count: {tokens} / {self.token_limit}",
+                color="cyan",
+            )
+
+    def add_message(self, content: str, **kwargs):
+        message = Message(content=dedent(content), extra={**kwargs})
+        self.messages.append(message)
+
+    def add_system_message(self, content: str):
+        message = ConversationMessage(role="system", content=content)
+        self.messages.append(message)
+
+    def add_user_message(self, content: str):
+        message = ConversationMessage(role="user", content=content)
+        self.messages.append(message)
+
+    def add_assistant_message(self, content: str):
+        message = ConversationMessage(role="assistant", content=content)
+        self.messages.append(message)
+
+    async def get_user_response(self):
+        ...
+
+    async def get_model_response(self):
+        # why do we make a copy here?
+        _messages = self.messages.copy()
+
+        # Filter out non-conversation messages
+        messages = [m for m in _messages if isinstance(m, ConversationMessage)]
+
+        code_message = self.code_file_manager.get_code_message()
+        system_message = code_message
+
+        if self.code_map:
+            system_message_token_count = count_tokens(system_message)
+            messages_token_count = 0
+            for message in messages:
+                messages_token_count += count_tokens(message.content)
+            token_buffer = 1000
+            token_count = (
+                system_message_token_count + messages_token_count + token_buffer
+            )
+            max_tokens_for_code_map = self.token_limit - token_count
+
+            if self.code_map.token_limit:
+                code_map_message_token_limit = min(
+                    self.code_map.token_limit, max_tokens_for_code_map
+                )
+            else:
+                code_map_message_token_limit = max_tokens_for_code_map
+
+            code_map_message = self.code_map.get_message(
+                token_limit=code_map_message_token_limit
+            )
+            if code_map_message:
+                match (code_map_message.level):
+                    case "signatures":
+                        cprint_message_level = "full syntax tree"
+                    case "no_signatures":
+                        cprint_message_level = "partial syntax tree"
+                    case "filenames":
+                        cprint_message_level = "filepaths only"
+                    case _:
+                        raise Exception(
+                            f"Unknown CodeMapMessage level '{code_map_message.level}'"
+                        )
+                self.add_message(
+                    content=f"\nIncluding CodeMap ({cprint_message_level})",
+                    color="green",
+                )
+                system_message += f"\n{code_map_message}"
+            else:
+                cprint_message = [
+                    "\nExcluding CodeMap from system message.",
+                    "Reason: not enough tokens available in model context.",
+                ]
+                cprint_message = "\n".join(cprint_message)
+                self.add_message(cprint_message, color="yellow")
+
+        self.add_system_message(system_message)
+
+        model, num_prompt_tokens = choose_model(
+            [asdict(m) for m in messages], self.allow_32k
+        )
+
+        state = await async_stream_and_parse_llm_response(
+            [asdict(m) for m in messages], model, self.code_file_manager
+        )
+
+        self.cost_tracker.display_api_call_stats(
+            num_prompt_tokens,
+            count_tokens(state.message),
+            model,
+            state.time_elapsed,
+        )
+
+        self.add_assistant_message(state.message)
+        return state.explanation, state.code_changes
+
+    ### lifecycle
+
+    def start(self):
+        ...
+
+    async def _main(self):
+        ...
+
+    async def stop(self):
+        ...
 
 
 class Conversation:
