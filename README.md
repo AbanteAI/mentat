@@ -1,7 +1,7 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/bio_bootloader?style=social)](https://twitter.com/bio_bootloader)
 [![Discord Follow](https://dcbadge.vercel.app/api/server/XbPdxAMJte?style=flat)](https://discord.gg/zbvd9qx9Pb)
-[![Stable Version](https://img.shields.io/pypi/v/mentat-ai?color=blue)](https://pypi.org/project/mentat-ai/)
-[![License](https://img.shields.io/pypi/l/mentat-ai.svg)](https://github.com/biobootloader/mentat/blob/main/LICENSE)
+[![Stable Version](https://img.shields.io/pypi/v/mentat?color=blue)](https://pypi.org/project/mentat/)
+[![License](https://img.shields.io/pypi/l/mentat.svg)](https://github.com/biobootloader/mentat/blob/main/LICENSE)
 
 # 🧙‍♂️ Mentat ⚡
 
@@ -45,7 +45,7 @@ source .venv/bin/activate
 Note that you'll have to have activated the virtual environment to run mentat if you install it there.
 
 There are then 3 install methods. The first two will just let you run it:
-- PyPI: `python -m pip install mentat-ai`
+- PyPI: `python -m pip install mentat`
 - Github: `python -m pip install git+https://github.com/biobootloader/mentat.git`
 
 The third option is useful if you'd also like to modify Mentat's code, as well as run it:

@@ -4,7 +4,7 @@ import subprocess
 import fire
 
 library_exceptions = [
-    "mentat-ai",
+    "mentat",
     # pip-licenses shows tiktoken's full license text, but it is MIT
     "tiktoken",
 ]
