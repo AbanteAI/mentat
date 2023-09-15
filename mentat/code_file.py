@@ -36,7 +36,7 @@ class CodeFile:
     such as "path/to/file.py:1-5,7,12-40".
 
     Attributes:
-        path: The path to the file.
+        path: The absolute path to the file.
         intervals: The lines in context.
     """
 
