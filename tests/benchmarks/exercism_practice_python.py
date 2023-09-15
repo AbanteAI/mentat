@@ -33,7 +33,7 @@ def get_error_message():
 def run_exercise_test():
     try:
         proc = subprocess.run(
-            ["pytest", threadLocal.exercise], stdout=subprocess.PIPE, timeout=1
+            ["pytest", threadLocal.exercise], stdout=subprocess.PIPE, timeout=5
         )
         results = proc.stdout.decode("utf-8")
     except subprocess.TimeoutExpired:
@@ -48,7 +48,7 @@ def mock_user_input_manager(max_iterations, mocker):
         if threadLocal.iterations == 0:
             threadLocal.iterations = 1
             threadLocal.confirm = True
-            return "Please complete the stub program you have been given."
+            return "Please complete the program you have been given."
         else:
             if threadLocal.confirm:
                 threadLocal.confirm = False
@@ -67,23 +67,24 @@ def mock_user_input_manager(max_iterations, mocker):
 
 
 @pytest.fixture
-def clone_exercism_python_repo(start_at):
+def clone_exercism_python_repo(refresh_repo):
     exercism_url = "https://github.com/exercism/python.git"
 
     local_dir = f"{os.path.dirname(__file__)}/../../../exercism-python"
-    if start_at != 0:
-        if os.path.exists(local_dir):
+    if os.path.exists(local_dir):
+        if refresh_repo:
             repo = Repo(local_dir)
             repo.git.reset("--hard")
+            repo.git.clean("-fd")
             repo.remotes.origin.pull()
-        else:
-            repo = Repo.clone_from(exercism_url, local_dir)
+    else:
+        repo = Repo.clone_from(exercism_url, local_dir)
     os.chdir(local_dir)
 
 
 @pytest.fixture
-def num_exercises(request):
-    return int(request.config.getoption("--num_exercises"))
+def max_exercises(request):
+    return int(request.config.getoption("--max_exercises"))
 
 
 @pytest.fixture
@@ -92,8 +93,8 @@ def max_iterations(request):
 
 
 @pytest.fixture
-def start_at(request):
-    return int(request.config.getoption("--start_at"))
+def refresh_repo(request):
+    return request.config.getoption("--refresh_repo")
 
 
 @pytest.fixture
@@ -102,36 +103,57 @@ def max_workers(request):
 
 
 def run_exercise(problem_dir):
-    sys.__stdout__.write(f"\nStarting {problem_dir}")
-    threadLocal.exercise = f"exercises/practice/{problem_dir}"
-    threadLocal.test_output_file = f"{threadLocal.exercise}/test_output.txt"
-    threadLocal.iterations = 0
-    problem_file = problem_dir.replace("-", "_")
-    run(
-        [f"{threadLocal.exercise}/{problem_file}.py"],
-        no_code_map=True,
-    )
-    passed = exercise_passed()
-    sys.__stdout__.write(
-        f"\nFinished {problem_dir} in {threadLocal.iterations} iterations {passed}"
-    )
-    return {
-        "iterations": threadLocal.iterations,
-        "passed": passed,
-        "test": problem_dir,
-    }
+    try:
+        sys.__stdout__.write(f"\nStarting {problem_dir}")
+        threadLocal.exercise = f"exercises/practice/{problem_dir}"
+        threadLocal.test_output_file = f"{threadLocal.exercise}/test_output.txt"
+        if os.path.exists(threadLocal.test_output_file):
+            sys.__stdout__.write(f"\nSkipping {problem_dir}: test_output.txt exists")
+            passed = exercise_passed()
+            return {
+                "iterations": None,
+                "passed": passed,
+                "test": problem_dir,
+            }
+
+        threadLocal.iterations = 0
+        problem_file = problem_dir.replace("-", "_")
+        run(
+            [
+                f"{threadLocal.exercise}/{problem_file}.py",
+                f"{threadLocal.exercise}/.docs/instructions.md",
+            ],
+            no_code_map=True,
+        )
+        passed = exercise_passed()
+        sys.__stdout__.write(
+            f"\nFinished {problem_dir} in {threadLocal.iterations} iterations {passed}"
+        )
+        return {
+            "iterations": threadLocal.iterations,
+            "passed": passed,
+            "test": problem_dir,
+        }
+    except Exception as e:
+        sys.__stdout.write(f"Error running {problem_dir}")
+        sys.stdout.write(e)
+        return {
+            "iterations": threadLocal.iterations,
+            "passed": False,
+            "test": problem_dir,
+        }
 
 
 def test_practice_directory_performance(
     mock_user_input_manager,
     clone_exercism_python_repo,
-    num_exercises,
+    max_exercises,
     max_iterations,
     max_workers,
-    start_at,
 ):
-    exercises = os.listdir("exercises/practice")[start_at:num_exercises]
+    exercises = os.listdir("exercises/practice")[:max_exercises]
     num_exercises = len(exercises)
+    print(f"Running {num_exercises} exercises")
     sys.stdout = open("mentat_output.txt", "w")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:

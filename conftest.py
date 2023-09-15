@@ -1,10 +1,10 @@
 def pytest_addoption(parser):
     # The following flags are used by benchmark tests
     parser.addoption(
-        "--num_exercises",
+        "--max_exercises",
         action="store",
         default="1",
-        help="Number of exercises to run",
+        help="The maximum number of exercises to run",
     )
     parser.addoption(
         "--max_iterations",
@@ -19,8 +19,8 @@ def pytest_addoption(parser):
         help="Number of workers to use for multiprocessing",
     )
     parser.addoption(
-        "--start_at",
-        action="store",
-        default="0",
-        help="Number of workers to use for multiprocessing",
+        "--refresh_repo",
+        action="store_true",
+        default=False,
+        help="When set local changes will be discarded.",
     )
