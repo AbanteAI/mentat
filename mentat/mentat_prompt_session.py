@@ -185,9 +185,11 @@ class MentatCompleter(Completer):
 
 class MentatPromptSession(PromptSession[str]):
     def __init__(self, code_context: CodeContext, *args: Any, **kwargs: Any):
+        self.code_context = code_context
+
         self._setup_bindings()
         super().__init__(
-            completer=MentatCompleter(code_context),
+            completer=MentatCompleter(self.code_context),
             history=FilteredFileHistory(str(mentat_dir_path / "history")),
             auto_suggest=FilteredHistorySuggestions(),
             multiline=True,
@@ -202,7 +204,7 @@ class MentatPromptSession(PromptSession[str]):
         # Automatically capture all commands
         while (user_input := super().prompt(*args, **kwargs)).startswith("/"):
             arguments = shlex.split(user_input[1:])
-            command = Command.create_command(arguments[0])
+            command = Command.create_command(arguments[0], self.code_context)
             command.apply(*arguments[1:])
         return user_input
 
