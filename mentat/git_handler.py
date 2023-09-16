@@ -115,7 +115,7 @@ def get_diff_for_file(git_root: Path, target: str, path: Path) -> str:
         raise UserError()
 
 
-def get_commit_metadata(git_root: Path, target: str) -> dict[str, str]:
+def get_treeish_metadata(git_root: Path, target: str) -> dict[str, str]:
     try:
         commit_info = subprocess.check_output(
             ["git", "log", target, "-n", "1", "--pretty=format:%H %s"],
@@ -137,7 +137,10 @@ def get_files_in_diff(git_root: Path, target: str) -> list[Path]:
         diff_content = subprocess.check_output(
             ["git", "diff", "--name-only", f"{target}", "--"], cwd=git_root, text=True
         ).strip()
-        return [Path(path) for path in diff_content.split("\n")]
+        if diff_content:
+            return [Path(path) for path in diff_content.split("\n")]
+        else:
+            return []
     except subprocess.CalledProcessError:
         logging.error(f"Error obtaining diff for commit '{target}'.")
         raise UserError()

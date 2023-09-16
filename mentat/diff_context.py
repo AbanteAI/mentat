@@ -1,6 +1,8 @@
+import subprocess
 from dataclasses import dataclass
+from enum import Enum, auto
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from termcolor import cprint
 
@@ -8,9 +10,9 @@ from .config_manager import ConfigManager
 from .errors import UserError
 from .git_handler import (
     check_head_exists,
-    get_commit_metadata,
     get_diff_for_file,
     get_files_in_diff,
+    get_treeish_metadata,
 )
 
 
@@ -91,8 +93,15 @@ class DiffContext:
     target: str = "HEAD"
     name: str = "HEAD (last commit)"
 
-    def __init__(self, config: ConfigManager):
+    def __init__(
+        self,
+        config: ConfigManager,
+        target: str = "HEAD",
+        name: str = "HEAD (last commit)",
+    ):
         self.config = config
+        self.target = target
+        self.name = name
 
     @property
     def files(self) -> list[Path]:
@@ -106,6 +115,7 @@ class DiffContext:
         cprint("Diff annotations:", "green")
         num_files = len(self.files)
         num_lines = 0
+        # TODO: Only include paths in context
         for file in self.files:
             diff = get_diff_for_file(self.config.git_root, self.target, file)
             diff_lines = diff.splitlines()
@@ -126,58 +136,68 @@ class DiffContext:
         return _annotate_file_message(file_message, annotations)
 
 
-class HistoryDiffContext(DiffContext):
-    def __init__(self, config: ConfigManager, history: int):
-        super().__init__(config)
-        self.target = f"HEAD~{history}"
-        try:
-            meta = get_commit_metadata(self.config.git_root, self.target)
-        except UserError:
-            cprint(f"Cannot get history to depth {history}.", "light_yellow")
-            exit()
-        self.name = f'{self.target}: {meta["summary"]}'
+class TreeishType(Enum):
+    COMMIT = auto()
+    BRANCH = auto()
+    RELATIVE = auto()
 
 
-class CommitDiffContext(DiffContext):
-    def __init__(self, config: ConfigManager, commit: str):
-        super().__init__(config)
-        self.target = commit
-        try:
-            meta = get_commit_metadata(self.config.git_root, commit)
-        except UserError:
-            cprint(f"Invalid commit hash {commit}.", "light_yellow")
-            exit()
-        self.name = f'{self.target[:8]}: {meta["summary"]}'
-
-
-class BranchDiffContext(DiffContext):
-    def __init__(self, config: ConfigManager, branch: str):
-        super().__init__(config)
-        self.target = branch
-        self.name = f"Branch: {self.target}"
-        try:  # Validate branch b/c metadata wasn't tried
-            _ = self.files
-        except UserError:
-            cprint(f"Invalid branch {branch}.", "light_yellow")
-            exit()
+def _validate_treeish(git_root: Path, treeish: str) -> Union[TreeishType, bool]:
+    try:
+        object_type = subprocess.check_output(  # Checks that it exists
+            ["git", "cat-file", "-t", treeish],
+            cwd=git_root,
+            stderr=subprocess.PIPE,
+            text=True,
+        ).strip()
+        if object_type == "commit":
+            if "~" in treeish or "^" in treeish:
+                return TreeishType.RELATIVE
+            try:
+                subprocess.check_output(
+                    ["git", "show-ref", "--heads", treeish],
+                    cwd=git_root,
+                    stderr=subprocess.PIPE,
+                )
+                return TreeishType.BRANCH
+            except subprocess.CalledProcessError:
+                return TreeishType.COMMIT
+        else:  # Something else we don't support (e.g. tag)
+            return False
+    except subprocess.CalledProcessError:
+        return False
 
 
 def get_diff_context(
     config: ConfigManager,
-    history: Optional[int] = None,
-    commit: Optional[str] = None,
-    branch: Optional[str] = None,
+    diff: Optional[str] = None,
+    pr_diff: Optional[str] = None,
 ):
-    num_args = sum([bool(history), bool(commit), bool(branch)])
-    if num_args > 1:
-        cprint("Cannot specify more than one type of diff.", "light_yellow")
-        exit()
+    if diff and pr_diff:
+        raise UserError("Cannot specify more than one type of diff.")
 
-    if history:
-        return HistoryDiffContext(config, history)
-    elif commit:
-        return CommitDiffContext(config, commit)
-    elif branch:
-        return BranchDiffContext(config, branch)
-    else:
+    target = diff or pr_diff
+    if not target:
         return DiffContext(config)
+
+    name = ""
+    treeish_type = _validate_treeish(config.git_root, target)
+    if not treeish_type:
+        raise UserError(f"Invalid treeish: {target}")
+    elif treeish_type == TreeishType.BRANCH:
+        name += f"Branch {target}: "
+    elif treeish_type == TreeishType.RELATIVE:
+        name += f"{target}: "
+
+    if pr_diff:
+        name = f"Merge-base {name}"
+        try:
+            target = subprocess.check_output(
+                ["git", "merge-base", "HEAD", pr_diff], cwd=config.git_root, text=True
+            ).strip()
+        except subprocess.CalledProcessError:
+            raise UserError(f"Cannot identify merge base between HEAD and {pr_diff}")
+
+    meta = get_treeish_metadata(config.git_root, target)
+    name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
+    return DiffContext(config, target, name)

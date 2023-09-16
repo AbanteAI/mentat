@@ -46,43 +46,34 @@ def run_cli():
         help="Exclude the file structure/syntax map from the system prompt",
     )
     parser.add_argument(
-        "--history",
-        "-H",
-        type=int,
-        default=0,
-        help="Number of previous commits to include in system prompt",
-    )
-    parser.add_argument(
-        "--commit",
-        "-c",
+        "--diff",
+        "-d",
         type=str,
         default=None,
-        help="Commit hash to include diff for in system prompt",
+        help="A git tree-ish (e.g. commit, branch, tag) to diff against",
     )
     parser.add_argument(
-        "--branch",
-        "-b",
+        "--pr-diff",
+        "-p",
         type=str,
         default=None,
-        help="Branch to include diff for in system prompt",
+        help="A git tree-ish to diff against the latest common ancestor of",
     )
 
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
     no_code_map = args.no_code_map
-    history = args.history
-    commit = args.commit
-    branch = args.branch
+    diff = args.diff
+    pr_diff = args.pr_diff
     # Expanding paths as soon as possible because some shells such as zsh automatically
     # expand globs and we want to avoid differences in functionality between shells
     run(
         expand_paths(paths),
         expand_paths(exclude_paths),
         no_code_map,
-        history,
-        commit,
-        branch,
+        diff,
+        pr_diff,
     )
 
 
@@ -115,9 +106,8 @@ def run(
     paths: list[Path],
     exclude_paths: Optional[list[Path]] = None,
     no_code_map: bool = False,
-    history: int = 0,
-    commit: Optional[str] = None,
-    branch: Optional[str] = None,
+    diff: Optional[str] = None,
+    pr_diff: Optional[str] = None,
 ):
     mentat_dir_path.mkdir(parents=True, exist_ok=True)
     setup_logging()
@@ -126,7 +116,7 @@ def run(
     cost_tracker = CostTracker()
     try:
         setup_api_key()
-        loop(paths, exclude_paths, cost_tracker, no_code_map, history, commit, branch)
+        loop(paths, exclude_paths, cost_tracker, no_code_map, diff, pr_diff)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -145,15 +135,18 @@ def loop(
     exclude_paths: Optional[list[Path]],
     cost_tracker: CostTracker,
     no_code_map: bool,
-    history: int,
-    commit: Optional[str],
-    branch: Optional[str],
+    diff: Optional[str],
+    pr_diff: Optional[str],
 ) -> None:
     git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
     config = ConfigManager(git_root)
-    diff_context = get_diff_context(config, history, commit, branch)
-    if not paths:
-        paths = diff_context.files
+    try:
+        diff_context = get_diff_context(config, diff, pr_diff)
+        if not paths:
+            paths = diff_context.files
+    except UserError as e:
+        cprint(str(e), "light_yellow")
+        exit()
     code_context = CodeContext(config, paths, exclude_paths or [])
     code_context.display_context()
     diff_context.display_context()
