@@ -1,8 +1,7 @@
 import subprocess
 from dataclasses import dataclass
-from enum import Enum, auto
 from pathlib import Path
-from typing import Optional, Union
+from typing import Literal, Optional
 
 from termcolor import cprint
 
@@ -90,18 +89,20 @@ def _annotate_file_message(
 
 class DiffContext:
     config: ConfigManager
-    target: str = "HEAD"
-    name: str = "HEAD (last commit)"
 
     def __init__(
         self,
         config: ConfigManager,
-        target: str = "HEAD",
-        name: str = "HEAD (last commit)",
+        target: Optional[str] = None,
+        name: Optional[str] = None,
     ):
         self.config = config
-        self.target = target
-        self.name = name
+        if target is None:
+            self.target = "HEAD"
+            self.name = "HEAD (last commit)"
+        else:
+            self.target = target
+            self.name = name
 
     @property
     def files(self) -> list[Path]:
@@ -136,36 +137,34 @@ class DiffContext:
         return _annotate_file_message(file_message, annotations)
 
 
-class TreeishType(Enum):
-    COMMIT = auto()
-    BRANCH = auto()
-    RELATIVE = auto()
+TreeishType = Literal["commit", "branch", "relative"]
 
 
-def _validate_treeish(git_root: Path, treeish: str) -> Union[TreeishType, bool]:
+def _git_command(git_root: Path, *args: str) -> str | None:
     try:
-        object_type = subprocess.check_output(  # Checks that it exists
-            ["git", "cat-file", "-t", treeish],
-            cwd=git_root,
-            stderr=subprocess.PIPE,
-            text=True,
+        return subprocess.check_output(
+            ["git"] + list(args), cwd=git_root, stderr=subprocess.PIPE, text=True
         ).strip()
-        if object_type == "commit":
-            if "~" in treeish or "^" in treeish:
-                return TreeishType.RELATIVE
-            try:
-                subprocess.check_output(
-                    ["git", "show-ref", "--heads", treeish],
-                    cwd=git_root,
-                    stderr=subprocess.PIPE,
-                )
-                return TreeishType.BRANCH
-            except subprocess.CalledProcessError:
-                return TreeishType.COMMIT
-        else:  # Something else we don't support (e.g. tag)
-            return False
     except subprocess.CalledProcessError:
-        return False
+        return None
+
+
+def _get_treeish_type(git_root: Path, treeish: str) -> TreeishType:
+    object_type = _git_command(git_root, "cat-file", "-t", treeish)
+
+    if not object_type:
+        raise UserError(f"Invalid treeish: {treeish}")
+
+    if object_type == "commit":
+        if "~" in treeish or "^" in treeish:
+            return "relative"
+
+        if _git_command(git_root, "show-ref", "--heads", treeish):
+            return "branch"
+        else:
+            return "commit"
+
+    raise UserError(f"Unsupported treeish type: {object_type}")
 
 
 def get_diff_context(
@@ -181,21 +180,16 @@ def get_diff_context(
         return DiffContext(config)
 
     name = ""
-    treeish_type = _validate_treeish(config.git_root, target)
-    if not treeish_type:
-        raise UserError(f"Invalid treeish: {target}")
-    elif treeish_type == TreeishType.BRANCH:
+    treeish_type = _get_treeish_type(config.git_root, target)
+    if treeish_type == "branch":
         name += f"Branch {target}: "
-    elif treeish_type == TreeishType.RELATIVE:
+    elif treeish_type == "relative":
         name += f"{target}: "
 
     if pr_diff:
         name = f"Merge-base {name}"
-        try:
-            target = subprocess.check_output(
-                ["git", "merge-base", "HEAD", pr_diff], cwd=config.git_root, text=True
-            ).strip()
-        except subprocess.CalledProcessError:
+        target = _git_command(config.git_root, "merge-base", "HEAD", pr_diff)
+        if not target:
             raise UserError(f"Cannot identify merge base between HEAD and {pr_diff}")
 
     meta = get_treeish_metadata(config.git_root, target)

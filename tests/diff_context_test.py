@@ -11,7 +11,7 @@ rel_path = Path("multifile_calculator/operations.py")
 
 
 def _update_ops(temp_testbed, last_line, commit_message=None):
-    # Update the last line of operations.py and commit
+    # Update the last line of operations.py and (optionally) commit
     abs_path = os.path.join(temp_testbed, "multifile_calculator", "operations.py")
     with open(abs_path, "r") as f:
         lines = f.readlines()
