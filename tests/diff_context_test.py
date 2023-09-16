@@ -8,6 +8,8 @@ from mentat.diff_context import DiffContext, get_diff_context
 
 
 rel_path = Path("multifile_calculator/operations.py")
+
+
 def _update_ops(temp_testbed, last_line, commit_message=None):
     # Update the last line of operations.py and commit
     abs_path = os.path.join(temp_testbed, "multifile_calculator", "operations.py")
@@ -26,7 +28,7 @@ def _update_ops(temp_testbed, last_line, commit_message=None):
 @pytest.fixture
 def git_history(mock_config, temp_testbed):
     """Load a git repo with the following branches/commits:
-    
+
     main
       'a / b' (from temp_testbed)
       'commit2'
@@ -127,7 +129,6 @@ def test_diff_context_relative(mock_config, temp_testbed, git_history):
 
 
 def test_diff_context_errors(mock_config, temp_testbed, git_history):
-    
     # Can't use both diff and pr_diff
     with pytest.raises(UserError) as e:
         get_diff_context(mock_config, diff="HEAD", pr_diff="master")
@@ -143,7 +144,9 @@ def test_diff_context_pr(mock_config, temp_testbed, git_history):
     subprocess.run(["git", "checkout", "test_branch"], cwd=temp_testbed)
     diff_context = get_diff_context(mock_config, pr_diff="master")
 
-    commit2 = subprocess.check_output(["git", "rev-parse", "HEAD~1"], cwd=temp_testbed, text=True).strip()
+    commit2 = subprocess.check_output(
+        ["git", "rev-parse", "HEAD~1"], cwd=temp_testbed, text=True
+    ).strip()
     assert diff_context.target == commit2
     assert diff_context.name.startswith("Merge-base Branch master:")
     assert diff_context.name.endswith(": commit2")  # NOT the latest
