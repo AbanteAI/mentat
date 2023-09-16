@@ -1,3 +1,5 @@
+# Adapted from https://github.com/encode/broadcaster
+
 import asyncio
 import typing
 from contextlib import asynccontextmanager

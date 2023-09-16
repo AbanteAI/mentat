@@ -3,6 +3,8 @@ import logging
 import signal
 from typing import Iterable, Set
 
+from mentat.llm_api import CostTracker
+
 from .config_manager import ConfigManager
 from .git_handler import get_shared_git_root_for_paths
 from .rpc import RpcServer
@@ -44,16 +46,17 @@ class Engine:
 
     # Conversation
 
-    async def create_conversation(
-        self, paths: Iterable[str], include_code_map: bool = True
+    async def create_session(
+        self,
+        paths: Iterable[str],
+        exclude_paths: Iterable[str] | None,
+        no_code_map: bool,
     ):
-        git_root = get_shared_git_root_for_paths(paths)
-        config = ConfigManager(git_root)
-        conversation = MentatConversation(config, include_code_map)
-        conversation.start()
-        self.conversations.add(conversation)
+        session = Session()
+        session.start(paths, exclude_paths, CostTracker(), no_code_map)
+        self.sessions.add(session)
 
-        return conversation
+        return session
 
     async def create_conversation_message(self):
         ...
@@ -78,7 +81,7 @@ class Engine:
 
     async def heartbeat(self):
         while True:
-            logger.info("heartbeat")
+            logger.debug("heartbeat")
             await asyncio.sleep(3)
 
     def _handle_exit(self):
@@ -93,12 +96,12 @@ class Engine:
         loop.add_signal_handler(signal.SIGTERM, self._handle_exit)
 
     async def _startup(self):
-        logger.info("Starting Engine...")
+        logger.debug("Starting Engine...")
         heahtheck_task = asyncio.create_task(self.heartbeat())
         self._tasks.add(heahtheck_task)
 
     async def _main_loop(self):
-        logger.info("Running Engine...")
+        logger.debug("Running Engine...")
 
         counter = 0
         while not self._should_exit:
@@ -107,11 +110,11 @@ class Engine:
             await asyncio.sleep(0.1)
 
     async def _shutdown(self):
-        logger.info("Shutting Engine down...")
+        logger.debug("Shutting Engine down...")
 
         for task in self._tasks:
             task.cancel()
-        logger.info("Waiting for Jobs to finish. (CTRL+C to force quit)")
+        logger.debug("Waiting for Jobs to finish. (CTRL+C to force quit)")
         while not self._force_exit:
             if all([task.cancelled() for task in self._tasks]):
                 break
@@ -120,10 +123,10 @@ class Engine:
         if self._force_exit:
             logger.debug("Force exiting.")
 
-        logger.info("Engine has stopped")
+        logger.debug("Engine has stopped")
 
     async def _run(self):
-        self._init_signal_handlers()
+        # self._init_signal_handlers()
         await self._startup()
         await self._main_loop()
         await self._shutdown()

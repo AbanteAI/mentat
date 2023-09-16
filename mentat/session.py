@@ -9,9 +9,9 @@ from .code_context import CodeContext
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager
-from .conversation import Conversation
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker
+from .llm_conversation import LLMConversation
 from .session_conversation import SessionConversation
 
 logger = logging.getLogger()
@@ -35,8 +35,10 @@ class Session:
     ):
         git_root = get_shared_git_root_for_paths(paths)
         config = ConfigManager(git_root)
-        code_context = CodeContext(config, paths, exclude_paths or [])
-        code_context.display_context()
+        code_context = CodeContext(
+            config, paths, exclude_paths or [], self.session_conversation
+        )
+        await code_context.display_context()
         code_file_manager = CodeFileManager(
             self.session_conversation, self.session_input_manager, config, code_context
         )
@@ -50,10 +52,13 @@ class Session:
             await self.session_conversation.add_message(
                 ctags_disabled_message, color="yellow"
             )
-        conv = Conversation(config, cost_tracker, code_file_manager, code_map)
+        conv = LLMConversation(
+            config, cost_tracker, code_file_manager, self.session_conversation, code_map
+        )
+        await conv.check_token_limit()
 
         await self.session_conversation.add_message(
-            "Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan"
+            "Type 'q' or use Ctrl-C to quit at any time.", color="cyan"
         )
         await self.session_conversation.add_message(
             "What can I do for you?", color="light_blue"

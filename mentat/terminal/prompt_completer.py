@@ -24,7 +24,7 @@ from pygments.token import Token
 from pygments.util import ClassNotFound
 
 from mentat.commands import Command
-from mentat.engine import MentatEngine
+from mentat.engine import Engine
 
 
 @dataclass
@@ -34,7 +34,7 @@ class SyntaxCompletion:
 
 
 class MentatCompleter(Completer):
-    def __init__(self, engine: MentatEngine):
+    def __init__(self, engine: Engine):
         self.engine = engine
 
         self.syntax_completions: Dict[Path, SyntaxCompletion] = dict()

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Dict, Iterable
 
-from termcolor import cprint
+from mentat.session_conversation import SessionConversation
 
 from .code_file import CodeFile
 from .config_manager import ConfigManager
@@ -104,27 +104,28 @@ def _build_path_tree(files: Iterable[CodeFile], git_root):
     return tree
 
 
-def _print_path_tree(tree, changed_files, cur_path, prefix=""):
-    keys = list(tree.keys())
-    for i, key in enumerate(sorted(keys)):
-        if i < len(keys) - 1:
-            new_prefix = prefix + "│   "
-            print(f"{prefix}├── ", end="")
-        else:
-            new_prefix = prefix + "    "
-            print(f"{prefix}└── ", end="")
-
-        cur = cur_path / key
-        star = "* " if cur in changed_files else ""
-        if tree[key]:
-            color = "blue"
-        elif star:
-            color = "green"
-        else:
-            color = None
-        cprint(f"{star}{key}", color)
-        if tree[key]:
-            _print_path_tree(tree[key], changed_files, cur, new_prefix)
+# TODO: move to terminal client
+# def _print_path_tree(tree, changed_files, cur_path, prefix=""):
+#     keys = list(tree.keys())
+#     for i, key in enumerate(sorted(keys)):
+#         if i < len(keys) - 1:
+#             new_prefix = prefix + "│   "
+#             print(f"{prefix}├── ", end="")
+#         else:
+#             new_prefix = prefix + "    "
+#             print(f"{prefix}└── ", end="")
+#
+#         cur = cur_path / key
+#         star = "* " if cur in changed_files else ""
+#         if tree[key]:
+#             color = "blue"
+#         elif star:
+#             color = "green"
+#         else:
+#             color = None
+#         cprint(f"{star}{key}", color)
+#         if tree[key]:
+#             _print_path_tree(tree[key], changed_files, cur, new_prefix)
 
 
 class CodeContext:
@@ -133,20 +134,30 @@ class CodeContext:
         config: ConfigManager,
         paths: Iterable[str],
         exclude_paths: Iterable[str],
+        session_conversation: SessionConversation,
     ):
         self.config = config
         self.files = _get_files(self.config, paths, exclude_paths)
+        self.session_conversation = session_conversation
 
-    def display_context(self):
+    async def display_context(self):
         if self.files:
-            cprint("Files included in context:", "green")
+            await self.session_conversation.add_message(
+                "Files included in context:", color="green"
+            )
         else:
-            cprint("No files included in context.\n", "red")
-            cprint("Git project: ", "green", end="")
-        cprint(self.config.git_root.name, "blue")
-        _print_path_tree(
-            _build_path_tree(self.files.values(), self.config.git_root),
-            get_paths_with_git_diffs(self.config.git_root),
-            self.config.git_root,
+            await self.session_conversation.add_message(
+                "No files included in context.", color="red"
+            )
+            await self.session_conversation.add_message(
+                "Git project: ", color="green", end=""
+            )
+        await self.session_conversation.add_message(
+            self.config.git_root.name, color="blue"
         )
-        print()
+        # _print_path_tree(
+        #     _build_path_tree(self.files.values(), self.config.git_root),
+        #     get_paths_with_git_diffs(self.config.git_root),
+        #     self.config.git_root,
+        # )
+        # print()
