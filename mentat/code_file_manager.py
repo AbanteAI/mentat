@@ -5,8 +5,6 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Iterable, Union
 
-from termcolor import cprint
-
 from .change_conflict_resolution import (
     resolve_insertion_conflicts,
     resolve_non_insertion_conflicts,
@@ -17,17 +15,20 @@ from .code_file import CodeFile
 from .config_manager import ConfigManager
 from .errors import MentatError
 from .git_handler import get_git_diff_for_path
-from .user_input_manager import UserInputManager
+from .session_conversation import SessionConversation
+from .session_input_manager import SessionInputManager
 
 
 class CodeFileManager:
     def __init__(
         self,
-        user_input_manager: UserInputManager,
+        session_conversation: SessionConversation,
+        session_input_manager: SessionInputManager,
         config: ConfigManager,
         code_context: CodeContext,
     ):
-        self.user_input_manager = user_input_manager
+        self.session_conversation = session_conversation
+        self.session_input_manager = session_input_manager
         self.config = config
         self.code_context = code_context
 
@@ -84,20 +85,29 @@ class CodeFileManager:
             del self.code_context.files[abs_path]
         abs_path.unlink()
 
-    def _handle_delete(self, delete_change):
+    async def _handle_delete(self, delete_change):
         abs_path = self.config.git_root / delete_change.file
         if not abs_path.exists():
             logging.error(f"Path {abs_path} non-existent on delete")
             return
 
-        cprint(f"Are you sure you want to delete {delete_change.file}?", "red")
-        if self.user_input_manager.ask_yes_no(default_yes=False):
-            cprint(f"Deleting {delete_change.file}...")
+        await self.session_conversation.add_message(
+            f"Are you sure you want to delete {delete_change.file}?", color="red"
+        )
+        should_delete_file = await self.session_input_manager.ask_yes_no(
+            default_yes=False
+        )
+        if should_delete_file:
+            await self.session_conversation.add_message(
+                f"Deleting {delete_change.file}..."
+            )
             self._delete_file(abs_path)
         else:
-            cprint(f"Not deleting {delete_change.file}")
+            await self.session_conversation.add_message(
+                f"Not deleting {delete_change.file}"
+            )
 
-    def _get_new_code_lines(self, rel_path, changes) -> Iterable[str]:
+    async def _get_new_code_lines(self, rel_path, changes) -> Iterable[str]:
         if not changes:
             return []
         if len(set(map(lambda change: change.file, changes))) > 1:
@@ -108,22 +118,33 @@ class CodeFileManager:
         # We resolve insertion conflicts twice because non-insertion conflicts
         # might move insert blocks outside of replace/delete blocks and cause
         # them to conflict again
-        changes = resolve_insertion_conflicts(changes, self.user_input_manager, self)
-        changes = resolve_non_insertion_conflicts(changes, self.user_input_manager)
-        changes = resolve_insertion_conflicts(changes, self.user_input_manager, self)
+        changes = await resolve_insertion_conflicts(
+            changes, self.session_input_manager, self, self.session_conversation
+        )
+        changes = await resolve_non_insertion_conflicts(
+            changes, self.session_input_manager, self.session_conversation
+        )
+        changes = await resolve_insertion_conflicts(
+            changes, self.session_input_manager, self, self.session_conversation
+        )
         if not changes:
             return []
 
         new_code_lines = self.file_lines[rel_path].copy()
         if new_code_lines != self._read_file(rel_path):
             logging.info(f"File '{rel_path}' changed while generating changes")
-            cprint(
+            await self.session_conversation.add_message(
                 f"File '{rel_path}' changed while generating; current file changes"
                 " will be erased. Continue?",
                 color="light_yellow",
             )
-            if not self.user_input_manager.ask_yes_no(default_yes=False):
-                cprint(f"Not applying changes to file {rel_path}.")
+            should_erase_file = await self.session_input_manager.ask_yes_no(
+                default_yes=False
+            )
+            if not should_erase_file:
+                await self.session_conversation.add_message(
+                    f"Not applying changes to file {rel_path}."
+                )
                 return None
 
         # Necessary in case the model needs to insert past the end of the file
@@ -140,7 +161,7 @@ class CodeFileManager:
             new_code_lines = change.apply(new_code_lines)
         return new_code_lines
 
-    def write_changes_to_files(self, code_changes: list[CodeChange]) -> None:
+    async def write_changes_to_files(self, code_changes: list[CodeChange]) -> None:
         file_changes = defaultdict(list)
         for code_change in code_changes:
             # here keys are str not path object
@@ -148,12 +169,14 @@ class CodeFileManager:
             abs_path = self.config.git_root / rel_path
             match code_change.action:
                 case CodeChangeAction.CreateFile:
-                    cprint(f"Creating new file {rel_path}", color="light_green")
+                    await self.session_conversation.add_message(
+                        f"Creating new file {rel_path}", color="light_green"
+                    )
                     self._add_file(abs_path)
                     with open(abs_path, "w") as f:
                         f.write("\n".join(code_change.code_lines))
                 case CodeChangeAction.DeleteFile:
-                    self._handle_delete(code_change)
+                    await self._handle_delete(code_change)
                 case CodeChangeAction.RenameFile:
                     abs_new_path = self.config.git_root / code_change.name
                     self._add_file(abs_new_path)

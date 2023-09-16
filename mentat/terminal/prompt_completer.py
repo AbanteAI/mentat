@@ -23,6 +23,7 @@ from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
 from pygments.util import ClassNotFound
 
+from mentat.commands import Command
 from mentat.engine import MentatEngine
 
 

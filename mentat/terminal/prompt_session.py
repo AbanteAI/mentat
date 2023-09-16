@@ -23,13 +23,14 @@ from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
 from pygments.util import ClassNotFound
 
-from mentat.engine import MentatEngine
+from mentat.commands import Command
+from mentat.engine import Engine
 
 from .prompt_completer import MentatCompleter
 
 
 class MentatPromptSession(PromptSession):
-    def __init__(self, engine: MentatEngine, *args, **kwargs):
+    def __init__(self, engine: Engine, *args, **kwargs):
         self.engine = engine
 
         self._setup_bindings()
@@ -38,7 +39,7 @@ class MentatPromptSession(PromptSession):
             # history=FilteredFileHistory(mentat_dir_path / "history"),
             # auto_suggest=FilteredHistorySuggestions(),
             multiline=True,
-            prompt_continuation=self.prompt_continuation,
+            # prompt_continuation=self.prompt_continuation,
             key_bindings=self.bindings,
             *args,
             **kwargs,

@@ -1,15 +1,18 @@
 import logging
 import string
-
-from termcolor import cprint
+from typing import List
 
 from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import get_added_block, get_removed_block
-from .user_input_manager import UserInputManager
+from .session_conversation import SessionConversation
+from .session_input_manager import SessionInputManager
 
 
-def resolve_insertion_conflicts(
-    changes: list[CodeChange], user_input_manager: UserInputManager, code_file_manager
+async def resolve_insertion_conflicts(
+    changes: list[CodeChange],
+    session_input_manager: SessionInputManager,
+    code_file_manager,
+    session_conversation: SessionConversation,
 ) -> list[CodeChange]:
     """merges insertion conflicts into one singular code change"""
     insert_changes = list(
@@ -30,14 +33,18 @@ def resolve_insertion_conflicts(
             end += 1
         if end > cur + 1:
             logging.debug("insertion conflict")
-            cprint("Insertion conflict:", "red")
+            await session_conversation.add_message("Insertion conflict:", color="red")
             for i in range(end - cur):
-                cprint(f"({string.printable[i]})", "green")
-                cprint("\n".join(insert_changes[cur + i].code_lines), "light_cyan")
-            cprint(
+                await session_conversation.add_message(
+                    f"({string.printable[i]})", color="green"
+                )
+                await session_conversation.add_message(
+                    "\n".join(insert_changes[cur + i].code_lines), color="light_cyan"
+                )
+            await session_conversation.add_message(
                 "Type the order in which to insert changes (omit for no preference):"
             )
-            user_input = user_input_manager.collect_user_input()
+            user_input = session_input_manager.collect_user_input()
             new_code_lines = []
             used = set()
             for c in user_input:
@@ -64,8 +71,10 @@ def resolve_insertion_conflicts(
     )
 
 
-def resolve_non_insertion_conflicts(
-    changes: list[CodeChange], user_input_manager: UserInputManager
+async def resolve_non_insertion_conflicts(
+    changes: list[CodeChange],
+    session_input_manager: SessionInputManager,
+    session_conversation: SessionConversation,
 ) -> list[CodeChange]:
     """resolves delete-replace conflicts and asks user on delete-insert or replace-insert conflicts"""
     min_changed_line = changes[0].last_changed_line + 1
@@ -77,15 +86,21 @@ def resolve_non_insertion_conflicts(
                 if changes[i - 1].action == CodeChangeAction.Delete:
                     keep = True
                 else:
-                    cprint(
+                    await session_conversation.add_message(
                         "\nInsertion conflict: Lines inserted inside replaced block\n",
-                        "light_red",
+                        color="light_red",
                     )
-                    print(get_removed_block(changes[i - 1]))
-                    print(get_added_block(change, prefix=">", color=None))
-                    print(get_added_block(changes[i - 1]))
-                    cprint("Keep this insertion?")
-                    keep = user_input_manager.ask_yes_no(default_yes=True)
+                    await session_conversation.add_message(
+                        get_removed_block(changes[i - 1])
+                    )
+                    await session_conversation.add_message(
+                        get_added_block(change, prefix=">", color=None)
+                    )
+                    await session_conversation.add_message(
+                        get_added_block(changes[i - 1])
+                    )
+                    await session_conversation.add_message("Keep this insertion?")
+                    keep = await session_input_manager.ask_yes_no(default_yes=True)
                 if keep:
                     change.first_changed_line = changes[i - 1].first_changed_line - 0.5
                     change.last_changed_line = change.first_changed_line

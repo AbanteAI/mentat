@@ -1,49 +1,24 @@
 import asyncio
 import logging
 import signal
-from dataclasses import dataclass
-from typing import Any, Literal, Set
+from typing import Iterable, Set
 
+from .config_manager import ConfigManager
+from .git_handler import get_shared_git_root_for_paths
 from .rpc import RpcServer
+from .session import Session
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 
-# @dataclass
-# class Completion:
-#     source: Literal["syntax"] | Literal["command"]
-#     data: str
-
-
-# class MentatCompleter:
-#     fake_completions = [
-#         Completion(source="syntax", data="these"),
-#         Completion(source="syntax", data="are"),
-#         Completion(source="syntax", data="fake"),
-#         Completion(source="syntax", data="completions"),
-#         Completion(source="command", data="/help"),
-#         Completion(source="command", data="/add"),
-#     ]
-#
-#     def __init__(self):
-#         ...
-#
-#     async def get_completions(self, text: str):
-#         completions = []
-#         for completion in self.fake_completions:
-#             if completion.data.startswith(text.lower()):
-#                 completions.append(completion)
-#         return completions
-
-
-class MentatEngine:
+class Engine:
     """Manages all processes."""
 
-    def __init__(self, with_rpc: bool = False):
-        self.server = RpcServer() if with_rpc else None
+    def __init__(self, with_rpc_server: bool = False):
+        self.rpc_server = RpcServer() if with_rpc_server else None
 
-        self.conversations = dict()
+        self.sessions: Set[Session] = set()
 
         self._should_exit = False
         self._force_exit = False
@@ -68,6 +43,17 @@ class MentatEngine:
         ...
 
     # Conversation
+
+    async def create_conversation(
+        self, paths: Iterable[str], include_code_map: bool = True
+    ):
+        git_root = get_shared_git_root_for_paths(paths)
+        config = ConfigManager(git_root)
+        conversation = MentatConversation(config, include_code_map)
+        conversation.start()
+        self.conversations.add(conversation)
+
+        return conversation
 
     async def create_conversation_message(self):
         ...
@@ -147,5 +133,5 @@ class MentatEngine:
 
 
 if __name__ == "__main__":
-    mentat_engine = MentatEngine()
+    mentat_engine = Engine()
     mentat_engine.run()

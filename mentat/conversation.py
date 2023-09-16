@@ -1,13 +1,14 @@
+import asyncio
 import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, List, Literal, Set
+from typing import Any, Dict, Iterable, List, Literal, Set
 
 from ipdb import set_trace
 from termcolor import cprint
 
-from .code_change import CodeChange
+from .code_change import CodeChange, CodeChangeAction
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager
@@ -22,25 +23,32 @@ logger = logging.getLogger()
 
 
 @dataclass
-class Message:
+class BaseMessage:
+    content: str
+
+
+@dataclass
+class Message(BaseMessage):
     content: str
     extra: Dict[str, Any] | None = None
 
 
 @dataclass
-class ConversationMessage:
+class ConversationMessage(BaseMessage):
     role: Literal["system"] | Literal["assistant"] | Literal["user"]
     content: str
 
 
 @dataclass
-class QuestionMessage:
+class QuestionMessage(BaseMessage):
     content: str
     options: Set[str] | None = None
+    default: str | None = None
+    extra: Dict[str, Any] | None = None
 
 
 @dataclass
-class AnswerMessage:
+class AnswerMessage(BaseMessage):
     content: str
 
 
@@ -48,7 +56,11 @@ class MentatConversation:
     def __init__(self, config: ConfigManager, include_code_map: bool = True):
         self.config = config
 
-        self.messages: List[Message | ConversationMessage] = []
+        self._main_task: asyncio.Task | None = None
+        self._stop_task: asyncio.Task | None = None
+        self._user_response_queue: asyncio.Queue[str] = asyncio.Queue()
+
+        self.messages: List[BaseMessage] = []
         self.add_system_message(system_prompt)
         self.code_file_manager = CodeFileManager(config=self.config)
         self.cost_tracker = CostTracker()
@@ -108,8 +120,30 @@ class MentatConversation:
         message = ConversationMessage(role="assistant", content=content)
         self.messages.append(message)
 
-    async def get_user_response(self):
-        ...
+    async def prompt_yes_no(self, content: str, default_yes: bool, **kwargs) -> bool:
+        self.messages.append(
+            Message(content=("(y/n)" if default_yes else "(y/n)"), extra=kwargs)
+        )
+        self.messages.append(
+            QuestionMessage(
+                content=content + ("(y/n)" if default_yes else "(y/n)"),
+                options={"y", "n"},
+                default="y" if default_yes else "n",
+                extra=kwargs,
+            )
+        )
+
+        while True:
+            user_input = await self._user_response_queue.get()
+            user_input = user_input.lower()
+            if user_input not in {"y", "n", ""}:
+                self.messages.append(
+                    Message(content=("(y/n)" if default_yes else "(y/n)"), extra=kwargs)
+                )
+                continue
+            break
+
+        return user_input == "y" or (user_input != "n" and default_yes)
 
     async def get_model_response(self):
         # why do we make a copy here?
@@ -187,16 +221,151 @@ class MentatConversation:
         self.add_assistant_message(state.message)
         return state.explanation, state.code_changes
 
+    async def get_user_response(self):
+        user_response = await self._user_response_queue.get()
+
+        return user_response
+
+    async def get_user_filter_on_changes(self, code_changes: Iterable[CodeChange]):
+        new_changes = []
+        indices = []
+        for index, change in enumerate(code_changes, start=1):
+            # print_change(change)
+            # Allowing the user to remove rename file changes introduces a lot of edge cases
+            if change.action == CodeChangeAction.RenameFile:
+                new_changes.append(change)
+                indices.append(index)
+                self.add_message(
+                    "Cannot remove rename file change", color="light_yellow"
+                )
+                continue
+
+            self.add_message("Keep this change?", color="light_blue")
+            keep_change = await self.prompt_yes_no(
+                content="Keep this change?", default_yes=True
+            )
+            if keep_change:
+                new_changes.append(change)
+                indices.append(index)
+
+        return new_changes, indices
+
+    async def get_user_feedback_on_changes(
+        self, code_changes: Iterable[CodeChange]
+    ) -> bool:
+        self.add_message(
+            "Apply these changes? 'Y/n/i' or provide feedback.", color="light_blue"
+        )
+        user_response = await self.get_user_response()
+
+        need_user_request = True
+        match user_response.lower():
+            case "y" | "":
+                code_changes_to_apply = code_changes
+                self.add_user_message("User chose to apply all your changes.")
+            case "n":
+                code_changes_to_apply = []
+                self.add_user_message("User chose not to apply any of your changes.")
+            case "i":
+                code_changes_to_apply, indices = await self.get_user_filter_on_changes(
+                    code_changes
+                )
+                self.add_user_message(
+                    "User chose to apply"
+                    f" {len(code_changes_to_apply)}/{len(code_changes)} of your suggest"
+                    " changes. The changes they applied were:"
+                    f" {', '.join(map(str, indices))}"
+                )
+            case _:
+                need_user_request = False
+                code_changes_to_apply = []
+                self.add_user_message(
+                    "User chose not to apply any of your changes. User response:"
+                    f" {user_response}\n\nPlease adjust your previous plan and changes to"
+                    " reflect this. Respond with a full new set of changes."
+                )
+
+        if code_changes_to_apply:
+            self.code_file_manager.write_changes_to_files(code_changes_to_apply)
+            if len(code_changes_to_apply) == len(code_changes):
+                self.add_message("Changes applied.", color="light_blue")
+            else:
+                self.add_message("Selected changes applied.", color="light_blue")
+        else:
+            self.add_message("No changes applied.", color="light_blue")
+
+        if need_user_request:
+            cprint("Can I do anything else for you?", color="light_blue")
+
+        return need_user_request
+
     ### lifecycle
 
-    def start(self):
-        ...
+    @property
+    def is_stopped(self):
+        return self._main_task is None and self._stop_task is None
 
     async def _main(self):
-        ...
+        self.add_message("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")
+        self.add_message("What can I do for you?", color="light_blue")
 
-    async def stop(self):
-        ...
+        need_user_request = True
+        while True:
+            if need_user_request:
+                user_response = await self.get_user_response()
+                self.add_user_message(user_response)
+            explanation, code_changes = await self.get_model_response()
+
+            if code_changes:
+                need_user_request = await self.get_user_feedback_on_changes(
+                    code_changes
+                )
+            else:
+                need_user_request = True
+
+    def start(self):
+        if self._main_task:
+            logger.warning("Job already started")
+            return
+
+        async def run_main():
+            try:
+                await self._main()
+            except asyncio.CancelledError:
+                pass
+
+        def cleanup_main(_: asyncio.Task):
+            self._main_task = None
+            logger.debug("Main task stopped")
+
+        self._main_task = asyncio.create_task(run_main())
+        self._main_task.add_done_callback(cleanup_main)
+
+    def stop(self):
+        if self._stop_task is not None:
+            logger.warning("Task is already stopping")
+            return
+        if self.is_stopped:
+            logger.warning("Task is already stopped")
+            return
+
+        async def run_stop():
+            if self._main_task is None:
+                return
+            try:
+                # Wait for main task to cancel
+                self._main_task.cancel()
+                while self._main_task is not None:
+                    await asyncio.sleep(0.1)
+            except asyncio.CancelledError:
+                pass
+
+        def cleanup_stop(_: asyncio.Task):
+            self._stop_task = None
+            logger.debug("Task has stopped")
+
+        self._stop_task = asyncio.create_task(run_stop())
+        self._stop_task.add_done_callback(cleanup_stop)
 
 
 class Conversation:

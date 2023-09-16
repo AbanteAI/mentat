@@ -1,40 +1,40 @@
 import asyncio
 import logging
 
-from mentat.engine import MentatEngine
-from mentat.logging_config import setup_logging
-from mentat.terminal.logging_handers import ConsoleHandler
-from mentat.terminal.prompt_session import MentatPromptSession
+from termcolor import cprint
 
-# from .logging_handers import ConsoleHandler
-# from .prompt_session import MentatPromptSession
+from mentat.conversation import MentatConversation
+from mentat.engine import Engine
+from mentat.logging_config import setup_logging
+from mentat.session import Session
+from mentat.terminal.prompt_session import MentatPromptSession
 
 
 class TerminalClient:
     def __init__(self):
-        self._engine = MentatEngine()
-        self._engine_task = None
+        self.engine = Engine()
+        self.engine_task: asyncio.Task | None = None
 
-        self._session = MentatPromptSession(self._engine)
+        self._prompt_session = MentatPromptSession(self.engine)
 
     async def get_user_input(self):
-        user_input = await self._session.prompt_async()
+        user_input = await self._prompt_session.prompt_async()
 
     async def _run(self):
         try:
-            self._engine_task = asyncio.create_task(self._engine._run())
+            self.engine_task = asyncio.create_task(self.engine._run())
             while True:
-                await self.get_user_input()
+                user_input = await self.get_user_input()
         except KeyboardInterrupt:
-            print("keyboard interrupt")
+            cprint("keyboard interrupt", color="yellow")
         except Exception as e:
-            print("unhandled exception:", e)
+            cprint(f"unhandled exception: {e}", color="red")
         finally:
-            if isinstance(self._engine_task, asyncio.Task):
-                self._engine._should_exit = True
-                assert self._engine_task
-                await self._engine_task
-                self._engine_task = None
+            if isinstance(self.engine_task, asyncio.Task):
+                self.engine._should_exit = True
+                assert self.engine_task
+                await self.engine_task
+                self.engine_task = None
 
     def run(self):
         asyncio.run(self._run())
