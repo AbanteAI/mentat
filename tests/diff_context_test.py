@@ -1,11 +1,11 @@
 import os
-import pytest
 import subprocess
 from pathlib import Path
 
-from mentat.errors import UserError
-from mentat.diff_context import DiffContext, get_diff_context
+import pytest
 
+from mentat.diff_context import DiffContext, get_diff_context
+from mentat.errors import UserError
 
 rel_path = Path("multifile_calculator/operations.py")
 
