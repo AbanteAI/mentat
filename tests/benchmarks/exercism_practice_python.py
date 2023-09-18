@@ -50,9 +50,9 @@ def mock_user_input_manager(max_iterations, mocker):
             threadLocal.confirm = True
             return dedent(
                 f"""\
-                Use the instructions in {threadLocal.exercise}/.docs/instructions.md to modify {threadLocal.exercise_file}.
-                Keep and implement the existing function or class stubs, they will be called from unit tests.
-                Only use standard python libraries, don't suggest installing any packages."""
+                Use the instructions in {threadLocal.exercise}/.docs/instructions.md to modify \
+                {threadLocal.exercise_file}. Keep and implement the existing function or class stubs, they will be \
+                called from unit tests. Only use standard python libraries, don't suggest installing any packages."""
             )
         else:
             if threadLocal.confirm:
