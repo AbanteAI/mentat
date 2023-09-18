@@ -12,7 +12,7 @@ from .config_manager import ConfigManager
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker
 from .llm_conversation import LLMConversation
-from .session_conversation import SessionConversation
+from .session_conversation import Message, SessionConversation
 
 logger = logging.getLogger()
 
@@ -24,7 +24,6 @@ class Session:
 
         self._main_task: asyncio.Task | None = None
         self._stop_task: asyncio.Task | None = None
-        self._user_response_queue: asyncio.Queue[str] = asyncio.Queue()
 
     async def _main(
         self,
@@ -69,19 +68,23 @@ class Session:
             data=dict(content="What can I do for you?", color="light_blue"),
         )
 
-        # need_user_request = True
-        # while True:
-        #     if need_user_request:
-        #         user_response = await self.session_input_manager.collect_user_input()
-        #         conv.add_user_message(user_response)
-        #     explanation, code_changes = conv.get_model_response(config)
-        #
-        #     if code_changes:
-        #         need_user_request = get_user_feedback_on_changes(
-        #             config, conv, user_input_manager, code_file_manager, code_changes
-        #         )
-        #     else:
-        #         need_user_request = True
+        need_user_request = True
+        while True:
+            if need_user_request:
+                user_response_message = (
+                    await self.session_input_manager.collect_user_input()
+                )
+                assert isinstance(user_response_message, Message)
+                user_response = user_response_message.data.get("content")
+                conv.add_user_message(user_response)
+            explanation, code_changes = await conv.get_model_response(config)
+
+            # if code_changes:
+            #     need_user_request = get_user_feedback_on_changes(
+            #         config, conv, user_input_manager, code_file_manager, code_changes
+            #     )
+            # else:
+            #     need_user_request = True
 
     ### lifecycle
 

@@ -51,7 +51,7 @@ def format_message_content(
     return (formatted_color, formatted_content)
 
 
-def format_and_print_text(message: Message, use_ansi_colors: bool = True):
+def format_and_print_message(message: Message, use_ansi_colors: bool = True):
     formatted_text = []
     if isinstance(message.data, list):
         for data in message.data:
@@ -75,31 +75,41 @@ def format_and_print_text(message: Message, use_ansi_colors: bool = True):
     print_formatted_text(FormattedText(formatted_text))
 
 
-# TODO: handle exceptions
-async def cprint_stream(conversation: SessionConversation):
-    try:
-        async for message in conversation.listen():
-            format_and_print_text(message)
-    except Exception as e:
-        set_trace()
-        cprint(f"There was an exception: {e}")
-        traceback.print_exc()
-
-
 class TerminalClient:
     def __init__(self):
         self.engine = Engine()
         self.engine_task: asyncio.Task | None = None
 
         self._prompt_session = MentatPromptSession(self.engine)
+        self._input_queue = asyncio.Queue()
 
-    async def get_user_input(self) -> str:
-        cprint("waiting for user input:")
-        user_input = await self._prompt_session.prompt_async()
-        cprint(f"got user input: {user_input}")
-        if user_input == "q":
-            raise KeyboardInterrupt
-        return user_input
+    async def stream_conversation(self, conversation: SessionConversation):
+        try:
+            async for message in conversation.listen():
+                format_and_print_message(message)
+
+                if "type" in message.data:
+                    if message.data["type"] == "collect_user_input":
+                        self._input_queue.put_nowait(message)
+        except Exception as e:
+            set_trace()
+            cprint(f"There was an exception: {e}")
+            traceback.print_exc()
+
+    async def handle_user_input(self, conversation: SessionConversation) -> str:
+        while True:
+            input_request_message = await self._input_queue.get()
+            cprint("waiting for user input:")
+            user_input = await self._prompt_session.prompt_async()
+            cprint(f"got user input: {user_input}")
+            if user_input == "q":
+                raise KeyboardInterrupt
+
+            await conversation.send_message(
+                source="client",
+                data={"content": user_input},
+                channel=f"default:{input_request_message.id}",
+            )
 
     async def _run(
         self,
@@ -109,17 +119,13 @@ class TerminalClient:
     ):
         self.engine_task = asyncio.create_task(self.engine._run())
         try:
-            self.session = await self.engine.create_session(
+            session = await self.engine.create_session(
                 paths, exclude_paths, no_code_map
             )
-            listen_to_conv = asyncio.create_task(
-                cprint_stream(self.session.session_conversation)
+            stream_conversation_task = asyncio.create_task(
+                self.stream_conversation(session.session_conversation)
             )
-            while True:
-                user_input = await self.get_user_input()
-                await self.session.session_conversation.send_message(
-                    source="client", data=dict(content=user_input)
-                )
+            await self.handle_user_input(session.session_conversation)
         except KeyboardInterrupt:
             cprint("KeyboardInterrupt", color="yellow")
         except Exception as e:
