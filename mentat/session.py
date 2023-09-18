@@ -49,20 +49,26 @@ class Session:
                 Reason: {code_map.ctags_disabled_reason}
             """
             ctags_disabled_message = dedent(ctags_disabled_message)
-            await self.session_conversation.add_message(
-                ctags_disabled_message, color="yellow"
+            await self.session_conversation.send_message(
+                source="server",
+                data=dict(content=ctags_disabled_message, color="yellow"),
             )
         conv = LLMConversation(
             config, cost_tracker, code_file_manager, self.session_conversation, code_map
         )
         await conv.check_token_limit()
 
-        await self.session_conversation.add_message(
-            "Type 'q' or use Ctrl-C to quit at any time.", color="cyan"
+        await self.session_conversation.send_message(
+            source="server",
+            data=dict(
+                content="Type 'q' or use Ctrl-C to quit at any time.", color="cyan"
+            ),
         )
-        await self.session_conversation.add_message(
-            "What can I do for you?", color="light_blue"
+        await self.session_conversation.send_message(
+            source="server",
+            data=dict(content="What can I do for you?", color="light_blue"),
         )
+
         # need_user_request = True
         # while True:
         #     if need_user_request:

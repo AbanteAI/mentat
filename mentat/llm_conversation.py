@@ -49,16 +49,22 @@ class LLMConversation:
                 " of files."
             )
         elif tokens + 1000 > self.token_limit:
-            await self.session_conversation.add_message(
-                f"Warning: Included files are close to token limit ({tokens} /"
-                f" {self.token_limit}), you may not be able to have a long"
-                " conversation.",
-                color="red",
+            await self.session_conversation.send_message(
+                source="server",
+                data=dict(
+                    content=f"Warning: Included files are close to token limit ({tokens} /"
+                    f" {self.token_limit}), you may not be able to have a long"
+                    " conversation.",
+                    color="red",
+                ),
             )
         else:
-            await self.session_conversation.add_message(
-                f"File and prompt token count: {tokens} / {self.token_limit}",
-                color="cyan",
+            await self.session_conversation.send_message(
+                source="server",
+                data=dict(
+                    content=f"File and prompt token count: {tokens} / {self.token_limit}",
+                    color="cyan",
+                ),
             )
 
     def add_system_message(self, message: str):

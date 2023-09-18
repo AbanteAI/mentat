@@ -1,33 +1,65 @@
 import argparse
 import asyncio
 import traceback
-from typing import Iterable
+from typing import Dict, Iterable, List
 
 from ipdb import set_trace
 from prompt_toolkit import HTML, print_formatted_text
+from prompt_toolkit.formatted_text import FormattedText
 from termcolor import colored, cprint
 
 from mentat.engine import Engine
 from mentat.logging_config import setup_logging
 from mentat.session import Session
-from mentat.session_conversation import SessionConversation
+from mentat.session_conversation import Message, SessionConversation
 from mentat.terminal.prompt_session import MentatPromptSession
 
 setup_logging()
+
+
+def format_message_content(
+    content: str,
+    color: str | None = None,
+    end: str | None = None,
+    use_ansi_colors: bool = True,
+):
+    formatted_content = content + (end if end is not None else "\n")
+    formatted_color = color if color is not None else ""
+    if (
+        formatted_color != ""
+        and use_ansi_colors
+        and not formatted_color.startswith("ansi")
+    ):
+        formatted_color = "ansi" + formatted_color
+
+    return (formatted_color, formatted_content)
+
+
+def format_and_print_text(message: Message, use_ansi_colors: bool = True):
+    formatted_text = []
+    if isinstance(message.data, list):
+        for data in message.data:
+            _formatted_text = format_message_content(
+                content=data["content"],
+                color=data.get("color"),
+                end=data.get("end"),
+            )
+            formatted_text.append(_formatted_text)
+    else:
+        _formatted_text = format_message_content(
+            content=message.data.content,
+            color=message.data.get("color"),
+            end=message.data.get("end"),
+        )
+
+    print_formatted_text(FormattedText(formatted_text))
 
 
 # TODO: handle exceptions
 async def cprint_stream(conversation: SessionConversation):
     async for event in conversation.listen():
         message = event.message
-        if "color" in message.extra:
-            message_color = message.extra["color"]
-            message_content = HTML(
-                f"<{message_color}>{message.content}</{message_color}>"
-            )
-        else:
-            message_content = message.content
-        print_formatted_text(message_content)
+        format_and_print_text(message)
 
 
 class TerminalClient:
