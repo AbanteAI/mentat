@@ -1,32 +1,48 @@
-import logging
-import os
 import shlex
-from collections import defaultdict
-from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
-from typing import DefaultDict, Dict, Set, cast
+from uuid import UUID
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, Suggestion
 from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.completion import CompleteEvent, Completer, Completion
-from prompt_toolkit.completion.word_completer import WordCompleter
 from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
-from pygments.lexer import Lexer
-from pygments.lexers import guess_lexer_for_filename
-from pygments.token import Token
-from pygments.util import ClassNotFound
 
 from mentat.commands import Command
+from mentat.config_manager import mentat_dir_path
 from mentat.engine import Engine
 
 from .prompt_completer import MentatCompleter
+
+
+class FilteredFileHistory(FileHistory):
+    def __init__(self, filename: str):
+        self.excluded_phrases = ["y", "n", "i", "q"]
+        super().__init__(filename)
+
+    def append_string(self, string: str):
+        if (
+            string.strip().lower() not in self.excluded_phrases
+            # If the user mistypes a command, we don't want it to appear later
+            and string.strip()
+            and string.strip()[0] != "/"
+        ):
+            super().append_string(string)
+
+
+class FilteredHistorySuggestions(AutoSuggestFromHistory):
+    def __init__(self):
+        super().__init__()
+
+    def get_suggestion(self, buffer: Buffer, document: Document) -> Suggestion | None:
+        # We want the auto completer to handle commands instead of the suggester
+        if buffer.text[0] == "/":
+            return None
+        else:
+            return super().get_suggestion(buffer, document)
 
 
 class MentatPromptSession(PromptSession):
@@ -35,9 +51,8 @@ class MentatPromptSession(PromptSession):
 
         self._setup_bindings()
         super().__init__(
-            # completer=MentatCompleter(self.engine),
-            # history=FilteredFileHistory(mentat_dir_path / "history"),
-            # auto_suggest=FilteredHistorySuggestions(),
+            history=FilteredFileHistory(str(mentat_dir_path.joinpath("history"))),
+            auto_suggest=FilteredHistorySuggestions(),
             multiline=True,
             # prompt_continuation=self.prompt_continuation,
             key_bindings=self.bindings,
@@ -77,7 +92,7 @@ class MentatPromptSession(PromptSession):
                 app.current_buffer.suggestion is not None
                 and len(app.current_buffer.suggestion.text) > 0
                 and app.current_buffer.document.is_cursor_at_the_end
-                and app.current_buffer.text
+                and app.current_buffer.text is not None
                 and app.current_buffer.text[0] != "/"
             )
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import DefaultDict, Dict, Set, cast
+from uuid import UUID
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
@@ -34,8 +35,9 @@ class SyntaxCompletion:
 
 
 class MentatCompleter(Completer):
-    def __init__(self, engine: Engine):
+    def __init__(self, engine: Engine, session_id: UUID):
         self.engine = engine
+        self.session_id = session_id
 
         self.syntax_completions: Dict[Path, SyntaxCompletion] = dict()
         self.file_name_completions: DefaultDict[str, Set[Path]] = defaultdict(set)
@@ -45,10 +47,8 @@ class MentatCompleter(Completer):
             sentence=True,
         )
 
-        self._all_syntax_words: Set[str]
-        self._last_refresh_at: datetime
-
-        self.refresh_completions()
+        self._all_syntax_words: Set[str] = set()
+        self._last_refresh_at: datetime | None = None
 
     def refresh_completions_for_file_path(self, file_path: Path):
         """Add/edit/delete completions for some filepath"""
@@ -77,10 +77,12 @@ class MentatCompleter(Completer):
             filtered_tokens.add(token_value)
         self.syntax_completions[file_path] = SyntaxCompletion(words=filtered_tokens)
 
-    def refresh_completions(self):
+    async def refresh_completions(self):
+        file_paths = await self.engine.get_session_code_context(self.session_id)
+
         # Remove syntax completions for files not in the context
         for file_path in set(self.syntax_completions.keys()):
-            if file_path not in self.code_context.files:
+            if file_path not in file_paths:
                 del self.syntax_completions[file_path]
                 file_name = file_path.name
                 self.file_name_completions[file_name].remove(file_path)
@@ -88,7 +90,7 @@ class MentatCompleter(Completer):
                     del self.file_name_completions[file_name]
 
         # Add/update syntax completions for files in the context
-        for file_path in self.code_context.files:
+        for file_path in file_paths:
             if file_path not in self.syntax_completions:
                 self.refresh_completions_for_file_path(file_path)
             else:
@@ -105,10 +107,18 @@ class MentatCompleter(Completer):
         self._last_refresh_at = datetime.utcnow()
 
     def get_completions(self, document: Document, complete_event: CompleteEvent):
+        raise NotImplementedError
+
+    async def get_completions_async(
+        self, document: Document, complete_event: CompleteEvent
+    ):
         if document.text_before_cursor == "":
             return
-        if (datetime.utcnow() - self._last_refresh_at).seconds > 5:
-            self.refresh_completions()
+        if (
+            self._last_refresh_at is None
+            or (datetime.utcnow() - self._last_refresh_at).seconds > 5
+        ):
+            await self.refresh_completions()
         if (
             document.text_before_cursor[0] == "/"
             and not document.text_before_cursor[-1].isspace()

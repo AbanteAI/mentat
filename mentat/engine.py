@@ -2,7 +2,8 @@ import asyncio
 import logging
 import signal
 import sys
-from typing import Iterable, Set
+from typing import Any, Dict, Iterable, List, Set
+from uuid import UUID
 
 from ipdb import set_trace
 
@@ -18,11 +19,15 @@ logger = logging.getLogger("mentat.engine")
 
 
 class Engine:
-    """Manages all processes."""
+    """A global process and task manager.
+
+    A client (Terminal, VSCode extension, NeoVim plugin, etc.) will use an `Engine`
+    instance for any Mentat functionality.
+    """
 
     def __init__(self, with_rpc_server: bool = False):
         self.rpc_server = RpcServer() if with_rpc_server else None
-        self.sessions: Set[Session] = set()
+        self.sessions: Dict[UUID, Session] = {}
 
         self._should_exit = False
         self._force_exit = False
@@ -46,19 +51,54 @@ class Engine:
         """Shutdown the MentatEngine and RPC server"""
         ...
 
-    # Conversation
+    # Session
 
-    async def create_session(
+    async def session_create(
         self,
-        paths: Iterable[str],
-        exclude_paths: Iterable[str] | None,
-        no_code_map: bool,
-    ):
-        session = Session()
-        session.start(paths, exclude_paths, CostTracker(), no_code_map)
-        self.sessions.add(session)
+        paths: List[str] | None = [],
+        exclude_paths: List[str] | None = [],
+        no_code_map: bool = False,
+    ) -> UUID:
+        session = Session(paths, exclude_paths, no_code_map)
+        session.start()
+        self.sessions[session.id] = session
 
-        return session
+        return session.id
+
+    async def session_exists(self, session_id: UUID):
+        return True if session_id in self.sessions else False
+
+    async def session_listen(self, session_id: UUID):
+        if session_id not in self.sessions:
+            raise Exception(f"Session {session_id} does not exist")
+        session = self.sessions[session_id]
+        async for message in session.session_conversation.listen():
+            yield message
+
+    async def session_send(
+        self, session_id: UUID, content: Any, channel: str = "default", **kwargs
+    ):
+        if session_id not in self.sessions:
+            raise Exception(f"Session {session_id} does not exist")
+        session = self.sessions[session_id]
+        message = await session.session_conversation.send_message(
+            source="client", data=dict(content=content, **kwargs), channel=channel
+        )
+
+        return message.id
+
+    async def session_recv(self, session_id: UUID):
+        if session_id not in self.sessions:
+            raise Exception(f"Session {session_id} does not exist")
+
+    async def get_session_code_context(self, session_id: UUID):
+        if session_id not in self.sessions:
+            set_trace()
+            raise Exception(f"Session {session_id} does not exist")
+        session = self.sessions[session_id]
+        code_context_file_paths = list(session.code_context.files.keys())
+
+        return code_context_file_paths
 
     async def create_conversation_message(self):
         ...
@@ -76,7 +116,7 @@ class Engine:
     async def get_commands(self):
         ...
 
-    async def run_command(self):
+    async def run_command(self, command: str):
         ...
 
     ### lifecycle methods
@@ -129,11 +169,15 @@ class Engine:
         logger.debug("Engine has stopped")
 
     async def _run(self, install_signal_handlers: bool = True):
-        if install_signal_handlers:
-            self._init_signal_handlers()
-        await self._startup()
-        await self._main_loop()
-        await self._shutdown()
+        try:
+            if install_signal_handlers:
+                self._init_signal_handlers()
+            await self._startup()
+            await self._main_loop()
+            await self._shutdown()
+        except:
+            set_trace()
+            pass
 
     def run(self, install_signal_handlers: bool = True):
         asyncio.run(self._run(install_signal_handlers=install_signal_handlers))

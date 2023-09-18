@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from typing import Generator
 
 import openai
+import openai.error
 import tiktoken
 from dotenv import load_dotenv
-from termcolor import cprint
+
+from mentat.session_conversation import SessionConversation
 
 from .config_manager import mentat_dir_path, user_config_path
 from .errors import MentatError, UserError
@@ -59,16 +61,21 @@ def count_tokens(message: str) -> int:
     )
 
 
-def check_model_availability(allow_32k: bool) -> bool:
+async def check_model_availability(
+    allow_32k: bool, session_conversation: SessionConversation
+) -> bool:
     available_models = [x["id"] for x in openai.Model.list()["data"]]
     if allow_32k:
         # check if user has access to gpt-4-32k
         if "gpt-4-32k-0314" not in available_models:
-            cprint(
-                "You set ALLOW_32K to true, but your OpenAI API key doesn't"
-                " have access to gpt-4-32k-0314. To remove this warning, set"
-                " ALLOW_32K to false until you have access.",
-                "yellow",
+            await session_conversation.send_message(
+                source="server",
+                data=dict(
+                    content="You set ALLOW_32K to true, but your OpenAI API key doesn't"
+                    " have access to gpt-4-32k-0314. To remove this warning, set"
+                    " ALLOW_32K to false until you have access.",
+                    color="yellow",
+                ),
             )
             allow_32k = False
 
@@ -83,11 +90,18 @@ def check_model_availability(allow_32k: bool) -> bool:
     return allow_32k
 
 
-def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
+async def choose_model(
+    messages: list[dict[str, str]],
+    allow_32k: bool,
+    session_conversation: SessionConversation,
+) -> str:
     prompt_token_count = 0
     for message in messages:
         prompt_token_count += count_tokens(message["content"])
-    cprint(f"\nTotal token count: {prompt_token_count}", "cyan")
+    await session_conversation.send_message(
+        source="server",
+        data=dict(content=f"Total token count: {prompt_token_count}", color="cyan"),
+    )
 
     model = "gpt-4-0314"
     token_buffer = 500
@@ -95,27 +109,34 @@ def choose_model(messages: list[dict[str, str]], allow_32k) -> str:
         if allow_32k:
             model = "gpt-4-32k-0314"
             if prompt_token_count > 32768 - token_buffer:
-                cprint(
-                    "Warning: gpt-4-32k-0314 has a token limit of 32768. Attempting"
-                    " to run anyway:"
+                await session_conversation.send_message(
+                    source="server",
+                    data=dict(
+                        content="Warning: gpt-4-32k-0314 has a token limit of 32768. Attempting"
+                        " to run anyway:"
+                    ),
                 )
         else:
-            cprint(
-                "Warning: gpt-4-0314 has a maximum context length of 8192 tokens."
-                " If you have access to gpt-4-32k-0314, set allow-32k to `true` in"
-                f" `{user_config_path}` to use"
-                " it. Attempting to run with gpt-4-0314:",
-                "yellow",
+            await session_conversation.send_message(
+                source="server",
+                data=dict(
+                    content="Warning: gpt-4-0314 has a maximum context length of 8192 tokens."
+                    " If you have access to gpt-4-32k-0314, set allow-32k to `true` in"
+                    f" `{user_config_path}` to use"
+                    " it. Attempting to run with gpt-4-0314:",
+                    color="yellow",
+                ),
             )
     return model, prompt_token_count
 
 
 @dataclass
 class CostTracker:
-    def __init__(self):
+    def __init__(self, session_conversation: SessionConversation):
+        self.session_conversation = session_conversation
         self.total_cost = 0
 
-    def display_api_call_stats(
+    async def display_api_call_stats(
         self,
         num_prompt_tokens: int,
         num_sampled_tokens: int,
@@ -135,12 +156,20 @@ class CostTracker:
         speed_and_cost_string = (
             f"Speed: {tokens_per_second:.2f} tkns/s | Cost: ${call_cost:.2f}"
         )
-        cprint(speed_and_cost_string, "cyan")
+        await self.session_conversation.send_message(
+            source="server", data=dict(content=speed_and_cost_string, color="cyan")
+        )
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
 
         self.total_cost += call_cost
 
-    def display_total_cost(self) -> None:
-        cprint(f"\nTotal session cost: ${self.total_cost:.2f}", color="light_blue")
+    async def display_total_cost(self) -> None:
+        await self.session_conversation.send_message(
+            source="server",
+            data=dict(
+                content=f"Total session cost: ${self.total_cost:.2f}",
+                color="light_blue",
+            ),
+        )

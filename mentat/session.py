@@ -1,7 +1,10 @@
 import asyncio
 import logging
 from textwrap import dedent
-from typing import Iterable
+from typing import Iterable, List
+from uuid import uuid4
+
+from ipdb import set_trace
 
 from mentat.session_input_manager import SessionInputManager
 
@@ -18,49 +21,59 @@ logger = logging.getLogger()
 
 
 class Session:
-    def __init__(self):
+    def __init__(
+        self,
+        paths: List[str] | None = None,
+        exclude_paths: List[str] | None = None,
+        no_code_map: bool = False,
+    ):
+        self.id = uuid4()
+
         self.session_conversation = SessionConversation()
         self.session_input_manager = SessionInputManager(self.session_conversation)
+
+        self.git_root = get_shared_git_root_for_paths(paths)
+        self.config = ConfigManager(self.git_root)
+        self.code_context = CodeContext(
+            config=self.config,
+            paths=paths or [],
+            exclude_paths=exclude_paths or [],
+            session_conversation=self.session_conversation,
+        )
+        self.code_file_manager = CodeFileManager(
+            self.session_conversation,
+            self.session_input_manager,
+            self.config,
+            self.code_context,
+        )
+        self.cost_tracker = CostTracker(self.session_conversation)
+        self.code_map = (
+            CodeMap(self.git_root, token_limit=2048) if not no_code_map else None
+        )
 
         self._main_task: asyncio.Task | None = None
         self._stop_task: asyncio.Task | None = None
 
-    async def _main(
-        self,
-        paths: Iterable[str],
-        exclude_paths: Iterable[str] | None,
-        cost_tracker: CostTracker,
-        no_code_map: bool,
-    ):
-        git_root = get_shared_git_root_for_paths(paths)
-        config = ConfigManager(git_root)
-        code_context = CodeContext(
-            config, paths, exclude_paths or [], self.session_conversation
-        )
-        await code_context.display_context()
-        code_file_manager = CodeFileManager(
-            self.session_conversation, self.session_input_manager, config, code_context
-        )
-        code_map = CodeMap(git_root, token_limit=2048) if not no_code_map else None
-        if code_map is not None and code_map.ctags_disabled:
+    async def _main(self):
+        await self.code_context.display_context()
+        if self.code_map is not None and self.code_map.ctags_disabled:
             ctags_disabled_message = f"""
                 There was an error with your universal ctags installation, disabling CodeMap.
-                Reason: {code_map.ctags_disabled_reason}
+                Reason: {self.code_map.ctags_disabled_reason}
             """
             ctags_disabled_message = dedent(ctags_disabled_message)
             await self.session_conversation.send_message(
                 source="server",
                 data=dict(content=ctags_disabled_message, color="yellow"),
             )
-        conv = LLMConversation(
-            config,
-            cost_tracker,
-            code_file_manager,
+        conv = await LLMConversation.create(
+            self.config,
+            self.cost_tracker,
+            self.code_file_manager,
             self.session_conversation,
             self.session_input_manager,
-            code_map,
+            self.code_map,
         )
-        await conv.check_token_limit()
 
         await self.session_conversation.send_message(
             source="server",
@@ -83,7 +96,7 @@ class Session:
                 user_response = user_response_message.data.get("content")
                 conv.add_user_message(user_response)
 
-            explanation, code_changes = await conv.get_model_response(config)
+            explanation, code_changes = await conv.get_model_response()
 
             # if code_changes:
             #     need_user_request = get_user_feedback_on_changes(
@@ -98,13 +111,7 @@ class Session:
     def is_stopped(self):
         return self._main_task is None and self._stop_task is None
 
-    def start(
-        self,
-        paths: Iterable[str],
-        exclude_paths: Iterable[str] | None,
-        cost_tracker: CostTracker,
-        no_code_map: bool,
-    ):
+    def start(self):
         if self._main_task:
             logger.warning("Job already started")
             return
@@ -112,11 +119,12 @@ class Session:
         async def run_main():
             try:
                 await self.session_conversation.start()
-                await self._main(paths, exclude_paths, cost_tracker, no_code_map)
+                await self._main()
             except asyncio.CancelledError:
                 pass
 
-        def cleanup_main(_: asyncio.Task):
+        def cleanup_main(task: asyncio.Task):
+            set_trace()
             self._main_task = None
             logger.debug("Main task stopped")
 
