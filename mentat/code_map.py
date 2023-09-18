@@ -113,11 +113,9 @@ class CodeMapMessage:
 
 
 class CodeMap:
-    def __init__(
-        self, git_root: Path, config: ConfigManager, token_limit: int | None = None
-    ):
-        self.git_root = git_root
+    def __init__(self, config: ConfigManager, token_limit: int | None = None):
         self.config = config
+        self.git_root = self.config.git_root
         self.token_limit = token_limit
 
         self.ctags_disabled = True

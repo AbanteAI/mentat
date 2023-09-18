@@ -2,7 +2,6 @@ import argparse
 import glob
 import logging
 from pathlib import Path
-from textwrap import dedent
 from typing import Optional
 
 from termcolor import cprint
@@ -12,10 +11,8 @@ from .code_change_display import print_change
 from .code_context import CodeContext
 from .code_file import parse_intervals
 from .code_file_manager import CodeFileManager
-from .code_map import CodeMap
 from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
-from .diff_context import get_diff_context
 from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker, setup_api_key
@@ -144,29 +141,13 @@ def loop(
 ) -> None:
     git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
     config = ConfigManager(git_root)
-    try:
-        diff_context = get_diff_context(config, diff, pr_diff)
-        if not paths:
-            paths = diff_context.files
-    except UserError as e:
-        cprint(str(e), "light_yellow")
-        exit()
-    code_context = CodeContext(config, paths, exclude_paths or [])
-    code_context.display_context()
-    diff_context.display_context()
-    user_input_manager = UserInputManager(config, code_context)
-    code_file_manager = CodeFileManager(
-        user_input_manager, config, code_context, diff_context
+    code_context = CodeContext(
+        config, paths, exclude_paths or [], diff, pr_diff, no_code_map
     )
-    code_map = CodeMap(git_root, config, token_limit=2048) if not no_code_map else None
-    if code_map is not None and code_map.ctags_disabled:
-        ctags_disabled_message = f"""
-            There was an error with your universal ctags installation, disabling CodeMap.
-            Reason: {code_map.ctags_disabled_reason}
-        """
-        ctags_disabled_message = dedent(ctags_disabled_message)
-        cprint(ctags_disabled_message, color="yellow")
-    conv = Conversation(config, cost_tracker, code_file_manager, code_map)
+    code_context.display_context()
+    user_input_manager = UserInputManager(config, code_context)
+    code_file_manager = CodeFileManager(user_input_manager, config, code_context)
+    conv = Conversation(config, cost_tracker, code_file_manager)
 
     cprint("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")
     cprint("What can I do for you?", color="light_blue")
@@ -176,7 +157,7 @@ def loop(
             user_response = user_input_manager.collect_user_input()
             conv.add_user_message(user_response)
 
-        _, code_changes = conv.get_model_response(config)
+        _, code_changes = conv.get_model_response()
 
         if code_changes:
             need_user_request = get_user_feedback_on_changes(
