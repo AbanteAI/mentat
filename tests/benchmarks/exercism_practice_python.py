@@ -26,7 +26,7 @@ def exercise_passed():
 def get_error_message():
     with open(threadLocal.test_output_file, "r") as f:
         lines = f.readlines()
-        lines = lines[-30:]
+        lines = lines[:50]
         return "\n".join(lines)
 
 
@@ -48,7 +48,12 @@ def mock_user_input_manager(max_iterations, mocker):
         if threadLocal.iterations == 0:
             threadLocal.iterations = 1
             threadLocal.confirm = True
-            return "Please complete the program you have been given."
+            return dedent(
+                f"""\
+                Use the instructions in {threadLocal.exercise}/.docs/instructions.md to modify {threadLocal.exercise_file}.
+                Keep and implement the existing function or class stubs, they will be called from unit tests.
+                Only use standard python libraries, don't suggest installing any packages."""
+            )
         else:
             if threadLocal.confirm:
                 threadLocal.confirm = False
@@ -59,7 +64,12 @@ def mock_user_input_manager(max_iterations, mocker):
             else:
                 threadLocal.iterations += 1
                 threadLocal.confirm = True
-                return "Please fix this error:\n" + get_error_message()
+                return get_error_message() + dedent(
+                    f"""
+                    See the testing errors above.
+                    The tests are correct.
+                    Fix the code in {threadLocal.exercise_file} to resolve the errors."""
+                )
 
     mocker.patch.object(
         UserInputManager, "collect_user_input", new=mocked_collect_user_input
@@ -106,6 +116,8 @@ def run_exercise(problem_dir):
     try:
         sys.__stdout__.write(f"\nStarting {problem_dir}")
         threadLocal.exercise = f"exercises/practice/{problem_dir}"
+        problem_file = problem_dir.replace("-", "_")
+        threadLocal.exercise_file = f"{threadLocal.exercise}/{problem_file}.py"
         threadLocal.test_output_file = f"{threadLocal.exercise}/test_output.txt"
         if os.path.exists(threadLocal.test_output_file):
             sys.__stdout__.write(f"\nSkipping {problem_dir}: test_output.txt exists")
@@ -117,10 +129,9 @@ def run_exercise(problem_dir):
             }
 
         threadLocal.iterations = 0
-        problem_file = problem_dir.replace("-", "_")
         run(
             [
-                f"{threadLocal.exercise}/{problem_file}.py",
+                threadLocal.exercise_file,
                 f"{threadLocal.exercise}/.docs/instructions.md",
             ],
             no_code_map=True,
@@ -135,8 +146,8 @@ def run_exercise(problem_dir):
             "test": problem_dir,
         }
     except Exception as e:
-        sys.__stdout.write(f"Error running {problem_dir}")
-        sys.stdout.write(e)
+        sys.__stdout__.write(f"\nError running {problem_dir}")
+        sys.__stdout__.write(str(e))
         return {
             "iterations": threadLocal.iterations,
             "passed": False,
