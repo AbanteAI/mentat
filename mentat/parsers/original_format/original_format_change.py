@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any
 
 from mentat.config_manager import ConfigManager
 from mentat.errors import ModelError
@@ -59,7 +59,7 @@ class OriginalFormatChange:
     @classmethod
     def to_file_edits(
         cls,
-        changes: list[Self],
+        changes: list[OriginalFormatChange],
         config: ConfigManager,
     ) -> list[FileEdit]:
         file_edits = dict[Path, FileEdit]()
