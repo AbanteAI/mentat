@@ -45,7 +45,7 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture
 def mock_call_llm_api(mocker):
-    mock = mocker.patch("mentat.parsing.call_llm_api")
+    mock = mocker.patch("mentat.conversation.call_llm_api")
 
     def set_generator_values(values):
         async def async_generator():

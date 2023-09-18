@@ -1,9 +1,13 @@
+from __future__ import annotations
+
+import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import attr
 from termcolor import cprint
 
-from mentat.code_file_manager import CodeFileManager
+from mentat.config_manager import ConfigManager
 from mentat.errors import MentatError
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
@@ -11,6 +15,10 @@ from mentat.parsers.change_display_helper import (
     get_full_change,
 )
 from mentat.user_input_manager import UserInputManager
+
+if TYPE_CHECKING:
+    # This normally will cause a circular import
+    from mentat.code_file_manager import CodeFileManager
 
 
 # TODO: Add 'owner' to Replacement so that interactive mode can accept/reject multiple replacements at once
@@ -26,6 +34,12 @@ class Replacement:
     starting_line: int = attr.field()
     # Exclusive
     ending_line: int = attr.field()
+
+    def __lt__(self, other: Replacement):
+        return self.ending_line < other.ending_line or (
+            self.ending_line == other.ending_line
+            and self.starting_line < other.ending_line
+        )
 
 
 def _ask_user_change(
@@ -55,7 +69,10 @@ class FileEdit:
 
     # TODO: Move this somewhere else?
     def filter_replacements(
-        self, code_file_manager: CodeFileManager, user_input_manager: UserInputManager
+        self,
+        code_file_manager: CodeFileManager,
+        user_input_manager: UserInputManager,
+        config: ConfigManager,
     ) -> bool:
         if self.is_creation:
             display_information = DisplayInformation(
@@ -67,7 +84,8 @@ class FileEdit:
                 return False
             file_lines = []
         else:
-            file_lines = code_file_manager.file_lines[self.file_path]
+            rel_path = Path(os.path.relpath(self.file_path, config.git_root))
+            file_lines = code_file_manager.file_lines[rel_path]
 
         if self.is_deletion:
             display_information = DisplayInformation(
@@ -121,27 +139,27 @@ class FileEdit:
         )
 
     def resolve_conflicts(self, user_input_manager: UserInputManager):
-        self.replacements.sort(
-            reverse=True, key=lambda replacement: replacement.ending_line
-        )
+        self.replacements.sort(reverse=True)
         for index, replacement in enumerate(self.replacements):
             for other in self.replacements[index + 1 :]:
                 # TODO: another type of conflict (not caught here) would be both replacements being inserts on same line
-                if other.ending_line > replacement.starting_line:
+                if (
+                    other.ending_line > replacement.starting_line
+                    and other.starting_line < replacement.ending_line
+                ):
                     # TODO: Ask user for conflict resolution
                     other.ending_line = replacement.starting_line
                     other.starting_line = min(other.starting_line, other.ending_line)
 
-    def get_file_lines(self, code_file_manager: CodeFileManager):
-        file_lines = code_file_manager.file_lines[self.file_path].copy()
-        self.replacements.sort(
-            reverse=True, key=lambda replacement: replacement.ending_line
-        )
+    def get_file_lines(self, file_lines: list[str]):
+        self.replacements.sort(reverse=True)
         earliest_line = None
         for replacement in self.replacements:
             if earliest_line is not None and replacement.ending_line > earliest_line:
                 # This should never happen if resolve conflicts is called
                 raise MentatError("Error: Line overlap in Replacements")
+            if replacement.ending_line > len(file_lines):
+                file_lines += [""] * (replacement.ending_line - len(file_lines))
             earliest_line = replacement.starting_line
             file_lines = (
                 file_lines[: replacement.starting_line]

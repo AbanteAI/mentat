@@ -6,8 +6,10 @@ from openai.error import InvalidRequestError, RateLimitError
 from termcolor import cprint
 
 from mentat.errors import MentatError, UserError
-from mentat.parsers.concrete_change import ConcreteChange
-from mentat.parsers.original_format.original_format_change import OriginalFormatChange
+from mentat.parsers.file_edit import FileEdit
+from mentat.parsers.original_format.original_format_parsing import (
+    stream_and_parse_llm_response,
+)
 
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
@@ -115,21 +117,23 @@ class Conversation:
         return system_message
 
     async def _run_async_stream(
-        self, messages: list[dict[str, str]], model: str
-    ) -> tuple[str, list[ConcreteChange]]:
+        self, messages: list[dict[str, str]], config: ConfigManager, model: str
+    ) -> tuple[str, list[FileEdit]]:
         response = await call_llm_api(messages, model)
         # TODO once this becomes a separate parsing injectable, use injectable here
-        message, changes = await OriginalFormatChange.stream_and_parse_llm_response(
-            response, self.code_file_manager
+        message, file_edits = await stream_and_parse_llm_response(
+            response, self.code_file_manager, config
         )
-        return message, list[ConcreteChange](changes)
+        return message, file_edits
 
     def _handle_async_stream(
-        self, messages: list[dict[str, str]], model: str
-    ) -> tuple[str, list[ConcreteChange], float]:
+        self, messages: list[dict[str, str]], config: ConfigManager, model: str
+    ) -> tuple[str, list[FileEdit], float]:
         start_time = default_timer()
         try:
-            message, code_changes = asyncio.run(self._run_async_stream(messages, model))
+            message, file_edits = asyncio.run(
+                self._run_async_stream(messages, config, model)
+            )
         except InvalidRequestError as e:
             raise MentatError(
                 "Something went wrong - invalid request to OpenAI API. OpenAI"
@@ -147,19 +151,21 @@ class Conversation:
             print("\n\nInterrupted by user. Using the response up to this point.")
             logging.info("User interrupted response.")
             # TODO: This except won't be here after interface changes, and this won't be necessary
-            message, code_changes = "", []
+            message, file_edits = "", []
 
         time_elapsed = default_timer() - start_time
-        return (message, code_changes, time_elapsed)
+        return (message, file_edits, time_elapsed)
 
-    def get_model_response(self, config: ConfigManager) -> list[ConcreteChange]:
+    def get_model_response(self, config: ConfigManager) -> list[FileEdit]:
         messages = self.messages.copy()
 
         system_message = self._get_system_message()
         messages.append({"role": "system", "content": system_message})
         model, num_prompt_tokens = choose_model(messages, self.allow_32k)
 
-        message, code_changes, time_elapsed = self._handle_async_stream(messages, model)
+        message, file_edits, time_elapsed = self._handle_async_stream(
+            messages, config, model
+        )
         self.cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             count_tokens(message),
@@ -168,4 +174,4 @@ class Conversation:
         )
 
         self.add_assistant_message(message)
-        return code_changes
+        return file_edits

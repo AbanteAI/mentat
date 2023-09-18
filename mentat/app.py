@@ -3,12 +3,11 @@ import glob
 import logging
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, cast
+from typing import Optional
 
 from termcolor import cprint
 
 from mentat.parsers.file_edit import FileEdit
-from mentat.parsers.original_format.original_format_change import OriginalFormatChange
 
 from .code_context import CodeContext
 from .code_file import parse_intervals
@@ -139,12 +138,7 @@ def loop(
             user_response = user_input_manager.collect_user_input()
             conv.add_user_message(user_response)
 
-        code_changes = conv.get_model_response(config)
-        # TODO: This will eventually be in the parser and won't be a class method
-        file_edits = OriginalFormatChange.to_file_edits(
-            cast(list[OriginalFormatChange], code_changes), config
-        )
-
+        file_edits = conv.get_model_response(config)
         if file_edits:
             need_user_request = get_user_feedback_on_edits(
                 config, conv, user_input_manager, code_file_manager, file_edits
@@ -176,7 +170,7 @@ def get_user_feedback_on_edits(
             conv.add_user_message("User chose not to apply any of your changes.")
         case "i":
             edits_to_apply = user_filter_changes(
-                code_file_manager, user_input_manager, file_edits
+                code_file_manager, user_input_manager, config, file_edits
             )
             conv.add_user_message(
                 "User chose to apply"
@@ -210,11 +204,12 @@ def get_user_feedback_on_edits(
 def user_filter_changes(
     code_file_manager: CodeFileManager,
     user_input_manager: UserInputManager,
+    config: ConfigManager,
     file_edits: list[FileEdit],
 ) -> list[FileEdit]:
     new_edits = list[FileEdit]()
     for file_edit in file_edits:
-        if file_edit.filter_replacements(code_file_manager, user_input_manager):
+        if file_edit.filter_replacements(code_file_manager, user_input_manager, config):
             new_edits.append(file_edit)
 
     return new_edits

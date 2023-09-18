@@ -40,8 +40,8 @@ class CodeFileManager:
     def _read_all_file_lines(self) -> None:
         self.file_lines = dict[Path, list[str]]()
         for file in self.code_context.files.values():
+            # self.file_lines is relative to git root
             rel_path = Path(os.path.relpath(file.path, self.config.git_root))
-            # here keys are str not path object
             self.file_lines[rel_path] = self.read_file(file)
 
     def get_code_message(self):
@@ -84,6 +84,7 @@ class CodeFileManager:
     # Mainly does checks on if file is in context, file exists, file is unchanged, etc.
     def write_changes_to_files(self, file_edits: list[FileEdit]):
         for file_edit in file_edits:
+            rel_path = Path(os.path.relpath(file_edit.file_path, self.config.git_root))
             if file_edit.is_creation:
                 if file_edit.file_path.exists():
                     raise MentatError(
@@ -102,31 +103,35 @@ class CodeFileManager:
                     )
 
             if file_edit.is_deletion:
-                cprint(f"Are you sure you want to delete {file_edit.file_path}?", "red")
+                cprint(f"Are you sure you want to delete {rel_path}?", "red")
                 if self.user_input_manager.ask_yes_no(default_yes=False):
-                    cprint(f"Deleting {file_edit.file_path}...", "red")
+                    cprint(f"Deleting {rel_path}...", "red")
                     self._delete_file(file_edit.file_path)
+                    continue
                 else:
-                    cprint(f"Not deleting {file_edit.file_path}", "green")
+                    cprint(f"Not deleting {rel_path}", "green")
 
-            stored_lines = self.file_lines[file_edit.file_path]
-            if stored_lines != self.read_file(file_edit.file_path):
-                logging.info(
-                    f"File '{file_edit.file_path}' changed while generating changes"
-                )
-                cprint(
-                    f"File '{file_edit.file_path}' changed while generating; current"
-                    " file changes will be erased. Continue?",
-                    color="light_yellow",
-                )
-                if not self.user_input_manager.ask_yes_no(default_yes=False):
-                    cprint(f"Not applying changes to file {file_edit.file_path}")
+            if not file_edit.is_creation:
+                stored_lines = self.file_lines[rel_path]
+                if stored_lines != self.read_file(rel_path):
+                    logging.info(
+                        f"File '{file_edit.file_path}' changed while generating changes"
+                    )
+                    cprint(
+                        f"File '{rel_path}' changed while generating; current"
+                        " file changes will be erased. Continue?",
+                        color="light_yellow",
+                    )
+                    if not self.user_input_manager.ask_yes_no(default_yes=False):
+                        cprint(f"Not applying changes to file {rel_path}")
+            else:
+                stored_lines = []
 
             if file_edit.rename_file_path is not None:
                 self._add_file(file_edit.rename_file_path)
                 self._delete_file(file_edit.file_path)
                 file_edit.file_path = file_edit.rename_file_path
 
-            new_lines = file_edit.get_file_lines(self)
-            with open(file_edit.file_path) as f:
+            new_lines = file_edit.get_file_lines(stored_lines)
+            with open(file_edit.file_path, "w") as f:
                 f.write("\n".join(new_lines))

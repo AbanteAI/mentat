@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -10,14 +12,17 @@ import attr
 from termcolor import cprint
 
 from mentat.code_file_manager import CodeFileManager
+from mentat.config_manager import ConfigManager
 from mentat.errors import ModelError
 from mentat.parsers.change_display_helper import (
     change_delimiter,
     get_file_name,
     get_later_lines,
+    get_line_number_buffer,
     get_previous_lines,
     get_removed_lines,
 )
+from mentat.parsers.file_edit import FileEdit
 from mentat.streaming_printer import StreamingPrinter
 
 from .original_format_change import OriginalFormatChange, OriginalFormatChangeAction
@@ -154,9 +159,10 @@ class ParsingState:
 
 async def stream_and_parse_llm_response(
     response: AsyncGenerator[Any, None],
-    state: ParsingState,
     code_file_manager: CodeFileManager,
-) -> None:
+    config: ConfigManager,
+) -> tuple[str, list[FileEdit]]:
+    state = ParsingState()
     print("\nstreaming...  use control-c to interrupt the model at any point\n")
 
     printer = StreamingPrinter()
@@ -177,6 +183,9 @@ async def stream_and_parse_llm_response(
             state.code_changes = state.code_changes[:-1]
     finally:
         logging.debug(f"LLM response:\n{state.message}")
+
+    code_changes = list(filter(lambda change: not change.error, state.code_changes))
+    return (state.message, OriginalFormatChange.to_file_edits(code_changes, config))
 
 
 async def _process_response(
@@ -217,7 +226,7 @@ def _process_content_line(
     ) or not state.in_special_lines:
         to_print = state.parse_line_printing(content)
         prefix = (
-            "+" + " " * (state.code_changes[-1].line_number_buffer - 1)
+            "+" + " " * (get_line_number_buffer(state.code_changes[-1].file_lines) - 1)
             if state.in_code_lines and beginning
             else ""
         )
@@ -271,7 +280,8 @@ def _process_content_line(
 
         if to_print and not (state.in_code_lines and state.code_changes[-1].error):
             prefix = (
-                "+" + " " * (state.code_changes[-1].line_number_buffer - 1)
+                "+"
+                + " " * (get_line_number_buffer(state.code_changes[-1].file_lines) - 1)
                 if state.in_code_lines and beginning
                 else ""
             )

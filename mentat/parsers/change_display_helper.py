@@ -23,7 +23,7 @@ def _get_lexer(file_path: Path):
     return lexer
 
 
-def _get_line_number_buffer(file_lines: list[str]):
+def get_line_number_buffer(file_lines: list[str]):
     return len(str(len(file_lines) + 1)) + 1
 
 
@@ -46,7 +46,7 @@ class DisplayInformation:
     new_name: Path | None = attr.field(default=None)
 
     def __attrs_post_init__(self):
-        self.line_number_buffer = _get_line_number_buffer(self.file_lines)
+        self.line_number_buffer = get_line_number_buffer(self.file_lines)
         self.lexer = _get_lexer(self.file_name)
 
 

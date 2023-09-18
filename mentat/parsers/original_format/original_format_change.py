@@ -1,21 +1,13 @@
 from __future__ import annotations
 
-import math
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Self
-
-from typing_extensions import override
+from typing import TYPE_CHECKING, Any, Self
 
 from mentat.config_manager import ConfigManager
 from mentat.errors import ModelError
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
-from mentat.parsers.concrete_change import ConcreteChange
 from mentat.parsers.file_edit import FileEdit, Replacement
-from mentat.parsers.original_format.original_format_parsing import (
-    ParsingState,
-    stream_and_parse_llm_response,
-)
 
 if TYPE_CHECKING:
     # This normally will cause a circular import
@@ -63,19 +55,7 @@ class OriginalFormatChangeAction(Enum):
                 return FileActionType.UpdateFile
 
 
-class OriginalFormatChange(ConcreteChange):
-    @override
-    @classmethod
-    async def stream_and_parse_llm_response(
-        cls, response: AsyncGenerator[Any, None], code_file_manager: CodeFileManager
-    ) -> tuple[str, list[Self]]:
-        state = ParsingState()
-        await stream_and_parse_llm_response(response, state, code_file_manager)
-        return state.message, list(
-            filter(lambda change: not change.error, state.code_changes)
-        )
-
-    @override
+class OriginalFormatChange:
     @classmethod
     def to_file_edits(
         cls,
@@ -128,11 +108,11 @@ class OriginalFormatChange(ConcreteChange):
                 self.json_data[json_key] = int(self.json_data[json_key])
         self.code_lines = code_lines
         self.file = Path(self.json_data["file"])
-        # TODO: Fix this
-        # This is not ideal; however, it would be a lot of work to fix,
-        # and this class is going to completely change soon anyways
-        self.first_changed_line: int = None  # type: ignore
-        self.last_changed_line: int = None  # type: ignore
+        # This rename_map is a bit hacky; it shouldn't be used outside of streaming/parsing
+        if self.file in rename_map:
+            self.file = rename_map[self.file]
+        self.first_changed_line: int = 0
+        self.last_changed_line: int = 0
         self.error = ""
 
         try:
@@ -204,11 +184,7 @@ class OriginalFormatChange(ConcreteChange):
                     f" already exists: {self.name}"
                 )
 
-            # This rename_map is a bit hacky; it shouldn't be used outside of streaming/parsing
-            rel_path = (
-                self.file if self.file not in rename_map else rename_map[self.file]
-            )
-
+            rel_path = self.file
             try:
                 self.file_lines = code_file_manager.file_lines[rel_path]
             except KeyError:
@@ -217,10 +193,6 @@ class OriginalFormatChange(ConcreteChange):
                     " context or doesn't exist"
                 )
 
-    def __lt__(self, other: OriginalFormatChange) -> bool:
-        return self.last_changed_line < other.last_changed_line
-
-    @override
     def get_change_display_information(self) -> DisplayInformation:
         removed_block = (
             self.file_lines
@@ -237,8 +209,8 @@ class OriginalFormatChange(ConcreteChange):
             self.code_lines,
             removed_block,
             self.action.get_file_action_type(),
-            int(self.first_changed_line),
-            math.ceil(self.last_changed_line),
-            self.name,
+            self.first_changed_line,
+            self.last_changed_line,
+            self.name if self.action == OriginalFormatChangeAction.RenameFile else None,
         )
         return display_information
