@@ -1,7 +1,10 @@
 import asyncio
 import logging
 import signal
+import sys
 from typing import Iterable, Set
+
+from ipdb import set_trace
 
 from mentat.llm_api import CostTracker
 
@@ -11,7 +14,7 @@ from .rpc import RpcServer
 from .session import Session
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger()
+logger = logging.getLogger("mentat.engine")
 
 
 class Engine:
@@ -19,7 +22,6 @@ class Engine:
 
     def __init__(self, with_rpc_server: bool = False):
         self.rpc_server = RpcServer() if with_rpc_server else None
-
         self.sessions: Set[Session] = set()
 
         self._should_exit = False
@@ -85,6 +87,7 @@ class Engine:
             await asyncio.sleep(3)
 
     def _handle_exit(self):
+        print("got a signal")
         if self._should_exit:
             self._force_exit = True
         else:
@@ -125,16 +128,17 @@ class Engine:
 
         logger.debug("Engine has stopped")
 
-    async def _run(self):
-        # self._init_signal_handlers()
+    async def _run(self, install_signal_handlers: bool = True):
+        if install_signal_handlers:
+            self._init_signal_handlers()
         await self._startup()
         await self._main_loop()
         await self._shutdown()
 
-    def run(self):
-        asyncio.run(self._run())
+    def run(self, install_signal_handlers: bool = True):
+        asyncio.run(self._run(install_signal_handlers=install_signal_handlers))
 
 
-if __name__ == "__main__":
+def run_cli():
     mentat_engine = Engine()
     mentat_engine.run()
