@@ -10,7 +10,6 @@ from typing import Generator
 import attr
 import openai
 import openai.error
-from termcolor import cprint
 
 from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import (
@@ -155,40 +154,7 @@ class ParsingState:
         return to_print, entered_code_lines, exited_code_lines, created_code_change
 
 
-def run_async_stream_and_parse_llm_response(
-    messages: list[dict[str, str]],
-    model: str,
-    code_file_manager: CodeFileManager,
-) -> ParsingState:
-    state: ParsingState = ParsingState()
-    start_time = default_timer()
-    try:
-        asyncio.run(
-            stream_and_parse_llm_response(messages, model, state, code_file_manager)
-        )
-    except openai.error.InvalidRequestError as e:
-        raise MentatError(
-            "Something went wrong - invalid request to OpenAI API. OpenAI returned:\n"
-            + str(e)
-        )
-    except openai.error.RateLimitError as e:
-        raise UserError("OpenAI gave a rate limit error:\n" + str(e))
-    except KeyboardInterrupt:
-        print("\n\nInterrupted by user. Using the response up to this point.")
-        # if the last change is incomplete, remove it
-        if state.in_code_lines:
-            state.code_changes = state.code_changes[:-1]
-        logging.info("User interrupted response.")
-
-    state.code_changes = list(
-        filter(lambda change: not change.error, state.code_changes)
-    )
-
-    state.time_elapsed = default_timer() - start_time
-    return state
-
-
-async def async_stream_and_parse_llm_response(
+async def run_stream_and_parse_llm_response(
     messages: list[dict[str, str]],
     model: str,
     code_file_manager: CodeFileManager,
@@ -204,6 +170,7 @@ async def async_stream_and_parse_llm_response(
         )
     except openai.error.RateLimitError as e:
         raise UserError("OpenAI gave a rate limit error:\n" + str(e))
+    # NOTE: should this be a KeyboardInterrupt?
     except KeyboardInterrupt:
         print("\n\nInterrupted by user. Using the response up to this point.")
         # if the last change is incomplete, remove it

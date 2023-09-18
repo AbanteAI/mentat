@@ -5,16 +5,16 @@ from uuid import UUID, uuid4
 
 from ipdb import set_trace
 
-from .broadcast import Broadcast
+from .broadcast import Broadcast, Event
 
 
 # must be json serializable
 @dataclass
 class Message:
+    id: UUID
     source: Literal["server"] | Literal["client"]
     data: Any
-    id: UUID = uuid4()
-    created_at: datetime = datetime.utcnow()
+    created_at: datetime
 
 
 class MessageGroup:
@@ -30,7 +30,7 @@ class SessionConversation:
 
     Stores message history for a Session and holds an in-memory message bus.
 
-    Terminal and extension clients  can read these messages and render them accordingly.
+    Terminal and extension clients can read these messages and render them accordingly.
     For the terminal, they would be rendered with `cprint`.
     """
 
@@ -56,18 +56,20 @@ class SessionConversation:
         self.messages.append(message)
         await self.broadcast.publish(channel=channel, message=message)
 
-    async def recv_message(self, channel: str = "default"):
-        """Listen for a single reponse on a temporary channel"""
-        input_request_message = Message(source="server", data={"type": "input_request"})
-        await self.broadcast.publish("default", input_request_message)
-        async with self.broadcast.subscribe(
-            f"default:{input_request_message.id}"
-        ) as subscriber:
-            async for event in subscriber:
-                return event
+        return message
 
+    # TODO: this should aways return a Message
+    async def recv_message(self, channel: str = "default"):
+        """Listen for a single reponse on a channel"""
+        async with self.broadcast.subscribe(channel) as subscriber:
+            async for event in subscriber:
+                message: Message = event.message
+                return message
+
+    # TODO: this should aways return Messages
     async def listen(self, channel: str = "default"):
         """Listen to all messages on a channel indefinitely"""
         async with self.broadcast.subscribe(channel) as subscriber:
             async for event in subscriber:
-                yield event
+                message: Message = event.message
+                yield message

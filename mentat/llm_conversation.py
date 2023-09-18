@@ -10,11 +10,9 @@ from .code_change import CodeChange, CodeChangeAction
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager
+from .errors import MentatError
 from .llm_api import CostTracker, check_model_availability, choose_model, count_tokens
-from .parsing import (
-    async_stream_and_parse_llm_response,
-    run_async_stream_and_parse_llm_response,
-)
+from .parsing import run_stream_and_parse_llm_response
 from .prompts import system_prompt
 
 logger = logging.getLogger()
@@ -43,7 +41,7 @@ class LLMConversation:
         )
         self.token_limit = 32768 if self.allow_32k else 8192
         if tokens > self.token_limit:
-            raise KeyboardInterrupt(
+            raise MentatError(
                 f"Included files already exceed token limit ({tokens} /"
                 f" {self.token_limit}). Please try running again with a reduced number"
                 " of files."
@@ -76,7 +74,9 @@ class LLMConversation:
     def add_assistant_message(self, message: str):
         self.messages.append({"role": "assistant", "content": message})
 
-    def get_model_response(self, config: ConfigManager) -> (str, list[CodeChange]):
+    async def get_model_response(
+        self, config: ConfigManager
+    ) -> (str, list[CodeChange]):
         messages = self.messages.copy()
 
         code_message = self.code_file_manager.get_code_message()
@@ -106,40 +106,49 @@ class LLMConversation:
             if code_map_message:
                 match (code_map_message.level):
                     case "signatures":
-                        cprint_message_level = "full syntax tree"
+                        cmap_message_level = "full syntax tree"
                     case "no_signatures":
-                        cprint_message_level = "partial syntax tree"
+                        cmap_message_level = "partial syntax tree"
                     case "filenames":
-                        cprint_message_level = "filepaths only"
+                        cmap_message_level = "filepaths only"
                     case _:
                         raise Exception(
                             f"Unknown CodeMapMessage level '{code_map_message.level}'"
                         )
-                cprint_message = f"\nIncluding CodeMap ({cprint_message_level})"
-                cprint(cprint_message, color="green")
+                await self.session_conversation.send_message(
+                    source="server",
+                    data=dict(
+                        content=f"Including CodeMap ({cmap_message_level})",
+                        color="green",
+                    ),
+                )
                 system_message += f"\n{code_map_message}"
             else:
-                cprint_message = [
-                    "\nExcluding CodeMap from system message.",
-                    "Reason: not enough tokens available in model context.",
-                ]
-                cprint_message = "\n".join(cprint_message)
-                cprint(cprint_message, color="yellow")
+                await self.session_conversation.send_message(
+                    source="server",
+                    data=dict(
+                        content="""
+                            Excluding CodeMap from system message.,
+                            Reason: not enough tokens available in model context.
+                        """,
+                        color="yellow",
+                    ),
+                )
 
         messages.append({"role": "system", "content": system_message})
 
         model, num_prompt_tokens = choose_model(messages, self.allow_32k)
 
-        state = run_async_stream_and_parse_llm_response(
+        state = await run_stream_and_parse_llm_response(
             messages, model, self.code_file_manager
         )
 
-        self.cost_tracker.display_api_call_stats(
-            num_prompt_tokens,
-            count_tokens(state.message),
-            model,
-            state.time_elapsed,
-        )
+        # self.cost_tracker.display_api_call_stats(
+        #     num_prompt_tokens,
+        #     count_tokens(state.message),
+        #     model,
+        #     state.time_elapsed,
+        # )
 
         self.add_assistant_message(state.message)
         return state.explanation, state.code_changes

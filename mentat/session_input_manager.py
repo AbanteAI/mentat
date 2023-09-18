@@ -1,3 +1,7 @@
+from uuid import uuid4
+
+from ipdb import set_trace
+
 from mentat.session_conversation import SessionConversation
 
 
@@ -15,9 +19,16 @@ class SessionInputManager:
         # send a message requesting user to send a response
         # create a new broadcast channel that listens for the input
         # close the channel after receiving the input
-        user_input = await self.session_conversation.recv_message()
 
-        return user_input
+        data = {"type": "collect_user_input"}
+        message = await self.session_conversation.send_message(
+            source="server", data=data
+        )
+        response = await self.session_conversation.recv_message(f"default:{message.id}")
+
+        set_trace()
+
+        return response
 
     async def ask_yes_no(self, default_yes: bool) -> bool:
         while True:
