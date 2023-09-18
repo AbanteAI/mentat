@@ -14,9 +14,12 @@ def test_additions(temp_testbed, mock_context, mock_user_input_manager):
     change = AbstractChange(
         file_path,
         [
-            Addition(1, ["I end up on line 3"], 0),
-            Addition(0, ["I end up on line 0"], 0),
-            Addition(1, ["I end up on line 2"], 0),
+            Addition(
+                1,
+                ["I end up on line 3"],
+            ),
+            Addition(0, ["I end up on line 0"]),
+            Addition(1, ["I end up on line 2"]),
         ],
     )
     code_lines = ["Line 0", "Line 1", "Line 2"]
@@ -36,7 +39,7 @@ def test_deletions(temp_testbed, mock_context, mock_user_input_manager):
     file_path = Path("test.py")
     change = AbstractChange(
         file_path,
-        [Deletion(1, 3, 0), Deletion(4, 5, 0)],
+        [Deletion(1, 3), Deletion(4, 5)],
     )
     code_lines = ["Line 0", "Line 1", "Line 2", "Line 3", "Line 4", "Line 5"]
     new_code_lines = change.apply(code_lines, mock_context, mock_user_input_manager)
@@ -53,12 +56,12 @@ def test_overlap(temp_testbed, mock_context, mock_user_input_manager):
     change = AbstractChange(
         file_path,
         [
-            Deletion(1, 3, 0),
-            Deletion(2, 5, 0),
-            Addition(4, ["I end up on Line 1"], 0),
-            Deletion(6, 9, 0),
-            Deletion(7, 8, 0),
-            FileUpdate(new_file_path, 0),
+            Deletion(1, 3),
+            Deletion(2, 5),
+            Addition(4, ["I end up on Line 1"]),
+            Deletion(6, 9),
+            Deletion(7, 8),
+            FileUpdate(new_file_path),
         ],
     )
     code_lines = [
@@ -84,7 +87,7 @@ def test_create(temp_testbed, mock_context, mock_user_input_manager):
     new_file_path = Path("test.py")
     change = AbstractChange(
         None,
-        [FileUpdate(new_file_path, 0), Addition(2, ["Line 2", "Line 3"], 0)],
+        [FileUpdate(new_file_path), Addition(2, ["Line 2", "Line 3"])],
     )
     code_lines = []
     new_code_lines = change.apply(code_lines, mock_context, mock_user_input_manager)
@@ -110,7 +113,7 @@ def test_delete(
     change = AbstractChange(
         file_path,
         [
-            FileUpdate(None, 0),
+            FileUpdate(None),
         ],
     )
     code_lines = ["Line 0", "Line 1", "Line 2"]
@@ -128,7 +131,7 @@ def test_rename(temp_testbed, mock_context, mock_user_input_manager):
     newest_file_path = Path("test3.py")
     change = AbstractChange(
         file_path,
-        [FileUpdate(new_file_path, 0), FileUpdate(newest_file_path, 0)],
+        [FileUpdate(new_file_path), FileUpdate(newest_file_path)],
     )
     code_lines = ["Line 0", "Line 1", "Line 2"]
     new_code_lines = change.apply(code_lines, mock_context, mock_user_input_manager)

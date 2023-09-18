@@ -4,25 +4,23 @@ import logging
 from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
-from timeit import default_timer
 from typing import Any, AsyncGenerator
 
 import attr
-from openai.error import InvalidRequestError, RateLimitError
 from termcolor import cprint
 
-from .code_change import CodeChange, CodeChangeAction
-from .code_change_display import (
+from mentat.code_file_manager import CodeFileManager
+from mentat.errors import ModelError
+from mentat.parsers.change_display_helper import (
     change_delimiter,
     get_file_name,
     get_later_lines,
     get_previous_lines,
-    get_removed_block,
+    get_removed_lines,
 )
-from .code_file_manager import CodeFileManager
-from .errors import MentatError, ModelError, UserError
-from .llm_api import call_llm_api
-from .streaming_printer import StreamingPrinter
+from mentat.streaming_printer import StreamingPrinter
+
+from .original_format_change import OriginalFormatChange, OriginalFormatChangeAction
 
 
 class _BlockIndicator(Enum):
@@ -41,7 +39,7 @@ class ParsingState:
     in_code_lines: bool = attr.field(default=False)
     explanation: str = attr.field(default="")
     explained_since_change: bool = attr.field(default=True)
-    code_changes: list[CodeChange] = attr.field(factory=list)
+    code_changes: list[OriginalFormatChange] = attr.field(factory=list)
     json_lines: list[str] = attr.field(factory=list)
     code_lines: list[str] = attr.field(factory=list)
     rename_map: dict[Path, Path] = attr.field(factory=dict)
@@ -77,12 +75,12 @@ class ParsingState:
                 already_added_to_changelist=False,
             )
 
-        new_change = CodeChange(
+        new_change = OriginalFormatChange(
             json_data, self.code_lines, code_file_manager, self.rename_map
         )
         self.code_changes.append(new_change)
         self.json_lines, self.code_lines = [], []
-        if new_change.action == CodeChangeAction.RenameFile:
+        if new_change.action == OriginalFormatChangeAction.RenameFile:
             # This rename_map is a bit hacky; it shouldn't be used outside of streaming/parsing
             self.rename_map[new_change.name] = new_change.file
 
@@ -154,47 +152,11 @@ class ParsingState:
         return to_print, entered_code_lines, exited_code_lines, created_code_change
 
 
-def run_async_stream_and_parse_llm_response(
-    messages: list[dict[str, str]],
-    model: str,
-    code_file_manager: CodeFileManager,
-) -> ParsingState:
-    state: ParsingState = ParsingState()
-    start_time = default_timer()
-    try:
-        asyncio.run(
-            stream_and_parse_llm_response(messages, model, state, code_file_manager)
-        )
-    except InvalidRequestError as e:
-        raise MentatError(
-            "Something went wrong - invalid request to OpenAI API. OpenAI returned:\n"
-            + str(e)
-        )
-    except RateLimitError as e:
-        raise UserError("OpenAI gave a rate limit error:\n" + str(e))
-    except KeyboardInterrupt:
-        print("\n\nInterrupted by user. Using the response up to this point.")
-        # if the last change is incomplete, remove it
-        if state.in_code_lines:
-            state.code_changes = state.code_changes[:-1]
-        logging.info("User interrupted response.")
-
-    state.code_changes = list(
-        filter(lambda change: not change.error, state.code_changes)
-    )
-
-    state.time_elapsed = default_timer() - start_time
-    return state
-
-
 async def stream_and_parse_llm_response(
-    messages: list[dict[str, str]],
-    model: str,
+    response: AsyncGenerator[Any, None],
     state: ParsingState,
     code_file_manager: CodeFileManager,
 ) -> None:
-    response = await call_llm_api(messages, model)
-
     print("\nstreaming...  use control-c to interrupt the model at any point\n")
 
     printer = StreamingPrinter()
@@ -283,26 +245,28 @@ def _process_content_line(
                     "Continuing model response...\n", color="light_green"
                 )
             else:
+                display_information = cur_change.get_change_display_information()
                 if (
                     len(state.code_changes) < 2
                     or state.code_changes[-2].file != cur_change.file
                     or state.explained_since_change
-                    or state.code_changes[-1].action == CodeChangeAction.RenameFile
+                    or state.code_changes[-1].action
+                    == OriginalFormatChangeAction.RenameFile
                 ):
-                    printer.add_string(get_file_name(cur_change))
+                    printer.add_string(get_file_name(display_information))
                     if (
                         cur_change.action.has_additions()
                         or cur_change.action.has_removals()
                     ):
                         printer.add_string(change_delimiter)
                 state.explained_since_change = False
-                printer.add_string(get_previous_lines(cur_change))
-                printer.add_string(get_removed_block(cur_change))
+                printer.add_string(get_previous_lines(display_information))
+                printer.add_string(get_removed_lines(display_information))
                 if (
                     not cur_change.action.has_additions()
                     and cur_change.action.has_removals()
                 ):
-                    printer.add_string(get_later_lines(cur_change))
+                    printer.add_string(get_later_lines(display_information))
                     printer.add_string(change_delimiter)
 
         if to_print and not (state.in_code_lines and state.code_changes[-1].error):
@@ -314,5 +278,7 @@ def _process_content_line(
             color = "green" if state.in_code_lines else None
             printer.add_string(prefix + to_print, end="", color=color)
         if exited_code_lines and not state.code_changes[-1].error:
-            printer.add_string(get_later_lines(state.code_changes[-1]))
+            printer.add_string(
+                get_later_lines(state.code_changes[-1].get_change_display_information())
+            )
             printer.add_string(change_delimiter)

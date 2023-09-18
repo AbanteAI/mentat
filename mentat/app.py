@@ -3,12 +3,13 @@ import glob
 import logging
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional
+from typing import Optional, cast
 
 from termcolor import cprint
 
-from .code_change import CodeChange, CodeChangeAction
-from .code_change_display import print_change
+from mentat.parsers.file_edit import FileEdit
+from mentat.parsers.original_format.original_format_change import OriginalFormatChange
+
 from .code_context import CodeContext
 from .code_file import parse_intervals
 from .code_file_manager import CodeFileManager
@@ -138,22 +139,26 @@ def loop(
             user_response = user_input_manager.collect_user_input()
             conv.add_user_message(user_response)
 
-        _, code_changes = conv.get_model_response(config)
+        code_changes = conv.get_model_response(config)
+        # TODO: This will eventually be in the parser and won't be a class method
+        file_edits = OriginalFormatChange.to_file_edits(
+            cast(list[OriginalFormatChange], code_changes), config
+        )
 
-        if code_changes:
-            need_user_request = get_user_feedback_on_changes(
-                config, conv, user_input_manager, code_file_manager, code_changes
+        if file_edits:
+            need_user_request = get_user_feedback_on_edits(
+                config, conv, user_input_manager, code_file_manager, file_edits
             )
         else:
             need_user_request = True
 
 
-def get_user_feedback_on_changes(
+def get_user_feedback_on_edits(
     config: ConfigManager,
     conv: Conversation,
     user_input_manager: UserInputManager,
     code_file_manager: CodeFileManager,
-    code_changes: list[CodeChange],
+    file_edits: list[FileEdit],
 ) -> bool:
     cprint(
         "Apply these changes? 'Y/n/i' or provide feedback.",
@@ -164,36 +169,35 @@ def get_user_feedback_on_changes(
     need_user_request = True
     match user_response.lower():
         case "y" | "":
-            code_changes_to_apply = code_changes
+            edits_to_apply = file_edits
             conv.add_user_message("User chose to apply all your changes.")
         case "n":
-            code_changes_to_apply = []
+            edits_to_apply = []
             conv.add_user_message("User chose not to apply any of your changes.")
         case "i":
-            code_changes_to_apply, indices = user_filter_changes(
-                user_input_manager, code_changes
+            edits_to_apply = user_filter_changes(
+                code_file_manager, user_input_manager, file_edits
             )
             conv.add_user_message(
                 "User chose to apply"
-                f" {len(code_changes_to_apply)}/{len(code_changes)} of your suggest"
-                " changes. The changes they applied were:"
-                f" {', '.join(map(str, indices))}"
+                f" {len(edits_to_apply)}/{len(file_edits)} of your suggested"
+                " changes."
             )
         case _:
             need_user_request = False
-            code_changes_to_apply = []
+            edits_to_apply = []
             conv.add_user_message(
                 "User chose not to apply any of your changes. User response:"
                 f" {user_response}\n\nPlease adjust your previous plan and changes to"
                 " reflect this. Respond with a full new set of changes."
             )
 
-    if code_changes_to_apply:
-        code_file_manager.write_changes_to_files(code_changes_to_apply)
-        if len(code_changes_to_apply) == len(code_changes):
-            cprint("Changes applied.", color="light_blue")
-        else:
-            cprint("Selected changes applied.", color="light_blue")
+    for file_edit in edits_to_apply:
+        file_edit.resolve_conflicts(user_input_manager)
+
+    if edits_to_apply:
+        code_file_manager.write_changes_to_files(edits_to_apply)
+        cprint("Changes applied.", color="light_blue")
     else:
         cprint("No changes applied.", color="light_blue")
 
@@ -204,22 +208,13 @@ def get_user_feedback_on_changes(
 
 
 def user_filter_changes(
-    user_input_manager: UserInputManager, code_changes: list[CodeChange]
-) -> tuple[list[CodeChange], list[int]]:
-    new_changes = list[CodeChange]()
-    indices = list[int]()
-    for index, change in enumerate(code_changes, start=1):
-        print_change(change)
-        # Allowing the user to remove rename file changes introduces a lot of edge cases
-        if change.action == CodeChangeAction.RenameFile:
-            new_changes.append(change)
-            indices.append(index)
-            cprint("Cannot remove rename file change", "light_yellow")
-            continue
+    code_file_manager: CodeFileManager,
+    user_input_manager: UserInputManager,
+    file_edits: list[FileEdit],
+) -> list[FileEdit]:
+    new_edits = list[FileEdit]()
+    for file_edit in file_edits:
+        if file_edit.filter_replacements(code_file_manager, user_input_manager):
+            new_edits.append(file_edit)
 
-        cprint("Keep this change?", "light_blue")
-        if user_input_manager.ask_yes_no(default_yes=True):
-            new_changes.append(change)
-            indices.append(index)
-
-    return new_changes, indices
+    return new_edits

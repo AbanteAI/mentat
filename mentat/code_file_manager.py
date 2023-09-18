@@ -5,7 +5,7 @@ from typing import Union
 
 from termcolor import cprint
 
-from mentat.code_changes.abstract.abstract_change import AbstractChange
+from mentat.parsers.file_edit import FileEdit
 
 from .code_context import CodeContext
 from .code_file import CodeFile
@@ -26,7 +26,7 @@ class CodeFileManager:
         self.config = config
         self.code_context = code_context
 
-    def _read_file(self, file: Union[Path, CodeFile]) -> list[str]:
+    def read_file(self, file: Union[Path, CodeFile]) -> list[str]:
         if isinstance(file, CodeFile):
             rel_path = file.path
         else:
@@ -41,7 +41,8 @@ class CodeFileManager:
         self.file_lines = dict[Path, list[str]]()
         for file in self.code_context.files.values():
             rel_path = Path(os.path.relpath(file.path, self.config.git_root))
-            self.file_lines[rel_path] = self._read_file(file)
+            # here keys are str not path object
+            self.file_lines[rel_path] = self.read_file(file)
 
     def get_code_message(self):
         self._read_all_file_lines()
@@ -66,34 +67,66 @@ class CodeFileManager:
 
         return "\n".join(code_message)
 
-    def write_changes_to_files(self, code_changes: list[AbstractChange]) -> None:
-        for change in code_changes:
-            if change.file_path is not None:
-                abs_path = self.config.git_root / change.file_path
-                if abs_path not in self.code_context.files:
-                    raise MentatError(
-                        f"Attempted to edit file {abs_path} not in context"
-                    )
-                elif not abs_path.exists():
-                    raise MentatError(f"Attempted to edit non-existent file {abs_path}")
+    def _add_file(self, abs_path: Path):
+        logging.info(f"Adding new file {abs_path} to context")
+        self.code_context.files[abs_path] = CodeFile(abs_path)
+        # create any missing directories in the path
+        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(abs_path, "w") as f:
+            f.write("")
 
-                code_lines = self.file_lines[change.file_path].copy()
-                if code_lines != self._read_file(change.file_path):
-                    logging.info(
-                        f"File '{change.file_path}' changed while generating changes"
+    def _delete_file(self, abs_path: Path):
+        logging.info(f"Deleting file {abs_path}")
+        if abs_path in self.code_context.files:
+            del self.code_context.files[abs_path]
+        abs_path.unlink()
+
+    # Mainly does checks on if file is in context, file exists, file is unchanged, etc.
+    def write_changes_to_files(self, file_edits: list[FileEdit]):
+        for file_edit in file_edits:
+            if file_edit.is_creation:
+                if file_edit.file_path.exists():
+                    raise MentatError(
+                        f"Model attempted to create file {file_edit.file_path} which"
+                        " already exists"
                     )
-                    cprint(
-                        f"File '{change.file_path}' changed while generating; current"
-                        " file changes will be erased. Continue?",
-                        color="light_yellow",
-                    )
-                    if not self.user_input_manager.ask_yes_no(default_yes=False):
-                        cprint(f"Not applying changes to file {change.file_path}")
+                self._add_file(file_edit.file_path)
             else:
-                code_lines = []
-            code_lines = change.apply(
-                code_lines, self.code_context, self.user_input_manager
-            )
-            if change.file_path is not None:
-                with open(change.file_path) as f:
-                    f.write("\n".join(code_lines))
+                if file_edit.file_path not in self.code_context.files:
+                    raise MentatError(
+                        f"Attempted to edit file {file_edit.file_path} not in context"
+                    )
+                elif not file_edit.file_path.exists():
+                    raise MentatError(
+                        f"Attempted to edit non-existent file {file_edit.file_path}"
+                    )
+
+            if file_edit.is_deletion:
+                cprint(f"Are you sure you want to delete {file_edit.file_path}?", "red")
+                if self.user_input_manager.ask_yes_no(default_yes=False):
+                    cprint(f"Deleting {file_edit.file_path}...", "red")
+                    self._delete_file(file_edit.file_path)
+                else:
+                    cprint(f"Not deleting {file_edit.file_path}", "green")
+
+            stored_lines = self.file_lines[file_edit.file_path]
+            if stored_lines != self.read_file(file_edit.file_path):
+                logging.info(
+                    f"File '{file_edit.file_path}' changed while generating changes"
+                )
+                cprint(
+                    f"File '{file_edit.file_path}' changed while generating; current"
+                    " file changes will be erased. Continue?",
+                    color="light_yellow",
+                )
+                if not self.user_input_manager.ask_yes_no(default_yes=False):
+                    cprint(f"Not applying changes to file {file_edit.file_path}")
+
+            if file_edit.rename_file_path is not None:
+                self._add_file(file_edit.rename_file_path)
+                self._delete_file(file_edit.file_path)
+                file_edit.file_path = file_edit.rename_file_path
+
+            new_lines = file_edit.get_file_lines(self)
+            with open(file_edit.file_path) as f:
+                f.write("\n".join(new_lines))

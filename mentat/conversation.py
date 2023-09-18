@@ -1,11 +1,24 @@
+import asyncio
+import logging
+from timeit import default_timer
+
+from openai.error import InvalidRequestError, RateLimitError
 from termcolor import cprint
 
-from .code_change import CodeChange
+from mentat.errors import MentatError, UserError
+from mentat.parsers.concrete_change import ConcreteChange
+from mentat.parsers.original_format.original_format_change import OriginalFormatChange
+
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager
-from .llm_api import CostTracker, check_model_availability, choose_model, count_tokens
-from .parsing import run_async_stream_and_parse_llm_response
+from .llm_api import (
+    CostTracker,
+    call_llm_api,
+    check_model_availability,
+    choose_model,
+    count_tokens,
+)
 from .prompts import system_prompt
 
 
@@ -55,11 +68,9 @@ class Conversation:
     def add_assistant_message(self, message: str):
         self.messages.append({"role": "assistant", "content": message})
 
-    def get_model_response(self, config: ConfigManager) -> tuple[str, list[CodeChange]]:
+    def _get_system_message(self):
         messages = self.messages.copy()
-
-        code_message = self.code_file_manager.get_code_message()
-        system_message = code_message
+        system_message = self.code_file_manager.get_code_message()
 
         if self.code_map:
             system_message_token_count = count_tokens(system_message)
@@ -101,21 +112,60 @@ class Conversation:
                 ]
                 cprint_message = "\n".join(cprint_message)
                 cprint(cprint_message, color="yellow")
+        return system_message
 
+    async def _run_async_stream(
+        self, messages: list[dict[str, str]], model: str
+    ) -> tuple[str, list[ConcreteChange]]:
+        response = await call_llm_api(messages, model)
+        # TODO once this becomes a separate parsing injectable, use injectable here
+        message, changes = await OriginalFormatChange.stream_and_parse_llm_response(
+            response, self.code_file_manager
+        )
+        return message, list[ConcreteChange](changes)
+
+    def _handle_async_stream(
+        self, messages: list[dict[str, str]], model: str
+    ) -> tuple[str, list[ConcreteChange], float]:
+        start_time = default_timer()
+        try:
+            message, code_changes = asyncio.run(self._run_async_stream(messages, model))
+        except InvalidRequestError as e:
+            raise MentatError(
+                "Something went wrong - invalid request to OpenAI API. OpenAI"
+                " returned:\n"
+                + str(e)
+            )
+        except RateLimitError as e:
+            raise UserError("OpenAI gave a rate limit error:\n" + str(e))
+        except KeyboardInterrupt:
+            # TODO: Once the interface PR is merged, we will be sending signals down to the streaming
+            # subroutine; the OriginalFormatParser needs to remove the latest change if it's incomplete
+            # Previous code (which was here, will be in the subroutine after this):
+            # if state.in_code_lines:
+            #     state.code_changes = state.code_changes[:-1]
+            print("\n\nInterrupted by user. Using the response up to this point.")
+            logging.info("User interrupted response.")
+            # TODO: This except won't be here after interface changes, and this won't be necessary
+            message, code_changes = "", []
+
+        time_elapsed = default_timer() - start_time
+        return (message, code_changes, time_elapsed)
+
+    def get_model_response(self, config: ConfigManager) -> list[ConcreteChange]:
+        messages = self.messages.copy()
+
+        system_message = self._get_system_message()
         messages.append({"role": "system", "content": system_message})
-
         model, num_prompt_tokens = choose_model(messages, self.allow_32k)
 
-        state = run_async_stream_and_parse_llm_response(
-            messages, model, self.code_file_manager
-        )
-
+        message, code_changes, time_elapsed = self._handle_async_stream(messages, model)
         self.cost_tracker.display_api_call_stats(
             num_prompt_tokens,
-            count_tokens(state.message),
+            count_tokens(message),
             model,
-            state.time_elapsed,
+            time_elapsed,
         )
 
-        self.add_assistant_message(state.message)
-        return state.explanation, state.code_changes
+        self.add_assistant_message(message)
+        return code_changes
