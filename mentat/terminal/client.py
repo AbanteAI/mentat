@@ -77,8 +77,6 @@ class TerminalClient:
             input_request_message = await self._input_queue.get()
 
             user_input = await self._prompt_session.prompt_async(handle_sigint=False)
-            cprint(f"got user input: {user_input}")
-
             if user_input == "q":
                 raise KeyboardInterrupt
 
@@ -90,7 +88,6 @@ class TerminalClient:
 
     def _handle_exit(self):
         self.send_interrupt()
-        cprint("sent interrupt", color="yellow")
         # if self._should_exit:
         #     self._force_exit = True
         # else:

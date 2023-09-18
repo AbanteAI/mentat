@@ -1,7 +1,9 @@
 import asyncio
 from collections import deque
 
-from termcolor import colored
+from ipdb import set_trace
+
+from .session_conversation import SessionConversation
 
 
 class StreamingPrinter:
@@ -15,7 +17,7 @@ class StreamingPrinter:
             return
         string += end
 
-        colored_string = colored(string, color) if color is not None else string
+        colored_string = string
 
         index = colored_string.index(string)
         characters = list(string)
@@ -32,15 +34,23 @@ class StreamingPrinter:
         min_sleep = 0.002
         return max(min(max_sleep, required_sleep_time), min_sleep)
 
-    async def print_lines(self):
-        while True:
-            if self.strings_to_print:
-                next_string = self.strings_to_print.popleft()
-                print(next_string, end="", flush=True)
-                self.chars_remaining -= 1
-            elif self.shutdown:
-                break
-            await asyncio.sleep(self.sleep_time())
+    async def print_lines(self, session_conversation: SessionConversation):
+        try:
+            while True:
+                if self.strings_to_print:
+                    next_string = self.strings_to_print.popleft()
+                    if next_string is None:
+                        continue
+                    await session_conversation.send_message(
+                        source="server", data=dict(content=next_string, end="")
+                    )
+                    self.chars_remaining -= 1
+                elif self.shutdown:
+                    break
+                await asyncio.sleep(self.sleep_time())
+        except Exception as e:
+            set_trace()
+            raise e
 
     def wrap_it_up(self):
         self.shutdown = True

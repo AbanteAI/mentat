@@ -41,6 +41,18 @@ def _format_message_content(
     return (formatted_color, formatted_content)
 
 
+def _cprint_message(message: Message, use_ansi_colors: bool = True):
+    message_content = _format_message_content(
+        content=message.data["content"],
+        color=message.data.get("color"),
+        end=message.data.get("end"),
+        use_ansi_colors=use_ansi_colors,
+    )
+    print_formatted_text(
+        FormattedText([message_content]), end=message.data.get("end"), flush=True
+    )
+
+
 def cprint_message(message: Message, use_ansi_colors: bool = True):
     formatted_text = []
     if isinstance(message.data, list):
@@ -53,13 +65,8 @@ def cprint_message(message: Message, use_ansi_colors: bool = True):
             )
             formatted_text.append(_formatted_text)
     elif "content" in message.data:
-        _formatted_text = _format_message_content(
-            content=message.data["content"],
-            color=message.data.get("color"),
-            end=message.data.get("end"),
-            use_ansi_colors=use_ansi_colors,
-        )
-        formatted_text.append(_formatted_text)
+        _cprint_message(message)
+        return
     else:
         return
     print_formatted_text(FormattedText(formatted_text))

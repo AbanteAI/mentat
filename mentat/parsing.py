@@ -192,7 +192,7 @@ async def run_stream_and_parse_llm_response(
         # if the last change is incomplete, remove it
         if state.in_code_lines:
             state.code_changes = state.code_changes[:-1]
-        logging.info("User interrupted response.")
+        logging.debug("User interrupted response.")
 
     state.code_changes = list(
         filter(lambda change: not change.error, state.code_changes)
@@ -219,7 +219,7 @@ async def stream_and_parse_llm_response(
     )
 
     printer = StreamingPrinter()
-    printer_task = asyncio.create_task(printer.print_lines())
+    printer_task = asyncio.create_task(printer.print_lines(session_conversation))
     try:
         await _process_response(state, response, printer, code_file_manager)
         printer.wrap_it_up()
