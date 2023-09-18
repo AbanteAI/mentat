@@ -7,9 +7,7 @@ from termcolor import cprint
 
 from mentat.errors import MentatError, UserError
 from mentat.parsers.file_edit import FileEdit
-from mentat.parsers.original_format.original_format_parsing import (
-    stream_and_parse_llm_response,
-)
+from mentat.parsers.parser import Parser
 
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
@@ -21,26 +19,27 @@ from .llm_api import (
     choose_model,
     count_tokens,
 )
-from .prompts import system_prompt
 
 
 class Conversation:
     def __init__(
         self,
+        parser: Parser,
         config: ConfigManager,
         cost_tracker: CostTracker,
         code_file_manager: CodeFileManager,
         code_map: CodeMap | None = None,
     ):
+        prompt = parser.get_system_prompt()
         self.messages = list[dict[str, str]]()
-        self.add_system_message(system_prompt)
+        self.add_system_message(prompt)
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
         self.code_map = code_map
         self.allow_32k = check_model_availability(config.allow_32k())
 
         tokens = count_tokens(code_file_manager.get_code_message()) + count_tokens(
-            system_prompt
+            prompt
         )
         self.token_limit = 32768 if self.allow_32k else 8192
         if tokens > self.token_limit:
@@ -117,22 +116,30 @@ class Conversation:
         return system_message
 
     async def _run_async_stream(
-        self, messages: list[dict[str, str]], config: ConfigManager, model: str
+        self,
+        parser: Parser,
+        config: ConfigManager,
+        messages: list[dict[str, str]],
+        model: str,
     ) -> tuple[str, list[FileEdit]]:
         response = await call_llm_api(messages, model)
         # TODO once this becomes a separate parsing injectable, use injectable here
-        message, file_edits = await stream_and_parse_llm_response(
+        message, file_edits = await parser.stream_and_parse_llm_response(
             response, self.code_file_manager, config
         )
         return message, file_edits
 
     def _handle_async_stream(
-        self, messages: list[dict[str, str]], config: ConfigManager, model: str
+        self,
+        parser: Parser,
+        config: ConfigManager,
+        messages: list[dict[str, str]],
+        model: str,
     ) -> tuple[str, list[FileEdit], float]:
         start_time = default_timer()
         try:
             message, file_edits = asyncio.run(
-                self._run_async_stream(messages, config, model)
+                self._run_async_stream(parser, config, messages, model)
             )
         except InvalidRequestError as e:
             raise MentatError(
@@ -156,7 +163,9 @@ class Conversation:
         time_elapsed = default_timer() - start_time
         return (message, file_edits, time_elapsed)
 
-    def get_model_response(self, config: ConfigManager) -> list[FileEdit]:
+    def get_model_response(
+        self, parser: Parser, config: ConfigManager
+    ) -> list[FileEdit]:
         messages = self.messages.copy()
 
         system_message = self._get_system_message()
@@ -164,7 +173,7 @@ class Conversation:
         model, num_prompt_tokens = choose_model(messages, self.allow_32k)
 
         message, file_edits, time_elapsed = self._handle_async_stream(
-            messages, config, model
+            parser, config, messages, model
         )
         self.cost_tracker.display_api_call_stats(
             num_prompt_tokens,

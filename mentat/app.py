@@ -7,6 +7,7 @@ from typing import Optional
 
 from termcolor import cprint
 
+from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.file_edit import FileEdit
 
 from .code_context import CodeContext
@@ -115,6 +116,8 @@ def loop(
     no_code_map: bool,
 ) -> None:
     git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
+    # The parser can be selected here
+    parser = BlockParser()
     config = ConfigManager(git_root)
     code_context = CodeContext(config, paths, exclude_paths or [])
     code_context.display_context()
@@ -128,7 +131,7 @@ def loop(
         """
         ctags_disabled_message = dedent(ctags_disabled_message)
         cprint(ctags_disabled_message, color="yellow")
-    conv = Conversation(config, cost_tracker, code_file_manager, code_map)
+    conv = Conversation(parser, config, cost_tracker, code_file_manager, code_map)
 
     cprint("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")
     cprint("What can I do for you?", color="light_blue")
@@ -138,7 +141,7 @@ def loop(
             user_response = user_input_manager.collect_user_input()
             conv.add_user_message(user_response)
 
-        file_edits = conv.get_model_response(config)
+        file_edits = conv.get_model_response(parser, config)
         if file_edits:
             need_user_request = get_user_feedback_on_edits(
                 config, conv, user_input_manager, code_file_manager, file_edits

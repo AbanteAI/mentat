@@ -1,3 +1,5 @@
+# This file is mainly kept as legacy so that we don't have to rewrite this code
+
 from __future__ import annotations
 
 import asyncio
