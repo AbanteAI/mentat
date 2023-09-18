@@ -3,6 +3,7 @@ import json
 import logging
 from enum import Enum
 from json import JSONDecodeError
+from os import pwrite
 from pathlib import Path
 from timeit import default_timer
 from typing import Generator
@@ -10,6 +11,10 @@ from typing import Generator
 import attr
 import openai
 import openai.error
+from ipdb import set_trace
+
+from mentat.session_conversation import SessionConversation
+from mentat.session_input_manager import SessionInputManager
 
 from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import (
@@ -20,7 +25,7 @@ from .code_change_display import (
     get_removed_block,
 )
 from .code_file_manager import CodeFileManager
-from .errors import MentatError, ModelError, UserError
+from .errors import MentatError, ModelError, RemoteKeyboardInterrupt, UserError
 from .llm_api import call_llm_api
 from .streaming_printer import StreamingPrinter
 
@@ -158,11 +163,18 @@ async def run_stream_and_parse_llm_response(
     messages: list[dict[str, str]],
     model: str,
     code_file_manager: CodeFileManager,
+    session_conversation: SessionConversation,
+    session_input_manager: SessionInputManager,
 ) -> ParsingState:
     state: ParsingState = ParsingState()
     start_time = default_timer()
+
     try:
-        await stream_and_parse_llm_response(messages, model, state, code_file_manager)
+        await session_input_manager.listen_for_interrupt(
+            stream_and_parse_llm_response(
+                messages, model, state, code_file_manager, session_conversation
+            )
+        )
     except openai.error.InvalidRequestError as e:
         raise MentatError(
             "Something went wrong - invalid request to OpenAI API. OpenAI returned:\n"
@@ -170,9 +182,13 @@ async def run_stream_and_parse_llm_response(
         )
     except openai.error.RateLimitError as e:
         raise UserError("OpenAI gave a rate limit error:\n" + str(e))
-    # NOTE: should this be a KeyboardInterrupt?
-    except KeyboardInterrupt:
-        print("\n\nInterrupted by user. Using the response up to this point.")
+    except RemoteKeyboardInterrupt:
+        await session_conversation.send_message(
+            source="server",
+            data=dict(
+                content="Interrupted by user. Using the response up to this point."
+            ),
+        )
         # if the last change is incomplete, remove it
         if state.in_code_lines:
             state.code_changes = state.code_changes[:-1]
@@ -191,10 +207,16 @@ async def stream_and_parse_llm_response(
     model: str,
     state: ParsingState,
     code_file_manager: CodeFileManager,
+    session_conversation: SessionConversation,
 ) -> None:
     response = await call_llm_api(messages, model)
 
-    print("\nstreaming...  use control-c to interrupt the model at any point\n")
+    await session_conversation.send_message(
+        source="server",
+        data=dict(
+            content="streaming...  use control-c to interrupt the model at any point"
+        ),
+    )
 
     printer = StreamingPrinter()
     printer_task = asyncio.create_task(printer.print_lines())
@@ -207,9 +229,15 @@ async def stream_and_parse_llm_response(
         printer.wrap_it_up()
         # make sure we finish printing everything model sent before we encountered the crash
         await printer_task
-        cprint("\n\nFatal error while processing model response:", "red")
-        cprint(e, color="red")
-        cprint("Using response up to this point.")
+        await session_conversation.send_message(
+            source="server",
+            data=dict(
+                content=f"Fatal error while processing model response: {e}", color="red"
+            ),
+        )
+        await session_conversation.send_message(
+            source="server", data=dict(content="Using response up to this point.")
+        )
         if e.already_added_to_changelist:
             state.code_changes = state.code_changes[:-1]
     finally:

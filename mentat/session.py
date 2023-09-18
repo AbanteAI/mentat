@@ -53,7 +53,12 @@ class Session:
                 data=dict(content=ctags_disabled_message, color="yellow"),
             )
         conv = LLMConversation(
-            config, cost_tracker, code_file_manager, self.session_conversation, code_map
+            config,
+            cost_tracker,
+            code_file_manager,
+            self.session_conversation,
+            self.session_input_manager,
+            code_map,
         )
         await conv.check_token_limit()
 
@@ -77,6 +82,7 @@ class Session:
                 assert isinstance(user_response_message, Message)
                 user_response = user_response_message.data.get("content")
                 conv.add_user_message(user_response)
+
             explanation, code_changes = await conv.get_model_response(config)
 
             # if code_changes:

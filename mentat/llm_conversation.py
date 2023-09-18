@@ -5,6 +5,7 @@ from typing import Any, Dict, Iterable, List, Literal, Set
 from ipdb import set_trace
 
 from mentat.session_conversation import SessionConversation
+from mentat.session_input_manager import SessionInputManager
 
 from .code_change import CodeChange, CodeChangeAction
 from .code_file_manager import CodeFileManager
@@ -25,6 +26,7 @@ class LLMConversation:
         cost_tracker: CostTracker,
         code_file_manager: CodeFileManager,
         session_conversation: SessionConversation,
+        session_input_manager: SessionInputManager,
         code_map: CodeMap | None = None,
     ):
         self.messages = []
@@ -32,6 +34,7 @@ class LLMConversation:
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
         self.session_conversation = session_conversation
+        self.session_input_manager = session_input_manager
         self.code_map = code_map
         self.allow_32k = check_model_availability(config.allow_32k())
 
@@ -140,7 +143,11 @@ class LLMConversation:
         model, num_prompt_tokens = choose_model(messages, self.allow_32k)
 
         state = await run_stream_and_parse_llm_response(
-            messages, model, self.code_file_manager
+            messages,
+            model,
+            self.code_file_manager,
+            self.session_conversation,
+            self.session_input_manager,
         )
 
         # self.cost_tracker.display_api_call_stats(
