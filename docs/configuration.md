@@ -43,12 +43,13 @@ A list of key-value pairs defining a custom [Pygment Style](https://pygments.org
 
 ### Maximum Context
 
-To save costs on larger models you can set a maximum context.
+If you're using a model other than gpt-3.5 or gpt-4 we won't be able to infer the model's context size so you need to manually set the maximum context like so. 
 ```json
 {
     "maximum-context": "16000"
 }
 ```
+This can also be used to save costs for instance if you want to use a maximum of 16k tokens when using gpt-4-32k.
 
 ## 🦙 Alternative Models
 
@@ -60,6 +61,7 @@ and then setting your model in `~/.mentat/.mentat_config.json`:
 ```json
 {
     "model": "/absolute/path/to/7B/llama-model.gguf"
+    "maximum-context": 2048
 }
 ```
-For non OpenAI models we may not be able to infer a maximum context size so to avoid overrun errors you should set that too.
+For models other than gpt-3.5 and gpt-4 we may not be able to infer a maximum context size so you'll also have to set the maximum-context.

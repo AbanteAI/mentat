@@ -3,7 +3,7 @@ from termcolor import cprint
 from .code_change import CodeChange
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
-from .config_manager import ConfigManager
+from .config_manager import ConfigManager, user_config_path
 from .llm_api import (
     CostTracker,
     count_tokens,
@@ -59,25 +59,30 @@ class Conversation:
                 self.context_size = min(self.context_size, maximum_context)
             else:
                 self.context_size = maximum_context
-        if self.context_size:
-            if self.context_size and tokens > self.context_size:
-                raise KeyboardInterrupt(
-                    f"Included files already exceed token limit ({tokens} /"
-                    f" {self.context_size}). Please try running again with a reduced"
-                    " number of files."
-                )
-            elif tokens + 1000 > self.context_size:
-                cprint(
-                    f"Warning: Included files are close to token limit ({tokens} /"
-                    f" {self.context_size}), you may not be able to have a long"
-                    " conversation.",
-                    "red",
-                )
-            else:
-                cprint(
-                    f"File and prompt token count: {tokens} / {self.context_size}",
-                    "cyan",
-                )
+
+        if not self.context_size:
+            raise KeyboardInterrupt(
+                f"Context size for {self.model} is not known. Please set"
+                f" maximum-context in {user_config_path}."
+            )
+        if self.context_size and tokens > self.context_size:
+            raise KeyboardInterrupt(
+                f"Included files already exceed token limit ({tokens} /"
+                f" {self.context_size}). Please try running again with a reduced"
+                " number of files."
+            )
+        elif tokens + 1000 > self.context_size:
+            cprint(
+                f"Warning: Included files are close to token limit ({tokens} /"
+                f" {self.context_size}), you may not be able to have a long"
+                " conversation.",
+                "red",
+            )
+        else:
+            cprint(
+                f"File and prompt token count: {tokens} / {self.context_size}",
+                "cyan",
+            )
 
     def add_system_message(self, message: str):
         self.messages.append({"role": "system", "content": message})
