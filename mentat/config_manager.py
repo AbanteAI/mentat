@@ -60,8 +60,8 @@ class ConfigManager:
     def input_style(self) -> list[tuple[str, str]]:
         return cast(list[tuple[str, str]], self._get_key("input-style"))
 
-    def allow_32k(self) -> bool:
-        return cast(bool, self._get_key("allow-32k"))
+    def model(self) -> str:
+        return cast(str, self._get_key("model"))
 
     def file_exclude_glob_list(self) -> list[str]:
         return cast(list[str], self._get_key("file-exclude-glob-list"))

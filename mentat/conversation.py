@@ -4,7 +4,13 @@ from .code_change import CodeChange
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager
-from .llm_api import CostTracker, check_model_availability, choose_model, count_tokens
+from .llm_api import (
+    CostTracker,
+    count_tokens,
+    get_prompt_token_count,
+    is_model_available,
+    model_context_size,
+)
 from .parsing import run_async_stream_and_parse_llm_response
 from .prompts import system_prompt
 
@@ -22,29 +28,49 @@ class Conversation:
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
         self.code_map = code_map
-        self.allow_32k = check_model_availability(config.allow_32k())
-
-        tokens = count_tokens(code_file_manager.get_code_message()) + count_tokens(
-            system_prompt
-        )
-        self.token_limit = 32768 if self.allow_32k else 8192
-        if tokens > self.token_limit:
+        self.model = config.model()
+        if not is_model_available(self.model):
             raise KeyboardInterrupt(
-                f"Included files already exceed token limit ({tokens} /"
-                f" {self.token_limit}). Please try running again with a reduced number"
-                " of files."
+                f"Model {self.model} is not available. Please try again with a"
+                " different model."
             )
-        elif tokens + 1000 > self.token_limit:
+        if "gpt-4" not in self.model:
             cprint(
-                f"Warning: Included files are close to token limit ({tokens} /"
-                f" {self.token_limit}), you may not be able to have a long"
-                " conversation.",
-                "red",
+                "Warning: Mentat has only been tested on GPT-4. You may experience"
+                " issues with quality.This model may not be able to respond in mentat's"
+                " edit format.",
+                color="yellow",
             )
-        else:
-            cprint(
-                f"File and prompt token count: {tokens} / {self.token_limit}", "cyan"
-            )
+            if "gpt-3.5" not in self.model:
+                cprint(
+                    "Warning: Mentat does not know how to calculate costs or context"
+                    " size for this model.",
+                    color="yellow",
+                )
+
+        tokens = count_tokens(
+            code_file_manager.get_code_message(), self.model
+        ) + count_tokens(system_prompt, self.model)
+        self.context_size = model_context_size(self.model)
+        if self.context_size:
+            if self.context_size and tokens > self.context_size:
+                raise KeyboardInterrupt(
+                    f"Included files already exceed token limit ({tokens} /"
+                    f" {self.context_size}). Please try running again with a reduced"
+                    " number of files."
+                )
+            elif tokens + 1000 > self.context_size:
+                cprint(
+                    f"Warning: Included files are close to token limit ({tokens} /"
+                    f" {self.context_size}), you may not be able to have a long"
+                    " conversation.",
+                    "red",
+                )
+            else:
+                cprint(
+                    f"File and prompt token count: {tokens} / {self.context_size}",
+                    "cyan",
+                )
 
     def add_system_message(self, message: str):
         self.messages.append({"role": "system", "content": message})
@@ -62,22 +88,25 @@ class Conversation:
         system_message = code_message
 
         if self.code_map:
-            system_message_token_count = count_tokens(system_message)
+            system_message_token_count = count_tokens(system_message, self.model)
             messages_token_count = 0
             for message in messages:
-                messages_token_count += count_tokens(message["content"])
+                messages_token_count += count_tokens(message["content"], self.model)
             token_buffer = 1000
             token_count = (
                 system_message_token_count + messages_token_count + token_buffer
             )
-            max_tokens_for_code_map = self.token_limit - token_count
 
-            if self.code_map.token_limit:
-                code_map_message_token_limit = min(
-                    self.code_map.token_limit, max_tokens_for_code_map
-                )
+            if self.context_size:
+                max_tokens_for_code_map = self.context_size - token_count
+                if self.code_map.token_limit:
+                    code_map_message_token_limit = min(
+                        self.code_map.token_limit, max_tokens_for_code_map
+                    )
+                else:
+                    code_map_message_token_limit = max_tokens_for_code_map
             else:
-                code_map_message_token_limit = max_tokens_for_code_map
+                code_map_message_token_limit = self.code_map.token_limit
 
             code_map_message = self.code_map.get_message(
                 token_limit=code_map_message_token_limit
@@ -104,16 +133,16 @@ class Conversation:
 
         messages.append({"role": "system", "content": system_message})
 
-        model, num_prompt_tokens = choose_model(messages, self.allow_32k)
+        num_prompt_tokens = get_prompt_token_count(messages, self.model)
 
         state = run_async_stream_and_parse_llm_response(
-            messages, model, self.code_file_manager
+            messages, self.model, self.code_file_manager
         )
 
         self.cost_tracker.display_api_call_stats(
             num_prompt_tokens,
-            count_tokens(state.message),
-            model,
+            count_tokens(state.message, self.model),
+            self.model,
             state.time_elapsed,
         )
 

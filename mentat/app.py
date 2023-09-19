@@ -120,7 +120,7 @@ def loop(
     code_context.display_context()
     user_input_manager = UserInputManager(config, code_context)
     code_file_manager = CodeFileManager(user_input_manager, config, code_context)
-    code_map = CodeMap(git_root, token_limit=2048) if not no_code_map else None
+    code_map = CodeMap(git_root, config, token_limit=2048) if not no_code_map else None
     if code_map is not None and code_map.ctags_disabled:
         ctags_disabled_message = f"""
             There was an error with your universal ctags installation, disabling CodeMap.

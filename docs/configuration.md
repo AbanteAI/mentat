@@ -4,11 +4,11 @@ To change Mentat's configuration, create `.mentat_config.json` in the git root o
 
 ## Options
 
-### Allow 32k
+### Use 32k
 Allow Mentat to use OpenAI's gpt-4 32k context window model. Your API key must already have access to the model.
-```
+```json
 {
-    "allow-32k": true
+    "model": "gpt-4-32k-0314"
 }
 ```
 
@@ -41,3 +41,15 @@ A list of key-value pairs defining a custom [Pygment Style](https://pygments.org
 }
 ```
 
+## 🦙 Alternative Models
+
+Mentat is powered with openai's sdk so you can direct it to use a local model, or any hosted model which conforms to OpenAi's API spec. For example if you host a Llama instance following the directions [here](https://github.com/abetlen/llama-cpp-python#web-server) then you use that model with Mentat by exporting its path e.g.
+```bash
+export OPENAI_API_BASE="http://localhost:8000/v1
+```
+and then setting your model in `~/.mentat/.mentat_config.json`:
+```json
+{
+    "model": "/absolute/path/to/7B/llama-model.gguf"
+}
+```
