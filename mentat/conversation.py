@@ -37,8 +37,8 @@ class Conversation:
         if "gpt-4" not in self.model:
             cprint(
                 "Warning: Mentat has only been tested on GPT-4. You may experience"
-                " issues with quality.This model may not be able to respond in mentat's"
-                " edit format.",
+                " issues with quality. This model may not be able to respond in"
+                " mentat's edit format.",
                 color="yellow",
             )
             if "gpt-3.5" not in self.model:
@@ -51,7 +51,14 @@ class Conversation:
         tokens = count_tokens(
             code_file_manager.get_code_message(), self.model
         ) + count_tokens(system_prompt, self.model)
+
         self.context_size = model_context_size(self.model)
+        maximum_context = config.maximum_context()
+        if maximum_context:
+            if self.context_size:
+                self.context_size = min(self.context_size, maximum_context)
+            else:
+                self.context_size = maximum_context
         if self.context_size:
             if self.context_size and tokens > self.context_size:
                 raise KeyboardInterrupt(

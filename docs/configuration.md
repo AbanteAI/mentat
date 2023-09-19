@@ -14,7 +14,7 @@ Allow Mentat to use OpenAI's gpt-4 32k context window model. Your API key must a
 
 ### File Exclude Glob list
 List of [glob patterns](https://docs.python.org/3/library/glob.html) to exclude files from being read/edited by Mentat. These take effect whenever you provide Mentat with a directory as an argument. Mentat will add all files in the directory that are not in your `.gitignore` and do not match these glob patterns. Glob patterns are interpreted from the git root location. If you wanted to exclude all files ending in `.py`, the pattern to use would be `**/*.py` rather than `*.py`. Here is an example that would exclude all hidden directories and files:
-```
+```json
 {
     "file-exclude-glob-list": ["**/.*, **/.*/**"]
 }
@@ -22,7 +22,7 @@ List of [glob patterns](https://docs.python.org/3/library/glob.html) to exclude 
 
 ### Input Style
 A list of key-value pairs defining a custom [Pygment Style](https://pygments.org/docs/styledevelopment/) to style the Mentat prompt.
-```
+```json
 {
     "input-style": [
         [
@@ -41,6 +41,15 @@ A list of key-value pairs defining a custom [Pygment Style](https://pygments.org
 }
 ```
 
+### Maximum Context
+
+To save costs on larger models you can set a maximum context.
+```json
+{
+    "maximum-context": "16000"
+}
+```
+
 ## 🦙 Alternative Models
 
 Mentat is powered with openai's sdk so you can direct it to use a local model, or any hosted model which conforms to OpenAi's API spec. For example if you host a Llama instance following the directions [here](https://github.com/abetlen/llama-cpp-python#web-server) then you use that model with Mentat by exporting its path e.g.
@@ -53,3 +62,4 @@ and then setting your model in `~/.mentat/.mentat_config.json`:
     "model": "/absolute/path/to/7B/llama-model.gguf"
 }
 ```
+For non OpenAI models we may not be able to infer a maximum context size so to avoid overrun errors you should set that too.
