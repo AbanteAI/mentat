@@ -103,8 +103,8 @@ def get_full_change(display_information: DisplayInformation):
             else ""
         ),
         get_previous_lines(display_information),
-        get_added_lines(display_information),
         get_removed_lines(display_information),
+        get_added_lines(display_information),
         get_later_lines(display_information),
         (
             change_delimiter
@@ -172,14 +172,14 @@ def get_previous_lines(
             for i in range(
                 max(0, display_information.first_changed_line - (num + 1)),
                 min(
-                    display_information.first_changed_line - 1,
+                    display_information.first_changed_line,
                     len(display_information.file_lines),
                 ),
             )
         ]
     )
     numbered = [
-        (str(display_information.first_changed_line - len(lines) + i) + ":").ljust(
+        (str(display_information.first_changed_line - len(lines) + i + 1) + ":").ljust(
             display_information.line_number_buffer
         )
         + line

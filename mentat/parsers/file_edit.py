@@ -113,7 +113,7 @@ class FileEdit:
         new_replacements = list[Replacement]()
         for replacement in self.replacements:
             removed_block = file_lines[
-                replacement.starting_line : replacement.ending_line + 1
+                replacement.starting_line : replacement.ending_line
             ]
             display_information = DisplayInformation(
                 self.file_path,

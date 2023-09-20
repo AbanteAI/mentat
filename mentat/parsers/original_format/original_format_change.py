@@ -200,7 +200,7 @@ class OriginalFormatChange:
             self.file_lines
             if self.action == OriginalFormatChangeAction.DeleteFile
             else (
-                self.file_lines[self.first_changed_line : self.last_changed_line + 1]
+                self.file_lines[self.first_changed_line : self.last_changed_line]
                 if self.action.has_removals()
                 else []
             )
