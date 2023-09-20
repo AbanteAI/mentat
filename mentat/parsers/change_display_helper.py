@@ -34,7 +34,7 @@ class FileActionType(Enum):
     UpdateFile = "update"
 
 
-@attr.s
+@attr.define(slots=False)
 class DisplayInformation:
     file_name: Path = attr.field()
     file_lines: list[str] = attr.field()

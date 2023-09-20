@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 # TODO: Add 'owner' to Replacement so that interactive mode can accept/reject multiple replacements at once
-@attr.s(order=False)
+@attr.define(order=False)
 class Replacement:
     """
     Represents that the lines from starting_line (inclusive) to ending_line (exclusive)
@@ -53,7 +53,7 @@ def _ask_user_change(
     return user_input_manager.ask_yes_no(default_yes=True)
 
 
-@attr.s
+@attr.define
 class FileEdit:
     """
     Represents that this file_path content should have specified Replacements applied to it.

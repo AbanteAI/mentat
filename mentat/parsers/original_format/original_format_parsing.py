@@ -37,7 +37,7 @@ class _BlockIndicator(Enum):
     End = "@@end"
 
 
-@attr.s
+@attr.define
 class ParsingState:
     message: str = attr.field(default="")
     cur_line: str = attr.field(default="")
@@ -175,6 +175,8 @@ async def stream_and_parse_llm_response(
         ):
             printer.wrap_it_up()
             await printer_task
+        else:
+            printer_task.cancel()
     except ModelError as e:
         logging.info(f"Model created error {e}")
         printer.wrap_it_up()
