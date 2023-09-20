@@ -69,11 +69,11 @@ class OriginalFormatChange:
             rel_path = code_change.file
             abs_path = config.git_root / rel_path
             if abs_path not in file_edits:
-                file_edits[abs_path] = FileEdit(abs_path, [])
+                file_edits[abs_path] = FileEdit(abs_path)
             match code_change.action:
                 case OriginalFormatChangeAction.CreateFile:
                     file_edits[abs_path].replacements.append(
-                        Replacement(code_change.code_lines, 0, 0)
+                        Replacement(0, 0, code_change.code_lines)
                     )
                     file_edits[abs_path].is_creation = True
                 case OriginalFormatChangeAction.DeleteFile:
@@ -84,9 +84,9 @@ class OriginalFormatChange:
                 case _:
                     file_edits[abs_path].replacements.append(
                         Replacement(
-                            code_change.code_lines,
                             code_change.first_changed_line,
                             code_change.last_changed_line,
+                            code_change.code_lines,
                         )
                     )
         return [file_edit for file_edit in file_edits.values()]

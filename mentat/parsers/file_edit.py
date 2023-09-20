@@ -22,18 +22,19 @@ if TYPE_CHECKING:
 
 
 # TODO: Add 'owner' to Replacement so that interactive mode can accept/reject multiple replacements at once
-@attr.s
+@attr.s(order=False)
 class Replacement:
     """
     Represents that the lines from starting_line (inclusive) to ending_line (exclusive)
     should be replaced with new_lines
     """
 
-    new_lines: list[str] = attr.field()
     # Inclusive
     starting_line: int = attr.field()
     # Exclusive
     ending_line: int = attr.field()
+
+    new_lines: list[str] = attr.field()
 
     def __lt__(self, other: Replacement):
         return self.ending_line < other.ending_line or (
@@ -61,7 +62,7 @@ class FileEdit:
 
     # Should be abs path
     file_path: Path = attr.field()
-    replacements: list[Replacement] = attr.field()
+    replacements: list[Replacement] = attr.field(factory=list)
     is_creation: bool = attr.field(default=False)
     is_deletion: bool = attr.field(default=False)
     # Should be abs path
