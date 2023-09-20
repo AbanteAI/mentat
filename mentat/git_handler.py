@@ -101,3 +101,66 @@ def commit(message: str) -> None:
     """
     subprocess.run(["git", "add", "."])
     subprocess.run(["git", "commit", "-m", message])
+
+
+def get_diff_for_file(git_root: Path, target: str, path: Path) -> str:
+    """Return commit data & diff for target versus active code"""
+    try:
+        diff_content = subprocess.check_output(
+            ["git", "diff", "-U0", f"{target}", "--", path], cwd=git_root, text=True
+        ).strip()
+        return diff_content
+    except subprocess.CalledProcessError:
+        logging.error(f"Error obtaining diff for commit '{target}'.")
+        raise UserError()
+
+
+def get_treeish_metadata(git_root: Path, target: str) -> dict[str, str]:
+    try:
+        commit_info = subprocess.check_output(
+            ["git", "log", target, "-n", "1", "--pretty=format:%H %s"],
+            cwd=git_root,
+            text=True,
+        ).strip()
+
+        # Split the returned string into the hash and summary
+        commit_hash, commit_summary = commit_info.split(" ", 1)
+        return {"hexsha": commit_hash, "summary": commit_summary}
+    except subprocess.CalledProcessError:
+        logging.error(f"Error obtaining commit data for target '{target}'.")
+        raise UserError()
+
+
+def get_files_in_diff(git_root: Path, target: str) -> list[Path]:
+    """Return commit data & diff for target versus active code"""
+    try:
+        diff_content = subprocess.check_output(
+            ["git", "diff", "--name-only", f"{target}", "--"], cwd=git_root, text=True
+        ).strip()
+        if diff_content:
+            return [Path(path) for path in diff_content.split("\n")]
+        else:
+            return []
+    except subprocess.CalledProcessError:
+        logging.error(f"Error obtaining diff for commit '{target}'.")
+        raise UserError()
+
+
+def check_head_exists(git_root: Path) -> bool:
+    try:
+        subprocess.check_output(["git", "rev-parse", "HEAD", "--"], cwd=git_root)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def get_default_branch(git_root: Path) -> str:
+    try:
+        # Fetch the symbolic ref of HEAD which points to the default branch
+        default_branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=git_root, text=True
+        ).strip()
+        return default_branch
+    except subprocess.CalledProcessError:
+        # Handle error if needed or raise an exception
+        raise Exception("Unable to determine the default branch.")

@@ -15,8 +15,8 @@ from .code_change import CodeChange, CodeChangeAction
 from .code_context import CodeContext
 from .code_file import CodeFile
 from .config_manager import ConfigManager
+from .diff_context import DiffContext
 from .errors import MentatError
-from .git_handler import get_git_diff_for_path
 from .user_input_manager import UserInputManager
 
 
@@ -26,10 +26,12 @@ class CodeFileManager:
         user_input_manager: UserInputManager,
         config: ConfigManager,
         code_context: CodeContext,
+        diff_context: DiffContext,
     ):
         self.user_input_manager = user_input_manager
         self.config = config
         self.code_context = code_context
+        self.diff_context = diff_context
 
     def _read_file(self, file: Union[Path, CodeFile]) -> list[str]:
         if isinstance(file, CodeFile):
@@ -49,25 +51,37 @@ class CodeFileManager:
             self.file_lines[rel_path] = self._read_file(file)
 
     def get_code_message(self):
+        code_message: list[str] = []
+        if self.diff_context.files:
+            code_message += [
+                "Diff References:",
+                f' "-" = {self.diff_context.name}',
+                ' "+" = Active Changes',
+                "",
+            ]
+
         self._read_all_file_lines()
-        code_message = ["Code Files:\n"]
+        code_message += ["Code Files:\n"]
         for file in self.code_context.files.values():
+            file_message: list[str] = []
             abs_path = file.path
             rel_path = Path(os.path.relpath(abs_path, self.config.git_root))
 
             # We always want to give GPT posix paths
             posix_rel_path = Path(rel_path).as_posix()
-            code_message.append(posix_rel_path)
+            file_message.append(posix_rel_path)
 
             for i, line in enumerate(self.file_lines[rel_path], start=1):
                 if file.contains_line(i):
-                    code_message.append(f"{i}:{line}")
-            code_message.append("")
+                    file_message.append(f"{i}:{line}")
+            file_message.append("")
 
-            git_diff_output = get_git_diff_for_path(self.config.git_root, rel_path)
-            if git_diff_output:
-                code_message.append("Current git diff for this file:")
-                code_message.append(f"{git_diff_output}")
+            if rel_path in self.diff_context.files:
+                file_message = self.diff_context.annotate_file_message(
+                    rel_path, file_message
+                )
+
+            code_message += file_message
 
         return "\n".join(code_message)
 

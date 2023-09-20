@@ -15,6 +15,7 @@ from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
 from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
+from .diff_context import get_diff_context
 from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker, setup_api_key
@@ -44,13 +45,36 @@ def run_cli():
         action="store_true",
         help="Exclude the file structure/syntax map from the system prompt",
     )
+    parser.add_argument(
+        "--diff",
+        "-d",
+        type=str,
+        default=None,
+        help="A git tree-ish (e.g. commit, branch, tag) to diff against",
+    )
+    parser.add_argument(
+        "--pr-diff",
+        "-p",
+        type=str,
+        default=None,
+        help="A git tree-ish to diff against the latest common ancestor of",
+    )
+
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
     no_code_map = args.no_code_map
+    diff = args.diff
+    pr_diff = args.pr_diff
     # Expanding paths as soon as possible because some shells such as zsh automatically
     # expand globs and we want to avoid differences in functionality between shells
-    run(expand_paths(paths), expand_paths(exclude_paths), no_code_map)
+    run(
+        expand_paths(paths),
+        expand_paths(exclude_paths),
+        no_code_map,
+        diff,
+        pr_diff,
+    )
 
 
 def expand_paths(paths: list[str]) -> list[Path]:
@@ -86,6 +110,8 @@ def run(
     paths: list[Path],
     exclude_paths: Optional[list[Path]] = None,
     no_code_map: bool = False,
+    diff: Optional[str] = None,
+    pr_diff: Optional[str] = None,
 ):
     mentat_dir_path.mkdir(parents=True, exist_ok=True)
     setup_logging()
@@ -94,7 +120,7 @@ def run(
     cost_tracker = CostTracker()
     try:
         setup_api_key()
-        loop(paths, exclude_paths, cost_tracker, no_code_map)
+        loop(paths, exclude_paths, cost_tracker, no_code_map, diff, pr_diff)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -113,13 +139,25 @@ def loop(
     exclude_paths: Optional[list[Path]],
     cost_tracker: CostTracker,
     no_code_map: bool,
+    diff: Optional[str],
+    pr_diff: Optional[str],
 ) -> None:
     git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
     config = ConfigManager(git_root)
+    try:
+        diff_context = get_diff_context(config, diff, pr_diff)
+        if not paths:
+            paths = diff_context.files
+    except UserError as e:
+        cprint(str(e), "light_yellow")
+        exit()
     code_context = CodeContext(config, paths, exclude_paths or [])
     code_context.display_context()
+    diff_context.display_context()
     user_input_manager = UserInputManager(config, code_context)
-    code_file_manager = CodeFileManager(user_input_manager, config, code_context)
+    code_file_manager = CodeFileManager(
+        user_input_manager, config, code_context, diff_context
+    )
     code_map = CodeMap(git_root, config, token_limit=2048) if not no_code_map else None
     if code_map is not None and code_map.ctags_disabled:
         ctags_disabled_message = f"""
