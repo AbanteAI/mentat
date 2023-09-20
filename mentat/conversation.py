@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from timeit import default_timer
 
 from openai.error import InvalidRequestError, RateLimitError
@@ -30,8 +29,8 @@ class Conversation:
         code_file_manager: CodeFileManager,
         code_map: CodeMap | None = None,
     ):
-        prompt = parser.get_system_prompt()
         self.messages = list[dict[str, str]]()
+        prompt = parser.get_system_prompt()
         self.add_system_message(prompt)
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
@@ -123,10 +122,11 @@ class Conversation:
         model: str,
     ) -> tuple[str, list[FileEdit]]:
         response = await call_llm_api(messages, model)
-        # TODO once this becomes a separate parsing injectable, use injectable here
-        message, file_edits = await parser.stream_and_parse_llm_response(
-            response, self.code_file_manager, config
-        )
+        with parser.interrupt_catcher():
+            print("\nStreaming...  use control-c to interrupt the model at any point\n")
+            message, file_edits = await parser.stream_and_parse_llm_response(
+                response, self.code_file_manager, config
+            )
         return message, file_edits
 
     def _handle_async_stream(
@@ -149,16 +149,6 @@ class Conversation:
             )
         except RateLimitError as e:
             raise UserError("OpenAI gave a rate limit error:\n" + str(e))
-        except KeyboardInterrupt:
-            # TODO: Once the interface PR is merged, we will be sending signals down to the streaming
-            # subroutine; the OriginalFormatParser needs to remove the latest change if it's incomplete
-            # Previous code (which was here, will be in the subroutine after this):
-            # if state.in_code_lines:
-            #     state.code_changes = state.code_changes[:-1]
-            print("\n\nInterrupted by user. Using the response up to this point.")
-            logging.info("User interrupted response.")
-            # TODO: This except won't be here after interface changes, and this won't be necessary
-            message, file_edits = "", []
 
         time_elapsed = default_timer() - start_time
         return (message, file_edits, time_elapsed)

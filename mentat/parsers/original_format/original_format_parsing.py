@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from asyncio import Event
 from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
@@ -163,16 +164,17 @@ async def stream_and_parse_llm_response(
     response: AsyncGenerator[Any, None],
     code_file_manager: CodeFileManager,
     config: ConfigManager,
+    shutdown: Event,
 ) -> tuple[str, list[FileEdit]]:
     state = ParsingState()
-    print("\nstreaming...  use control-c to interrupt the model at any point\n")
-
     printer = StreamingPrinter()
     printer_task = asyncio.create_task(printer.print_lines())
     try:
-        await _process_response(state, response, printer, code_file_manager)
-        printer.wrap_it_up()
-        await printer_task
+        if await _process_response(
+            state, response, printer, code_file_manager, shutdown
+        ):
+            printer.wrap_it_up()
+            await printer_task
     except ModelError as e:
         logging.info(f"Model created error {e}")
         printer.wrap_it_up()
@@ -195,7 +197,8 @@ async def _process_response(
     response: AsyncGenerator[Any, None],
     printer: StreamingPrinter,
     code_file_manager: CodeFileManager,
-):
+    shutdown: Event,
+) -> bool:
     def chunk_to_lines(chunk: Any) -> list[str]:
         return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)
 
@@ -204,6 +207,10 @@ async def _process_response(
             if content_line:
                 state.message += content_line
                 _process_content_line(state, content_line, printer, code_file_manager)
+        if shutdown.is_set():
+            if state.in_code_lines:
+                state.code_changes = state.code_changes[:-1]
+            return False
 
     # This newline solves at least 5 edge cases singlehandedly
     _process_content_line(state, "\n", printer, code_file_manager)
@@ -212,6 +219,7 @@ async def _process_response(
     if state.in_special_lines:
         logging.info("Model forgot an @@end!")
         _process_content_line(state, "@@end\n", printer, code_file_manager)
+    return True
 
 
 def _process_content_line(

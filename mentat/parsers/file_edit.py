@@ -68,7 +68,6 @@ class FileEdit:
     # Should be abs path
     rename_file_path: Path | None = attr.field(default=None)
 
-    # TODO: Move this somewhere else?
     def filter_replacements(
         self,
         code_file_manager: CodeFileManager,

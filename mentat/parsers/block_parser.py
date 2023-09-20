@@ -25,4 +25,6 @@ class BlockParser(Parser):
         config: ConfigManager,
     ) -> tuple[str, list[FileEdit]]:
         # Uses the legacy parsing code
-        return await stream_and_parse_llm_response(response, code_file_manager, config)
+        return await stream_and_parse_llm_response(
+            response, code_file_manager, config, self.shutdown
+        )
