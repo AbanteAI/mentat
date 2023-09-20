@@ -3,7 +3,7 @@ import logging
 from importlib import resources
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 from termcolor import cprint
 
@@ -60,8 +60,14 @@ class ConfigManager:
     def input_style(self) -> list[tuple[str, str]]:
         return cast(list[tuple[str, str]], self._get_key("input-style"))
 
-    def allow_32k(self) -> bool:
-        return cast(bool, self._get_key("allow-32k"))
+    def model(self) -> str:
+        return cast(str, self._get_key("model"))
+
+    def maximum_context(self) -> Optional[int]:
+        maximum_context = self._get_key("maximum-context")
+        if maximum_context:
+            return cast(int, maximum_context)
+        return None
 
     def file_exclude_glob_list(self) -> list[str]:
         return cast(list[str], self._get_key("file-exclude-glob-list"))

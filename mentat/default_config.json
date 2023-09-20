@@ -1,5 +1,6 @@
 {
-    "allow-32k": false,
+    "model": "gpt-4-0314",
+    "maximum-context": null,
     "input-style": [
         [
             "",

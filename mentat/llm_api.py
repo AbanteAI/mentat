@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, cast
+from typing import Any, AsyncGenerator, Optional, cast
 
 import openai
 import tiktoken
@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from openai.error import AuthenticationError
 from termcolor import cprint
 
-from .config_manager import mentat_dir_path, user_config_path
+from .config_manager import mentat_dir_path
 from .errors import MentatError, UserError
 
 package_name = __name__.split(".")[0]
@@ -24,6 +24,9 @@ def setup_api_key():
     if not load_dotenv(mentat_dir_path / ".env"):
         load_dotenv()
     key = os.getenv("OPENAI_API_KEY")
+    base_url = os.getenv("OPENAI_API_BASE")
+    if base_url:
+        openai.api_base = base_url
     if not key:
         raise UserError(
             "No OpenAI api key detected.\nEither place your key into a .env"
@@ -60,64 +63,71 @@ async def call_llm_api(
     return response
 
 
-def count_tokens(message: str) -> int:
-    return len(
-        tiktoken.encoding_for_model("gpt-4").encode(message, disallowed_special=())
-    )
+def count_tokens(message: str, model: str) -> int:
+    try:
+        return len(
+            tiktoken.encoding_for_model(model).encode(message, disallowed_special=())
+        )
+    except KeyError:
+        return len(
+            tiktoken.encoding_for_model("gpt-4").encode(message, disallowed_special=())
+        )
 
 
-def check_model_availability(allow_32k: bool) -> bool:
+def is_model_available(model: str) -> bool:
     available_models: list[str] = cast(
         list[str], [x["id"] for x in openai.Model.list()["data"]]  # type: ignore
     )
 
-    if allow_32k:
-        # check if user has access to gpt-4-32k
-        if "gpt-4-32k-0314" not in available_models:
-            cprint(
-                "You set ALLOW_32K to true, but your OpenAI API key doesn't"
-                " have access to gpt-4-32k-0314. To remove this warning, set"
-                " ALLOW_32K to false until you have access.",
-                "yellow",
-            )
-            allow_32k = False
-
-    if not allow_32k:
-        # check if user has access to gpt-4
-        if "gpt-4-0314" not in available_models:
-            raise UserError(
-                "Sorry, but your OpenAI API key doesn't have access to gpt-4-0314,"
-                " which is currently required to run Mentat."
-            )
-
-    return allow_32k
+    return model in available_models
 
 
-def choose_model(messages: list[dict[str, str]], allow_32k: bool) -> tuple[str, int]:
+def model_context_size(model: str) -> Optional[int]:
+    if "gpt-4" in model:
+        if "32k" in model:
+            return 32768
+        else:
+            return 8192
+    elif "gpt-3.5" in model:
+        if "16k" in model:
+            return 16385
+        else:
+            return 4097
+    else:
+        return None
+
+
+def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
+    if "gpt-4" in model:
+        if "32k" in model:
+            return (0.06, 0.12)
+        else:
+            return (0.03, 0.06)
+    elif "gpt-3.5" in model:
+        if "16k" in model:
+            return (0.003, 0.004)
+        else:
+            return (0.0015, 0.002)
+    else:
+        return None
+
+
+def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
     prompt_token_count = 0
     for message in messages:
-        prompt_token_count += count_tokens(message["content"])
+        prompt_token_count += count_tokens(message["content"], model)
     cprint(f"\nTotal token count: {prompt_token_count}", "cyan")
 
-    model = "gpt-4-0314"
     token_buffer = 500
-    if prompt_token_count > 8192 - token_buffer:
-        if allow_32k:
-            model = "gpt-4-32k-0314"
-            if prompt_token_count > 32768 - token_buffer:
-                cprint(
-                    "Warning: gpt-4-32k-0314 has a token limit of 32768. Attempting"
-                    " to run anyway:"
-                )
-        else:
+    context_size = model_context_size(model)
+    if context_size:
+        if prompt_token_count > context_size - token_buffer:
             cprint(
-                "Warning: gpt-4-0314 has a maximum context length of 8192 tokens."
-                " If you have access to gpt-4-32k-0314, set allow-32k to `true` in"
-                f" `{user_config_path}` to use"
-                " it. Attempting to run with gpt-4-0314:",
+                f"Warning: {model} has a maximum context length of {context_size}"
+                " tokens. Attempting to run anyway:",
                 "yellow",
             )
-    return model, prompt_token_count
+    return prompt_token_count
 
 
 @dataclass
@@ -131,25 +141,23 @@ class CostTracker:
         model: str,
         call_time: float,
     ) -> None:
-        cost_per_1000_tokens = {
-            "gpt-4-0314": (0.03, 0.06),
-            "gpt-4-32k-0314": (0.06, 0.12),
-        }
-        prompt_cost = (num_prompt_tokens / 1000) * cost_per_1000_tokens[model][0]
-        sampled_cost = (num_sampled_tokens / 1000) * cost_per_1000_tokens[model][1]
-
         tokens_per_second = num_sampled_tokens / call_time
-        call_cost = prompt_cost + sampled_cost
+        cost = model_price_per_1000_tokens(model)
+        if cost:
+            prompt_cost = (num_prompt_tokens / 1000) * cost[0]
+            sampled_cost = (num_sampled_tokens / 1000) * cost[1]
+            call_cost = prompt_cost + sampled_cost
+            self.total_cost += call_cost
 
-        speed_and_cost_string = (
-            f"Speed: {tokens_per_second:.2f} tkns/s | Cost: ${call_cost:.2f}"
-        )
+            speed_and_cost_string = (
+                f"Speed: {tokens_per_second:.2f} tkns/s | Cost: ${call_cost:.2f}"
+            )
+        else:
+            speed_and_cost_string = f"Speed: {tokens_per_second:.2f} tkns/s"
         cprint(speed_and_cost_string, "cyan")
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
-
-        self.total_cost += call_cost
 
     def display_total_cost(self) -> None:
         cprint(f"\nTotal session cost: ${self.total_cost:.2f}", color="light_blue")

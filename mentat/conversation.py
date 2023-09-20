@@ -4,20 +4,20 @@ from timeit import default_timer
 from openai.error import InvalidRequestError, RateLimitError
 from termcolor import cprint
 
+from mentat.config_manager import ConfigManager, user_config_path
 from mentat.errors import MentatError, UserError
+from mentat.llm_api import (
+    CostTracker,
+    call_llm_api,
+    count_tokens,
+    get_prompt_token_count,
+    is_model_available,
+    model_context_size,
+)
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import Parser
 
 from .code_file_manager import CodeFileManager
-from .code_map import CodeMap
-from .config_manager import ConfigManager
-from .llm_api import (
-    CostTracker,
-    call_llm_api,
-    check_model_availability,
-    choose_model,
-    count_tokens,
-)
 
 
 class Conversation:
@@ -27,36 +27,65 @@ class Conversation:
         config: ConfigManager,
         cost_tracker: CostTracker,
         code_file_manager: CodeFileManager,
-        code_map: CodeMap | None = None,
     ):
         self.messages = list[dict[str, str]]()
         prompt = parser.get_system_prompt()
         self.add_system_message(prompt)
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
-        self.code_map = code_map
-        self.allow_32k = check_model_availability(config.allow_32k())
+        self.model = config.model()
+        if not is_model_available(self.model):
+            raise KeyboardInterrupt(
+                f"Model {self.model} is not available. Please try again with a"
+                " different model."
+            )
+        if "gpt-4" not in self.model:
+            cprint(
+                "Warning: Mentat has only been tested on GPT-4. You may experience"
+                " issues with quality. This model may not be able to respond in"
+                " mentat's edit format.",
+                color="yellow",
+            )
+            if "gpt-3.5" not in self.model:
+                cprint(
+                    "Warning: Mentat does not know how to calculate costs or context"
+                    " size for this model.",
+                    color="yellow",
+                )
 
-        tokens = count_tokens(code_file_manager.get_code_message()) + count_tokens(
-            prompt
-        )
-        self.token_limit = 32768 if self.allow_32k else 8192
-        if tokens > self.token_limit:
+        tokens = count_tokens(
+            code_file_manager.get_code_message(self.model), self.model
+        ) + count_tokens(prompt, self.model)
+        context_size = model_context_size(self.model)
+        maximum_context = config.maximum_context()
+        if maximum_context:
+            if context_size:
+                context_size = min(context_size, maximum_context)
+            else:
+                context_size = maximum_context
+
+        if not context_size:
+            raise KeyboardInterrupt(
+                f"Context size for {self.model} is not known. Please set"
+                f" maximum-context in {user_config_path}."
+            )
+        if context_size and tokens > context_size:
             raise KeyboardInterrupt(
                 f"Included files already exceed token limit ({tokens} /"
-                f" {self.token_limit}). Please try running again with a reduced number"
-                " of files."
+                f" {context_size}). Please try running again with a reduced"
+                " number of files."
             )
-        elif tokens + 1000 > self.token_limit:
+        elif tokens + 1000 > context_size:
             cprint(
                 f"Warning: Included files are close to token limit ({tokens} /"
-                f" {self.token_limit}), you may not be able to have a long"
+                f" {context_size}), you may not be able to have a long"
                 " conversation.",
                 "red",
             )
         else:
             cprint(
-                f"File and prompt token count: {tokens} / {self.token_limit}", "cyan"
+                f"File and prompt token count: {tokens} / {context_size}",
+                "cyan",
             )
 
     def add_system_message(self, message: str):
@@ -68,60 +97,10 @@ class Conversation:
     def add_assistant_message(self, message: str):
         self.messages.append({"role": "assistant", "content": message})
 
-    def _get_system_message(self):
-        messages = self.messages.copy()
-        system_message = self.code_file_manager.get_code_message()
-
-        if self.code_map:
-            system_message_token_count = count_tokens(system_message)
-            messages_token_count = 0
-            for message in messages:
-                messages_token_count += count_tokens(message["content"])
-            token_buffer = 1000
-            token_count = (
-                system_message_token_count + messages_token_count + token_buffer
-            )
-            max_tokens_for_code_map = self.token_limit - token_count
-
-            if self.code_map.token_limit:
-                code_map_message_token_limit = min(
-                    self.code_map.token_limit, max_tokens_for_code_map
-                )
-            else:
-                code_map_message_token_limit = max_tokens_for_code_map
-
-            code_map_message = self.code_map.get_message(
-                token_limit=code_map_message_token_limit
-            )
-            if code_map_message:
-                match (code_map_message.level):
-                    case "signatures":
-                        cprint_message_level = "full syntax tree"
-                    case "no_signatures":
-                        cprint_message_level = "partial syntax tree"
-                    case "filenames":
-                        cprint_message_level = "filepaths only"
-
-                cprint_message = f"\nIncluding CodeMap ({cprint_message_level})"
-                cprint(cprint_message, color="green")
-                system_message += f"\n{code_map_message}"
-            else:
-                cprint_message = [
-                    "\nExcluding CodeMap from system message.",
-                    "Reason: not enough tokens available in model context.",
-                ]
-                cprint_message = "\n".join(cprint_message)
-                cprint(cprint_message, color="yellow")
-        return system_message
-
     async def _run_async_stream(
-        self,
-        parser: Parser,
-        config: ConfigManager,
-        messages: list[dict[str, str]],
-        model: str,
+        self, parser: Parser, config: ConfigManager, messages: list[dict[str, str]]
     ) -> tuple[str, list[FileEdit]]:
-        response = await call_llm_api(messages, model)
+        response = await call_llm_api(messages, self.model)
         with parser.interrupt_catcher():
             print("\nStreaming...  use control-c to interrupt the model at any point\n")
             message, file_edits = await parser.stream_and_parse_llm_response(
@@ -134,12 +113,11 @@ class Conversation:
         parser: Parser,
         config: ConfigManager,
         messages: list[dict[str, str]],
-        model: str,
     ) -> tuple[str, list[FileEdit], float]:
         start_time = default_timer()
         try:
             message, file_edits = asyncio.run(
-                self._run_async_stream(parser, config, messages, model)
+                self._run_async_stream(parser, config, messages)
             )
         except InvalidRequestError as e:
             raise MentatError(
@@ -157,18 +135,17 @@ class Conversation:
         self, parser: Parser, config: ConfigManager
     ) -> list[FileEdit]:
         messages = self.messages.copy()
+        code_message = self.code_file_manager.get_code_message(self.model)
+        messages.append({"role": "system", "content": code_message})
 
-        system_message = self._get_system_message()
-        messages.append({"role": "system", "content": system_message})
-        model, num_prompt_tokens = choose_model(messages, self.allow_32k)
-
+        num_prompt_tokens = get_prompt_token_count(messages, self.model)
         message, file_edits, time_elapsed = self._handle_async_stream(
-            parser, config, messages, model
+            parser, config, messages
         )
         self.cost_tracker.display_api_call_stats(
             num_prompt_tokens,
-            count_tokens(message),
-            model,
+            count_tokens(message, self.model),
+            self.model,
             time_elapsed,
         )
 

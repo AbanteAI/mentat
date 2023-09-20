@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from termcolor import cprint
 
+from .config_manager import ConfigManager
 from .git_handler import get_non_gitignored_files
 from .llm_api import count_tokens
 
@@ -112,8 +113,9 @@ class CodeMapMessage:
 
 
 class CodeMap:
-    def __init__(self, git_root: Path, token_limit: int | None = None):
-        self.git_root = git_root
+    def __init__(self, config: ConfigManager, token_limit: int | None = None):
+        self.config = config
+        self.git_root = self.config.git_root
         self.token_limit = token_limit
 
         self.ctags_disabled = True
@@ -168,7 +170,7 @@ class CodeMap:
             code_map = _get_code_map(
                 root, file_path, exclude_signatures=exclude_signatures
             )
-            code_map_token_count = count_tokens(code_map)
+            code_map_token_count = count_tokens(code_map, self.config.model())
 
             if token_limit is not None and code_maps_token_count > token_limit:
                 if exclude_signatures is True:
@@ -182,7 +184,7 @@ class CodeMap:
 
         message = "Code Map:" + "\n\n" + "\n".join(code_maps)
 
-        message_token_count = count_tokens(message)
+        message_token_count = count_tokens(message, self.config.model())
         if token_limit is not None and message_token_count > token_limit:
             if exclude_signatures is True:
                 return
@@ -204,7 +206,7 @@ class CodeMap:
 
         message = "Code Map:" + "\n\n" + file_map_tree
 
-        message_token_count = count_tokens(message)
+        message_token_count = count_tokens(message, self.config.model())
         token_limit = token_limit or self.token_limit
         if token_limit is not None and message_token_count > token_limit:
             return

@@ -2,12 +2,15 @@ import glob
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict
+from textwrap import dedent
+from typing import Any, Dict, Optional
 
 from termcolor import cprint
 
 from .code_file import CodeFile
+from .code_map import CodeMap
 from .config_manager import ConfigManager
+from .diff_context import get_diff_context
 from .errors import UserError
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 
@@ -137,9 +140,32 @@ class CodeContext:
         config: ConfigManager,
         paths: list[Path],
         exclude_paths: list[Path],
+        diff: Optional[str] = None,
+        pr_diff: Optional[str] = None,
+        no_code_map: bool = False,
     ):
         self.config = config
+        # Diff context
+        try:
+            self.diff_context = get_diff_context(config, diff, pr_diff)
+            if not paths:
+                paths = self.diff_context.files
+        except UserError as e:
+            cprint(str(e), "light_yellow")
+            exit()
+        # User-specified Files
         self.files = _get_files(self.config, paths, exclude_paths)
+        # Universal ctags
+        self.code_map = (
+            CodeMap(self.config, token_limit=2048) if not no_code_map else None
+        )
+        if self.code_map is not None and self.code_map.ctags_disabled:
+            ctags_disabled_message = f"""
+                There was an error with your universal ctags installation, disabling CodeMap.
+                Reason: {self.code_map.ctags_disabled_reason}
+            """
+            ctags_disabled_message = dedent(ctags_disabled_message)
+            cprint(ctags_disabled_message, color="yellow")
 
     def display_context(self):
         if self.files:
@@ -154,6 +180,7 @@ class CodeContext:
             self.config.git_root,
         )
         print()
+        self.diff_context.display_context()
 
     def add_file(self, code_file: CodeFile):
         if not os.path.exists(code_file.path):
