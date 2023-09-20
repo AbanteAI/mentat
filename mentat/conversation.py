@@ -1,3 +1,5 @@
+import logging
+
 from termcolor import cprint
 
 from .code_change import CodeChange
@@ -85,12 +87,15 @@ class Conversation:
             )
 
     def add_system_message(self, message: str):
+        logging.debug(f"System Message:\n{message}")
         self.messages.append({"role": "system", "content": message})
 
     def add_user_message(self, message: str):
+        logging.debug(f"User Message:\n{message}")
         self.messages.append({"role": "user", "content": message})
 
     def add_assistant_message(self, message: str):
+        logging.debug(f"Assistant Message:\n{message}")
         self.messages.append({"role": "assistant", "content": message})
 
     def get_model_response(self, config: ConfigManager) -> tuple[str, list[CodeChange]]:
