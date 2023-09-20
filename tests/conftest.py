@@ -123,6 +123,14 @@ def add_permissions(func, path, exc_info):
 
 
 # Auto-used fixtures
+def run_git_command(cwd, *args):
+    """Helper function to run a git command."""
+    subprocess.run(
+        ["git"] + list(args),
+        cwd=cwd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -133,24 +141,18 @@ def temp_testbed(monkeypatch):
     temp_testbed = os.path.join(temp_dir, "testbed")
     shutil.copytree("testbed", temp_testbed)
     shutil.copy(".gitignore", temp_testbed)
-    subprocess.run(
-        ["git", "init"],
-        cwd=temp_testbed,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    subprocess.run(
-        ["git", "add", "."],
-        cwd=temp_testbed,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "add testbed"],
-        cwd=temp_testbed,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+
+    # Initialize git repo
+    run_git_command(temp_testbed, "init")
+
+    # Set local config for user.name and user.email. Set automatically on
+    # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
+    run_git_command(temp_testbed, "config", "user.email", "test@example.com")
+    run_git_command(temp_testbed, "config", "user.name", "Test User")
+
+    # Add all files and commit
+    run_git_command(temp_testbed, "add", ".")
+    run_git_command(temp_testbed, "commit", "-m", "add testbed")
 
     # necessary to undo chdir before calling rmtree, or it fails on windows
     with monkeypatch.context() as m:
