@@ -148,6 +148,7 @@ class Conversation:
                 cprint_message = "\n".join(cprint_message)
                 cprint(cprint_message, color="yellow")
 
+        logging.debug(f"Code Message:\n{system_message}")
         messages.append({"role": "system", "content": system_message})
 
         num_prompt_tokens = get_prompt_token_count(messages, self.model)

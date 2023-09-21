@@ -26,13 +26,17 @@ def log_file_to_conversation(filename):
         content = f.read()
 
     pattern = re.compile(
-        r"DEBUG - (System|Assistant|User) Message:\n(.*?)\n\d\d\d\d-\d\d-\d\d ",
+        r"DEBUG - (System|Assistant|User|Code) Message:\n(.*?)\n\d\d\d\d-\d\d-\d\d ",
         re.DOTALL,
     )
     matches = pattern.findall(content)
+    added_code_message = False
     for match in matches:
         kind = match[0]
         message = match[1]
+        if kind == "Code":
+            added_code_message = True
+            messages.append({"role": "system", "content": message})
         if kind == "System":
             messages.append({"role": "system", "content": message})
         if kind == "Assistant":
