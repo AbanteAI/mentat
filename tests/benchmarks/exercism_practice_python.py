@@ -13,6 +13,8 @@ from mentat.user_input_manager import UserInputManager, UserQuitInterrupt
 
 threadLocal = threading.local()
 
+pytestmark = pytest.mark.benchmark
+
 
 def exercise_passed():
     try:
