@@ -1,10 +1,12 @@
 import math
 
-from pygments import highlight
-from pygments.formatters import TerminalFormatter
-from termcolor import colored
+from mentat.session_conversation import (
+    MessageData,
+    MessageGroup,
+    get_session_conversation,
+)
 
-from .code_change import CodeChangeAction
+from .code_change import CodeChange, CodeChangeAction
 
 change_delimiter = 60 * "="
 
@@ -42,37 +44,41 @@ def _prefixed_lines(code_change, lines, prefix):
     )
 
 
-def print_change(code_change):
+def print_change(code_change: CodeChange):
     to_print = [
         get_file_name(code_change),
-        change_delimiter if code_change.action != CodeChangeAction.RenameFile else "",
+        change_delimiter if code_change.action != CodeChangeAction.RenameFile else None,
         get_previous_lines(code_change),
         get_removed_block(code_change),
         get_added_block(code_change),
         get_later_lines(code_change),
-        change_delimiter if code_change.action != CodeChangeAction.RenameFile else "",
+        change_delimiter if code_change.action != CodeChangeAction.RenameFile else None,
     ]
-    for s in to_print:
-        if s:
-            print(s)
+
+    message_group = MessageGroup()
+    for message_data in to_print:
+        if message_data is not None:
+            message_group.add(message_data["content"], **message_data.extra)
+
+    get_session_conversation().send_message_nowait(message_group)
 
 
-def get_file_name(code_change):
+def get_file_name(code_change: CodeChange) -> MessageData:
     file_name = code_change.file
     match code_change.action:
         case CodeChangeAction.CreateFile:
-            return colored(f"\n{file_name}*", color="light_green")
+            return MessageData(f"{file_name}*", color="light_green")
         case CodeChangeAction.DeleteFile:
-            return colored(f"\n{file_name}", color="light_red")
+            return MessageData(f"{file_name}", color="light_red")
         case CodeChangeAction.RenameFile:
-            return colored(
-                f"\nRename: {file_name} -> {code_change.name}", color="yellow"
+            return MessageData(
+                f"Rename: {file_name} -> {code_change.name}", color="yellow"
             )
         case _:
-            return colored(f"\n{file_name}", color="light_blue")
+            return MessageData(f"{file_name}", color="light_blue")
 
 
-def get_removed_block(code_change, prefix="-", color="red"):
+def get_removed_block(code_change, prefix="-", color="red") -> MessageData | None:
     if code_change.action.has_removals():
         if code_change.action == CodeChangeAction.DeleteFile:
             changed_lines = code_change.file_lines
@@ -83,21 +89,20 @@ def get_removed_block(code_change, prefix="-", color="red"):
 
         removed = _prefixed_lines(code_change, changed_lines, prefix)
         if removed:
-            return colored(removed, color=color)
-    return ""
+            return MessageData(content=removed, color=color)
 
 
-def get_added_block(code_change, prefix="+", color="green"):
+def get_added_block(code_change, prefix="+", color="green") -> MessageData | None:
     if code_change.action.has_additions():
         added = _prefixed_lines(code_change, code_change.code_lines, prefix)
         if added:
-            return colored(added, color=color)
-    return ""
+            return MessageData(added, color=color)
 
 
-def get_previous_lines(code_change, num=2):
+def get_previous_lines(code_change: CodeChange, num: int = 2) -> MessageData | None:
     if not code_change.action.has_surrounding_lines():
-        return ""
+        return
+
     lines = _remove_extra_empty_lines(
         [
             code_change.file_lines[i]
@@ -120,14 +125,12 @@ def get_previous_lines(code_change, num=2):
 
     prev = "\n".join(numbered)
     if prev:
-        h_prev = highlight(prev, code_change.lexer, TerminalFormatter(bg="dark"))
-        return h_prev
-    return ""
+        return MessageData(prev, file_name=code_change.file)
 
 
-def get_later_lines(code_change, num=2):
+def get_later_lines(code_change: CodeChange, num: int = 2) -> MessageData | None:
     if not code_change.action.has_surrounding_lines():
-        return ""
+        return
     lines = _remove_extra_empty_lines(
         [
             code_change.file_lines[i]
@@ -150,6 +153,4 @@ def get_later_lines(code_change, num=2):
 
     later = "\n".join(numbered)
     if later:
-        h_later = highlight(later, code_change.lexer, TerminalFormatter(bg="dark"))
-        return h_later
-    return ""
+        return MessageData(later, file_name=code_change.file)

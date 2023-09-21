@@ -4,7 +4,6 @@ import logging
 import os
 import subprocess
 import tempfile
-import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Set

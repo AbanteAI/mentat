@@ -4,7 +4,7 @@ from importlib import resources
 from json import JSONDecodeError
 from pathlib import Path
 
-from termcolor import cprint
+from .session_conversation import get_session_conversation
 
 mentat_dir_path = Path.home() / ".mentat"
 
@@ -22,15 +22,19 @@ class ConfigManager:
     def __init__(self, git_root: str):
         self.git_root = Path(git_root)
 
+        session_conversation = get_session_conversation()
+
         # Remove this warning after August 19
         if old_config_file_path.exists():
-            cprint(
-                "Warning: You are still using an old config.json in your ~/.mentat"
-                " directory. The config filename has recently been changed to"
-                " .mentat_config.json, and can be present in either ~/.mentat or the"
-                " git project you are working in. Your current config.json file will"
-                " not be used.",
-                color="light_yellow",
+            session_conversation.send_message_nowait(
+                data=dict(
+                    content="Warning: You are still using an old config.json in your ~/.mentat"
+                    " directory. The config filename has recently been changed to"
+                    " .mentat_config.json, and can be present in either ~/.mentat or the"
+                    " git project you are working in. Your current config.json file will"
+                    " not be used.",
+                    color="light_yellow",
+                )
             )
 
         if user_config_path.exists():
@@ -39,10 +43,12 @@ class ConfigManager:
                     self.user_config = json.load(config_file)
                 except JSONDecodeError:
                     logging.info("User config file contains invalid json")
-                    cprint(
-                        "Warning: User .mentat_config.json contains invalid"
-                        " json; ignoring user configuration file",
-                        "light_yellow",
+                    session_conversation.send_message_nowait(
+                        data=dict(
+                            content="Warning: User .mentat_config.json contains invalid"
+                            " json; ignoring user configuration file",
+                            color="light_yellow",
+                        )
                     )
                     self.user_config = {}
         else:
@@ -55,10 +61,12 @@ class ConfigManager:
                     self.project_config = json.load(config_file)
                 except JSONDecodeError:
                     logging.info("Project config file contains invalid json")
-                    cprint(
-                        "Warning: Git project .mentat_config.json contains invalid"
-                        " json; ignoring project configuration file",
-                        "light_yellow",
+                    session_conversation.send_message_nowait(
+                        data=dict(
+                            content="Warning: Git project .mentat_config.json contains invalid"
+                            " json; ignoring project configuration file",
+                            color="light_yellow",
+                        )
                     )
                     self.project_config = {}
         else:

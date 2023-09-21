@@ -60,6 +60,10 @@ class MemoryBackend:
         event = Event(channel=channel, message=message)
         await self._published.put(event)
 
+    def publish_nowait(self, channel: str, message: typing.Any) -> None:
+        event = Event(channel=channel, message=message)
+        self._published.put_nowait(event)
+
     async def next_published(self) -> Event:
         while True:
             event = await self._published.get()
@@ -100,8 +104,11 @@ class Broadcast:
             for queue in list(self._subscribers.get(event.channel, [])):
                 await queue.put(event)
 
-    async def publish(self, channel: str, message: Any) -> None:
-        await self._backend.publish(channel, message)
+    async def publish(self, channel: str, message: Any, nowait: bool = False) -> None:
+        await self._backend.publish(channel, message, nowait)
+
+    def publish_nowait(self, channel: str, message: Any) -> None:
+        self._backend.publish_nowait(channel, message)
 
     @asynccontextmanager
     async def subscribe(self, channel: str) -> AsyncIterator[Subscriber]:

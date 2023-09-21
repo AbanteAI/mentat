@@ -19,6 +19,12 @@ def get_session_conversation():
     return _SESSION_CONVERSATION.get()
 
 
+class MessageData:
+    def __init__(self, content: Any, **kwargs):
+        self.content = content
+        self.extra = kwargs
+
+
 # must be json serializable
 @dataclass
 class Message:
@@ -54,6 +60,24 @@ class SessionConversation:
 
     async def stop(self):
         await self.broadcast.disconnect()
+
+    # TODO: make this the default send method (non-async)
+    def send_message_nowait(
+        self,
+        data: Any,
+        source: Literal["server"] | Literal["client"] = "server",
+        channel: str = "default",
+    ):
+        if isinstance(data, str):
+            data = {"content": data}
+
+        message = Message(
+            id=uuid4(), source=source, data=data, created_at=datetime.utcnow()
+        )
+        self.messages.append(message)
+        self.broadcast.publish_nowait(channel=channel, message=message)
+
+        return message
 
     async def send_message(
         self,

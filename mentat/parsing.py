@@ -12,8 +12,6 @@ import openai
 import openai.error
 from ipdb import set_trace
 
-from mentat.session_conversation import get_session_conversation
-
 from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import (
     change_delimiter,
@@ -25,6 +23,7 @@ from .code_change_display import (
 from .code_file_manager import CodeFileManager
 from .errors import MentatError, ModelError, RemoteKeyboardInterrupt, UserError
 from .llm_api import call_llm_api
+from .session_conversation import get_session_conversation
 from .session_input import collect_user_input, listen_for_interrupt
 from .streaming_printer import StreamingPrinter
 
