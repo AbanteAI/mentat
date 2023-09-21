@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from mentat.code_context import CodeContext
 from mentat.config_manager import ConfigManager
 from mentat.streaming_printer import StreamingPrinter
 from mentat.user_input_manager import UserInputManager
@@ -69,7 +70,7 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture
 def mock_call_llm_api(mocker):
-    mock = mocker.patch("mentat.parsing.call_llm_api")
+    mock = mocker.patch("mentat.conversation.call_llm_api")
 
     def set_generator_values(values):
         async def async_generator():
@@ -102,6 +103,16 @@ def mock_config(temp_testbed):
     config = ConfigManager(Path(temp_testbed))
     config.project_config = {}
     return config
+
+
+@pytest.fixture
+def mock_context(mock_config):
+    return CodeContext(mock_config, [], [])
+
+
+@pytest.fixture
+def mock_user_input_manager(mock_config, mock_context):
+    return UserInputManager(mock_config, mock_context)
 
 
 def add_permissions(func, path, exc_info):

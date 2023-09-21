@@ -1,28 +1,36 @@
+import asyncio
+from timeit import default_timer
+
+from openai.error import InvalidRequestError, RateLimitError
 from termcolor import cprint
 
-from .code_change import CodeChange
-from .code_file_manager import CodeFileManager
-from .config_manager import ConfigManager, user_config_path
-from .llm_api import (
+from mentat.config_manager import ConfigManager, user_config_path
+from mentat.errors import MentatError, UserError
+from mentat.llm_api import (
     CostTracker,
+    call_llm_api,
     count_tokens,
     get_prompt_token_count,
     is_model_available,
     model_context_size,
 )
-from .parsing import run_async_stream_and_parse_llm_response
-from .prompts import system_prompt
+from mentat.parsers.file_edit import FileEdit
+from mentat.parsers.parser import Parser
+
+from .code_file_manager import CodeFileManager
 
 
 class Conversation:
     def __init__(
         self,
+        parser: Parser,
         config: ConfigManager,
         cost_tracker: CostTracker,
         code_file_manager: CodeFileManager,
     ):
         self.messages = list[dict[str, str]]()
-        self.add_system_message(system_prompt)
+        prompt = parser.get_system_prompt()
+        self.add_system_message(prompt)
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
         self.model = config.model()
@@ -47,8 +55,7 @@ class Conversation:
 
         tokens = count_tokens(
             code_file_manager.get_code_message(self.model), self.model
-        ) + count_tokens(system_prompt, self.model)
-
+        ) + count_tokens(prompt, self.model)
         context_size = model_context_size(self.model)
         maximum_context = config.maximum_context()
         if maximum_context:
@@ -90,24 +97,57 @@ class Conversation:
     def add_assistant_message(self, message: str):
         self.messages.append({"role": "assistant", "content": message})
 
-    def get_model_response(self) -> tuple[str, list[CodeChange]]:
+    async def _run_async_stream(
+        self, parser: Parser, config: ConfigManager, messages: list[dict[str, str]]
+    ) -> tuple[str, list[FileEdit]]:
+        response = await call_llm_api(messages, self.model)
+        with parser.interrupt_catcher():
+            print("\nStreaming...  use control-c to interrupt the model at any point\n")
+            message, file_edits = await parser.stream_and_parse_llm_response(
+                response, self.code_file_manager, config
+            )
+        return message, file_edits
+
+    def _handle_async_stream(
+        self,
+        parser: Parser,
+        config: ConfigManager,
+        messages: list[dict[str, str]],
+    ) -> tuple[str, list[FileEdit], float]:
+        start_time = default_timer()
+        try:
+            message, file_edits = asyncio.run(
+                self._run_async_stream(parser, config, messages)
+            )
+        except InvalidRequestError as e:
+            raise MentatError(
+                "Something went wrong - invalid request to OpenAI API. OpenAI"
+                " returned:\n"
+                + str(e)
+            )
+        except RateLimitError as e:
+            raise UserError("OpenAI gave a rate limit error:\n" + str(e))
+
+        time_elapsed = default_timer() - start_time
+        return (message, file_edits, time_elapsed)
+
+    def get_model_response(
+        self, parser: Parser, config: ConfigManager
+    ) -> list[FileEdit]:
         messages = self.messages.copy()
         code_message = self.code_file_manager.get_code_message(self.model)
-
         messages.append({"role": "system", "content": code_message})
 
         num_prompt_tokens = get_prompt_token_count(messages, self.model)
-
-        state = run_async_stream_and_parse_llm_response(
-            messages, self.model, self.code_file_manager
+        message, file_edits, time_elapsed = self._handle_async_stream(
+            parser, config, messages
         )
-
         self.cost_tracker.display_api_call_stats(
             num_prompt_tokens,
-            count_tokens(state.message, self.model),
+            count_tokens(message, self.model),
             self.model,
-            state.time_elapsed,
+            time_elapsed,
         )
 
-        self.add_assistant_message(state.message)
-        return state.explanation, state.code_changes
+        self.add_assistant_message(message)
+        return file_edits
