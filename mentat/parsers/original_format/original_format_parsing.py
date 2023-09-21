@@ -118,7 +118,7 @@ class ParsingState:
                     )
                 self.in_code_lines = True
                 self.create_code_change(code_file_manager)
-                if not self.code_changes[-1].action.has_additions():
+                if not self.code_changes[-1].has_additions():
                     raise ModelError(
                         "Model gave code indicator for action without code",
                         already_added_to_changelist=True,
@@ -275,18 +275,12 @@ def _process_content_line(
                     == OriginalFormatChangeAction.RenameFile
                 ):
                     printer.add_string(get_file_name(display_information))
-                    if (
-                        cur_change.action.has_additions()
-                        or cur_change.action.has_removals()
-                    ):
+                    if cur_change.has_additions() or cur_change.has_removals():
                         printer.add_string(change_delimiter)
                 state.explained_since_change = False
                 printer.add_string(get_previous_lines(display_information))
                 printer.add_string(get_removed_lines(display_information))
-                if (
-                    not cur_change.action.has_additions()
-                    and cur_change.action.has_removals()
-                ):
+                if not cur_change.has_additions() and cur_change.has_removals():
                     printer.add_string(get_later_lines(display_information))
                     printer.add_string(change_delimiter)
 

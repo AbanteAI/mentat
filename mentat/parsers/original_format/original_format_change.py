@@ -24,38 +24,6 @@ class OriginalFormatChangeAction(Enum):
     DeleteFile = "delete-file"
     RenameFile = "rename-file"
 
-    def has_surrounding_lines(self):
-        return (
-            self != OriginalFormatChangeAction.CreateFile
-            and self != OriginalFormatChangeAction.DeleteFile
-            and self != OriginalFormatChangeAction.RenameFile
-        )
-
-    def has_removals(self):
-        return (
-            self == OriginalFormatChangeAction.Delete
-            or self == OriginalFormatChangeAction.Replace
-            or self == OriginalFormatChangeAction.DeleteFile
-        )
-
-    def has_additions(self):
-        return (
-            self == OriginalFormatChangeAction.Insert
-            or self == OriginalFormatChangeAction.Replace
-            or self == OriginalFormatChangeAction.CreateFile
-        )
-
-    def get_file_action_type(self):
-        match self:
-            case OriginalFormatChangeAction.CreateFile:
-                return FileActionType.CreateFile
-            case OriginalFormatChangeAction.DeleteFile:
-                return FileActionType.DeleteFile
-            case OriginalFormatChangeAction.RenameFile:
-                return FileActionType.RenameFile
-            case _:
-                return FileActionType.UpdateFile
-
 
 class OriginalFormatChange:
     @classmethod
@@ -201,7 +169,7 @@ class OriginalFormatChange:
             if self.action == OriginalFormatChangeAction.DeleteFile
             else (
                 self.file_lines[self.first_changed_line : self.last_changed_line]
-                if self.action.has_removals()
+                if self.has_removals()
                 else []
             )
         )
@@ -210,9 +178,34 @@ class OriginalFormatChange:
             self.file_lines,
             self.code_lines,
             removed_block,
-            self.action.get_file_action_type(),
+            self.get_file_action_type(),
             self.first_changed_line,
             self.last_changed_line,
             self.name if self.action == OriginalFormatChangeAction.RenameFile else None,
         )
         return display_information
+
+    def has_removals(self):
+        return (
+            self.action == OriginalFormatChangeAction.Delete
+            or self.action == OriginalFormatChangeAction.Replace
+            or self.action == OriginalFormatChangeAction.DeleteFile
+        )
+
+    def has_additions(self):
+        return (
+            self.action == OriginalFormatChangeAction.Insert
+            or self.action == OriginalFormatChangeAction.Replace
+            or self.action == OriginalFormatChangeAction.CreateFile
+        )
+
+    def get_file_action_type(self):
+        match self.action:
+            case OriginalFormatChangeAction.CreateFile:
+                return FileActionType.CreateFile
+            case OriginalFormatChangeAction.DeleteFile:
+                return FileActionType.DeleteFile
+            case OriginalFormatChangeAction.RenameFile:
+                return FileActionType.RenameFile
+            case _:
+                return FileActionType.UpdateFile
