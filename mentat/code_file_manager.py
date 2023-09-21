@@ -186,6 +186,6 @@ class CodeFileManager:
                 self._delete_file(file_edit.file_path)
                 file_edit.file_path = file_edit.rename_file_path
 
-            new_lines = file_edit.get_file_lines(stored_lines)
+            new_lines = file_edit.get_updated_file_lines(stored_lines)
             with open(file_edit.file_path, "w") as f:
                 f.write("\n".join(new_lines))

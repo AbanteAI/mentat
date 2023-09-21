@@ -12,6 +12,7 @@ from mentat.errors import MentatError
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
+    change_delimiter,
     get_full_change,
 )
 from mentat.user_input_manager import UserInputManager
@@ -165,20 +166,36 @@ class FileEdit:
             or len(self.replacements) > 0
         )
 
+    def _print_resolution(self, first: Replacement, second: Replacement):
+        print("Change overlap detected, auto-merged back to back changes:\n")
+        print(self.file_path)
+        print(change_delimiter)
+        for line in first.new_lines + second.new_lines:
+            cprint("+ " + line, color="green")
+        print()
+
     def resolve_conflicts(self, user_input_manager: UserInputManager):
         self.replacements.sort(reverse=True)
         for index, replacement in enumerate(self.replacements):
             for other in self.replacements[index + 1 :]:
-                # TODO: another type of conflict (not caught here) would be both replacements being inserts on same line
                 if (
                     other.ending_line > replacement.starting_line
                     and other.starting_line < replacement.ending_line
                 ):
-                    # TODO: Ask user for conflict resolution
+                    # Overlap conflict
                     other.ending_line = replacement.starting_line
                     other.starting_line = min(other.starting_line, other.ending_line)
+                    self._print_resolution(other, replacement)
+                elif (
+                    other.ending_line == other.starting_line
+                    and replacement.ending_line == replacement.starting_line
+                    and replacement.starting_line == other.starting_line
+                ):
+                    # Insertion conflict
+                    # This will be a bit wonky if there are more than 2 insertion conflicts on the same line
+                    self._print_resolution(replacement, other)
 
-    def get_file_lines(self, file_lines: list[str]):
+    def get_updated_file_lines(self, file_lines: list[str]):
         self.replacements.sort(reverse=True)
         earliest_line = None
         for replacement in self.replacements:

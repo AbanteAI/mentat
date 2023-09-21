@@ -14,7 +14,7 @@ def test_replacement(mock_user_input_manager):
     file_edit = FileEdit(file_path=Path("test.py"), replacements=replacements)
     file_edit.resolve_conflicts(mock_user_input_manager)
     original_lines = ["# Remove me", "# Remove me", "# Line 3", "# Line 4"]
-    new_lines = file_edit.get_file_lines(original_lines)
+    new_lines = file_edit.get_updated_file_lines(original_lines)
     assert new_lines == [
         "# Line 0",
         "# Line 1",
@@ -36,6 +36,6 @@ def test_replacement_conflict(mock_user_input_manager):
     file_edit = FileEdit(file_path=Path("test.py"), replacements=replacements)
     file_edit.resolve_conflicts(mock_user_input_manager)
     original_lines = ["O0", "O1", "O2", "O3", "O4", "O5", "O6"]
-    new_lines = file_edit.get_file_lines(original_lines)
+    new_lines = file_edit.get_updated_file_lines(original_lines)
     print(new_lines)
     assert new_lines == ["L0", "L1", "O3", "L2", "L3"]
