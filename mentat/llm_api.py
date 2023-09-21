@@ -39,14 +39,19 @@ def setup_api_key():
         raise UserError(f"OpenAI gave an Authentication Error:\n{e}")
 
 
-async def call_llm_api(
-    messages: list[dict[str, str]], model: str
-) -> AsyncGenerator[Any, None]:
-    if (
+def is_test_environment():
+    """Returns True if in pytest and not benchmarks"""
+    return (
         "PYTEST_CURRENT_TEST" in os.environ
         and "--benchmark" not in sys.argv
         and os.getenv("MENTAT_BENCHMARKS_RUNNING") == "false"
-    ):
+    )
+
+
+async def call_llm_api(
+    messages: list[dict[str, str]], model: str
+) -> AsyncGenerator[Any, None]:
+    if is_test_environment():
         logging.critical("OpenAI call attempted in non benchmark test environment!")
         raise MentatError("OpenAI call attempted in non benchmark test environment!")
 
