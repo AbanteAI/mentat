@@ -3,7 +3,7 @@ from collections import deque
 
 from ipdb import set_trace
 
-from .session_conversation import SessionConversation
+from mentat.session_conversation import get_session_conversation
 
 
 class StreamingPrinter:
@@ -34,7 +34,9 @@ class StreamingPrinter:
         min_sleep = 0.002
         return max(min(max_sleep, required_sleep_time), min_sleep)
 
-    async def print_lines(self, session_conversation: SessionConversation):
+    async def print_lines(self):
+        session_conversation = get_session_conversation()
+
         try:
             while True:
                 if self.strings_to_print:

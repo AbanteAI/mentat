@@ -3,7 +3,6 @@ import json
 import logging
 from enum import Enum
 from json import JSONDecodeError
-from os import pwrite
 from pathlib import Path
 from timeit import default_timer
 from typing import Generator
@@ -13,8 +12,7 @@ import openai
 import openai.error
 from ipdb import set_trace
 
-from mentat.session_conversation import SessionConversation
-from mentat.session_input_manager import SessionInputManager
+from mentat.session_conversation import get_session_conversation
 
 from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import (
@@ -27,6 +25,7 @@ from .code_change_display import (
 from .code_file_manager import CodeFileManager
 from .errors import MentatError, ModelError, RemoteKeyboardInterrupt, UserError
 from .llm_api import call_llm_api
+from .session_input import collect_user_input, listen_for_interrupt
 from .streaming_printer import StreamingPrinter
 
 
@@ -163,17 +162,15 @@ async def run_stream_and_parse_llm_response(
     messages: list[dict[str, str]],
     model: str,
     code_file_manager: CodeFileManager,
-    session_conversation: SessionConversation,
-    session_input_manager: SessionInputManager,
 ) -> ParsingState:
+    session_conversation = get_session_conversation()
+
     state: ParsingState = ParsingState()
     start_time = default_timer()
 
     try:
-        await session_input_manager.listen_for_interrupt(
-            stream_and_parse_llm_response(
-                messages, model, state, code_file_manager, session_conversation
-            )
+        await listen_for_interrupt(
+            stream_and_parse_llm_response(messages, model, state, code_file_manager)
         )
     except openai.error.InvalidRequestError as e:
         raise MentatError(
@@ -184,7 +181,6 @@ async def run_stream_and_parse_llm_response(
         raise UserError("OpenAI gave a rate limit error:\n" + str(e))
     except RemoteKeyboardInterrupt:
         await session_conversation.send_message(
-            source="server",
             data=dict(
                 content="Interrupted by user. Using the response up to this point."
             ),
@@ -207,19 +203,19 @@ async def stream_and_parse_llm_response(
     model: str,
     state: ParsingState,
     code_file_manager: CodeFileManager,
-    session_conversation: SessionConversation,
 ) -> None:
+    session_conversation = get_session_conversation()
+
     response = await call_llm_api(messages, model)
 
     await session_conversation.send_message(
-        source="server",
         data=dict(
             content="streaming...  use control-c to interrupt the model at any point"
         ),
     )
 
     printer = StreamingPrinter()
-    printer_task = asyncio.create_task(printer.print_lines(session_conversation))
+    printer_task = asyncio.create_task(printer.print_lines())
     try:
         await _process_response(state, response, printer, code_file_manager)
         printer.wrap_it_up()

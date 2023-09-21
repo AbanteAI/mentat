@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Dict, Iterable
 
-from mentat.session_conversation import MessageGroup, SessionConversation
+from mentat.session_conversation import MessageGroup, get_session_conversation
 
 from .code_file import CodeFile
 from .config_manager import ConfigManager
@@ -133,11 +133,9 @@ class CodeContext:
         config: ConfigManager,
         paths: Iterable[str],
         exclude_paths: Iterable[str],
-        session_conversation: SessionConversation,
     ):
         self.config = config
         self.files = _get_files(self.config, paths, exclude_paths)
-        self.session_conversation = session_conversation
 
     async def display_context(self):
         mg = MessageGroup()
@@ -155,4 +153,5 @@ class CodeContext:
             self.config.git_root,
         )
 
-        await self.session_conversation.send_message(source="server", data=mg.data)
+        session_conversation = get_session_conversation()
+        await session_conversation.send_message(source="server", data=mg.data)

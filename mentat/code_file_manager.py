@@ -15,20 +15,15 @@ from .code_file import CodeFile
 from .config_manager import ConfigManager
 from .errors import MentatError
 from .git_handler import get_git_diff_for_path
-from .session_conversation import SessionConversation
-from .session_input_manager import SessionInputManager
+from .session_conversation import get_session_conversation
 
 
 class CodeFileManager:
     def __init__(
         self,
-        session_conversation: SessionConversation,
-        session_input_manager: SessionInputManager,
         config: ConfigManager,
         code_context: CodeContext,
     ):
-        self.session_conversation = session_conversation
-        self.session_input_manager = session_input_manager
         self.config = config
         self.code_context = code_context
 
@@ -86,24 +81,27 @@ class CodeFileManager:
         abs_path.unlink()
 
     async def _handle_delete(self, delete_change):
+        session_conversation = get_session_conversation()
+
         abs_path = self.config.git_root / delete_change.file
         if not abs_path.exists():
             logging.error(f"Path {abs_path} non-existent on delete")
             return
 
-        await self.session_conversation.add_message(
-            f"Are you sure you want to delete {delete_change.file}?", color="red"
+        await session_conversation.send_message(
+            dict(
+                content=f"Are you sure you want to delete {delete_change.file}?",
+                color="red",
+            )
         )
         should_delete_file = await self.session_input_manager.ask_yes_no(
             default_yes=False
         )
         if should_delete_file:
-            await self.session_conversation.add_message(
-                f"Deleting {delete_change.file}..."
-            )
+            await session_conversation.send_message(f"Deleting {delete_change.file}...")
             self._delete_file(abs_path)
         else:
-            await self.session_conversation.add_message(
+            await session_conversation.send_message(
                 f"Not deleting {delete_change.file}"
             )
 

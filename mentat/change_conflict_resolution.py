@@ -5,12 +5,10 @@ from typing import List
 from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import get_added_block, get_removed_block
 from .session_conversation import SessionConversation
-from .session_input_manager import SessionInputManager
 
 
 async def resolve_insertion_conflicts(
     changes: list[CodeChange],
-    session_input_manager: SessionInputManager,
     code_file_manager,
     session_conversation: SessionConversation,
 ) -> list[CodeChange]:
@@ -73,8 +71,6 @@ async def resolve_insertion_conflicts(
 
 async def resolve_non_insertion_conflicts(
     changes: list[CodeChange],
-    session_input_manager: SessionInputManager,
-    session_conversation: SessionConversation,
 ) -> list[CodeChange]:
     """resolves delete-replace conflicts and asks user on delete-insert or replace-insert conflicts"""
     min_changed_line = changes[0].last_changed_line + 1

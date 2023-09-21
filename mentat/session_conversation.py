@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Literal
@@ -6,6 +9,14 @@ from uuid import UUID, uuid4
 from ipdb import set_trace
 
 from .broadcast import Broadcast, Event
+
+_SESSION_CONVERSATION: ContextVar[SessionConversation] = ContextVar(
+    "mentat:session_conversation"
+)
+
+
+def get_session_conversation():
+    return _SESSION_CONVERSATION.get()
 
 
 # must be json serializable
@@ -46,10 +57,14 @@ class SessionConversation:
 
     async def send_message(
         self,
-        source: Literal["server"] | Literal["client"],
         data: Any,
+        source: Literal["server"] | Literal["client"] = "server",
         channel: str = "default",
     ):
+        # TODO: make this cleaner
+        if isinstance(data, str):
+            data = {"content": data}
+
         message = Message(
             id=uuid4(), source=source, data=data, created_at=datetime.utcnow()
         )

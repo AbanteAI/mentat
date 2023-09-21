@@ -1,10 +1,6 @@
-import asyncio
 import logging
 
-from ipdb import set_trace
-
-from mentat.session_conversation import SessionConversation
-from mentat.session_input_manager import SessionInputManager
+from mentat.session_conversation import SessionConversation, get_session_conversation
 
 from .code_change import CodeChange, CodeChangeAction
 from .code_file_manager import CodeFileManager
@@ -24,15 +20,11 @@ class LLMConversation:
         allow_32k: bool,
         cost_tracker: CostTracker,
         code_file_manager: CodeFileManager,
-        session_conversation: SessionConversation,
-        session_input_manager: SessionInputManager,
         code_map: CodeMap | None = None,
     ):
         self.allow_32k = allow_32k
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
-        self.session_conversation = session_conversation
-        self.session_input_manager = session_input_manager
         self.code_map = code_map
 
         self.token_limit = 32768 if self.allow_32k else 8192
@@ -45,20 +37,16 @@ class LLMConversation:
         config: ConfigManager,
         cost_tracker: CostTracker,
         code_file_manager: CodeFileManager,
-        session_conversation: SessionConversation,
-        session_input_manager: SessionInputManager,
         code_map: CodeMap | None = None,
     ):
-        allow_32k = await check_model_availability(
-            config.allow_32k(), session_conversation
-        )
+        session_conversation = get_session_conversation()
+
+        allow_32k = await check_model_availability(config.allow_32k())
 
         conv = cls(
             allow_32k,
             cost_tracker,
             code_file_manager,
-            session_conversation,
-            session_input_manager,
             code_map,
         )
 
@@ -73,8 +61,7 @@ class LLMConversation:
                 " of files."
             )
         elif tokens + 1000 > conv.token_limit:
-            await conv.session_conversation.send_message(
-                source="server",
+            await session_conversation.send_message(
                 data=dict(
                     content=f"Warning: Included files are close to token limit ({tokens} /"
                     f" {conv.token_limit}), you may not be able to have a long"
@@ -83,8 +70,7 @@ class LLMConversation:
                 ),
             )
         else:
-            await conv.session_conversation.send_message(
-                source="server",
+            await session_conversation.send_message(
                 data=dict(
                     content=f"File and prompt token count: {tokens} / {conv.token_limit}",
                     color="cyan",
@@ -103,6 +89,8 @@ class LLMConversation:
         self.messages.append({"role": "assistant", "content": message})
 
     async def get_model_response(self) -> (str, list[CodeChange]):
+        session_conversation = get_session_conversation()
+
         messages = self.messages.copy()
 
         code_message = self.code_file_manager.get_code_message()
@@ -126,7 +114,7 @@ class LLMConversation:
             else:
                 code_map_message_token_limit = max_tokens_for_code_map
 
-            code_map_message = self.code_map.get_message(
+            code_map_message = await self.code_map.get_message(
                 token_limit=code_map_message_token_limit
             )
             if code_map_message:
@@ -141,8 +129,7 @@ class LLMConversation:
                         raise Exception(
                             f"Unknown CodeMapMessage level '{code_map_message.level}'"
                         )
-                await self.session_conversation.send_message(
-                    source="server",
+                await session_conversation.send_message(
                     data=dict(
                         content=f"Including CodeMap ({cmap_message_level})",
                         color="green",
@@ -150,8 +137,7 @@ class LLMConversation:
                 )
                 system_message += f"\n{code_map_message}"
             else:
-                await self.session_conversation.send_message(
-                    source="server",
+                await session_conversation.send_message(
                     data=dict(
                         content="""
                             Excluding CodeMap from system message.,
@@ -163,16 +149,10 @@ class LLMConversation:
 
         messages.append({"role": "system", "content": system_message})
 
-        model, num_prompt_tokens = await choose_model(
-            messages, self.allow_32k, self.session_conversation
-        )
+        model, num_prompt_tokens = await choose_model(messages, self.allow_32k)
 
         state = await run_stream_and_parse_llm_response(
-            messages,
-            model,
-            self.code_file_manager,
-            self.session_conversation,
-            self.session_input_manager,
+            messages, model, self.code_file_manager
         )
 
         await self.cost_tracker.display_api_call_stats(

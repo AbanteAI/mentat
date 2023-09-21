@@ -1,16 +1,11 @@
 import asyncio
 import logging
 import signal
-import sys
-from typing import Any, Dict, Iterable, List, Set
+from typing import Any, Dict, List, Set
 from uuid import UUID
 
 from ipdb import set_trace
 
-from mentat.llm_api import CostTracker
-
-from .config_manager import ConfigManager
-from .git_handler import get_shared_git_root_for_paths
 from .rpc import RpcServer
 from .session import Session
 
@@ -72,7 +67,7 @@ class Engine:
         if session_id not in self.sessions:
             raise Exception(f"Session {session_id} does not exist")
         session = self.sessions[session_id]
-        async for message in session.session_conversation.listen():
+        async for message in session._session_conversation.listen():
             yield message
 
     async def session_send(
@@ -81,35 +76,23 @@ class Engine:
         if session_id not in self.sessions:
             raise Exception(f"Session {session_id} does not exist")
         session = self.sessions[session_id]
-        message = await session.session_conversation.send_message(
+        message = await session._session_conversation.send_message(
             source="client", data=dict(content=content, **kwargs), channel=channel
         )
 
         return message.id
 
-    async def session_recv(self, session_id: UUID):
-        if session_id not in self.sessions:
-            raise Exception(f"Session {session_id} does not exist")
+    # async def session_recv(self, session_id: UUID):
+    #     if session_id not in self.sessions:
+    #         raise Exception(f"Session {session_id} does not exist")
 
     async def get_session_code_context(self, session_id: UUID):
         if session_id not in self.sessions:
-            set_trace()
             raise Exception(f"Session {session_id} does not exist")
         session = self.sessions[session_id]
         code_context_file_paths = list(session.code_context.files.keys())
 
         return code_context_file_paths
-
-    async def create_conversation_message(self):
-        ...
-
-    async def get_conversation_cost(self):
-        ...
-
-    # Completions
-
-    async def get_conversation_completions(self):
-        ...
 
     # Commands
 
@@ -127,7 +110,7 @@ class Engine:
             await asyncio.sleep(3)
 
     def _handle_exit(self):
-        print("got a signal")
+        print("got a signal")  # TODO: remove
         if self._should_exit:
             self._force_exit = True
         else:
@@ -140,8 +123,8 @@ class Engine:
 
     async def _startup(self):
         logger.debug("Starting Engine...")
-        heahtheck_task = asyncio.create_task(self.heartbeat())
-        self._tasks.add(heahtheck_task)
+        healthcheck_task = asyncio.create_task(self.heartbeat())
+        self._tasks.add(healthcheck_task)
 
     async def _main_loop(self):
         logger.debug("Running Engine...")

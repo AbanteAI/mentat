@@ -3,8 +3,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List
 
-from termcolor import colored, cprint
-
 from .errors import MentatError
 from .git_handler import commit
 

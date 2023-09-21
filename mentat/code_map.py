@@ -1,17 +1,24 @@
+import asyncio
 import json
+import logging
+import os
 import subprocess
 import tempfile
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Set
 
-from termcolor import cprint
+from ipdb import set_trace
 
 from .git_handler import get_non_gitignored_files
 from .llm_api import count_tokens
+from .session_conversation import get_session_conversation
+
+logger = logging.getLogger("mentat.engine")
 
 
-def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
+async def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
     # Create ctags from executable in a subprocess
     ctags_cmd_args = [
         "--extras=-F",
@@ -24,8 +31,21 @@ def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
     else:
         ctags_cmd_args.append("--fields=+S")
     ctags_cmd = ["ctags", *ctags_cmd_args, str(Path(root).joinpath(file_path))]
-    output = subprocess.check_output(ctags_cmd, stderr=subprocess.PIPE, text=True)
-    output_lines = output.splitlines()
+
+    process = await asyncio.create_subprocess_exec(
+        *ctags_cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        preexec_fn=os.setpgrp,
+    )
+    stdout, stderr = await process.communicate()
+
+    if process.returncode == 0:
+        output = stdout.decode("utf-8").strip() if stdout else ""
+        output_lines = output.splitlines()
+    else:
+        error_output = stderr.decode("utf-8").strip() if stderr else ""
+        raise Exception(f"Command failed with error: {error_output}")
 
     # Extract subprocess stdout into python objects
     ctags = set()
@@ -33,8 +53,12 @@ def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            cprint(f"Error parsing ctags output: {err}", color="yellow")
-            cprint(f"{repr(output_line)}\n", color="yellow")
+            await get_session_conversation().send_message(
+                data=dict(
+                    content=f"Error parsing ctags output: {err}\n{repr(output_line)}",
+                    color="yellow",
+                )
+            )
             continue
 
         scope = tag.get("scope")
@@ -80,6 +104,8 @@ def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
             indent += tab
         last = tag
 
+    # set_trace()
+
     return output
 
 
@@ -120,9 +146,7 @@ class CodeMap:
         self.ctags_disabled = True
         self.ctags_disabled_reason = ""
 
-        self._check_ctags_executable()
-
-    def _check_ctags_executable(self):
+    async def check_ctags_executable(self):
         try:
             cmd = ["ctags", "--version"]
             output = subprocess.check_output(cmd, stderr=subprocess.PIPE).decode(
@@ -144,7 +168,7 @@ class CodeMap:
                 hello_py = Path(tempdir).joinpath("hello.py")
                 with open(hello_py, "w", encoding="utf-8") as f:
                     f.write("def hello():\n    print('Hello, world!')\n")
-                _get_code_map(tempdir, str(hello_py))
+                await _get_code_map(tempdir, str(hello_py))
         except FileNotFoundError:
             self.ctags_disabled_reason = "ctags executable not found"
             return
@@ -154,7 +178,7 @@ class CodeMap:
 
         self.ctags_disabled = False
 
-    def _get_message_from_ctags(
+    async def _get_message_from_ctags(
         self,
         root: str,
         file_paths: Set[str],
@@ -166,7 +190,7 @@ class CodeMap:
         code_maps = []
         code_maps_token_count = 0
         for file_path in file_paths:
-            code_map = _get_code_map(
+            code_map = await _get_code_map(
                 root, file_path, exclude_signatures=exclude_signatures
             )
             code_map_token_count = count_tokens(code_map)
@@ -174,7 +198,7 @@ class CodeMap:
             if token_limit is not None and code_maps_token_count > token_limit:
                 if exclude_signatures is True:
                     return
-                return self._get_message_from_ctags(
+                return await self._get_message_from_ctags(
                     root, file_paths, exclude_signatures=True, token_limit=token_limit
                 )
 
@@ -187,7 +211,7 @@ class CodeMap:
         if token_limit is not None and message_token_count > token_limit:
             if exclude_signatures is True:
                 return
-            return self._get_message_from_ctags(
+            return await self._get_message_from_ctags(
                 root, file_paths, exclude_signatures=True
             )
 
@@ -214,11 +238,13 @@ class CodeMap:
 
         return code_map_message
 
-    def get_message(self, token_limit: int | None = None) -> CodeMapMessage | None:
+    async def get_message(
+        self, token_limit: int | None = None
+    ) -> CodeMapMessage | None:
         git_file_paths = get_non_gitignored_files(self.git_root)
 
         if not self.ctags_disabled:
-            code_map_message = self._get_message_from_ctags(
+            code_map_message = await self._get_message_from_ctags(
                 self.git_root, git_file_paths, token_limit=token_limit
             )
             if code_map_message is not None:

@@ -71,8 +71,9 @@ class TerminalClient:
         if self.session_id is None:
             raise Exception("session_id is NoneType")
 
-        mentat_completer = MentatCompleter(self.engine, self.session_id)
-        self._create_task(mentat_completer.refresh_completions())
+        # mentat_completer = MentatCompleter(self.engine, self.session_id)
+        # self._create_task(mentat_completer.refresh_completions())
+        mentat_completer = None
 
         while True:
             input_request_message = await self._input_queue.get()
@@ -89,7 +90,9 @@ class TerminalClient:
                 channel=f"default:{input_request_message.id}",
             )
 
+    # FIXME
     def _handle_exit(self):
+        print("Terminal client got a signal")
         self._create_task(self._session_interrupt())
         # if self._should_exit:
         #     self._force_exit = True
@@ -107,7 +110,7 @@ class TerminalClient:
         )
 
         def cleanup_engine_task(task):
-            set_trace()
+            # set_trace()
             pass
 
         self.engine_task.add_done_callback(cleanup_engine_task)
@@ -128,7 +131,10 @@ class TerminalClient:
         self.session_id = await self.engine.session_create(
             paths, exclude_paths, no_code_map
         )
+
+        # TODO: shutdown this task properly
         session_listen_task = asyncio.create_task(self._session_listen())
+
         try:
             await self.handle_user_input()
         except KeyboardInterrupt:

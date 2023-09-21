@@ -9,7 +9,7 @@ import openai.error
 import tiktoken
 from dotenv import load_dotenv
 
-from mentat.session_conversation import SessionConversation
+from mentat.session_conversation import get_session_conversation
 
 from .config_manager import mentat_dir_path, user_config_path
 from .errors import MentatError, UserError
@@ -61,15 +61,12 @@ def count_tokens(message: str) -> int:
     )
 
 
-async def check_model_availability(
-    allow_32k: bool, session_conversation: SessionConversation
-) -> bool:
+async def check_model_availability(allow_32k: bool) -> bool:
     available_models = [x["id"] for x in openai.Model.list()["data"]]
     if allow_32k:
         # check if user has access to gpt-4-32k
         if "gpt-4-32k-0314" not in available_models:
-            await session_conversation.send_message(
-                source="server",
+            await get_session_conversation().send_message(
                 data=dict(
                     content="You set ALLOW_32K to true, but your OpenAI API key doesn't"
                     " have access to gpt-4-32k-0314. To remove this warning, set"
@@ -90,16 +87,13 @@ async def check_model_availability(
     return allow_32k
 
 
-async def choose_model(
-    messages: list[dict[str, str]],
-    allow_32k: bool,
-    session_conversation: SessionConversation,
-) -> str:
+async def choose_model(messages: list[dict[str, str]], allow_32k: bool) -> str:
+    session_conversation = get_session_conversation()
+
     prompt_token_count = 0
     for message in messages:
         prompt_token_count += count_tokens(message["content"])
     await session_conversation.send_message(
-        source="server",
         data=dict(content=f"Total token count: {prompt_token_count}", color="cyan"),
     )
 
@@ -110,15 +104,11 @@ async def choose_model(
             model = "gpt-4-32k-0314"
             if prompt_token_count > 32768 - token_buffer:
                 await session_conversation.send_message(
-                    source="server",
-                    data=dict(
-                        content="Warning: gpt-4-32k-0314 has a token limit of 32768. Attempting"
-                        " to run anyway:"
-                    ),
+                    "Warning: gpt-4-32k-0314 has a token limit of 32768. Attempting"
+                    " to run anyway:"
                 )
         else:
             await session_conversation.send_message(
-                source="server",
                 data=dict(
                     content="Warning: gpt-4-0314 has a maximum context length of 8192 tokens."
                     " If you have access to gpt-4-32k-0314, set allow-32k to `true` in"
@@ -132,8 +122,7 @@ async def choose_model(
 
 @dataclass
 class CostTracker:
-    def __init__(self, session_conversation: SessionConversation):
-        self.session_conversation = session_conversation
+    def __init__(self):
         self.total_cost = 0
 
     async def display_api_call_stats(
@@ -156,7 +145,8 @@ class CostTracker:
         speed_and_cost_string = (
             f"Speed: {tokens_per_second:.2f} tkns/s | Cost: ${call_cost:.2f}"
         )
-        await self.session_conversation.send_message(
+
+        await get_session_conversation().send_message(
             source="server", data=dict(content=speed_and_cost_string, color="cyan")
         )
 
@@ -166,7 +156,7 @@ class CostTracker:
         self.total_cost += call_cost
 
     async def display_total_cost(self) -> None:
-        await self.session_conversation.send_message(
+        await get_session_conversation().send_message(
             source="server",
             data=dict(
                 content=f"Total session cost: ${self.total_cost:.2f}",
