@@ -27,6 +27,7 @@ class Parser(ABC):
         yield
         # Reset to default interrupt handler
         signal.signal(signal.SIGINT, signal.SIG_DFL)
+        self.shutdown.clear()
 
     @abstractmethod
     def get_system_prompt(self) -> str:

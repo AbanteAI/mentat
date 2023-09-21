@@ -142,13 +142,13 @@ class CodeFileManager:
                     )
                 self._add_file(file_edit.file_path)
             else:
-                if file_edit.file_path not in self.code_context.files:
-                    raise MentatError(
-                        f"Attempted to edit file {file_edit.file_path} not in context"
-                    )
-                elif not file_edit.file_path.exists():
+                if not file_edit.file_path.exists():
                     raise MentatError(
                         f"Attempted to edit non-existent file {file_edit.file_path}"
+                    )
+                elif file_edit.file_path not in self.code_context.files:
+                    raise MentatError(
+                        f"Attempted to edit file {file_edit.file_path} not in context"
                     )
 
             if file_edit.is_deletion:
@@ -177,6 +177,11 @@ class CodeFileManager:
                 stored_lines = []
 
             if file_edit.rename_file_path is not None:
+                if file_edit.rename_file_path.exists():
+                    raise MentatError(
+                        f"Attempted to rename file {file_edit.file_path} to existing"
+                        f" file {file_edit.rename_file_path}"
+                    )
                 self._add_file(file_edit.rename_file_path)
                 self._delete_file(file_edit.file_path)
                 file_edit.file_path = file_edit.rename_file_path

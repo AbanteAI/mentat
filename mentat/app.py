@@ -161,6 +161,11 @@ def loop(
             conv.add_user_message(user_response)
 
         file_edits = conv.get_model_response(parser, config)
+        file_edits = [
+            file_edit
+            for file_edit in file_edits
+            if file_edit.is_valid(code_file_manager, config)
+        ]
         if file_edits:
             need_user_request = get_user_feedback_on_edits(
                 config, conv, user_input_manager, code_file_manager, file_edits

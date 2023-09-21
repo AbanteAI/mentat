@@ -68,6 +68,33 @@ class FileEdit:
     # Should be abs path
     rename_file_path: Path | None = attr.field(default=None)
 
+    def is_valid(
+        self, code_file_manager: CodeFileManager, config: ConfigManager
+    ) -> bool:
+        rel_path = Path(os.path.relpath(self.file_path, config.git_root))
+        if self.is_creation:
+            if self.file_path.exists():
+                cprint(f"File {rel_path} already exists, canceling creation.")
+                return False
+        else:
+            if not self.file_path.exists():
+                cprint(f"File {rel_path} does not exist, canceling all edits to file.")
+                return False
+            elif rel_path not in code_file_manager.file_lines:
+                cprint(f"File {rel_path} not in context, canceling all edits to file.")
+                return False
+
+        if self.rename_file_path is not None and self.rename_file_path.exists():
+            rel_rename_path = Path(
+                os.path.relpath(self.rename_file_path, config.git_root)
+            )
+            cprint(
+                f"File {rel_path} being renamed to existing file {rel_rename_path},"
+                " canceling rename."
+            )
+            self.rename_file_path = None
+        return True
+
     def filter_replacements(
         self,
         code_file_manager: CodeFileManager,
