@@ -34,7 +34,7 @@ def log_file_to_conversation(filename):
     for match in matches:
         kind = match[0]
         message = match[1]
-        if kind == "Code":
+        if kind == "Code" and not added_code_message:
             added_code_message = True
             messages.append({"role": "system", "content": message})
         if kind == "System":
