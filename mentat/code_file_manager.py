@@ -15,7 +15,8 @@ from .code_file import CodeFile
 from .config_manager import ConfigManager
 from .errors import MentatError
 from .git_handler import get_git_diff_for_path
-from .session_conversation import get_session_conversation
+from .session_input import ask_yes_no
+from .session_stream import get_session_stream
 
 
 class CodeFileManager:
@@ -81,27 +82,22 @@ class CodeFileManager:
         abs_path.unlink()
 
     async def _handle_delete(self, delete_change):
-        session_conversation = get_session_conversation()
+        stream = get_session_stream()
 
         abs_path = self.config.git_root / delete_change.file
         if not abs_path.exists():
             logging.error(f"Path {abs_path} non-existent on delete")
             return
 
-        await session_conversation.send_message(
-            dict(
-                content=f"Are you sure you want to delete {delete_change.file}?",
-                color="red",
-            )
+        await stream.send(
+            "Are you sure you want to delete {delete_change.file}?", color="red"
         )
         should_delete_file = await ask_yes_no(default_yes=False)
         if should_delete_file:
-            await session_conversation.send_message(f"Deleting {delete_change.file}...")
+            await stream.send(f"Deleting {delete_change.file}...")
             self._delete_file(abs_path)
         else:
-            await session_conversation.send_message(
-                f"Not deleting {delete_change.file}"
-            )
+            await stream.send(f"Not deleting {delete_change.file}")
 
     async def _get_new_code_lines(self, rel_path, changes) -> Iterable[str]:
         if not changes:
@@ -114,33 +110,24 @@ class CodeFileManager:
         # We resolve insertion conflicts twice because non-insertion conflicts
         # might move insert blocks outside of replace/delete blocks and cause
         # them to conflict again
-        changes = await resolve_insertion_conflicts(
-            changes, self.session_input_manager, self, self.session_conversation
-        )
-        changes = await resolve_non_insertion_conflicts(
-            changes, self.session_input_manager, self.session_conversation
-        )
-        changes = await resolve_insertion_conflicts(
-            changes, self.session_input_manager, self, self.session_conversation
-        )
+        changes = await resolve_insertion_conflicts(changes, self)
+        changes = await resolve_non_insertion_conflicts(changes)
+        changes = await resolve_insertion_conflicts(changes, self)
         if not changes:
             return []
 
         new_code_lines = self.file_lines[rel_path].copy()
         if new_code_lines != self._read_file(rel_path):
+            stream = get_session_stream()
             logging.info(f"File '{rel_path}' changed while generating changes")
-            await self.session_conversation.add_message(
+            await stream.send(
                 f"File '{rel_path}' changed while generating; current file changes"
                 " will be erased. Continue?",
                 color="light_yellow",
             )
-            should_erase_file = await self.session_input_manager.ask_yes_no(
-                default_yes=False
-            )
+            should_erase_file = await ask_yes_no(default_yes=False)
             if not should_erase_file:
-                await self.session_conversation.add_message(
-                    f"Not applying changes to file {rel_path}."
-                )
+                await stream.send(f"Not applying changes to file {rel_path}.")
                 return None
 
         # Necessary in case the model needs to insert past the end of the file
@@ -165,7 +152,8 @@ class CodeFileManager:
             abs_path = self.config.git_root / rel_path
             match code_change.action:
                 case CodeChangeAction.CreateFile:
-                    await self.session_conversation.add_message(
+                    stream = get_session_stream()
+                    await stream.send(
                         f"Creating new file {rel_path}", color="light_green"
                     )
                     self._add_file(abs_path)

@@ -1,11 +1,10 @@
 import logging
 import string
-from typing import List
 
 from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import get_added_block, get_removed_block
-from .session_conversation import SessionConversation, get_session_conversation
-from .session_input import collect_user_input
+from .session_input import ask_yes_no, collect_user_input
+from .session_stream import get_session_stream
 
 
 async def resolve_insertion_conflicts(
@@ -13,7 +12,7 @@ async def resolve_insertion_conflicts(
     code_file_manager,
 ) -> list[CodeChange]:
     """merges insertion conflicts into one singular code change"""
-    session_conversation = get_session_conversation()
+    stream = get_session_stream()
 
     insert_changes = list(
         filter(
@@ -33,26 +32,19 @@ async def resolve_insertion_conflicts(
             end += 1
         if end > cur + 1:
             logging.debug("insertion conflict")
-            await session_conversation.send_message(
-                dict(content="Insertion conflict:", color="red")
-            )
+            await stream.send("Insertion conflict:", color="red")
             for i in range(end - cur):
-                await session_conversation.send_message(
-                    dict(content=f"({string.printable[i]})", color="green")
+                await stream.send(f"({string.printable[i]})", color="green")
+                await stream.send(
+                    "\n".join(insert_changes[cur + i].code_lines), color="light_cyan"
                 )
-                await session_conversation.send_message(
-                    dict(
-                        content="\n".join(insert_changes[cur + i].code_lines),
-                        color="light_cyan",
-                    )
-                )
-            await session_conversation.send_message(
+            await stream.send(
                 "Type the order in which to insert changes (omit for no preference):"
             )
             user_input = await collect_user_input()
             new_code_lines = []
             used = set()
-            for c in user_input:
+            for c in user_input.data:
                 index = string.printable.index(c) if c in string.printable else -1
                 if index < end - cur and index != -1:
                     new_code_lines += insert_changes[cur + index].code_lines
@@ -80,7 +72,7 @@ async def resolve_non_insertion_conflicts(
     changes: list[CodeChange],
 ) -> list[CodeChange]:
     """resolves delete-replace conflicts and asks user on delete-insert or replace-insert conflicts"""
-    session_conversation = get_session_conversation()
+    stream = get_session_stream()
 
     min_changed_line = changes[0].last_changed_line + 1
     removed_changes = set()
@@ -91,23 +83,15 @@ async def resolve_non_insertion_conflicts(
                 if changes[i - 1].action == CodeChangeAction.Delete:
                     keep = True
                 else:
-                    await session_conversation.send_message(
-                        dict(
-                            content="\nInsertion conflict: Lines inserted inside replaced block\n",
-                            color="light_red",
-                        )
+                    await stream.send(
+                        "Insertion conflict: Lines inserted inside replaced block",
+                        color="light_red",
                     )
-                    await session_conversation.add_message(
-                        get_removed_block(changes[i - 1])
-                    )
-                    await session_conversation.add_message(
-                        get_added_block(change, prefix=">", color=None)
-                    )
-                    await session_conversation.add_message(
-                        get_added_block(changes[i - 1])
-                    )
-                    await session_conversation.add_message("Keep this insertion?")
-                    keep = await session_input_manager.ask_yes_no(default_yes=True)
+                    await stream.send(get_removed_block(changes[i - 1]))
+                    await stream.send(get_added_block(change, prefix=">", color=None))
+                    await stream.send(get_added_block(changes[i - 1]))
+                    await stream.send("Keep this insertion?")
+                    keep = await ask_yes_no(default_yes=True)
                 if keep:
                     change.first_changed_line = changes[i - 1].first_changed_line - 0.5
                     change.last_changed_line = change.first_changed_line

@@ -4,12 +4,11 @@ import os
 from pathlib import Path
 from typing import Dict, Iterable
 
-from mentat.session_conversation import MessageGroup, get_session_conversation
-
 from .code_file import CodeFile
 from .config_manager import ConfigManager
 from .errors import UserError
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
+from .session_stream import SessionStream, get_session_stream
 
 
 def _is_file_text_encoded(file_path):
@@ -104,15 +103,17 @@ def _build_path_tree(files: Iterable[CodeFile], git_root):
     return tree
 
 
-def _build_path_tree_string(mg: MessageGroup, tree, changed_files, cur_path, prefix=""):
+async def _print_path_tree_string(
+    stream: SessionStream, tree, changed_files, cur_path, prefix=""
+):
     keys = list(tree.keys())
     for i, key in enumerate(sorted(keys)):
         if i < len(keys) - 1:
             new_prefix = prefix + "│   "
-            mg.add(f"{prefix}├── ", end="")
+            await stream.send(f"{prefix}├── ", end="")
         else:
             new_prefix = prefix + "    "
-            mg.add(f"{prefix}└── ", end="")
+            await stream.send(f"{prefix}└── ", end="")
 
         cur = cur_path / key
         star = "* " if cur in changed_files else ""
@@ -122,9 +123,11 @@ def _build_path_tree_string(mg: MessageGroup, tree, changed_files, cur_path, pre
             color = "green"
         else:
             color = None
-        mg.add(f"{star}{key}", color=color)
+        await stream.send(f"{star}{key}", color=color)
         if tree[key]:
-            _build_path_tree_string(mg, tree[key], changed_files, cur, new_prefix)
+            await _print_path_tree_string(
+                stream, tree[key], changed_files, cur, new_prefix
+            )
 
 
 class CodeContext:
@@ -138,20 +141,18 @@ class CodeContext:
         self.files = _get_files(self.config, paths, exclude_paths)
 
     async def display_context(self):
-        mg = MessageGroup()
-        if self.files:
-            mg.add("Files included in context:", color="green")
-        else:
-            mg.add("No files included in context.", color="red")
-            mg.add("Git project: ", color="green", end="")
-        mg.add(self.config.git_root.name, color="blue")
+        stream = get_session_stream()
 
-        _build_path_tree_string(
-            mg,
+        if self.files:
+            await stream.send("Files included in context:", color="green")
+        else:
+            await stream.send("No files included in context.", color="red")
+            await stream.send("Git project: ", color="green", end="")
+        await stream.send(self.config.git_root.name, color="blue")
+
+        await _print_path_tree_string(
+            stream,
             _build_path_tree(self.files.values(), self.config.git_root),
             get_paths_with_git_diffs(self.config.git_root),
             self.config.git_root,
         )
-
-        session_conversation = get_session_conversation()
-        await session_conversation.send_message(source="server", data=mg.data)

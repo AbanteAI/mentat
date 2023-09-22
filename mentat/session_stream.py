@@ -4,10 +4,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, Literal
+from typing import Any, AsyncGenerator, Dict, List
 from uuid import UUID, uuid4
-
-from ipdb import set_trace
 
 from .broadcast import Broadcast
 
@@ -55,13 +53,43 @@ class SessionStream:
     async def stop(self):
         await self._broadcast.disconnect()
 
-    def send(
+    async def send(
         self,
         data: Any,
         source: StreamMessageSource = StreamMessageSource.SERVER,
         channel: str = "default",
         **kwargs,
     ):
+        message = StreamMessage(
+            id=uuid4(),
+            source=source,
+            channel=channel,
+            data=data,
+            created_at=datetime.utcnow(),
+            extra=kwargs,
+        )
+        self.messages.append(message)
+        await self._broadcast.publish(channel=channel, message=message)
+
+        return message
+
+    def send_nowait(
+        self,
+        data: Any,
+        source: StreamMessageSource = StreamMessageSource.SERVER,
+        channel: str = "default",
+        **kwargs,
+    ):
+        """Send a message to the underlying message queue.
+
+        This method should be used only when it's inconvienent to await `send` (such as
+        needing to send messages in an __init__ call).
+
+        There is currently no max queue size, so `send_nowait` will never throw a
+        `QueueFull` exception. Awaiting `send` allows the asyncio loop to get more
+        cycles, potentially giving messages a more "real-time" feel (though probably)
+        unnoticable.
+        """
         message = StreamMessage(
             id=uuid4(),
             source=source,

@@ -13,19 +13,11 @@ import openai.error
 from ipdb import set_trace
 
 from .code_change import CodeChange, CodeChangeAction
-from .code_change_display import (
-    change_delimiter,
-    get_file_name,
-    get_later_lines,
-    get_previous_lines,
-    get_removed_block,
-)
 from .code_file_manager import CodeFileManager
 from .errors import MentatError, ModelError, RemoteKeyboardInterrupt, UserError
 from .llm_api import call_llm_api
-from .session_conversation import get_session_conversation
 from .session_input import collect_user_input, listen_for_interrupt
-from .streaming_printer import StreamingPrinter
+from .session_stream import get_session_stream
 
 
 class _BlockIndicator(Enum):
@@ -162,7 +154,7 @@ async def run_stream_and_parse_llm_response(
     model: str,
     code_file_manager: CodeFileManager,
 ) -> ParsingState:
-    session_conversation = get_session_conversation()
+    stream = get_session_stream()
 
     state: ParsingState = ParsingState()
     start_time = default_timer()
@@ -179,11 +171,7 @@ async def run_stream_and_parse_llm_response(
     except openai.error.RateLimitError as e:
         raise UserError("OpenAI gave a rate limit error:\n" + str(e))
     except RemoteKeyboardInterrupt:
-        await session_conversation.send_message(
-            data=dict(
-                content="Interrupted by user. Using the response up to this point."
-            ),
-        )
+        await stream.send("Interrupted by user. Using the response up to this point.")
         # if the last change is incomplete, remove it
         if state.in_code_lines:
             state.code_changes = state.code_changes[:-1]
@@ -203,36 +191,21 @@ async def stream_and_parse_llm_response(
     state: ParsingState,
     code_file_manager: CodeFileManager,
 ) -> None:
-    session_conversation = get_session_conversation()
+    stream = get_session_stream()
 
     response = await call_llm_api(messages, model)
 
-    await session_conversation.send_message(
-        data=dict(
-            content="streaming...  use control-c to interrupt the model at any point"
-        ),
-    )
+    await stream.send("streaming...  use control-c to interrupt the model at any point")
 
-    printer = StreamingPrinter()
-    printer_task = asyncio.create_task(printer.print_lines())
     try:
-        await _process_response(state, response, printer, code_file_manager)
-        printer.wrap_it_up()
-        await printer_task
+        await _process_response(state, response, code_file_manager)
     except ModelError as e:
         logging.info(f"Model created error {e}")
-        printer.wrap_it_up()
         # make sure we finish printing everything model sent before we encountered the crash
-        await printer_task
-        await session_conversation.send_message(
-            source="server",
-            data=dict(
-                content=f"Fatal error while processing model response: {e}", color="red"
-            ),
+        await stream.send(
+            f"Fatal error while processing model response: {e}", color="red"
         )
-        await session_conversation.send_message(
-            source="server", data=dict(content="Using response up to this point.")
-        )
+        await stream.send("Using response up to this point.")
         if e.already_added_to_changelist:
             state.code_changes = state.code_changes[:-1]
     finally:
@@ -242,7 +215,6 @@ async def stream_and_parse_llm_response(
 async def _process_response(
     state: ParsingState,
     response: Generator,
-    printer: StreamingPrinter,
     code_file_manager: CodeFileManager,
 ):
     def chunk_to_lines(chunk):
@@ -252,20 +224,18 @@ async def _process_response(
         for content_line in chunk_to_lines(chunk):
             if content_line:
                 state.message += content_line
-                _process_content_line(state, content_line, printer, code_file_manager)
+                _process_content_line(state, content_line, code_file_manager)
 
     # This newline solves at least 5 edge cases singlehandedly
-    _process_content_line(state, "\n", printer, code_file_manager)
+    _process_content_line(state, "\n", code_file_manager)
 
     # If the model forgot an @@end at the very end of it's message, we might as well add the change
     if state.in_special_lines:
         logging.info("Model forgot an @@end!")
-        _process_content_line(state, "@@end\n", printer, code_file_manager)
+        _process_content_line(state, "@@end\n", code_file_manager)
 
 
-def _process_content_line(
-    state, content, printer: StreamingPrinter, code_file_manager: CodeFileManager
-):
+def _process_content_line(state, content, code_file_manager: CodeFileManager):
     beginning = state.cur_line == ""
     state.cur_line += content
 

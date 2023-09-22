@@ -1,12 +1,7 @@
 import math
 
-from mentat.session_conversation import (
-    MessageData,
-    MessageGroup,
-    get_session_conversation,
-)
-
 from .code_change import CodeChange, CodeChangeAction
+from .session_stream import get_session_stream
 
 change_delimiter = 60 * "="
 
@@ -44,41 +39,38 @@ def _prefixed_lines(code_change, lines, prefix):
     )
 
 
-def print_change(code_change: CodeChange):
-    to_print = [
-        get_file_name(code_change),
-        change_delimiter if code_change.action != CodeChangeAction.RenameFile else None,
-        get_previous_lines(code_change),
-        get_removed_block(code_change),
-        get_added_block(code_change),
-        get_later_lines(code_change),
-        change_delimiter if code_change.action != CodeChangeAction.RenameFile else None,
-    ]
+async def print_change(code_change: CodeChange):
+    stream = get_session_stream()
 
-    message_group = MessageGroup()
-    for message_data in to_print:
-        if message_data is not None:
-            message_group.add(message_data["content"], **message_data.extra)
-
-    get_session_conversation().send_message_nowait(message_group)
+    await print_file_name(code_change)
+    if code_change.action != CodeChangeAction.RenameFile:
+        await stream.send(change_delimiter)
+    await print_previous_lines(code_change)
+    await print_removed_block(code_change)
+    await print_added_block(code_change)
+    await print_later_lines(code_change)
+    if code_change.action != CodeChangeAction.RenameFile:
+        await stream.send(change_delimiter)
 
 
-def get_file_name(code_change: CodeChange) -> MessageData:
+async def print_file_name(code_change: CodeChange):
+    stream = get_session_stream()
+
     file_name = code_change.file
     match code_change.action:
         case CodeChangeAction.CreateFile:
-            return MessageData(f"{file_name}*", color="light_green")
+            await stream.send(f"{file_name}*", color="light_green")
         case CodeChangeAction.DeleteFile:
-            return MessageData(f"{file_name}", color="light_red")
+            await stream.send(f"{file_name}", color="light_red")
         case CodeChangeAction.RenameFile:
-            return MessageData(
+            await stream.send(
                 f"Rename: {file_name} -> {code_change.name}", color="yellow"
             )
         case _:
-            return MessageData(f"{file_name}", color="light_blue")
+            await stream.send(f"{file_name}", color="light_blue")
 
 
-def get_removed_block(code_change, prefix="-", color="red") -> MessageData | None:
+async def print_removed_block(code_change, prefix="-", color="red"):
     if code_change.action.has_removals():
         if code_change.action == CodeChangeAction.DeleteFile:
             changed_lines = code_change.file_lines
@@ -89,17 +81,19 @@ def get_removed_block(code_change, prefix="-", color="red") -> MessageData | Non
 
         removed = _prefixed_lines(code_change, changed_lines, prefix)
         if removed:
-            return MessageData(content=removed, color=color)
+            stream = get_session_stream()
+            await stream.send(removed, color=color)
 
 
-def get_added_block(code_change, prefix="+", color="green") -> MessageData | None:
+async def print_added_block(code_change, prefix="+", color: str | None = "green"):
     if code_change.action.has_additions():
         added = _prefixed_lines(code_change, code_change.code_lines, prefix)
         if added:
-            return MessageData(added, color=color)
+            stream = get_session_stream()
+            await stream.send(added, color=color)
 
 
-def get_previous_lines(code_change: CodeChange, num: int = 2) -> MessageData | None:
+async def print_previous_lines(code_change: CodeChange, num: int = 2):
     if not code_change.action.has_surrounding_lines():
         return
 
@@ -125,10 +119,11 @@ def get_previous_lines(code_change: CodeChange, num: int = 2) -> MessageData | N
 
     prev = "\n".join(numbered)
     if prev:
-        return MessageData(prev, file_name=code_change.file)
+        stream = get_session_stream()
+        await stream.send(prev, file_name_for_lexer=code_change.file)
 
 
-def get_later_lines(code_change: CodeChange, num: int = 2) -> MessageData | None:
+async def print_later_lines(code_change: CodeChange, num: int = 2):
     if not code_change.action.has_surrounding_lines():
         return
     lines = _remove_extra_empty_lines(
@@ -153,4 +148,5 @@ def get_later_lines(code_change: CodeChange, num: int = 2) -> MessageData | None
 
     later = "\n".join(numbered)
     if later:
-        return MessageData(later, file_name=code_change.file)
+        stream = get_session_stream()
+        await stream.send(later, file_name_for_lexer=code_change.file)

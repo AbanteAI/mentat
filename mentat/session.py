@@ -58,13 +58,15 @@ class Session:
                     Reason: {self.code_map.ctags_disabled_reason}
                 """
                 ctags_disabled_message = dedent(ctags_disabled_message)
-                self.stream.send(ctags_disabled_message, color="yellow")
+                await self.stream.send(ctags_disabled_message, color="yellow")
         llm_conv = await LLMConversation.create(
             self.config, self.cost_tracker, self.code_file_manager, self.code_map
         )
 
-        self.stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
-        self.stream.send("What can I do for you?", color="light_blue")
+        await self.stream.send(
+            "Type 'q' or use Ctrl-C to quit at any time.", color="cyan"
+        )
+        await self.stream.send("What can I do for you?", color="light_blue")
 
         need_user_request = True
         while True:

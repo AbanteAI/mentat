@@ -5,12 +5,12 @@ from typing import Coroutine
 from ipdb import set_trace
 
 from .errors import RemoteKeyboardInterrupt
-from .session_stream import SessionMessage, get_session_stream
+from .session_stream import StreamMessage, get_session_stream
 
 logger = logging.getLogger()
 
 
-async def collect_user_input() -> SessionMessage:
+async def collect_user_input() -> StreamMessage:
     """Listens for user input on a new channel
 
     send a message requesting user to send a response
@@ -20,7 +20,7 @@ async def collect_user_input() -> SessionMessage:
     stream = get_session_stream()
 
     data = {"type": "collect_user_input"}
-    message = stream.send(data)
+    message = await stream.send(data)
     response = await stream.recv(f"default:{message.id}")
 
     return response
@@ -31,7 +31,7 @@ async def ask_yes_no(default_yes: bool) -> bool:
 
     while True:
         # TODO: combine this into a single message (include content)
-        stream.send("(Y/n)" if default_yes else "(y/N)")
+        await stream.send("(Y/n)" if default_yes else "(y/N)")
         response = await collect_user_input()
         content = response.data["content"]
         if content in ["y", "n", ""]:

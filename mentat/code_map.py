@@ -12,7 +12,7 @@ from ipdb import set_trace
 
 from .git_handler import get_non_gitignored_files
 from .llm_api import count_tokens
-from .session_conversation import get_session_conversation
+from .session_stream import get_session_stream
 
 logger = logging.getLogger("mentat.engine")
 
@@ -52,11 +52,9 @@ async def _get_code_map(root: str, file_path: str, exclude_signatures: bool = Fa
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            await get_session_conversation().send_message(
-                data=dict(
-                    content=f"Error parsing ctags output: {err}\n{repr(output_line)}",
-                    color="yellow",
-                )
+            await get_session_stream().send(
+                f"Error parsing ctags output: {err}\n{repr(output_line)}",
+                color="yellow",
             )
             continue
 
