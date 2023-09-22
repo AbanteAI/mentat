@@ -1,6 +1,6 @@
 import logging
 
-from mentat.session_conversation import SessionConversation, get_session_conversation
+from mentat.session_stream import get_session_stream
 
 from .code_change import CodeChange, CodeChangeAction
 from .code_file_manager import CodeFileManager
@@ -10,7 +10,6 @@ from .errors import MentatError
 from .llm_api import CostTracker, check_model_availability, choose_model, count_tokens
 from .parsing import run_stream_and_parse_llm_response
 from .prompts import system_prompt
-from .session import SessionMessageGroupData
 
 logger = logging.getLogger()
 
@@ -40,7 +39,7 @@ class LLMConversation:
         code_file_manager: CodeFileManager,
         code_map: CodeMap | None = None,
     ):
-        session_conversation = get_session_conversation()
+        stream = get_session_stream()
 
         allow_32k = await check_model_availability(config.allow_32k())
 
@@ -62,20 +61,16 @@ class LLMConversation:
                 " of files."
             )
         elif tokens + 1000 > conv.token_limit:
-            await session_conversation.send_message(
-                data=dict(
-                    content=f"Warning: Included files are close to token limit ({tokens} /"
-                    f" {conv.token_limit}), you may not be able to have a long"
-                    " conversation.",
-                    color="red",
-                ),
+            await stream.send(
+                f"Warning: Included files are close to token limit ({tokens} /"
+                f" {conv.token_limit}), you may not be able to have a long"
+                " conversation.",
+                color="red",
             )
         else:
-            await session_conversation.send_message(
-                data=dict(
-                    content=f"File and prompt token count: {tokens} / {conv.token_limit}",
-                    color="cyan",
-                ),
+            await stream.send(
+                f"File and prompt token count: {tokens} / {conv.token_limit}",
+                color="cyan",
             )
 
         return conv
@@ -90,7 +85,7 @@ class LLMConversation:
         self.messages.append({"role": "assistant", "content": message})
 
     async def get_model_response(self) -> (str, list[CodeChange]):
-        session_conversation = get_session_conversation()
+        stream = get_session_stream()
 
         messages = self.messages.copy()
 
@@ -130,22 +125,19 @@ class LLMConversation:
                         raise Exception(
                             f"Unknown CodeMapMessage level '{code_map_message.level}'"
                         )
-                await session_conversation.send_message(
-                    data=dict(
-                        content=f"Including CodeMap ({cmap_message_level})",
-                        color="green",
-                    ),
+                await stream.send(
+                    f"Including CodeMap ({cmap_message_level})",
+                    color="green",
                 )
                 system_message += f"\n{code_map_message}"
             else:
-                await session_conversation.send_message(
-                    data=dict(
-                        content="""
-                            Excluding CodeMap from system message.,
-                            Reason: not enough tokens available in model context.
-                        """,
-                        color="yellow",
-                    ),
+                await stream.send(
+                    "Excluding CodeMap from system message. Reason:",
+                    color="yellow",
+                )
+                await stream.send(
+                    "Not enough tokens available in model context.",
+                    color="yellow",
                 )
 
         messages.append({"role": "system", "content": system_message})

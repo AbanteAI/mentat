@@ -2,13 +2,10 @@ import asyncio
 import logging
 import shlex
 import traceback
-from datetime import datetime
 from textwrap import dedent
-from typing import Any, AsyncGenerator, Dict, Iterable, List, Literal
+from typing import List
 from uuid import uuid4
 
-from .broadcast import Broadcast
-from .code_change import CodeChange
 from .code_context import CodeContext
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
@@ -26,41 +23,43 @@ logger = logging.getLogger()
 class Session:
     def __init__(
         self,
-        paths: List[str] | None = None,
-        exclude_paths: List[str] | None = None,
+        paths: List[str] = [],
+        exclude_paths: List[str] = [],
         no_code_map: bool = False,
     ):
         self.id = uuid4()
+        self.paths = paths
+        self.exclude_paths = exclude_paths
+        self.no_code_map = no_code_map
 
-        self.git_root = get_shared_git_root_for_paths(paths)
-        self.config = ConfigManager(self.git_root)
-        self.code_context = CodeContext(
-            config=self.config, paths=paths or [], exclude_paths=exclude_paths or []
-        )
-        self.code_file_manager = CodeFileManager(self.config, self.code_context)
-        self.cost_tracker = CostTracker()
-        self.code_map = (
-            CodeMap(self.git_root, token_limit=2048) if not no_code_map else None
-        )
         self.stream = SessionStream()
 
         self._main_task: asyncio.Task | None = None
         self._stop_task: asyncio.Task | None = None
 
     async def _main(self):
-        await self.code_context.display_context()
+        git_root = get_shared_git_root_for_paths(self.paths)
+        config = ConfigManager(git_root)
+        code_context = CodeContext(
+            config=config, paths=self.paths, exclude_paths=self.exclude_paths
+        )
+        code_file_manager = CodeFileManager(config, code_context)
+        cost_tracker = CostTracker()
+        code_map = CodeMap(git_root, token_limit=2048) if not self.no_code_map else None
 
-        if self.code_map is not None:
-            await self.code_map.check_ctags_executable()
-            if self.code_map.ctags_disabled:
+        await code_context.display_context()
+
+        if code_map is not None:
+            await code_map.check_ctags_executable()
+            if code_map.ctags_disabled:
                 ctags_disabled_message = f"""
                     There was an error with your universal ctags installation, disabling CodeMap.
-                    Reason: {self.code_map.ctags_disabled_reason}
+                    Reason: {code_map.ctags_disabled_reason}
                 """
                 ctags_disabled_message = dedent(ctags_disabled_message)
                 await self.stream.send(ctags_disabled_message, color="yellow")
         llm_conv = await LLMConversation.create(
-            self.config, self.cost_tracker, self.code_file_manager, self.code_map
+            config, cost_tracker, code_file_manager, code_map
         )
 
         await self.stream.send(
@@ -71,17 +70,16 @@ class Session:
         need_user_request = True
         while True:
             if need_user_request:
-                user_response_message = await collect_user_input()
-                user_response = user_response_message.data.get("content")
+                message = await collect_user_input()
 
                 # Intercept and run command
-                if isinstance(user_response, str) and user_response.startswith("/"):
-                    arguments = shlex.split(user_response[1:])
+                if isinstance(message.data, str) and message.data.startswith("/"):
+                    arguments = shlex.split(message.data[1:])
                     command = Command.create_command(arguments[0])
                     command.apply(*arguments[1:])
                     continue
 
-                llm_conv.add_user_message(user_response)
+                llm_conv.add_user_message(message.data)
 
             explanation, code_changes = await llm_conv.get_model_response()
 

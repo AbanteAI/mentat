@@ -19,9 +19,12 @@ async def collect_user_input() -> StreamMessage:
     """
     stream = get_session_stream()
 
-    data = {"type": "collect_user_input"}
-    message = await stream.send(data)
-    response = await stream.recv(f"default:{message.id}")
+    # data = {"type": "collect_user_input"}
+    # message = await stream.send(data)
+    # response = await stream.recv(f"default:{message.id}")
+
+    message = await stream.send("", channel="input_request")
+    response = await stream.recv(f"input_request:{message.id}")
 
     return response
 
@@ -54,13 +57,7 @@ async def listen_for_interrupt(
     """
     stream = get_session_stream()
 
-    async def _listen_for_interrupt():
-        async for message in stream.listen():
-            if message.source == "client":
-                if message.data.get("message_type") == "interrupt":
-                    return
-
-    interrupt_task = asyncio.create_task(_listen_for_interrupt())
+    interrupt_task = asyncio.create_task(stream.recv("interrupt"))
     wrapped_task = asyncio.create_task(coro)
 
     done, pending = await asyncio.wait(

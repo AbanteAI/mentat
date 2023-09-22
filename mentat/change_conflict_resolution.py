@@ -2,7 +2,7 @@ import logging
 import string
 
 from .code_change import CodeChange, CodeChangeAction
-from .code_change_display import get_added_block, get_removed_block
+from .code_change_display import print_added_block, print_removed_block
 from .session_input import ask_yes_no, collect_user_input
 from .session_stream import get_session_stream
 
@@ -87,9 +87,10 @@ async def resolve_non_insertion_conflicts(
                         "Insertion conflict: Lines inserted inside replaced block",
                         color="light_red",
                     )
-                    await stream.send(get_removed_block(changes[i - 1]))
-                    await stream.send(get_added_block(change, prefix=">", color=None))
-                    await stream.send(get_added_block(changes[i - 1]))
+                    await print_removed_block(changes[i - 1])
+                    await print_added_block(change, prefix=">", color=None)
+                    await print_added_block(changes[i - 1])
+
                     await stream.send("Keep this insertion?")
                     keep = await ask_yes_no(default_yes=True)
                 if keep:

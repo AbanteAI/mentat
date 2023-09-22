@@ -8,9 +8,10 @@ from uuid import UUID
 
 from ipdb import set_trace
 
-from mentat.engine import Engine
 from mentat.logging_config import setup_logging
-from mentat.terminal.output import cprint, cprint_message
+from mentat.session import Session
+from mentat.session_stream import StreamMessageSource
+from mentat.terminal.output import cprint, cprint_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
 
@@ -22,15 +23,10 @@ logger = logging.getLogger("mentat.terminal")
 
 class TerminalClient:
     def __init__(self):
-        self.engine = Engine()
-        self.engine_task: asyncio.Task | None = None
-
-        self.session_id: UUID | None = None
+        self.session = Session()
 
         self._tasks: Set[asyncio.Task] = set()
-        self._prompt_session = MentatPromptSession(
-            self.engine, message=[("class:prompt", ">>> ")]
-        )
+        self._prompt_session = MentatPromptSession(message=[("class:prompt", ">>> ")])
 
         # NOTE: should input requests be 'stackable'? Should there only be 1 input request at a time?
         self._input_queue = asyncio.Queue()
@@ -47,30 +43,20 @@ class TerminalClient:
 
         return task
 
-    async def _session_listen(self):
-        if self.session_id is None:
-            raise Exception("session_id is NoneType")
-        try:
-            async for message in self.engine.session_listen(self.session_id):
-                cprint_message(message)
-                if "type" in message.data:
-                    if message.data["type"] == "collect_user_input":
-                        self._input_queue.put_nowait(message)
-        except Exception as e:
-            cprint(f"There was an exception: {e}", color="red")
-            traceback.print_exc()
+    async def _cprint_session_stream(self):
+        async for message in self.session.stream.listen():
+            cprint_stream_message(message)
 
-    async def _session_interrupt(self):
-        if self.session_id is None:
-            raise Exception("session_id is NoneType")
-        await self.engine.session_send(
-            self.session_id, content="", message_type="interrupt"
+    async def _handle_input_requests(self):
+        async for message in self.session.stream.listen("input_request"):
+            self._input_queue.put_nowait(message)
+
+    async def _send_session_stream_interrupt(self):
+        await self.session.stream.send(
+            "", source=StreamMessageSource.CLIENT, channel="interrupt"
         )
 
-    async def handle_user_input(self) -> str:
-        if self.session_id is None:
-            raise Exception("session_id is NoneType")
-
+    async def _handle_user_input(self) -> str:
         # mentat_completer = MentatCompleter(self.engine, self.session_id)
         # self._create_task(mentat_completer.refresh_completions())
         mentat_completer = None
@@ -84,16 +70,16 @@ class TerminalClient:
             if user_input == "q":
                 raise KeyboardInterrupt
 
-            await self.engine.session_send(
-                self.session_id,
-                content=user_input,
-                channel=f"default:{input_request_message.id}",
+            await self.session.stream.send(
+                user_input,
+                source=StreamMessageSource.CLIENT,
+                channel=f"input_request:{input_request_message.id}",
             )
 
     # FIXME
     def _handle_exit(self):
         print("Terminal client got a signal")
-        self._create_task(self._session_interrupt())
+        self._create_task(self._send_session_stream_interrupt())
         # if self._should_exit:
         #     self._force_exit = True
         # else:
@@ -105,22 +91,12 @@ class TerminalClient:
         loop.add_signal_handler(signal.SIGTERM, self._handle_exit)
 
     async def _startup(self):
-        self.engine_task = asyncio.create_task(
-            self.engine._run(install_signal_handlers=False)
-        )
-
-        def cleanup_engine_task(task):
-            # set_trace()
-            pass
-
-        self.engine_task.add_done_callback(cleanup_engine_task)
+        logger.debug("Starting Sesson...")
+        self.session.start()
 
     async def _shutdown(self):
-        logger.debug("Shutting Engine down...")
-        self.engine._should_exit = True
-        assert self.engine_task
-        await self.engine_task
-        self.engine_task = None
+        logger.debug("Stopping Sesson...")
+        self.session.stop()
 
     async def _main(
         self,
@@ -128,15 +104,12 @@ class TerminalClient:
         exclude_paths: List[str] | None = [],
         no_code_map: bool = False,
     ):
-        self.session_id = await self.engine.session_create(
-            paths, exclude_paths, no_code_map
-        )
-
         # TODO: shutdown this task properly
-        session_listen_task = asyncio.create_task(self._session_listen())
+        _session_listen_task = asyncio.create_task(self._cprint_session_stream())
+        _session_input_handler_task = asyncio.create_task(self._handle_input_requests())
 
         try:
-            await self.handle_user_input()
+            await self._handle_user_input()
         except KeyboardInterrupt:
             cprint("KeyboardInterrupt", color="yellow")
 

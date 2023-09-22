@@ -13,9 +13,6 @@ from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 
 from mentat.commands import Command
 from mentat.config_manager import mentat_dir_path
-from mentat.engine import Engine
-
-from .prompt_completer import MentatCompleter
 
 
 class FilteredFileHistory(FileHistory):
@@ -46,9 +43,7 @@ class FilteredHistorySuggestions(AutoSuggestFromHistory):
 
 
 class MentatPromptSession(PromptSession):
-    def __init__(self, engine: Engine, *args, **kwargs):
-        self.engine = engine
-
+    def __init__(self, *args, **kwargs):
         self._setup_bindings()
         super().__init__(
             history=FilteredFileHistory(str(mentat_dir_path.joinpath("history"))),
@@ -59,14 +54,6 @@ class MentatPromptSession(PromptSession):
             *args,
             **kwargs,
         )
-
-    def prompt(self, *args, **kwargs):
-        # Automatically capture all commands
-        while (user_input := super().prompt(*args, **kwargs)).startswith("/"):
-            arguments = shlex.split(user_input[1:])
-            command = Command.create_command(arguments[0])
-            command.apply(*arguments[1:])
-        return user_input
 
     def prompt_continuation(self, width, line_number, is_soft_wrap):
         return (

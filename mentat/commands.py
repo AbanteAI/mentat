@@ -3,10 +3,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List
 
-from mentat.session_conversation import MessageData, get_session_conversation
-
 from .errors import MentatError
 from .git_handler import commit
+from .session_stream import get_session_stream
 
 
 class Command(ABC):
@@ -48,12 +47,10 @@ class InvalidCommand(Command, command_name=None):
         self.invalid_name = invalid_name
 
     def apply(self, *args: str) -> None:
-        get_session_conversation().send_message_nowait(
-            data=dict(
-                content=f"{self.invalid_name} is not a valid command. Use /help to see a list of"
-                " all valid commands",
-                color="light_yellow",
-            )
+        get_session_stream().send_nowait(
+            f"{self.invalid_name} is not a valid command. Use /help to see a list of"
+            " all valid commands",
+            color="light_yellow",
         )
 
     @classmethod
@@ -70,13 +67,15 @@ help_message_width = 60
 
 class HelpCommand(Command, command_name="help"):
     def apply(self, *args: str) -> None:
+        stream = get_session_stream()
+
         if not args:
             commands = Command._registered_commands.keys()
         else:
             commands = args
         for command_name in commands:
             if command_name not in Command._registered_commands:
-                message = MessageData(
+                stream.send_nowait(
                     f"Error: Command {command_name} does not exist.", color="red"
                 )
             else:
@@ -89,8 +88,7 @@ class HelpCommand(Command, command_name="help"):
                     ).ljust(help_message_width)
                     + help_message
                 )
-                message = MessageData(message_content)
-            get_session_conversation().send_message_nowait(message)
+                stream.send_nowait(message_content)
 
     @classmethod
     def argument_names(cls) -> list[str]:

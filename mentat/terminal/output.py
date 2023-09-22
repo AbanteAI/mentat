@@ -1,7 +1,8 @@
+from ipdb import set_trace
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
 
-from mentat.session_conversation import Message
+from mentat.session_stream import StreamMessage
 
 
 def cprint(text: str, color: str | None = None, use_ansi_colors: bool = True):
@@ -22,13 +23,12 @@ def cprint(text: str, color: str | None = None, use_ansi_colors: bool = True):
     print_formatted_text(formatted_text)
 
 
-def _format_message_content(
+def _cprint_stream_message_string(
     content: str,
+    end: str = "\n",
     color: str | None = None,
-    end: str | None = None,
     use_ansi_colors: bool = True,
 ):
-    formatted_content = content + (end if end is not None else "\n")
     formatted_color = color if color is not None else ""
     formatted_color = formatted_color.replace("_", "").replace("light", "bright")
     if (
@@ -38,35 +38,22 @@ def _format_message_content(
     ):
         formatted_color = "ansi" + formatted_color
 
-    return (formatted_color, formatted_content)
+    print_formatted_text(FormattedText([(formatted_color, content)]), end=end)
 
 
-def _cprint_message(message: Message, use_ansi_colors: bool = True):
-    message_content = _format_message_content(
-        content=message.data["content"],
-        color=message.data.get("color"),
-        end=message.data.get("end"),
-        use_ansi_colors=use_ansi_colors,
-    )
-    print_formatted_text(
-        FormattedText([message_content]), end=message.data.get("end"), flush=True
-    )
+def cprint_stream_message(message: StreamMessage, use_ansi_colors: bool = True):
+    end = "\n"
+    color = None
+    if message.extra:
+        if isinstance(message.extra.get("end"), str):
+            end = message.extra["end"]
+        if isinstance(message.extra.get("color"), str):
+            color = message.extra["color"]
 
-
-def cprint_message(message: Message, use_ansi_colors: bool = True):
-    formatted_text = []
-    if isinstance(message.data, list):
-        for data in message.data:
-            _formatted_text = _format_message_content(
-                content=data["content"],
-                color=data.get("color"),
-                end=data.get("end"),
-                use_ansi_colors=use_ansi_colors,
-            )
-            formatted_text.append(_formatted_text)
-    elif "content" in message.data:
-        _cprint_message(message)
-        return
+    if isinstance(message.data, str):
+        _cprint_stream_message_string(
+            content=message.data, end=end, color=color, use_ansi_colors=use_ansi_colors
+        )
     else:
-        return
-    print_formatted_text(FormattedText(formatted_text))
+        set_trace()
+        print_formatted_text(message.data, end=end)

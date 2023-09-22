@@ -9,7 +9,7 @@ import openai.error
 import tiktoken
 from dotenv import load_dotenv
 
-from mentat.session_conversation import get_session_conversation
+from mentat.session_stream import get_session_stream
 
 from .config_manager import mentat_dir_path, user_config_path
 from .errors import MentatError, UserError
@@ -66,13 +66,11 @@ async def check_model_availability(allow_32k: bool) -> bool:
     if allow_32k:
         # check if user has access to gpt-4-32k
         if "gpt-4-32k-0314" not in available_models:
-            await get_session_conversation().send_message(
-                data=dict(
-                    content="You set ALLOW_32K to true, but your OpenAI API key doesn't"
-                    " have access to gpt-4-32k-0314. To remove this warning, set"
-                    " ALLOW_32K to false until you have access.",
-                    color="yellow",
-                ),
+            await get_session_stream().send(
+                "You set ALLOW_32K to true, but your OpenAI API key doesn't"
+                " have access to gpt-4-32k-0314. To remove this warning, set"
+                " ALLOW_32K to false until you have access.",
+                color="yellow",
             )
             allow_32k = False
 
@@ -88,14 +86,12 @@ async def check_model_availability(allow_32k: bool) -> bool:
 
 
 async def choose_model(messages: list[dict[str, str]], allow_32k: bool) -> str:
-    session_conversation = get_session_conversation()
+    stream = get_session_stream()
 
     prompt_token_count = 0
     for message in messages:
         prompt_token_count += count_tokens(message["content"])
-    await session_conversation.send_message(
-        data=dict(content=f"Total token count: {prompt_token_count}", color="cyan"),
-    )
+    await stream.send(f"Total token count: {prompt_token_count}", color="cyan")
 
     model = "gpt-4-0314"
     token_buffer = 500
@@ -103,19 +99,17 @@ async def choose_model(messages: list[dict[str, str]], allow_32k: bool) -> str:
         if allow_32k:
             model = "gpt-4-32k-0314"
             if prompt_token_count > 32768 - token_buffer:
-                await session_conversation.send_message(
+                await stream.send(
                     "Warning: gpt-4-32k-0314 has a token limit of 32768. Attempting"
                     " to run anyway:"
                 )
         else:
-            await session_conversation.send_message(
-                data=dict(
-                    content="Warning: gpt-4-0314 has a maximum context length of 8192 tokens."
-                    " If you have access to gpt-4-32k-0314, set allow-32k to `true` in"
-                    f" `{user_config_path}` to use"
-                    " it. Attempting to run with gpt-4-0314:",
-                    color="yellow",
-                ),
+            await stream.send(
+                "Warning: gpt-4-0314 has a maximum context length of 8192 tokens."
+                " If you have access to gpt-4-32k-0314, set allow-32k to `true` in"
+                f" `{user_config_path}` to use"
+                " it. Attempting to run with gpt-4-0314:",
+                color="yellow",
             )
     return model, prompt_token_count
 
@@ -146,9 +140,7 @@ class CostTracker:
             f"Speed: {tokens_per_second:.2f} tkns/s | Cost: ${call_cost:.2f}"
         )
 
-        await get_session_conversation().send_message(
-            source="server", data=dict(content=speed_and_cost_string, color="cyan")
-        )
+        await get_session_stream().send(speed_and_cost_string, color="cyan")
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
@@ -156,10 +148,7 @@ class CostTracker:
         self.total_cost += call_cost
 
     async def display_total_cost(self) -> None:
-        await get_session_conversation().send_message(
-            source="server",
-            data=dict(
-                content=f"Total session cost: ${self.total_cost:.2f}",
-                color="light_blue",
-            ),
+        await get_session_stream().send(
+            f"Total session cost: ${self.total_cost:.2f}",
+            color="light_blue",
         )
