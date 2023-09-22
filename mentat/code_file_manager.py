@@ -94,9 +94,7 @@ class CodeFileManager:
                 color="red",
             )
         )
-        should_delete_file = await self.session_input_manager.ask_yes_no(
-            default_yes=False
-        )
+        should_delete_file = await ask_yes_no(default_yes=False)
         if should_delete_file:
             await session_conversation.send_message(f"Deleting {delete_change.file}...")
             self._delete_file(abs_path)

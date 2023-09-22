@@ -10,6 +10,7 @@ from .errors import MentatError
 from .llm_api import CostTracker, check_model_availability, choose_model, count_tokens
 from .parsing import run_stream_and_parse_llm_response
 from .prompts import system_prompt
+from .session import SessionMessageGroupData
 
 logger = logging.getLogger()
 

@@ -2,12 +2,13 @@ import asyncio
 import logging
 import shlex
 import traceback
+from datetime import datetime
 from textwrap import dedent
-from typing import List
+from typing import Any, AsyncGenerator, Dict, Iterable, List, Literal
 from uuid import uuid4
 
-from mentat.session_input import collect_user_input
-
+from .broadcast import Broadcast
+from .code_change import CodeChange
 from .code_context import CodeContext
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
@@ -16,12 +17,8 @@ from .config_manager import ConfigManager
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker
 from .llm_conversation import LLMConversation
-from .session_conversation import (
-    _SESSION_CONVERSATION,
-    Message,
-    SessionConversation,
-    get_session_conversation,
-)
+from .session_input import collect_user_input
+from .session_stream import _SESSION_STREAM, SessionStream
 
 logger = logging.getLogger()
 
@@ -45,14 +42,12 @@ class Session:
         self.code_map = (
             CodeMap(self.git_root, token_limit=2048) if not no_code_map else None
         )
+        self.stream = SessionStream()
 
-        self._session_conversation: SessionConversation | None = None
         self._main_task: asyncio.Task | None = None
         self._stop_task: asyncio.Task | None = None
 
     async def _main(self):
-        session_conversation = get_session_conversation()
-
         await self.code_context.display_context()
 
         if self.code_map is not None:
@@ -63,27 +58,18 @@ class Session:
                     Reason: {self.code_map.ctags_disabled_reason}
                 """
                 ctags_disabled_message = dedent(ctags_disabled_message)
-                await session_conversation.send_message(
-                    data=dict(content=ctags_disabled_message, color="yellow"),
-                )
-        conv = await LLMConversation.create(
+                self.stream.send(ctags_disabled_message, color="yellow")
+        llm_conv = await LLMConversation.create(
             self.config, self.cost_tracker, self.code_file_manager, self.code_map
         )
 
-        await session_conversation.send_message(
-            data=dict(
-                content="Type 'q' or use Ctrl-C to quit at any time.", color="cyan"
-            ),
-        )
-        await session_conversation.send_message(
-            data=dict(content="What can I do for you?", color="light_blue"),
-        )
+        self.stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
+        self.stream.send("What can I do for you?", color="light_blue")
 
         need_user_request = True
         while True:
             if need_user_request:
                 user_response_message = await collect_user_input()
-                assert isinstance(user_response_message, Message)
                 user_response = user_response_message.data.get("content")
 
                 # Intercept and run command
@@ -93,13 +79,17 @@ class Session:
                     command.apply(*arguments[1:])
                     continue
 
-                conv.add_user_message(user_response)
+                llm_conv.add_user_message(user_response)
 
-            explanation, code_changes = await conv.get_model_response()
+            explanation, code_changes = await llm_conv.get_model_response()
 
             # if code_changes:
             #     need_user_request = get_user_feedback_on_changes(
-            #         config, conv, user_input_manager, code_file_manager, code_changes
+            #         config,
+            #         llm_conv,
+            #         user_input_manager,
+            #         code_file_manager,
+            #         code_changes,
             #     )
             # else:
             #     need_user_request = True
@@ -117,9 +107,8 @@ class Session:
 
         async def run_main():
             try:
-                self._session_conversation = SessionConversation()
-                await self._session_conversation.start()
-                _SESSION_CONVERSATION.set(self._session_conversation)
+                await self.stream.start()
+                _SESSION_STREAM.set(self.stream)
                 await self._main()
             except asyncio.CancelledError:
                 pass
@@ -156,8 +145,7 @@ class Session:
                 self._main_task.cancel()
                 while self._main_task is not None:
                     await asyncio.sleep(0.1)
-                session_conversation = get_session_conversation()
-                await session_conversation.stop()
+                await self.stream.stop()
             except asyncio.CancelledError:
                 pass
 
@@ -167,3 +155,20 @@ class Session:
 
         self._stop_task = asyncio.create_task(run_stop())
         self._stop_task.add_done_callback(cleanup_stop)
+
+
+# async def get_user_feedback_on_changes(
+#     config: ConfigManager,
+#     conv: LLMConversation,
+#     code_file_manager: CodeFileManager,
+#     code_changes: Iterable[CodeChange],
+# ):
+#     session_conversation = get_session_conversation()
+#
+#     await session_conversation.send_message(
+#         dict(
+#             content="Apply these changes? 'Y/n/i' or provide feedback.",
+#             color="light_blue",
+#         )
+#     )
+#     async with listen_for_interrupt

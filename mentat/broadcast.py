@@ -105,7 +105,7 @@ class Broadcast:
                 await queue.put(event)
 
     async def publish(self, channel: str, message: Any, nowait: bool = False) -> None:
-        await self._backend.publish(channel, message, nowait)
+        await self._backend.publish(channel, message)
 
     def publish_nowait(self, channel: str, message: Any) -> None:
         self._backend.publish_nowait(channel, message)

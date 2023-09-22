@@ -5,37 +5,34 @@ from typing import Coroutine
 from ipdb import set_trace
 
 from .errors import RemoteKeyboardInterrupt
-from .session_conversation import Message, get_session_conversation
+from .session_stream import SessionMessage, get_session_stream
 
 logger = logging.getLogger()
 
 
-async def collect_user_input():
+async def collect_user_input() -> SessionMessage:
     """Listens for user input on a new channel
 
     send a message requesting user to send a response
     create a new broadcast channel that listens for the input
     close the channel after receiving the input
     """
-    session_conversation = get_session_conversation()
+    stream = get_session_stream()
 
     data = {"type": "collect_user_input"}
-    message = await session_conversation.send_message(source="server", data=data)
-    response = await session_conversation.recv_message(f"default:{message.id}")
+    message = stream.send(data)
+    response = await stream.recv(f"default:{message.id}")
 
     return response
 
 
 async def ask_yes_no(default_yes: bool) -> bool:
-    session_conversation = get_session_conversation()
+    stream = get_session_stream()
 
     while True:
         # TODO: combine this into a single message (include content)
-        await session_conversation.send_message(
-            source="server", data=dict(content="(Y/n)" if default_yes else "(y/N)")
-        )
+        stream.send("(Y/n)" if default_yes else "(y/N)")
         response = await collect_user_input()
-        assert isinstance(response, Message)
         content = response.data["content"]
         if content in ["y", "n", ""]:
             break
@@ -55,10 +52,10 @@ async def listen_for_interrupt(
     The `.result()` call for `wrapped_task` will re-raise any exceptions thrown
     inside of that Task.
     """
-    session_conversation = get_session_conversation()
+    stream = get_session_stream()
 
     async def _listen_for_interrupt():
-        async for message in session_conversation.listen():
+        async for message in stream.listen():
             if message.source == "client":
                 if message.data.get("message_type") == "interrupt":
                     return

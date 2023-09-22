@@ -4,15 +4,17 @@ from typing import List
 
 from .code_change import CodeChange, CodeChangeAction
 from .code_change_display import get_added_block, get_removed_block
-from .session_conversation import SessionConversation
+from .session_conversation import SessionConversation, get_session_conversation
+from .session_input import collect_user_input
 
 
 async def resolve_insertion_conflicts(
     changes: list[CodeChange],
     code_file_manager,
-    session_conversation: SessionConversation,
 ) -> list[CodeChange]:
     """merges insertion conflicts into one singular code change"""
+    session_conversation = get_session_conversation()
+
     insert_changes = list(
         filter(
             lambda change: change.action == CodeChangeAction.Insert,
@@ -31,18 +33,23 @@ async def resolve_insertion_conflicts(
             end += 1
         if end > cur + 1:
             logging.debug("insertion conflict")
-            await session_conversation.add_message("Insertion conflict:", color="red")
+            await session_conversation.send_message(
+                dict(content="Insertion conflict:", color="red")
+            )
             for i in range(end - cur):
-                await session_conversation.add_message(
-                    f"({string.printable[i]})", color="green"
+                await session_conversation.send_message(
+                    dict(content=f"({string.printable[i]})", color="green")
                 )
-                await session_conversation.add_message(
-                    "\n".join(insert_changes[cur + i].code_lines), color="light_cyan"
+                await session_conversation.send_message(
+                    dict(
+                        content="\n".join(insert_changes[cur + i].code_lines),
+                        color="light_cyan",
+                    )
                 )
-            await session_conversation.add_message(
+            await session_conversation.send_message(
                 "Type the order in which to insert changes (omit for no preference):"
             )
-            user_input = session_input_manager.collect_user_input()
+            user_input = await collect_user_input()
             new_code_lines = []
             used = set()
             for c in user_input:
@@ -73,6 +80,8 @@ async def resolve_non_insertion_conflicts(
     changes: list[CodeChange],
 ) -> list[CodeChange]:
     """resolves delete-replace conflicts and asks user on delete-insert or replace-insert conflicts"""
+    session_conversation = get_session_conversation()
+
     min_changed_line = changes[0].last_changed_line + 1
     removed_changes = set()
     for i, change in enumerate(changes):
@@ -82,9 +91,11 @@ async def resolve_non_insertion_conflicts(
                 if changes[i - 1].action == CodeChangeAction.Delete:
                     keep = True
                 else:
-                    await session_conversation.add_message(
-                        "\nInsertion conflict: Lines inserted inside replaced block\n",
-                        color="light_red",
+                    await session_conversation.send_message(
+                        dict(
+                            content="\nInsertion conflict: Lines inserted inside replaced block\n",
+                            color="light_red",
+                        )
                     )
                     await session_conversation.add_message(
                         get_removed_block(changes[i - 1])

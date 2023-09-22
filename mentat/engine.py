@@ -6,7 +6,6 @@ from uuid import UUID
 
 from ipdb import set_trace
 
-from .rpc import RpcServer
 from .session import Session
 
 logging.basicConfig(level=logging.INFO)
@@ -21,54 +20,35 @@ class Engine:
     """
 
     def __init__(self, with_rpc_server: bool = False):
-        self.rpc_server = RpcServer() if with_rpc_server else None
         self.sessions: Dict[UUID, Session] = {}
 
         self._should_exit = False
         self._force_exit = False
         self._tasks: Set[asyncio.Task] = set()
 
-    ### rpc-exposed methods (terminal client can call these directly)
-
-    async def on_connect(self):
-        """Sets up an RPC connection with a client"""
-        ...
-
-    async def disconnect(self):
-        """Closes an RPC connection with a client"""
-        ...
-
-    async def restart(self):
-        """Restart the MentatEngine and RPC server"""
-        ...
-
-    async def shutdown(self):
-        """Shutdown the MentatEngine and RPC server"""
-        ...
-
     # Session
 
-    async def session_create(
-        self,
-        paths: List[str] | None = [],
-        exclude_paths: List[str] | None = [],
-        no_code_map: bool = False,
-    ) -> UUID:
-        session = Session(paths, exclude_paths, no_code_map)
-        session.start()
-        self.sessions[session.id] = session
+    # async def session_create(
+    #     self,
+    #     paths: List[str] | None = [],
+    #     exclude_paths: List[str] | None = [],
+    #     no_code_map: bool = False,
+    # ) -> UUID:
+    #     session = Session(paths, exclude_paths, no_code_map)
+    #     session.start()
+    #     self.sessions[session.id] = session
+    #
+    #     return session.id
 
-        return session.id
+    # async def session_exists(self, session_id: UUID):
+    #     return True if session_id in self.sessions else False
 
-    async def session_exists(self, session_id: UUID):
-        return True if session_id in self.sessions else False
-
-    async def session_listen(self, session_id: UUID):
-        if session_id not in self.sessions:
-            raise Exception(f"Session {session_id} does not exist")
-        session = self.sessions[session_id]
-        async for message in session._session_conversation.listen():
-            yield message
+    # async def session_listen(self, session_id: UUID):
+    #     if session_id not in self.sessions:
+    #         raise Exception(f"Session {session_id} does not exist")
+    #     session = self.sessions[session_id]
+    #     async for message in session._session_conversation.listen():
+    #         yield message
 
     async def session_send(
         self, session_id: UUID, content: Any, channel: str = "default", **kwargs
