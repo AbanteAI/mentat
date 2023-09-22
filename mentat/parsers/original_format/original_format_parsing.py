@@ -17,6 +17,7 @@ from termcolor import cprint
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
 from mentat.errors import ModelError
+from mentat.llm_api import chunk_to_lines
 from mentat.parsers.change_display_helper import (
     change_delimiter,
     get_file_name,
@@ -201,9 +202,6 @@ async def _process_response(
     code_file_manager: CodeFileManager,
     shutdown: Event,
 ) -> bool:
-    def chunk_to_lines(chunk: Any) -> list[str]:
-        return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)
-
     async for chunk in response:
         for content_line in chunk_to_lines(chunk):
             if content_line:
@@ -213,9 +211,6 @@ async def _process_response(
             if state.in_code_lines:
                 state.code_changes = state.code_changes[:-1]
             return False
-
-    # This newline solves at least 5 edge cases singlehandedly
-    _process_content_line(state, "\n", printer, code_file_manager)
 
     # If the model forgot an @@end at the very end of it's message, we might as well add the change
     if state.in_special_lines:

@@ -8,6 +8,7 @@ from termcolor import cprint
 
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.file_edit import FileEdit
+from mentat.parsers.replacement_parser import ReplacementParser
 
 from .code_context import CodeContext
 from .code_file import parse_intervals
@@ -143,6 +144,7 @@ def loop(
     git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
     # The parser can be selected here
     parser = BlockParser()
+    parser = ReplacementParser()
     config = ConfigManager(git_root)
     code_context = CodeContext(
         config, paths, exclude_paths or [], diff, pr_diff, no_code_map

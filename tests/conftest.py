@@ -76,6 +76,7 @@ def mock_call_llm_api(mocker):
         async def async_generator():
             for value in values:
                 yield {"choices": [{"delta": {"content": value}}]}
+            yield {"choices": [{"delta": {"content": "\n"}}]}
 
         mock.return_value = async_generator()
 
