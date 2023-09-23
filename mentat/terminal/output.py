@@ -1,4 +1,3 @@
-from ipdb import set_trace
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
 
@@ -55,5 +54,4 @@ def cprint_stream_message(message: StreamMessage, use_ansi_colors: bool = True):
             content=message.data, end=end, color=color, use_ansi_colors=use_ansi_colors
         )
     else:
-        set_trace()
         print_formatted_text(message.data, end=end)

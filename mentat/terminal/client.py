@@ -4,10 +4,8 @@ import logging
 import signal
 import traceback
 from typing import Coroutine, List, Set
-from uuid import UUID
 
 from ipdb import set_trace
-from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer
 
 from mentat.logging_config import setup_logging
@@ -25,8 +23,17 @@ logger.setLevel(logging.DEBUG)
 
 
 class TerminalClient:
-    def __init__(self):
-        self.session = Session()
+    def __init__(
+        self,
+        paths: List[str] = [],
+        exclude_paths: List[str] = [],
+        no_code_map: bool = False,
+    ):
+        self.paths = paths
+        self.exclude_paths = exclude_paths
+        self.no_code_map = no_code_map
+
+        self.session = Session(self.paths, self.exclude_paths, self.no_code_map)
 
         self._tasks: Set[asyncio.Task] = set()
         self._prompt_session = MentatPromptSession(message=[("class:prompt", ">>> ")])
@@ -50,11 +57,6 @@ class TerminalClient:
             cprint_stream_message(message)
 
     async def _handle_input_requests(self, prompt_completer: Completer | None = None):
-        # async for message in self.session.stream.listen("input_request"):
-        #     await self._input_queue.put(message)
-
-        # input_request_message = await self._input_queue.get()
-
         while True:
             input_request_message = await self.session.stream.recv("input_request")
 
@@ -101,12 +103,11 @@ class TerminalClient:
         logger.debug("Running startup")
         self.session.start()
 
-        # mentat_completer = MentatCompleter(self.session)
-        # self._create_task(mentat_completer.refresh_completions())
-        mentat_completer = None
+        mentat_completer = MentatCompleter(self.session)
 
+        self._create_task(mentat_completer.refresh_completions())
         self._create_task(self._cprint_session_stream())
-        self._create_task(self._handle_input_requests())
+        self._create_task(self._handle_input_requests(mentat_completer))
 
         logger.debug("Completed startup")
 
@@ -138,12 +139,7 @@ class TerminalClient:
             counter = counter % 86400
             await asyncio.sleep(0.1)
 
-    async def _run(
-        self,
-        paths: List[str] | None = [],
-        exclude_paths: List[str] | None = [],
-        no_code_map: bool = False,
-    ):
+    async def _run(self):
         try:
             self._init_signal_handlers()
             await self._startup()
@@ -155,13 +151,8 @@ class TerminalClient:
             logger.error(f"Unexpected Exception {e}")
             logger.error(traceback.format_exc())
 
-    def run(
-        self,
-        paths: List[str] | None = [],
-        exclude_paths: List[str] | None = [],
-        no_code_map: bool = False,
-    ):
-        asyncio.run(self._run(paths, exclude_paths, no_code_map))
+    def run(self):
+        asyncio.run(self._run())
 
 
 def run_cli():
@@ -191,5 +182,5 @@ def run_cli():
     exclude_paths = args.exclude
     no_code_map = args.no_code_map
 
-    terminal_client = TerminalClient()
-    terminal_client.run(paths, exclude_paths, no_code_map)
+    terminal_client = TerminalClient(paths, exclude_paths, no_code_map)
+    terminal_client.run()
