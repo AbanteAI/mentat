@@ -2,6 +2,7 @@ from termcolor import cprint
 
 from .code_change import CodeChange
 from .code_file_manager import CodeFileManager
+from .code_context import CodeContext
 from .config_manager import ConfigManager, user_config_path
 from .llm_api import (
     CostTracker,
@@ -20,11 +21,14 @@ class Conversation:
         config: ConfigManager,
         cost_tracker: CostTracker,
         code_file_manager: CodeFileManager,
+        code_context: CodeContext,
     ):
         self.messages = list[dict[str, str]]()
         self.add_system_message(system_prompt)
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
+
+        self.code_context = code_context
         self.model = config.model()
         if not is_model_available(self.model):
             raise KeyboardInterrupt(
@@ -45,10 +49,6 @@ class Conversation:
                     color="yellow",
                 )
 
-        tokens = count_tokens(
-            code_file_manager.get_code_message(self.model), self.model
-        ) + count_tokens(system_prompt, self.model)
-
         context_size = model_context_size(self.model)
         maximum_context = config.maximum_context()
         if maximum_context:
@@ -62,13 +62,10 @@ class Conversation:
                 f"Context size for {self.model} is not known. Please set"
                 f" maximum-context in {user_config_path}."
             )
-        if context_size and tokens > context_size:
-            raise KeyboardInterrupt(
-                f"Included files already exceed token limit ({tokens} /"
-                f" {context_size}). Please try running again with a reduced"
-                " number of files."
-            )
-        elif tokens + 1000 > context_size:
+        system_tokens = count_tokens(system_prompt, self.model)
+        code_context.refresh(max_tokens=context_size - system_tokens - 1000)
+        tokens = system_tokens + code_context.root.count_tokens(self.model, recursive=True)
+        if tokens + 1000 > context_size:
             cprint(
                 f"Warning: Included files are close to token limit ({tokens} /"
                 f" {context_size}), you may not be able to have a long"
@@ -92,7 +89,7 @@ class Conversation:
 
     def get_model_response(self) -> tuple[str, list[CodeChange]]:
         messages = self.messages.copy()
-        code_message = self.code_file_manager.get_code_message(self.model)
+        code_message = self.code_context.get_code_message()
 
         messages.append({"role": "system", "content": code_message})
 

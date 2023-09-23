@@ -151,7 +151,7 @@ class CodeChange:
             )
 
             try:
-                self.file_lines = code_file_manager.file_lines[rel_path]
+                self.file_lines = code_file_manager.file_lines(rel_path)
                 self.line_number_buffer = len(str(len(self.file_lines) + 1)) + 1
             except KeyError:
                 self.error = (

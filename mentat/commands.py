@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import List, Optional
 
 from termcolor import colored, cprint
@@ -138,8 +139,9 @@ class AddCommand(Command, command_name="add"):
             cprint("No files specified\n", "yellow")
             return
         for file_path in args:
-            code_file = CodeFile(file_path)
-            self.code_context.add_file(code_file)
+            # TODO: Handle globbing
+            _path = Path(file_path)
+            self.code_context.add_path(_path)
 
     @classmethod
     def argument_names(cls) -> list[str]:
