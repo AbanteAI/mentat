@@ -18,7 +18,7 @@ from .llm_conversation import LLMConversation
 from .session_input import collect_user_input
 from .session_stream import _SESSION_STREAM, SessionStream
 
-logger = logging.getLogger("mentat.core")
+logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 

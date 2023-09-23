@@ -14,7 +14,7 @@ from .git_handler import get_non_gitignored_files
 from .llm_api import count_tokens
 from .session_stream import get_session_stream
 
-logger = logging.getLogger("mentat.engine")
+logger = logging.getLogger()
 
 
 async def _get_code_map(root: str, file_path: str, exclude_signatures: bool = False):
