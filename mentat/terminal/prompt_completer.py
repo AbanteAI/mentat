@@ -26,6 +26,7 @@ from pygments.util import ClassNotFound
 
 from mentat.commands import Command
 from mentat.engine import Engine
+from mentat.session import Session
 
 
 @dataclass
@@ -35,9 +36,8 @@ class SyntaxCompletion:
 
 
 class MentatCompleter(Completer):
-    def __init__(self, engine: Engine, session_id: UUID):
-        self.engine = engine
-        self.session_id = session_id
+    def __init__(self, session: Session):
+        self.session = session
 
         self.syntax_completions: Dict[Path, SyntaxCompletion] = dict()
         self.file_name_completions: DefaultDict[str, Set[Path]] = defaultdict(set)
@@ -78,7 +78,7 @@ class MentatCompleter(Completer):
         self.syntax_completions[file_path] = SyntaxCompletion(words=filtered_tokens)
 
     async def refresh_completions(self):
-        file_paths = await self.engine.get_session_code_context(self.session_id)
+        file_paths = list(self.session.code_context.files.keys())
 
         # Remove syntax completions for files not in the context
         for file_path in set(self.syntax_completions.keys()):

@@ -57,24 +57,25 @@ async def listen_for_interrupt(
     """
     stream = get_session_stream()
 
-    interrupt_task = asyncio.create_task(stream.recv("interrupt"))
-    wrapped_task = asyncio.create_task(coro)
+    async with stream.interrupt_lock:
+        interrupt_task = asyncio.create_task(stream.recv("interrupt"))
+        wrapped_task = asyncio.create_task(coro)
 
-    done, pending = await asyncio.wait(
-        {interrupt_task, wrapped_task}, return_when=asyncio.FIRST_COMPLETED
-    )
+        done, pending = await asyncio.wait(
+            {interrupt_task, wrapped_task}, return_when=asyncio.FIRST_COMPLETED
+        )
 
-    for task in pending:
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            set_trace()
-            raise e
+        for task in pending:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                set_trace()
+                raise e
 
-    if wrapped_task in done:
-        return wrapped_task.result()
-    else:
-        raise RemoteKeyboardInterrupt
+        if wrapped_task in done:
+            return wrapped_task.result()
+        else:
+            raise RemoteKeyboardInterrupt

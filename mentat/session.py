@@ -6,6 +6,7 @@ from textwrap import dedent
 from typing import List
 from uuid import uuid4
 
+from .code_change_feedback import get_user_feedback_on_changes
 from .code_context import CodeContext
 from .code_file_manager import CodeFileManager
 from .code_map import CodeMap
@@ -17,7 +18,8 @@ from .llm_conversation import LLMConversation
 from .session_input import collect_user_input
 from .session_stream import _SESSION_STREAM, SessionStream
 
-logger = logging.getLogger()
+logger = logging.getLogger("mentat.core")
+logger.setLevel(logging.DEBUG)
 
 
 class Session:
@@ -33,33 +35,36 @@ class Session:
         self.no_code_map = no_code_map
 
         self.stream = SessionStream()
+        _SESSION_STREAM.set(self.stream)  # remove?
 
         self._main_task: asyncio.Task | None = None
         self._stop_task: asyncio.Task | None = None
 
-    async def _main(self):
         git_root = get_shared_git_root_for_paths(self.paths)
-        config = ConfigManager(git_root)
-        code_context = CodeContext(
-            config=config, paths=self.paths, exclude_paths=self.exclude_paths
+        self.config = ConfigManager(git_root)
+        self.code_context = CodeContext(
+            config=self.config, paths=self.paths, exclude_paths=self.exclude_paths
         )
-        code_file_manager = CodeFileManager(config, code_context)
-        cost_tracker = CostTracker()
-        code_map = CodeMap(git_root, token_limit=2048) if not self.no_code_map else None
+        self.code_file_manager = CodeFileManager(self.config, self.code_context)
+        self.cost_tracker = CostTracker()
+        self.code_map = (
+            CodeMap(git_root, token_limit=2048) if not self.no_code_map else None
+        )
 
-        await code_context.display_context()
+    async def _main(self):
+        await self.code_context.display_context()
 
-        if code_map is not None:
-            await code_map.check_ctags_executable()
-            if code_map.ctags_disabled:
+        if self.code_map is not None:
+            await self.code_map.check_ctags_executable()
+            if self.code_map.ctags_disabled:
                 ctags_disabled_message = f"""
                     There was an error with your universal ctags installation, disabling CodeMap.
-                    Reason: {code_map.ctags_disabled_reason}
+                    Reason: {self.code_map.ctags_disabled_reason}
                 """
                 ctags_disabled_message = dedent(ctags_disabled_message)
                 await self.stream.send(ctags_disabled_message, color="yellow")
         llm_conv = await LLMConversation.create(
-            config, cost_tracker, code_file_manager, code_map
+            self.config, self.cost_tracker, self.code_file_manager, self.code_map
         )
 
         await self.stream.send(
@@ -83,16 +88,15 @@ class Session:
 
             explanation, code_changes = await llm_conv.get_model_response()
 
-            # if code_changes:
-            #     need_user_request = get_user_feedback_on_changes(
-            #         config,
-            #         llm_conv,
-            #         user_input_manager,
-            #         code_file_manager,
-            #         code_changes,
-            #     )
-            # else:
-            #     need_user_request = True
+            if code_changes:
+                need_user_request = await get_user_feedback_on_changes(
+                    self.config,
+                    llm_conv,
+                    self.code_file_manager,
+                    code_changes,
+                )
+            else:
+                need_user_request = True
 
     ### lifecycle
 
@@ -114,16 +118,13 @@ class Session:
                 pass
 
         def cleanup_main(task: asyncio.Task):
-            # Shutdown everything on exception?
             exception = task.exception()
             if exception is not None:
-                # logger.exception("Main task threw an exception", exception)
                 logger.error(f"Main task for Session({self.id}) threw an exception")
                 traceback.print_exception(
                     type(exception), exception, exception.__traceback__
                 )
 
-            # set_trace()
             self._main_task = None
             logger.debug("Main task stopped")
 
@@ -155,20 +156,3 @@ class Session:
 
         self._stop_task = asyncio.create_task(run_stop())
         self._stop_task.add_done_callback(cleanup_stop)
-
-
-# async def get_user_feedback_on_changes(
-#     config: ConfigManager,
-#     conv: LLMConversation,
-#     code_file_manager: CodeFileManager,
-#     code_changes: Iterable[CodeChange],
-# ):
-#     session_conversation = get_session_conversation()
-#
-#     await session_conversation.send_message(
-#         dict(
-#             content="Apply these changes? 'Y/n/i' or provide feedback.",
-#             color="light_blue",
-#         )
-#     )
-#     async with listen_for_interrupt

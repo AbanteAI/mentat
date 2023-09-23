@@ -2,12 +2,12 @@ import datetime
 import logging
 import logging.handlers
 import os
-from typing import Iterable, Type
+from typing import Iterable
 
 from .config_manager import mentat_dir_path
 
 
-def setup_logging(extra_handlers: Iterable[logging.Handler] | None = None):
+def setup_logging():
     logs_dir = "logs"
     if "PYTEST_CURRENT_TEST" in os.environ:
         logs_dir += "/test_logs"

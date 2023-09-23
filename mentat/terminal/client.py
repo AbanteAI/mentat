@@ -7,6 +7,8 @@ from typing import Coroutine, List, Set
 from uuid import UUID
 
 from ipdb import set_trace
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import Completer
 
 from mentat.logging_config import setup_logging
 from mentat.session import Session
@@ -19,6 +21,7 @@ from mentat.terminal.prompt_session import MentatPromptSession
 setup_logging()
 
 logger = logging.getLogger("mentat.terminal")
+logger.setLevel(logging.DEBUG)
 
 
 class TerminalClient:
@@ -27,9 +30,8 @@ class TerminalClient:
 
         self._tasks: Set[asyncio.Task] = set()
         self._prompt_session = MentatPromptSession(message=[("class:prompt", ">>> ")])
-
-        # NOTE: should input requests be 'stackable'? Should there only be 1 input request at a time?
-        self._input_queue = asyncio.Queue()
+        self._should_exit = False
+        self._force_exit = False
 
     def _create_task(self, coro: Coroutine):
         """Utility method for running a Task in the background"""
@@ -47,28 +49,21 @@ class TerminalClient:
         async for message in self.session.stream.listen():
             cprint_stream_message(message)
 
-    async def _handle_input_requests(self):
-        async for message in self.session.stream.listen("input_request"):
-            self._input_queue.put_nowait(message)
+    async def _handle_input_requests(self, prompt_completer: Completer | None = None):
+        # async for message in self.session.stream.listen("input_request"):
+        #     await self._input_queue.put(message)
 
-    async def _send_session_stream_interrupt(self):
-        await self.session.stream.send(
-            "", source=StreamMessageSource.CLIENT, channel="interrupt"
-        )
-
-    async def _handle_user_input(self) -> str:
-        # mentat_completer = MentatCompleter(self.engine, self.session_id)
-        # self._create_task(mentat_completer.refresh_completions())
-        mentat_completer = None
+        # input_request_message = await self._input_queue.get()
 
         while True:
-            input_request_message = await self._input_queue.get()
+            input_request_message = await self.session.stream.recv("input_request")
 
             user_input = await self._prompt_session.prompt_async(
-                handle_sigint=False, completer=mentat_completer
+                handle_sigint=False, completer=prompt_completer
             )
             if user_input == "q":
-                raise KeyboardInterrupt
+                self._should_exit = True
+                return
 
             await self.session.stream.send(
                 user_input,
@@ -76,14 +71,26 @@ class TerminalClient:
                 channel=f"input_request:{input_request_message.id}",
             )
 
-    # FIXME
+    async def _send_session_stream_interrupt(self):
+        await self.session.stream.send(
+            "", source=StreamMessageSource.CLIENT, channel="interrupt"
+        )
+
     def _handle_exit(self):
-        print("Terminal client got a signal")
-        self._create_task(self._send_session_stream_interrupt())
-        # if self._should_exit:
-        #     self._force_exit = True
-        # else:
-        #     self._should_exit = True
+        if (
+            self.session.is_stopped
+            or self.session.stream.interrupt_lock.locked() is False
+        ):
+            if self._should_exit:
+                logger.debug("Force exiting client...")
+                self._force_exit = True
+            else:
+                logger.debug("Should exit client...")
+                self._should_exit = True
+
+        else:
+            logger.debug("Sending interrupt to session stream")
+            self._create_task(self._send_session_stream_interrupt())
 
     def _init_signal_handlers(self):
         loop = asyncio.get_event_loop()
@@ -91,27 +98,45 @@ class TerminalClient:
         loop.add_signal_handler(signal.SIGTERM, self._handle_exit)
 
     async def _startup(self):
-        logger.debug("Starting Sesson...")
+        logger.debug("Running startup")
         self.session.start()
 
+        # mentat_completer = MentatCompleter(self.session)
+        # self._create_task(mentat_completer.refresh_completions())
+        mentat_completer = None
+
+        self._create_task(self._cprint_session_stream())
+        self._create_task(self._handle_input_requests())
+
+        logger.debug("Completed startup")
+
     async def _shutdown(self):
-        logger.debug("Stopping Sesson...")
+        logger.debug("Running shutdown")
+
+        # Stop all background tasks
+        for task in self._tasks:
+            task.cancel()
+        logger.debug("Waiting for background tasks to finish. (CTRL+C to force quit)")
+        while not self._force_exit:
+            if all([task.cancelled() for task in self._tasks]):
+                break
+            await asyncio.sleep(0.1)
+
+        # Stop session
         self.session.stop()
+        while not self._force_exit and not self.session.is_stopped:
+            await asyncio.sleep(0.1)
 
-    async def _main(
-        self,
-        paths: List[str] | None = [],
-        exclude_paths: List[str] | None = [],
-        no_code_map: bool = False,
-    ):
-        # TODO: shutdown this task properly
-        _session_listen_task = asyncio.create_task(self._cprint_session_stream())
-        _session_input_handler_task = asyncio.create_task(self._handle_input_requests())
+        logger.debug("Completed shutdown")
 
-        try:
-            await self._handle_user_input()
-        except KeyboardInterrupt:
-            cprint("KeyboardInterrupt", color="yellow")
+    async def _main(self):
+        logger.debug("Running main loop")
+
+        counter = 0
+        while not self._should_exit and not self.session.is_stopped:
+            counter += 1
+            counter = counter % 86400
+            await asyncio.sleep(0.1)
 
     async def _run(
         self,
@@ -119,10 +144,16 @@ class TerminalClient:
         exclude_paths: List[str] | None = [],
         no_code_map: bool = False,
     ):
-        self._init_signal_handlers()
-        await self._startup()
-        await self._main(paths, exclude_paths, no_code_map)
-        await self._shutdown()
+        try:
+            self._init_signal_handlers()
+            await self._startup()
+            await self._main()
+            await self._shutdown()
+        # NOTE: if an exception is caught here, the main process will likely still run
+        # due to background ascynio Tasks that are still running
+        except Exception as e:
+            logger.error(f"Unexpected Exception {e}")
+            logger.error(traceback.format_exc())
 
     def run(
         self,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
@@ -45,6 +46,7 @@ class SessionStream:
 
     def __init__(self):
         self.messages: List[StreamMessage] = []
+        self.interrupt_lock = asyncio.Lock()
         self._broadcast = Broadcast()
 
     async def start(self):
