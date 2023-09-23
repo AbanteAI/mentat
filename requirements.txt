@@ -44,4 +44,3 @@ tqdm==4.65.0
 urllib3==2.0.4
 wcwidth==0.2.6
 yarl==1.9.2
-aiofiles==23.2.1
