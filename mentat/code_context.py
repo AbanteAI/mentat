@@ -1,140 +1,71 @@
 import glob
-import logging
-import os
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from termcolor import cprint
 
-from .code_file import CodeFile
-from .code_map import CodeMap
+from .code_map import check_ctags_executable
 from .config_manager import ConfigManager
-from .diff_context import get_diff_context
+from .context_tree import ContextNode, DirectoryNode, FileNode, get_node
+from .diff_context import DiffContext, get_diff_context
 from .errors import UserError
-from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 
 
-def _is_file_text_encoded(file_path: Path):
+def _set_diff_annotations(root: ContextNode, diff_context: DiffContext) -> None:
+    for file in diff_context.files:
+        node = root[file]
+        if isinstance(node, FileNode) and node.node_settings.include:
+            node.set_diff_annotations(diff_context.get_diff_annotations(file))
+
+
+def _set_code_map(
+    root: ContextNode, model: str = "gpt-4", max_tokens: Optional[int] = None
+) -> None:
     try:
-        # The ultimate filetype test
-        with open(file_path) as f:
-            f.read()
-        return True
-    except UnicodeDecodeError:
-        return False
-
-
-def _abs_files_from_list(paths: list[Path], check_for_text: bool = True):
-    files_direct = set[CodeFile]()
-    file_paths_from_dirs = set[Path]()
-    for path in paths:
-        file = CodeFile(os.path.realpath(path))
-        path = Path(file.path)
-        if path.is_file():
-            if check_for_text and not _is_file_text_encoded(path):
-                logging.info(f"File path {path} is not text encoded.")
-                raise UserError(f"File path {path} is not text encoded.")
-            files_direct.add(file)
-        elif path.is_dir():
-            nonignored_files = set(
-                map(
-                    lambda f: Path(os.path.realpath(path / f)),
-                    get_non_gitignored_files(path),
-                )
-            )
-
-            file_paths_from_dirs.update(
-                filter(
-                    lambda f: (not check_for_text) or _is_file_text_encoded(f),
-                    nonignored_files,
-                )
-            )
-
-    files_from_dirs = [
-        CodeFile(os.path.realpath(path)) for path in file_paths_from_dirs
-    ]
-    return files_direct, files_from_dirs
-
-
-def _get_files(
-    config: ConfigManager, paths: list[Path], exclude_paths: list[Path]
-) -> Dict[Path, CodeFile]:
-    excluded_files_direct, excluded_files_from_dirs = _abs_files_from_list(
-        exclude_paths, check_for_text=False
-    )
-    excluded_files, excluded_files_from_dir = set(
-        map(lambda f: f.path, excluded_files_direct)
-    ), set(map(lambda f: f.path, excluded_files_from_dirs))
-
-    glob_excluded_files = set(
-        os.path.join(config.git_root, file)
-        for glob_path in config.file_exclude_glob_list()
-        # If the user puts a / at the beginning, it will try to look in root directory
-        for file in glob.glob(
-            pathname=glob_path,
-            root_dir=config.git_root,
-            recursive=True,
+        check_ctags_executable()
+    except UserError as e:
+        ctags_disabled_message = dedent(
+            f"""
+            There was an error with your universal ctags installation, disabling CodeMap.
+            Reason: {e}
+        """
         )
-    )
-    files_direct, files_from_dirs = _abs_files_from_list(paths, check_for_text=True)
+        cprint(ctags_disabled_message, color="yellow")
+        return
 
-    # config glob excluded files only apply to files added from directories
-    files_from_dirs = [
-        file
-        for file in files_from_dirs
-        if str(file.path.resolve()) not in glob_excluded_files
-    ]
-
-    files_direct.update(files_from_dirs)
-
-    files = dict[Path, CodeFile]()
-    for file in files_direct:
-        if file.path not in excluded_files | excluded_files_from_dir:
-            files[Path(os.path.realpath(file.path))] = file
-
-    return files
-
-
-def _build_path_tree(files: list[CodeFile], git_root: Path):
-    tree = dict[str, Any]()
-    for file in files:
-        path = os.path.relpath(file.path, git_root)
-        parts = Path(path).parts
-        current_level = tree
-        for part in parts:
-            if part not in current_level:
-                current_level[part] = {}
-            current_level = current_level[part]
-    return tree
-
-
-def _print_path_tree(
-    tree: dict[str, Any], changed_files: set[Path], cur_path: Path, prefix: str = ""
-):
-    keys = list(tree.keys())
-    for i, key in enumerate(sorted(keys)):
-        if i < len(keys) - 1:
-            new_prefix = prefix + "│   "
-            print(f"{prefix}├── ", end="")
-        else:
-            new_prefix = prefix + "    "
-            print(f"{prefix}└── ", end="")
-
-        cur = cur_path / key
-        star = "* " if cur in changed_files else ""
-        if tree[key]:
-            color = "blue"
-        elif star:
-            color = "green"
-        else:
-            color = None
-        cprint(f"{star}{key}", color)
-        if tree[key]:
-            _print_path_tree(tree[key], changed_files, cur, new_prefix)
+    # Try to include everything
+    root.update_settings({"code_map": True, "include_signature": True}, recursive=True)
+    context_length = root.count_tokens(model, recursive=True)
+    if not max_tokens or context_length <= max_tokens:
+        return
+    # Otherwise, find the level at which everything fits...
+    root.update_settings({"include_signature": False}, recursive=True)
+    context_length = root.count_tokens(model, recursive=True)
+    if context_length < max_tokens:
+        _update_feature = "include_signature"
+    else:
+        root.update_settings({"code_map": False}, recursive=True)
+        context_length = root.count_tokens(model, recursive=True)
+        _update_feature = "code_map"
+    # ...then add features to files one-by-one till we run out of space
+    token_budget = max_tokens - context_length
+    for node in root.iter_nodes():
+        baseline = node.count_tokens(model)
+        node.update_settings({_update_feature: True}, recursive=False)
+        adjusted = node.count_tokens(model)
+        if adjusted - baseline > token_budget:
+            node.update_settings({_update_feature: False}, recursive=False)
+            break
+        token_budget -= adjusted - baseline
 
 
 class CodeContext:
+    config: ConfigManager
+    root: DirectoryNode
+    diff_context: DiffContext
+    context_settings: dict[str, Any]
+
     def __init__(
         self,
         config: ConfigManager,
@@ -145,59 +76,146 @@ class CodeContext:
         no_code_map: bool = False,
     ):
         self.config = config
-        # Diff context
+        self.context_settings = {
+            "paths": paths,
+            "exclude_paths": exclude_paths,
+            "no_code_map": no_code_map,
+            "diff": diff,
+            "pr_diff": pr_diff,
+        }
+        # Generate file tree
+        self.root = DirectoryNode(self.config.git_root)
+        self.refresh()
+
+    def refresh(
+        self,
+        max_tokens: Optional[int] = None,
+    ) -> None:
+        """Update file tree and display settings based on configuration"""
+
+        # Check for new and changed files
+        self.root.refresh()
+
+        # Apply user settings
         try:
-            self.diff_context = get_diff_context(config, diff, pr_diff)
-            if not paths:
-                paths = self.diff_context.files
+            self.diff_context = get_diff_context(
+                self.config,
+                self.context_settings["diff"],
+                self.context_settings["pr_diff"],
+            )
+            if not self.context_settings["paths"]:
+                self.context_settings["paths"] = self.diff_context.files
         except UserError as e:
             cprint(str(e), "light_yellow")
             exit()
-        # User-specified Files
-        self.files = _get_files(self.config, paths, exclude_paths)
-        # Universal ctags
-        self.code_map = (
-            CodeMap(self.config, token_limit=2048) if not no_code_map else None
+        for path in self.context_settings["paths"]:
+            self.add_path(path)
+        for path in self.context_settings["exclude_paths"]:
+            self.remove_path(path)
+        glob_exclude_files = set(
+            Path(file)
+            for glob_path in self.config.file_exclude_glob_list()
+            # If the user puts a / at the beginning, it will try to look in root directory
+            for file in glob.glob(
+                pathname=glob_path,
+                root_dir=self.config.git_root,
+                recursive=True,
+            )
         )
-        if self.code_map is not None and self.code_map.ctags_disabled:
-            ctags_disabled_message = f"""
-                There was an error with your universal ctags installation, disabling CodeMap.
-                Reason: {self.code_map.ctags_disabled_reason}
-            """
-            ctags_disabled_message = dedent(ctags_disabled_message)
-            cprint(ctags_disabled_message, color="yellow")
+        for path in glob_exclude_files:
+            if path in self.context_settings["paths"]:
+                continue
+            self.remove_path(path)
+        _set_diff_annotations(self.root, self.diff_context)
+
+        # Validate length
+        context_length = self.root.count_tokens(self.config.model(), recursive=True)
+        if max_tokens and context_length > max_tokens:
+            raise KeyboardInterrupt(
+                f"Code context exceeds token limit ({context_length} /"
+                f" {max_tokens}). Please try running again with a reduced"
+                " number of files."
+            )
+        # Fill-in extra space with code_map, other files from diff..
+        if not self.context_settings["no_code_map"]:
+            _set_code_map(self.root, self.config.model(), max_tokens)
+
+    @property
+    def files(self) -> list[Path]:
+        return [
+            f.relative_path()
+            for f in self.root.iter_nodes(include_dirs=False)
+            if f.node_settings.include
+        ]
 
     def display_context(self):
-        if self.files:
+        included_files = [
+            f
+            for f in self.root.iter_nodes(include_dirs=False)
+            if f.node_settings.include
+        ]
+        if len(included_files) > 0:
             cprint("Files included in context:", "green")
         else:
             cprint("No files included in context.\n", "red")
             cprint("Git project: ", "green", end="")
-        cprint(self.config.git_root.name, "blue")
-        _print_path_tree(
-            _build_path_tree(list(self.files.values()), self.config.git_root),
-            get_paths_with_git_diffs(self.config.git_root),
-            self.config.git_root,
-        )
+        cprint(self.root.path.name, "blue")
+        self.root.display_context()
         print()
         self.diff_context.display_context()
+        print()
+        if self.root.node_settings.include_signature:
+            code_map_level = "full syntax tree"
+        elif self.root.node_settings.code_map:
+            code_map_level = "partial syntax tree"
+        else:
+            return
+        cprint(f"Including Code Map: {code_map_level}", "green")
 
-    def add_file(self, code_file: CodeFile):
-        if not os.path.exists(code_file.path):
-            cprint(f"File does not exist: {code_file.path}\n", "red")
-            return
-        if code_file.path in self.files:
-            cprint(f"File already in context: {code_file.path}\n", "yellow")
-            return
-        self.files[code_file.path] = code_file
-        cprint(f"File added to context: {code_file.path}\n", "green")
+    def get_code_message(self) -> str:
+        code_message = ["Code Files:\n"]
+        code_message += self.root.get_code_message(recursive=True)
+        return "\n".join(code_message)
 
-    def remove_file(self, code_file: CodeFile):
-        if not os.path.exists(code_file.path):
-            cprint(f"File does not exist: {code_file.path}\n", "red")
+    def add_path(self, path: Path | str, verbose: bool = False):
+        if isinstance(path, str):
+            path = Path(path)
+        if not path.exists():
+            if verbose:
+                cprint(f"File does not exist: {path}\n", "red")
             return
-        if code_file.path not in self.files:
-            cprint(f"File not in context: {code_file.path}\n", "yellow")
-            return
-        del self.files[code_file.path]
-        cprint(f"File removed from context: {code_file.path}\n", "green")
+        try:
+            node = self.root[path]
+            if node.node_settings.include:
+                if verbose:
+                    cprint(
+                        f"File already in context: {node.relative_path()}\n", "yellow"
+                    )
+            else:
+                node.update_settings({"include": True}, recursive=True)
+                if verbose:
+                    cprint(f"File added to context: {node.relative_path()}\n", "green")
+        except KeyError:
+            # Add an ignored file/dir to context
+            relative_path = path.resolve().relative_to(self.root.path)
+            relative_paths = [Path(p) for p in Path(relative_path).parts]
+            _cursor = self.root
+            for part in relative_paths:
+                if part not in _cursor.children:
+                    node_path = _cursor.path / part
+                    _cursor.children[part] = get_node(node_path, _cursor)
+                    if verbose:
+                        cprint(f"Added git-ignored path to context: {part}\n", "green")
+                _cursor = _cursor.children[part]
+            _cursor.update_settings({"include": True}, recursive=True)
+
+    def remove_path(self, path: Path):
+        try:
+            node = self.root[path]
+            if not node.node_settings.include:
+                cprint(f"File already included: {node.relative_path()}\n", "yellow")
+            else:
+                node.update_settings({"include": False}, recursive=True)
+                cprint(f"File excluded: {node.relative_path()}\n", "green")
+        except KeyError:
+            cprint(f"File not in context: {path}\n", "yellow")

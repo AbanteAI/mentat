@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mentat.diff_context import DiffContext, get_diff_context
+from mentat.diff_context import DiffContext, get_diff_context, annotate_file_message
 from mentat.errors import UserError
 
 rel_path = Path("multifile_calculator/operations.py")
@@ -69,7 +69,8 @@ def test_diff_context_default(mock_config, temp_testbed, git_history):
 
     # DiffContext.annotate_file_message(): modify file_message with diff
     file_message = _get_file_message(temp_testbed)
-    annotated_message = diff_context.annotate_file_message(rel_path, file_message)
+    annotations = diff_context.get_diff_annotations(rel_path)
+    annotated_message = annotate_file_message(file_message, annotations)
     expected = file_message[:-1] + [
         "14:-    return commit3",
         "14:+    return commit5",
@@ -88,7 +89,8 @@ def test_diff_context_commit(mock_config, temp_testbed, git_history):
     assert diff_context.files == [rel_path]
 
     file_message = _get_file_message(temp_testbed)
-    annotated_message = diff_context.annotate_file_message(rel_path, file_message)
+    annotations = diff_context.get_diff_annotations(rel_path)
+    annotated_message = annotate_file_message(file_message, annotations)
     expected = file_message[:-1] + [
         "14:-    return a / b",
         "14:+    return commit3",
@@ -104,7 +106,8 @@ def test_diff_context_branch(mock_config, temp_testbed, git_history):
     assert diff_context.files == [rel_path]
 
     file_message = _get_file_message(temp_testbed)
-    annotated_message = diff_context.annotate_file_message(rel_path, file_message)
+    annotations = diff_context.get_diff_annotations(rel_path)
+    annotated_message = annotate_file_message(file_message, annotations)
     expected = file_message[:-1] + [
         "14:-    return commit4",
         "14:+    return commit3",
@@ -120,7 +123,8 @@ def test_diff_context_relative(mock_config, temp_testbed, git_history):
     assert diff_context.files == [rel_path]
 
     file_message = _get_file_message(temp_testbed)
-    annotated_message = diff_context.annotate_file_message(rel_path, file_message)
+    annotations = diff_context.get_diff_annotations(rel_path)
+    annotated_message = annotate_file_message(file_message, annotations)
     expected = file_message[:-1] + [
         "14:-    return a / b",
         "14:+    return commit3",

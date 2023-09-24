@@ -52,7 +52,7 @@ def _parse_diff(diff: str) -> list[DiffAnnotation]:
     return annotations
 
 
-def _annotate_file_message(
+def annotate_file_message(
     code_message: list[str], annotations: list[DiffAnnotation]
 ) -> list[str]:
     """Return the code_message with annotations inserted."""
@@ -123,18 +123,14 @@ class DiffContext:
             num_lines += len(
                 [line for line in diff_lines if line.startswith(("+ ", "- "))]
             )
-        print(f" ─•─ {self.name} | {num_files} files | {num_lines} lines\n")
+        print(f" ─•─ {self.name} | {num_files} files | {num_lines} lines")
 
-    def annotate_file_message(
-        self, rel_path: Path, file_message: list[str]
-    ) -> list[str]:
+    def get_diff_annotations(self, rel_path: Path) -> list[DiffAnnotation]:
         """Return file_message annotated with active diff."""
-        if not self.files:
-            return file_message
-
+        if not self.files or rel_path not in self.files:
+            return []
         diff = get_diff_for_file(self.config.git_root, self.target, rel_path)
-        annotations = _parse_diff(diff)
-        return _annotate_file_message(file_message, annotations)
+        return _parse_diff(diff)
 
 
 TreeishType = Literal["commit", "branch", "relative"]

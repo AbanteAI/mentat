@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from textwrap import dedent
 
 from mentat.app import run
@@ -33,7 +34,7 @@ def test_system(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    run([temp_file_name])
+    run([Path(temp_file_name)])
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:

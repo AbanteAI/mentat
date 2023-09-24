@@ -27,7 +27,7 @@ def test_posix_paths(mock_config):
         config=mock_config,
         code_context=code_context,
     )
-    code_message = code_file_manager.get_code_message(mock_config.model())
+    code_message = code_context.get_code_message()
     assert dir_name + "/" + file_name in code_message.split("\n")
 
 
@@ -58,7 +58,7 @@ def test_partial_files(mock_config):
         config=mock_config,
         code_context=code_context,
     )
-    code_message = code_file_manager.get_code_message(mock_config.model())
+    code_message = code_context.get_code_message()
     assert code_message == dedent("""\
             Code Files:
 

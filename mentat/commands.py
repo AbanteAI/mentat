@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import List, Optional
 
 from termcolor import colored, cprint
 
 from .code_context import CodeContext
-from .code_file import CodeFile
 from .errors import MentatError
 from .git_handler import commit
 
@@ -138,8 +138,9 @@ class AddCommand(Command, command_name="add"):
             cprint("No files specified\n", "yellow")
             return
         for file_path in args:
-            code_file = CodeFile(file_path)
-            self.code_context.add_file(code_file)
+            # TODO: Handle globbing
+            _path = Path(file_path)
+            self.code_context.add_path(_path, verbose=True)
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -159,8 +160,8 @@ class RemoveCommand(Command, command_name="remove"):
             cprint("No files specified\n", "yellow")
             return
         for file_path in args:
-            code_file = CodeFile(file_path)
-            self.code_context.remove_file(code_file)
+            _path = Path(file_path)
+            self.code_context.remove_path(_path)
 
     @classmethod
     def argument_names(cls) -> list[str]:

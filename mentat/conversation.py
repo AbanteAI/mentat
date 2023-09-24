@@ -4,9 +4,14 @@ from timeit import default_timer
 from openai.error import InvalidRequestError, RateLimitError
 from termcolor import cprint
 
-from mentat.config_manager import ConfigManager, user_config_path
-from mentat.errors import MentatError, UserError
-from mentat.llm_api import (
+from mentat.parsers.file_edit import FileEdit
+from mentat.parsers.parser import Parser
+
+# from .code_change import CodeChange
+from .code_file_manager import CodeFileManager
+from .config_manager import ConfigManager, user_config_path
+from .errors import MentatError, UserError
+from .llm_api import (
     CostTracker,
     call_llm_api,
     count_tokens,
@@ -14,10 +19,6 @@ from mentat.llm_api import (
     is_model_available,
     model_context_size,
 )
-from mentat.parsers.file_edit import FileEdit
-from mentat.parsers.parser import Parser
-
-from .code_file_manager import CodeFileManager
 
 
 class Conversation:
@@ -33,6 +34,8 @@ class Conversation:
         self.add_system_message(prompt)
         self.cost_tracker = cost_tracker
         self.code_file_manager = code_file_manager
+        # TODO: code_context will eventually replace code_file_manager
+        self.code_context = self.code_file_manager.code_context
         self.model = config.model()
         if not is_model_available(self.model):
             raise KeyboardInterrupt(
@@ -53,9 +56,6 @@ class Conversation:
                     color="yellow",
                 )
 
-        tokens = count_tokens(
-            code_file_manager.get_code_message(self.model), self.model
-        ) + count_tokens(prompt, self.model)
         context_size = model_context_size(self.model)
         maximum_context = config.maximum_context()
         if maximum_context:
@@ -69,13 +69,14 @@ class Conversation:
                 f"Context size for {self.model} is not known. Please set"
                 f" maximum-context in {user_config_path}."
             )
-        if context_size and tokens > context_size:
-            raise KeyboardInterrupt(
-                f"Included files already exceed token limit ({tokens} /"
-                f" {context_size}). Please try running again with a reduced"
-                " number of files."
-            )
-        elif tokens + 1000 > context_size:
+        system_tokens = count_tokens(prompt, self.model)
+        # Fill-in the available context with auto-selected features
+        self.code_context.refresh(max_tokens=context_size - system_tokens - 1000)
+
+        tokens = system_tokens + self.code_context.root.count_tokens(
+            self.model, recursive=True
+        )
+        if tokens + 1000 > context_size:
             cprint(
                 f"Warning: Included files are close to token limit ({tokens} /"
                 f" {context_size}), you may not be able to have a long"
@@ -122,8 +123,7 @@ class Conversation:
         except InvalidRequestError as e:
             raise MentatError(
                 "Something went wrong - invalid request to OpenAI API. OpenAI"
-                " returned:\n"
-                + str(e)
+                " returned:\n" + str(e)
             )
         except RateLimitError as e:
             raise UserError("OpenAI gave a rate limit error:\n" + str(e))
@@ -135,7 +135,7 @@ class Conversation:
         self, parser: Parser, config: ConfigManager
     ) -> list[FileEdit]:
         messages = self.messages.copy()
-        code_message = self.code_file_manager.get_code_message(self.model)
+        code_message = self.code_context.get_code_message()
         messages.append({"role": "system", "content": code_message})
 
         num_prompt_tokens = get_prompt_token_count(messages, self.model)

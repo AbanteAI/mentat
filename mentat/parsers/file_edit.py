@@ -81,7 +81,7 @@ class FileEdit:
             if not self.file_path.exists():
                 cprint(f"File {rel_path} does not exist, canceling all edits to file.")
                 return False
-            elif rel_path not in code_file_manager.file_lines:
+            elif rel_path not in code_file_manager.code_context.files:
                 cprint(f"File {rel_path} not in context, canceling all edits to file.")
                 return False
 
@@ -113,7 +113,7 @@ class FileEdit:
             file_lines = []
         else:
             rel_path = Path(os.path.relpath(self.file_path, config.git_root))
-            file_lines = code_file_manager.file_lines[rel_path]
+            file_lines = code_file_manager.file_lines(rel_path)
 
         if self.is_deletion:
             display_information = DisplayInformation(

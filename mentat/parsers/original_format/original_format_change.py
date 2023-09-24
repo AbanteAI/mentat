@@ -156,7 +156,7 @@ class OriginalFormatChange:
 
             rel_path = self.file
             try:
-                self.file_lines = code_file_manager.file_lines[rel_path]
+                self.file_lines = code_file_manager.file_lines(rel_path)
             except KeyError:
                 self.error = (
                     f"Model attempted to edit {rel_path}, which isn't in current"

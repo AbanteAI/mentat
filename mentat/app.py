@@ -147,10 +147,10 @@ def loop(
     code_context = CodeContext(
         config, paths, exclude_paths or [], diff, pr_diff, no_code_map
     )
-    code_context.display_context()
     user_input_manager = UserInputManager(config, code_context)
     code_file_manager = CodeFileManager(user_input_manager, config, code_context)
     conv = Conversation(parser, config, cost_tracker, code_file_manager)
+    code_context.display_context()
 
     cprint("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")
     cprint("What can I do for you?", color="light_blue")
