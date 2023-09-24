@@ -4,17 +4,7 @@ from typing import Optional
 
 from termcolor import cprint
 from .node import ContextNode
-from .file_node import FileNode
-
-
-def is_file_text_encoded(file_path: Path):
-    try:
-        # The ultimate filetype test
-        with open(file_path) as f:
-            f.read()
-        return True
-    except UnicodeDecodeError:
-        return False
+from .file_node import FileNode, is_file_text_encoded
 
 
 def _has_child_with_setting(node: ContextNode, setting: str) -> bool:
@@ -70,8 +60,9 @@ class DirectoryNode(ContextNode):
             child_node = get_node(child_path, self)
             self.children[Path(child_node.path.name)] = child_node
         for child in paths_removed:
-            if not self.children[child].node_settings.include:
-                del self.children[child]
+            if child.exists() and self.children[child].node_settings.include:
+                continue
+            del self.children[child]
 
 
     def display_context(self, prefix: str=""):

@@ -161,8 +161,8 @@ class RemoveCommand(Command, command_name="remove"):
             cprint("No files specified\n", "yellow")
             return
         for file_path in args:
-            code_file = CodeFile(file_path)
-            self.code_context.remove_file(code_file)
+            _path = Path(file_path)
+            self.code_context.remove_path(_path)
 
     @classmethod
     def argument_names(cls) -> list[str]:

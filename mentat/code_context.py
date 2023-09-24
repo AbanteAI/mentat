@@ -1,3 +1,4 @@
+import glob
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional, Any
@@ -9,16 +10,6 @@ from .config_manager import ConfigManager
 from .context_tree import ContextNode, DirectoryNode, FileNode, get_node
 from .diff_context import DiffContext, get_diff_context
 from .errors import UserError
-
-
-def _set_include_paths(root: ContextNode, paths: list[Path], exclude_paths: list[Path]) -> None:
-    """Set node_settings.include for all nodes in context"""
-    for node in root.iter_nodes():
-        relative_path = node.relative_path()
-        if relative_path in paths:
-            node.update_settings({"include": True}, recursive=True)
-        elif relative_path in exclude_paths:
-            node.update_settings({"include": False}, recursive=True)
 
 
 def _set_diff_annotations(root: ContextNode, diff_context: DiffContext) -> None:
@@ -118,9 +109,25 @@ class CodeContext:
         except UserError as e:
             cprint(str(e), "light_yellow")
             exit()
-        _set_include_paths(self.root, self.context_settings["paths"], 
-                           self.context_settings["exclude_paths"])
+        for path in self.context_settings["paths"]:
+            self.add_path(path)
+        for path in self.context_settings["exclude_paths"]:
+            self.remove_path(path)
+        glob_exclude_files = set(
+            Path(file) for glob_path in self.config.file_exclude_glob_list()
+            # If the user puts a / at the beginning, it will try to look in root directory
+            for file in glob.glob(
+                pathname=glob_path,
+                root_dir=self.config.git_root,
+                recursive=True,
+            )
+        )
+        for path in glob_exclude_files:
+            if path in self.context_settings["paths"]:
+                continue
+            self.remove_path(path)
         _set_diff_annotations(self.root, self.diff_context)
+
         # Validate length
         context_length = self.root.count_tokens(self.config.model(), recursive=True)
         if max_tokens and context_length > max_tokens:
@@ -136,7 +143,7 @@ class CodeContext:
 
     @property
     def files(self) -> list[Path]:
-        return [f.path for f in self.root.iter_nodes(include_dirs=False) 
+        return [f.relative_path() for f in self.root.iter_nodes(include_dirs=False) 
                 if f.node_settings.include]
 
     def display_context(self):
@@ -157,7 +164,9 @@ class CodeContext:
         code_message += self.root.get_code_message(recursive=True)
         return '\n'.join(code_message)
   
-    def add_path(self, path: Path):
+    def add_path(self, path: Path|str):
+        if isinstance(path, str):
+            path = Path(path)
         if not path.exists():
             cprint(f"File does not exist: {path}\n", "red")
             return
@@ -170,13 +179,16 @@ class CodeContext:
                 cprint(f"File added to context: {node.relative_path()}\n", "green")
         except KeyError:
             # Add an ignored file/dir to context
-            relative_path = path.relative_to(self.root.path)
+            relative_path = path.resolve().relative_to(self.root.path)
             relative_paths = [Path(p) for p in Path(relative_path).parts]
             _cursor = self.root
             for part in relative_paths:
                 if part not in _cursor.children:
-                    _cursor.children[part] = get_node(part, _cursor)
+                    node_path = _cursor.path / part
+                    _cursor.children[part] = get_node(node_path, _cursor)
                     cprint(f"Added git-ignored path to context: {part}\n", "green")
+                _cursor = _cursor.children[part]
+            _cursor.update_settings({"include": True}, recursive=True)
 
     def remove_path(self, path: Path):
         try:

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from unittest import TestCase
 
 import pytest
@@ -27,7 +28,7 @@ def test_path_gitignoring(temp_testbed, mock_config):
             file.write("I am a file")
 
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
-    paths = [testing_dir_path, ignored_file_path_2]
+    paths = [Path(testing_dir_path), Path(ignored_file_path_2)]
     code_context = CodeContext(config=mock_config, paths=paths, exclude_paths=[])
 
     expected_file_paths = [
@@ -65,7 +66,7 @@ def test_config_glob_exclude(mocker, temp_testbed, mock_config):
 
     code_context = CodeContext(
         config=mock_config,
-        paths=[".", directly_added_glob_excluded_path],
+        paths=[Path("."), Path(directly_added_glob_excluded_path)],
         exclude_paths=[],
     )
     file_paths = [str(file_path.resolve()) for file_path in code_context.files]

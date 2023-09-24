@@ -50,6 +50,8 @@ class ContextNode:
             path = Path(path)
         if path.is_absolute():
             path = path.relative_to(self.path)
+        if len(path.parts) == 0:
+            return self
         first, *rest = path.parts
         first = Path(first)
         if first in self.children:

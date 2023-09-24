@@ -2,10 +2,20 @@ import hashlib
 from pathlib import Path
 from typing import Optional
 
-from mentat.errors import MentatError
+from mentat.errors import MentatError, UserError
 from mentat.code_map import get_code_map
 from mentat.diff_context import DiffAnnotation, annotate_file_message
 from .node import ContextNode
+
+
+def is_file_text_encoded(file_path: Path):
+    try:
+        # The ultimate filetype test
+        with open(file_path) as f:
+            f.read()
+        return True
+    except UnicodeDecodeError:
+        return False
 
 
 def _compute_hash(data: str) -> str:
@@ -23,6 +33,8 @@ class FileNode(ContextNode):
 
     _hash: str = ""
     def refresh(self):
+        if not is_file_text_encoded(self.path):
+            raise UserError(f"File {self.path} is not a text file.")
         new_hash = _compute_hash(self.path.read_text())
         if new_hash != self._hash:
             self._hash = new_hash

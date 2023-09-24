@@ -140,16 +140,16 @@ class CodeFileManager:
                     file_changes[rel_path] = []
                 case _:
                     file_changes[rel_path].append(code_change)
-
+        self.code_context.refresh()
+        
         for rel_path, changes in file_changes.items():
             abs_path = self.config.git_root / rel_path
             new_code_lines = self._get_new_code_lines(rel_path, changes)
             if new_code_lines:
-                if abs_path not in self.code_context.files:
+                if rel_path not in self.code_context.files:
                     raise MentatError(
                         f"Attempted to edit file {abs_path} not in context"
                     )
                 with open(abs_path, "w") as f:
                     f.write("\n".join(new_code_lines))
-
-        self.code_context.refresh()
+            self.code_context.refresh()
