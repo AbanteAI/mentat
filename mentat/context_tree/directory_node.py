@@ -60,7 +60,7 @@ class DirectoryNode(ContextNode):
 
         previous_paths = set(self.children.keys())
         active_paths = set(Path(c) for c in _tracked + _untracked)
-        paths_added = active_paths - previous_paths
+        paths_added = sorted(active_paths - previous_paths)
         paths_removed = previous_paths - active_paths
         for child in paths_added:
             child_abs = Path(self.path, child)
@@ -74,19 +74,9 @@ class DirectoryNode(ContextNode):
                 del self.children[child]
 
 
-    def _has_child_with_setting(self, setting: str) -> bool:
-        for child in self.children.values():
-            if isinstance(child, DirectoryNode):
-                if child._has_child_with_setting(setting):
-                    return True
-            elif child.node_settings.__dict__[setting]:
-                return True
-        return False
-
-
     def display_context(self, prefix: str=""):
         """Print directory if node_settings.text is True for any child"""
-        if not self.node_settings.include and not self._has_child_with_setting("include"):
+        if not self.node_settings.include and not _has_child_with_setting(self, "include"):
             return
         
         include_children = list[ContextNode]()
@@ -94,7 +84,7 @@ class DirectoryNode(ContextNode):
             if child.node_settings.include:
                 include_children.append(child)
             elif isinstance(child, DirectoryNode):
-                if child._has_child_with_setting("include"):
+                if _has_child_with_setting(child, "include"):
                     include_children.append(child)
                     
         for i, child in enumerate(include_children):
@@ -118,7 +108,7 @@ class DirectoryNode(ContextNode):
 
     def get_code_message(self, recursive: bool=False) -> list[str]:
         message = list[str]()
-        if self._has_child_with_setting("include"):
+        if _has_child_with_setting(self, "include"):
             message += [f"{self.relative_path().as_posix()}/"]
         if recursive:
             for child in self.children.values():
