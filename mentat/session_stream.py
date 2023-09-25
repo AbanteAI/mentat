@@ -5,7 +5,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List
+from typing import Any, AsyncGenerator, Dict, List, cast
 from uuid import UUID, uuid4
 
 from .broadcast import Broadcast
@@ -105,12 +105,13 @@ class SessionStream:
 
         return message
 
-    # TODO: this should aways return a SessionMessage
-    async def recv(self, channel: str = "default"):
-        """Listen for a single reponse on a channel"""
+    async def recv(self, channel: str = "default") -> StreamMessage:
+        """Listen for a single event on a channel"""
         async with self._broadcast.subscribe(channel) as subscriber:
             async for event in subscriber:
-                return event.message
+                stream_message = cast(StreamMessage, event.message)
+                return stream_message
+            raise Exception("recv should not complete without receiving an Event")
 
     async def listen(
         self, channel: str = "default"

@@ -11,7 +11,7 @@ from prompt_toolkit.completion import Completer
 from mentat.logging_config import setup_logging
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
-from mentat.terminal.output import cprint, cprint_stream_message
+from mentat.terminal.output import cprint_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
 

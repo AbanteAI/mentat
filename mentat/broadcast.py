@@ -7,7 +7,7 @@ from typing import Any, AsyncGenerator, AsyncIterator, Dict
 
 
 class Event:
-    def __init__(self, channel: str, message: str) -> None:
+    def __init__(self, channel: str, message: typing.Any) -> None:
         self.channel = channel
         self.message = message
 
@@ -26,7 +26,7 @@ class Subscriber:
     def __init__(self, queue: asyncio.Queue) -> None:
         self._queue = queue
 
-    async def __aiter__(self) -> AsyncGenerator:
+    async def __aiter__(self) -> AsyncGenerator[Event, None]:
         try:
             while True:
                 yield await self.get()
