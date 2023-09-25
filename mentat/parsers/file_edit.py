@@ -104,7 +104,7 @@ class FileEdit:
     ) -> bool:
         if self.is_creation:
             display_information = DisplayInformation(
-                self.file_path, [], [], [], FileActionType.CreateFile, None, None, None
+                self.file_path, [], [], [], FileActionType.CreateFile
             )
             if not _ask_user_change(
                 user_input_manager, display_information, "Create this file?"

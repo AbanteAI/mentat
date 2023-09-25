@@ -143,8 +143,8 @@ def loop(
 ) -> None:
     git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
     # The parser can be selected here
-    parser = BlockParser()
     parser = ReplacementParser()
+    parser = BlockParser()
     config = ConfigManager(git_root)
     code_context = CodeContext(
         config, paths, exclude_paths or [], diff, pr_diff, no_code_map

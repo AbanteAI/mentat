@@ -41,8 +41,8 @@ class DisplayInformation:
     added_block: list[str] = attr.field()
     removed_block: list[str] = attr.field()
     file_action_type: FileActionType = attr.field()
-    first_changed_line: int | None = attr.field(default=None)
-    last_changed_line: int | None = attr.field(default=None)
+    first_changed_line: int = attr.field(default=0)
+    last_changed_line: int = attr.field(default=0)
     new_name: Path | None = attr.field(default=None)
 
     def __attrs_post_init__(self):
@@ -164,8 +164,6 @@ def get_previous_lines(
     display_information: DisplayInformation,
     num: int = 2,
 ):
-    if display_information.first_changed_line is None:
-        return ""
     lines = _remove_extra_empty_lines(
         [
             display_information.file_lines[i]
@@ -196,8 +194,6 @@ def get_later_lines(
     display_information: DisplayInformation,
     num: int = 2,
 ):
-    if display_information.last_changed_line is None:
-        return ""
     lines = _remove_extra_empty_lines(
         [
             display_information.file_lines[i]
