@@ -4,6 +4,7 @@ from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
+from mentat.errors import ModelError
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import Parser
@@ -39,7 +40,7 @@ class ReplacementParser(Parser):
     ) -> tuple[DisplayInformation, FileEdit, bool]:
         info = special_block.strip().split(" ")[1:]
         if len(info) == 0:
-            raise ValueError()
+            raise ModelError("Error: Invalid model output")
 
         file_name = Path(info[0])
         file_lines = self._get_file_lines(code_file_manager, rename_map, file_name)
@@ -58,12 +59,17 @@ class ReplacementParser(Parser):
                     new_name = Path(info[1])
         elif len(info) == 3:
             # Convert from 1-index to 0-index
-            starting_line = int(info[1]) - 1
-            ending_line = int(info[2]) - 1
+            try:
+                starting_line = int(info[1]) - 1
+                ending_line = int(info[2]) - 1
+            except ValueError:
+                raise ModelError("Error: Invalid line numbers given")
+            if starting_line > ending_line or starting_line < 0 or ending_line < 0:
+                raise ModelError("Error: Invalid line numbers given")
             removed_lines = file_lines[starting_line:ending_line]
             file_action_type = FileActionType.UpdateFile
         else:
-            raise ValueError()
+            raise ModelError("Error: Invalid model output")
 
         display_information = DisplayInformation(
             file_name,
