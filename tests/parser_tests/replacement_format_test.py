@@ -1,8 +1,17 @@
 from pathlib import Path
 from textwrap import dedent
 
+import pytest
+
 from mentat.app import run
-from mentat.parsers.replacement_parser import ReplacementParser
+from tests.conftest import ConfigManager
+
+
+@pytest.fixture(autouse=True)
+def replacement_parser(mocker):
+    mock_method = mocker.MagicMock()
+    mocker.patch.object(ConfigManager, "parser", new=mock_method)
+    mock_method.return_value = "replacement"
 
 
 def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
@@ -24,7 +33,7 @@ def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
         # I inserted this comment
         @""")])
 
-    run([temp_file_name], parser=ReplacementParser())
+    run([temp_file_name])
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -52,7 +61,7 @@ def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
         @ {temp_file_name} 1 2
         @""")])
 
-    run([temp_file_name], parser=ReplacementParser())
+    run([temp_file_name])
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -79,7 +88,7 @@ def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key)
         # I inserted this comment
         @""")])
 
-    run([temp_file_name], parser=ReplacementParser())
+    run([temp_file_name])
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -103,7 +112,7 @@ def test_create_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_
         # New line
         @""")])
 
-    run([temp_file_name], parser=ReplacementParser())
+    run([temp_file_name])
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -129,7 +138,7 @@ def test_delete_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_
 
         @ {temp_file_name} -""")])
 
-    run([temp_file_name], parser=ReplacementParser())
+    run([temp_file_name])
     assert not Path(temp_file_name).exists()
 
 
@@ -151,7 +160,7 @@ def test_rename_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_
 
         @ {temp_file_name} {temp_file_name_2}""")])
 
-    run([temp_file_name], parser=ReplacementParser())
+    run([temp_file_name])
     assert not Path(temp_file_name).exists()
     with open(temp_file_name_2, "r") as f:
         content = f.read()
@@ -187,7 +196,7 @@ def test_change_then_rename_then_change(
         # New line 2
         @""")])
 
-    run([temp_file_name], parser=ReplacementParser())
+    run([temp_file_name])
     assert not Path(temp_file_name).exists()
     with open(temp_file_name_2, "r") as f:
         content = f.read()

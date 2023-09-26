@@ -9,6 +9,7 @@ from termcolor import cprint
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import Parser
+from mentat.parsers.replacement_parser import ReplacementParser
 
 from .code_context import CodeContext
 from .code_file import parse_intervals
@@ -111,7 +112,6 @@ def run(
     no_code_map: bool = False,
     diff: Optional[str] = None,
     pr_diff: Optional[str] = None,
-    parser: Parser = BlockParser(),
 ):
     mentat_dir_path.mkdir(parents=True, exist_ok=True)
     setup_logging()
@@ -120,7 +120,7 @@ def run(
     cost_tracker = CostTracker()
     try:
         setup_api_key()
-        loop(paths, exclude_paths, cost_tracker, no_code_map, diff, pr_diff, parser)
+        loop(paths, exclude_paths, cost_tracker, no_code_map, diff, pr_diff)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -134,6 +134,12 @@ def run(
         cost_tracker.display_total_cost()
 
 
+parser_map: dict[str, Parser] = {
+    "block": BlockParser(),
+    "replacement": ReplacementParser(),
+}
+
+
 def loop(
     paths: list[Path],
     exclude_paths: Optional[list[Path]],
@@ -141,11 +147,10 @@ def loop(
     no_code_map: bool,
     diff: Optional[str],
     pr_diff: Optional[str],
-    parser: Parser,
 ) -> None:
     git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
-    # The parser can be selected here
     config = ConfigManager(git_root)
+    parser = parser_map[config.parser()]
     code_context = CodeContext(
         config, paths, exclude_paths or [], diff, pr_diff, no_code_map
     )

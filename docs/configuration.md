@@ -65,3 +65,15 @@ and then setting your model in `~/.mentat/.mentat_config.json`:
 }
 ```
 For models other than gpt-3.5 and gpt-4 we may not be able to infer a maximum context size so you'll also have to set the maximum-context.
+
+### Alternative Formats
+
+Mentat is able to edit files by parsing a specific format that the model is told to follow. We are always working to improve the format we use, and have multiple formats available. Although we expect the default format to perform the best, you can test out other formats using the configuration.
+```json
+{
+    "format": "block"
+}
+```
+Available formats:
+* block
+* replacement

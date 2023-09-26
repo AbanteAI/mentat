@@ -1,7 +1,16 @@
 from textwrap import dedent
 
+import pytest
+
 from mentat.app import run
-from mentat.parsers.replacement_parser import ReplacementParser
+from tests.conftest import ConfigManager
+
+
+@pytest.fixture(autouse=True)
+def replacement_parser(mocker):
+    mock_method = mocker.MagicMock()
+    mocker.patch.object(ConfigManager, "parser", new=mock_method)
+    mock_method.return_value = "replacement"
 
 
 def test_invalid_line_numbers(
@@ -31,7 +40,7 @@ def test_invalid_line_numbers(
         # I also will not be used
         @""")])
 
-    run([temp_file_name], parser=ReplacementParser())
+    run([temp_file_name])
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -68,7 +77,7 @@ def test_invalid_special_line(
         # I will not be used
         @""")])
 
-    run([temp_file_name], parser=ReplacementParser())
+    run([temp_file_name])
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
