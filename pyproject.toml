@@ -5,3 +5,6 @@ known_first_party = "mentat"
 [tool.ruff]
 line-length = 120
 ignore = ["E731"]
+
+[tool.pytest.ini_options]
+addopts = "--ignore=vscode/bundled"
