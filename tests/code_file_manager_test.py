@@ -4,7 +4,6 @@ from textwrap import dedent
 from mentat.app import run
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
-from mentat.user_input_manager import UserInputManager
 
 
 # Make sure we always give posix paths to GPT
