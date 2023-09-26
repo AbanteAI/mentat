@@ -15,19 +15,15 @@ def test_posix_paths(mock_config):
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
         file_file.write("I am a file")
+    code_file_manager = CodeFileManager(
+        config=mock_config,
+    )
     code_context = CodeContext(
         config=mock_config,
         paths=[file_path],
         exclude_paths=[],
     )
-    code_file_manager = CodeFileManager(
-        user_input_manager=UserInputManager(
-            config=mock_config, code_context=code_context
-        ),
-        config=mock_config,
-        code_context=code_context,
-    )
-    code_message = code_file_manager.get_code_message(mock_config.model())
+    code_message = code_context.get_code_message(mock_config.model(), code_file_manager)
     assert dir_name + "/" + file_name in code_message.split("\n")
 
 
@@ -45,20 +41,16 @@ def test_partial_files(mock_config):
              fifth"""))
     file_path_partial = file_path + ":1,3-5"
 
+    code_file_manager = CodeFileManager(
+        config=mock_config,
+    )
     code_context = CodeContext(
         config=mock_config,
         paths=[file_path_partial],
         exclude_paths=[],
         no_code_map=True,
     )
-    code_file_manager = CodeFileManager(
-        user_input_manager=UserInputManager(
-            config=mock_config, code_context=code_context
-        ),
-        config=mock_config,
-        code_context=code_context,
-    )
-    code_message = code_file_manager.get_code_message(mock_config.model())
+    code_message = code_context.get_code_message(mock_config.model(), code_file_manager)
     assert code_message == dedent("""\
             Code Files:
 
