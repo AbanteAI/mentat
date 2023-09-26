@@ -1,5 +1,6 @@
 import json
 from enum import Enum
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
 
@@ -7,6 +8,7 @@ from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
+from mentat.errors import ModelError
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import Parser
@@ -98,12 +100,14 @@ class BlockParser(Parser):
     ) -> tuple[DisplayInformation, FileEdit, bool]:
         block = special_block.strip().split("\n")
         json_lines = block[1:-1]
-        # TODO: json error
-        json_data: dict[str, Any] = json.loads("\n".join(json_lines))
-        deserialized_json = _BlockParserDeserializedJson(json_data)
+        try:
+            json_data: dict[str, Any] = json.loads("\n".join(json_lines))
+            deserialized_json = _BlockParserDeserializedJson(json_data)
+        except (JSONDecodeError, ValueError):
+            raise ModelError("Error: Model output malformed json.")
 
         if deserialized_json.action is None:
-            raise ValueError()
+            raise ModelError("Error: Model output malformed json.")
 
         starting_line = 0
         ending_line = 0
@@ -115,15 +119,20 @@ class BlockParser(Parser):
                         deserialized_json.after_line is not None
                         and starting_line != deserialized_json.after_line
                     ):
-                        raise ValueError("Insert line numbers invalid")
+                        raise ModelError("Error: Model output malformed edit.")
                 elif deserialized_json.after_line is not None:
                     starting_line = deserialized_json.after_line
                 else:
-                    raise ValueError("Insert line number not specified")
+                    raise ModelError("Error: Model output malformed edit.")
                 ending_line = starting_line
                 file_action = FileActionType.UpdateFile
 
             case _BlockParserAction.Replace | _BlockParserAction.Delete:
+                if (
+                    deserialized_json.start_line is None
+                    or deserialized_json.end_line is None
+                ):
+                    raise ModelError("Error: Model output malformed edit.")
                 starting_line = deserialized_json.start_line - 1
                 ending_line = deserialized_json.end_line
                 file_action = FileActionType.UpdateFile
@@ -136,16 +145,11 @@ class BlockParser(Parser):
 
             case _BlockParserAction.RenameFile:
                 file_action = FileActionType.RenameFile
+        if ending_line < starting_line:
+            raise ModelError("Error: Model output malformed edit.")
 
-        file_lines = (
-            []
-            if file_action == FileActionType.CreateFile
-            else code_file_manager.file_lines[
-                rename_map.get(
-                    config.git_root / deserialized_json.file,
-                    config.git_root / deserialized_json.file,
-                ).relative_to(config.git_root)
-            ]
+        file_lines = self._get_file_lines(
+            code_file_manager, rename_map, deserialized_json.file
         )
         display_information = DisplayInformation(
             deserialized_json.file,

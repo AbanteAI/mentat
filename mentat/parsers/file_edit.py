@@ -75,14 +75,22 @@ class FileEdit:
         rel_path = Path(os.path.relpath(self.file_path, config.git_root))
         if self.is_creation:
             if self.file_path.exists():
-                cprint(f"File {rel_path} already exists, canceling creation.")
+                cprint(
+                    f"File {rel_path} already exists, canceling creation.", color="red"
+                )
                 return False
         else:
             if not self.file_path.exists():
-                cprint(f"File {rel_path} does not exist, canceling all edits to file.")
+                cprint(
+                    f"File {rel_path} does not exist, canceling all edits to file.",
+                    color="red",
+                )
                 return False
             elif rel_path not in code_file_manager.file_lines:
-                cprint(f"File {rel_path} not in context, canceling all edits to file.")
+                cprint(
+                    f"File {rel_path} not in context, canceling all edits to file.",
+                    color="red",
+                )
                 return False
 
         if self.rename_file_path is not None and self.rename_file_path.exists():
@@ -91,7 +99,8 @@ class FileEdit:
             )
             cprint(
                 f"File {rel_path} being renamed to existing file {rel_rename_path},"
-                " canceling rename."
+                " canceling rename.",
+                color="red",
             )
             self.rename_file_path = None
         return True

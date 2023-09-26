@@ -42,16 +42,7 @@ class ReplacementParser(Parser):
             raise ValueError()
 
         file_name = Path(info[0])
-        file_lines = (
-            []
-            if info[1] == "+"
-            else code_file_manager.file_lines[
-                rename_map.get(
-                    config.git_root / file_name,
-                    config.git_root / file_name,
-                ).relative_to(config.git_root)
-            ]
-        )
+        file_lines = self._get_file_lines(code_file_manager, rename_map, file_name)
         new_name = None
         if len(info) == 2:
             starting_line = 0

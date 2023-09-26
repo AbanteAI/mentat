@@ -123,7 +123,9 @@ def get_file_name(
         case FileActionType.CreateFile:
             return colored(f"\n{display_information.file_name}*", color="light_green")
         case FileActionType.DeleteFile:
-            return colored(f"\n{display_information.file_name}", color="light_red")
+            return colored(
+                f"\nDeletion: {display_information.file_name}", color="light_red"
+            )
         case FileActionType.RenameFile:
             return colored(
                 f"\nRename: {display_information.file_name} ->"

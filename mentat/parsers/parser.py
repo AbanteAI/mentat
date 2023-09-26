@@ -12,6 +12,7 @@ from termcolor import colored
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
+from mentat.errors import ModelError
 from mentat.llm_api import chunk_to_lines
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
@@ -76,6 +77,7 @@ class Parser(ABC):
         in_special_lines = False
         in_code_lines = False
         conversation = True
+        printed_delimiter = False
         rename_map = dict[Path, Path]()
         async for chunk in response:
             if self.shutdown.is_set():
@@ -125,22 +127,37 @@ class Parser(ABC):
                         previous_file = (
                             None if file_edit is None else file_edit.file_path
                         )
-                        display_information, file_edit, in_code_lines = (
-                            self._special_block(
-                                code_file_manager, config, rename_map, cur_block
+
+                        try:
+                            display_information, file_edit, in_code_lines = (
+                                self._special_block(
+                                    code_file_manager, config, rename_map, cur_block
+                                )
                             )
-                        )
+                        except ModelError as e:
+                            printer.add_string(str(e), color="red")
+                            printer.add_string("Using existing changes.")
+                            printer.wrap_it_up()
+                            await printer_task
+                            return (
+                                message,
+                                [file_edit for file_edit in file_edits.values()],
+                            )
+
                         in_special_lines = False
                         prev_block = cur_block
                         cur_block = ""
 
                         # Rename map handling
-                        if file_edit.rename_file_path is not None:
-                            rename_map[config.git_root / file_edit.rename_file_path] = (
-                                file_edit.file_path
+                        if display_information.new_name is not None:
+                            rename_map[display_information.new_name] = (
+                                display_information.file_name
                             )
-                        if file_edit.file_path in rename_map:
-                            file_edit.file_path = rename_map[file_edit.file_path]
+                        if display_information.file_name in rename_map:
+                            file_edit.file_path = (
+                                config.git_root
+                                / rename_map[display_information.file_name]
+                            )
 
                         # New file_edit creation and merging
                         if file_edit.file_path not in file_edits:
@@ -168,10 +185,16 @@ class Parser(ABC):
                         ):
                             conversation = False
                             printer.add_string(get_file_name(display_information))
-                            # TODO BUG: If we make a change like rename file or create file with no code lines
-                            # and then make another change on the same file, it won't have any delimiter
                             if in_code_lines or display_information.removed_block:
+                                printed_delimiter = True
                                 printer.add_string(change_delimiter)
+                            else:
+                                printed_delimiter = False
+                        elif not printed_delimiter:
+                            # We have to have this so that putting a change like an insert after a rename
+                            # still has a change delimiter
+                            printer.add_string(change_delimiter)
+                            printed_delimiter = True
 
                         # Print previous lines, removed block, and possibly later lines
                         if in_code_lines or display_information.removed_block:
@@ -200,6 +223,19 @@ class Parser(ABC):
             await printer_task
 
         return (message, [file_edit for file_edit in file_edits.values()])
+
+    # Ideally this would be called in this class instead of subclasses
+    def _get_file_lines(
+        self,
+        code_file_manager: CodeFileManager,
+        rename_map: dict[Path, Path],
+        rel_path: Path,
+    ) -> list[str]:
+        path = rename_map.get(
+            rel_path,
+            rel_path,
+        )
+        return code_file_manager.file_lines.get(path, [])
 
     # These 2 methods aren't abstract, since most parsers will use this implementation, but can be overriden easily
     def _code_line_beginning(self, display_information: DisplayInformation) -> str:
@@ -237,7 +273,6 @@ class Parser(ABC):
         """
         pass
 
-    # TODO: Error handling, don't have rename map in here (this means the subparsers shouldn't need to get file_lines)
     @abstractmethod
     def _special_block(
         self,
@@ -259,8 +294,6 @@ class Parser(ABC):
         """
         pass
 
-    # TODO: Better way to pass information between special_block and add_code_block;
-    # we shouldn't be using display_information to pass the line numbers
     @abstractmethod
     def _add_code_block(
         self,

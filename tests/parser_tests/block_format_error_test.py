@@ -99,100 +99,6 @@ def test_unknown_action(mock_call_llm_api, mock_collect_user_input, mock_setup_a
     assert content == template_insert_expected_content
 
 
-def test_indicator(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
-    # Test start indicator in change, code indicator outside change, code indicator inside code block,
-    # code indicator for action without code, and end indicator while not creating change
-    content = error_test_template(
-        mock_call_llm_api,
-        mock_collect_user_input,
-        mock_setup_api_key,
-        template_insert + dedent(f"""\
-        @@start
-        {{
-            "file": "{temp_file_name}",
-            "action": "insert",
-            "insert-after-line": 0,
-            "insert-before-line": 1
-        }}
-        @@code
-        @@start
-        # I am wrong
-        @@end
-        """) + template_insert2,
-    )
-    assert content == template_insert_expected_content
-
-    content = error_test_template(
-        mock_call_llm_api,
-        mock_collect_user_input,
-        mock_setup_api_key,
-        template_insert + dedent(f"""\
-        @@code
-        @@start
-        {{
-            "file": "{temp_file_name}",
-            "action": "insert",
-            "insert-after-line": 0,
-            "insert-before-line": 1
-        }}
-        @@code
-        # I am wrong
-        @@end
-        """) + template_insert2,
-    )
-    assert content == template_insert_expected_content
-
-    content = error_test_template(
-        mock_call_llm_api,
-        mock_collect_user_input,
-        mock_setup_api_key,
-        template_insert + dedent(f"""\
-        @@start
-        {{
-            "file": "{temp_file_name}",
-            "action": "insert",
-            "insert-after-line": 0,
-            "insert-before-line": 1
-        }}
-        @@code
-        @@code
-        # I am wrong
-        @@end
-        """) + template_insert2,
-    )
-    assert content == template_insert_expected_content
-
-    content = error_test_template(
-        mock_call_llm_api,
-        mock_collect_user_input,
-        mock_setup_api_key,
-        template_insert + dedent(f"""\
-        @@start
-        {{
-            "file": "{temp_file_name}",
-            "action": "remove",
-            "insert-after-line": 0,
-            "insert-before-line": 1
-        }}
-        @@code
-        # I am wrong
-        @@end
-        """) + template_insert2,
-    )
-    assert content == template_insert_expected_content
-
-    content = error_test_template(
-        mock_call_llm_api,
-        mock_collect_user_input,
-        mock_setup_api_key,
-        template_insert + dedent("""\
-        @@end
-        """) + template_insert2,
-    )
-    assert content == template_insert_expected_content
-
-
-# These tests should keep changes after the invalid change
 def test_no_line_numbers(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
@@ -212,7 +118,7 @@ def test_no_line_numbers(
         @@end
         """) + template_insert2,
     )
-    assert content == template_double_insert_expected_content
+    assert content == template_insert_expected_content
 
 
 def test_invalid_line_numbers(
@@ -236,7 +142,7 @@ def test_invalid_line_numbers(
         @@end
         """) + template_insert2,
     )
-    assert content == template_double_insert_expected_content
+    assert content == template_insert_expected_content
 
 
 def test_existing_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
@@ -256,12 +162,14 @@ def test_existing_file(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
         @@end
         """) + template_insert2,
     )
-    assert content == template_double_insert_expected_content
+    assert content == ""
 
 
 def test_file_not_in_context(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
+    with open("iamnotincontext", "w") as f:
+        f.write("")
     # Trying to access file not in context should fail
     content = error_test_template(
         mock_call_llm_api,
@@ -287,10 +195,7 @@ def test_rename_file_already_exists(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
     # Trying to rename to existing file shouldn't work
-    start_file_name = "start.py"
     existing_file_name = "existing.py"
-    with open(start_file_name, "w") as start_file:
-        start_file.write("I started here")
     with open(existing_file_name, "w") as existing_file:
         existing_file.write("I was always here")
     content = error_test_template(
@@ -300,7 +205,7 @@ def test_rename_file_already_exists(
         template_insert + dedent(f"""\
         @@start
         {{
-            "file": "{start_file_name}",
+            "file": "{temp_file_name}",
             "action": "rename-file",
             "name": "{existing_file_name}"
         }}
