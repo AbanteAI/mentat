@@ -32,10 +32,7 @@ class StreamMessage:
 
 
 def get_session_stream():
-    session_stream = _SESSION_STREAM.get()
-    if not isinstance(session_stream, SessionStream):
-        raise Exception("SessionStream is not set for the current context")
-    return session_stream
+    return _SESSION_STREAM.get()
 
 
 class SessionStream:
@@ -63,7 +60,7 @@ class SessionStream:
         data: Any,
         source: StreamMessageSource = StreamMessageSource.SERVER,
         channel: str = "default",
-        **kwargs,
+        **kwargs: Any,
     ):
         message = StreamMessage(
             id=uuid4(),
@@ -86,7 +83,7 @@ class SessionStream:
         data: Any,
         source: StreamMessageSource = StreamMessageSource.SERVER,
         channel: str = "default",
-        **kwargs,
+        **kwargs: Any,
     ):
         """Send a message to the underlying message queue.
 
