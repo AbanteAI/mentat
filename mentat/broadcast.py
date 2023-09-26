@@ -23,7 +23,7 @@ class Event:
 
 
 class Subscriber:
-    def __init__(self, queue: asyncio.Queue) -> None:
+    def __init__(self, queue: asyncio.Queue[Event | None]) -> None:
         self._queue = queue
 
     async def __aiter__(self) -> AsyncGenerator[Event, None]:
@@ -42,10 +42,10 @@ class Subscriber:
 
 class MemoryBackend:
     def __init__(self):
-        self._subscribed: typing.Set = set()
+        self._subscribed: typing.Set[str] = set()
 
     async def connect(self) -> None:
-        self._published: asyncio.Queue = asyncio.Queue()
+        self._published: asyncio.Queue[Event] = asyncio.Queue()
 
     async def disconnect(self) -> None:
         pass
@@ -112,7 +112,7 @@ class Broadcast:
 
     @asynccontextmanager
     async def subscribe(self, channel: str) -> AsyncIterator[Subscriber]:
-        queue: asyncio.Queue = asyncio.Queue()
+        queue: asyncio.Queue[Event | None] = asyncio.Queue()
 
         try:
             if not self._subscribers.get(channel):
