@@ -126,7 +126,8 @@ class Conversation:
         except InvalidRequestError as e:
             raise MentatError(
                 "Something went wrong - invalid request to OpenAI API. OpenAI"
-                " returned:\n" + str(e)
+                " returned:\n"
+                + str(e)
             )
         except RateLimitError as e:
             raise UserError("OpenAI gave a rate limit error:\n" + str(e))
