@@ -1,8 +1,8 @@
-import concurrent.futures
 import os
 import subprocess
 import sys
 import threading
+from multiprocessing import Pool
 from textwrap import dedent
 
 import pytest
@@ -169,8 +169,8 @@ def test_practice_directory_performance(
     print(f"Running {num_exercises} exercises")
     sys.stdout = open("mentat_output.txt", "w")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(run_exercise, exercises))
+    with Pool(processes=max_workers) as pool:
+        results = list(pool.map(run_exercise, exercises))
         first_iteration = len(
             [
                 result

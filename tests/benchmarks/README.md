@@ -14,8 +14,10 @@ They should not start with `test_` or end with `_test.py` so they will not be au
 
 Flags that control the performance of the benchmarks are defined in [conftest](/conftest.py) and set conservatively so benchmarks without flags will run relatively quickly and cheaply. To run the exercism benchmark with multiple workers on all the tests with one retry run the following:
 ```
-pytest -s tests/benchmarks/exercism_practice_python.py --max_exercises 134 --max_iterations 2 --max_workers 2
+pytest -s tests/benchmarks/exercism_practice_python.py --benchmark --max_exercises 134 --max_iterations 2 --max_workers 2
 ```
+
+Warning: If you increase max_workers much higher you'll start to get rate limited.
 
 ## Writing Benchmarks
 
