@@ -8,7 +8,7 @@ from termcolor import cprint
 
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.file_edit import FileEdit
-from mentat.parsers.replacement_parser import ReplacementParser
+from mentat.parsers.parser import Parser
 
 from .code_context import CodeContext
 from .code_file import parse_intervals
@@ -111,6 +111,7 @@ def run(
     no_code_map: bool = False,
     diff: Optional[str] = None,
     pr_diff: Optional[str] = None,
+    parser: Parser = BlockParser(),
 ):
     mentat_dir_path.mkdir(parents=True, exist_ok=True)
     setup_logging()
@@ -119,7 +120,7 @@ def run(
     cost_tracker = CostTracker()
     try:
         setup_api_key()
-        loop(paths, exclude_paths, cost_tracker, no_code_map, diff, pr_diff)
+        loop(paths, exclude_paths, cost_tracker, no_code_map, diff, pr_diff, parser)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -140,11 +141,10 @@ def loop(
     no_code_map: bool,
     diff: Optional[str],
     pr_diff: Optional[str],
+    parser: Parser,
 ) -> None:
     git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
     # The parser can be selected here
-    parser = ReplacementParser()
-    parser = BlockParser()
     config = ConfigManager(git_root)
     code_context = CodeContext(
         config, paths, exclude_paths or [], diff, pr_diff, no_code_map

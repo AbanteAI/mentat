@@ -222,6 +222,8 @@ class Parser(ABC):
             printer.wrap_it_up()
             await printer_task
 
+        logging.debug("LLM Response:")
+        logging.debug(message)
         return (message, [file_edit for file_edit in file_edits.values()])
 
     # Ideally this would be called in this class instead of subclasses
