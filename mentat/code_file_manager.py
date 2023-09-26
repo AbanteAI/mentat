@@ -1,4 +1,5 @@
 import logging
+from ipdb import set_trace
 import math
 import os
 from collections import defaultdict
@@ -178,7 +179,8 @@ class CodeFileManager:
 
         for rel_path, changes in file_changes.items():
             abs_path = self.config.git_root / rel_path
-            new_code_lines = self._get_new_code_lines(rel_path, changes)
+            new_code_lines = await self._get_new_code_lines(rel_path, changes)
+            
             if new_code_lines:
                 if abs_path not in self.code_context.files:
                     raise MentatError(

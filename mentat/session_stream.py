@@ -5,10 +5,13 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+import logging
 from typing import Any, AsyncGenerator, Dict, List, cast
 from uuid import UUID, uuid4
 
 from .broadcast import Broadcast
+
+logger = logging.getLogger()
 
 _SESSION_STREAM: ContextVar[SessionStream] = ContextVar("mentat:session_stream")
 
@@ -70,6 +73,9 @@ class SessionStream:
             created_at=datetime.utcnow(),
             extra=kwargs,
         )
+        
+        logger.info(message)
+
         self.messages.append(message)
         await self._broadcast.publish(channel=channel, message=message)
 

@@ -35,7 +35,7 @@ class Session:
         self.no_code_map = no_code_map
 
         self.stream = SessionStream()
-        _SESSION_STREAM.set(self.stream)  # remove?
+        _SESSION_STREAM.set(self.stream)
 
         self._main_task: asyncio.Task | None = None
         self._stop_task: asyncio.Task | None = None
@@ -112,7 +112,6 @@ class Session:
         async def run_main():
             try:
                 await self.stream.start()
-                _SESSION_STREAM.set(self.stream)
                 await self._main()
             except asyncio.CancelledError:
                 pass
