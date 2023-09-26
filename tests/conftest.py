@@ -3,9 +3,11 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from pathlib import Path
 
 import pytest
 
+from mentat.code_context import CodeContext
 from mentat.config_manager import ConfigManager
 from mentat.streaming_printer import StreamingPrinter
 from mentat.user_input_manager import UserInputManager
@@ -25,6 +27,31 @@ def filter_mark(items, mark, exists):
 def pytest_addoption(parser):
     parser.addoption("--benchmark", action="store_true")
     parser.addoption("--uitest", action="store_true")
+    # The following flags are used by benchmark tests
+    parser.addoption(
+        "--max_exercises",
+        action="store",
+        default="1",
+        help="The maximum number of exercises to run",
+    )
+    parser.addoption(
+        "--max_iterations",
+        action="store",
+        default="1",
+        help="Number of times to rerun mentat with error messages",
+    )
+    parser.addoption(
+        "--max_workers",
+        action="store",
+        default="1",
+        help="Number of workers to use for multiprocessing",
+    )
+    parser.addoption(
+        "--refresh_repo",
+        action="store_true",
+        default=False,
+        help="When set local changes will be discarded.",
+    )
 
 
 def pytest_configure(config):
@@ -43,7 +70,7 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture
 def mock_call_llm_api(mocker):
-    mock = mocker.patch("mentat.parsing.call_llm_api")
+    mock = mocker.patch("mentat.conversation.call_llm_api")
 
     def set_generator_values(values):
         async def async_generator():
@@ -67,15 +94,25 @@ def mock_collect_user_input(mocker):
 @pytest.fixture
 def mock_setup_api_key(mocker):
     mocker.patch("mentat.app.setup_api_key")
-    mocker.patch("mentat.conversation.check_model_availability")
+    mocker.patch("mentat.conversation.is_model_available")
     return
 
 
 @pytest.fixture
 def mock_config(temp_testbed):
-    config = ConfigManager(temp_testbed)
+    config = ConfigManager(Path(temp_testbed))
     config.project_config = {}
     return config
+
+
+@pytest.fixture
+def mock_context(mock_config):
+    return CodeContext(mock_config, [], [])
+
+
+@pytest.fixture
+def mock_user_input_manager(mock_config, mock_context):
+    return UserInputManager(mock_config, mock_context)
 
 
 def add_permissions(func, path, exc_info):
@@ -97,6 +134,14 @@ def add_permissions(func, path, exc_info):
 
 
 # Auto-used fixtures
+def run_git_command(cwd, *args):
+    """Helper function to run a git command."""
+    subprocess.run(
+        ["git"] + list(args),
+        cwd=cwd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -107,24 +152,18 @@ def temp_testbed(monkeypatch):
     temp_testbed = os.path.join(temp_dir, "testbed")
     shutil.copytree("testbed", temp_testbed)
     shutil.copy(".gitignore", temp_testbed)
-    subprocess.run(
-        ["git", "init"],
-        cwd=temp_testbed,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    subprocess.run(
-        ["git", "add", "."],
-        cwd=temp_testbed,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "add testbed"],
-        cwd=temp_testbed,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+
+    # Initialize git repo
+    run_git_command(temp_testbed, "init")
+
+    # Set local config for user.name and user.email. Set automatically on
+    # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
+    run_git_command(temp_testbed, "config", "user.email", "test@example.com")
+    run_git_command(temp_testbed, "config", "user.name", "Test User")
+
+    # Add all files and commit
+    run_git_command(temp_testbed, "add", ".")
+    run_git_command(temp_testbed, "commit", "-m", "add testbed")
 
     # necessary to undo chdir before calling rmtree, or it fails on windows
     with monkeypatch.context() as m:

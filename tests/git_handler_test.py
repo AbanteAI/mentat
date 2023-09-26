@@ -1,5 +1,6 @@
 import os
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -10,13 +11,13 @@ from mentat.git_handler import get_shared_git_root_for_paths
 def test_no_paths_given(temp_testbed):
     # Get temp_testbed as the git root when given no paths
     git_root = get_shared_git_root_for_paths([])
-    assert git_root == temp_testbed
+    assert git_root == Path(temp_testbed)
 
 
 def test_paths_given(temp_testbed):
     # Get temp_testbed when given directory in temp_testbed
     git_root = get_shared_git_root_for_paths(["scripts"])
-    assert git_root == temp_testbed
+    assert git_root == Path(temp_testbed)
 
 
 def test_two_git_roots_given():
