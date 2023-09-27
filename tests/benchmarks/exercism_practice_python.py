@@ -3,6 +3,7 @@ import subprocess
 import sys
 import threading
 from multiprocessing import Pool
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -133,12 +134,11 @@ def run_exercise(problem_dir):
 
         threadLocal.iterations = 0
         run(
-            [
-                threadLocal.exercise_file,
-                # We want to match instruction.md, instructions.md, and instructions.append.md,
-                # but not hints.md
-                f"{threadLocal.exercise}/.docs/instruction*",
+            paths=[
+                Path(threadLocal.exercise_file),
+                Path(f"{threadLocal.exercise}/.docs"),
             ],
+            exclude_paths=[Path("hints.md")],
             no_code_map=True,
         )
         passed = exercise_passed()
