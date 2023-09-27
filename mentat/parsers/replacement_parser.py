@@ -61,7 +61,7 @@ class ReplacementParser(Parser):
             # Convert from 1-index to 0-index
             try:
                 starting_line = int(info[1]) - 1
-                ending_line = int(info[2]) - 1
+                ending_line = starting_line if info[2] == "+" else int(info[2]) - 1
             except ValueError:
                 raise ModelError("Error: Invalid line numbers given")
             if starting_line > ending_line or starting_line < 0 or ending_line < 0:

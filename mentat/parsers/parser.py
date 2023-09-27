@@ -139,6 +139,8 @@ class Parser(ABC):
                             printer.add_string("Using existing changes.")
                             printer.wrap_it_up()
                             await printer_task
+                            logging.debug("LLM Response:")
+                            logging.debug(message)
                             return (
                                 message,
                                 [file_edit for file_edit in file_edits.values()],
@@ -218,6 +220,18 @@ class Parser(ABC):
                     line_printed = False
                     cur_line = ""
         else:
+            # If the model doesn't close out the code lines, we might as well do it for it
+            if (
+                in_code_lines
+                and display_information is not None
+                and file_edit is not None
+            ):
+                self._add_code_block(
+                    prev_block, cur_block, display_information, file_edit
+                )
+                printer.add_string(get_later_lines(display_information))
+                printer.add_string(change_delimiter)
+
             # Only finish printing if we don't quit from ctrl-c
             printer.wrap_it_up()
             await printer_task

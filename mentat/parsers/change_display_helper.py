@@ -170,7 +170,7 @@ def get_previous_lines(
         [
             display_information.file_lines[i]
             for i in range(
-                max(0, display_information.first_changed_line - (num + 1)),
+                max(0, display_information.first_changed_line - num),
                 min(
                     display_information.first_changed_line,
                     len(display_information.file_lines),

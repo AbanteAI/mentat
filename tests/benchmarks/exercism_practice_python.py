@@ -134,7 +134,9 @@ def run_exercise(problem_dir):
         run(
             [
                 threadLocal.exercise_file,
-                f"{threadLocal.exercise}/.docs/instructions.md",
+                # We want to match instruction.md, instructions.md, and instructions.append.md,
+                # but not hints.md
+                f"{threadLocal.exercise}/.docs/instruction*",
             ],
             no_code_map=True,
         )
