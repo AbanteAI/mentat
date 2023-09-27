@@ -138,7 +138,7 @@ def run_exercise(problem_dir):
                 Path(threadLocal.exercise_file),
                 Path(f"{threadLocal.exercise}/.docs"),
             ],
-            exclude_paths=[Path("hints.md")],
+            exclude_paths=[Path(f"{threadLocal.exercise}/.docs/hints.md")],
             no_code_map=True,
         )
         passed = exercise_passed()
