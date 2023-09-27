@@ -6,6 +6,7 @@ from multiprocessing import Pool
 from textwrap import dedent
 
 import pytest
+import tqdm
 from git import Repo
 
 from mentat.app import run
@@ -172,7 +173,11 @@ def test_practice_directory_performance(
     sys.stdout = open("mentat_output.txt", "w")
 
     with Pool(processes=max_workers) as pool:
-        results = list(pool.map(run_exercise, exercises))
+        results = []
+        for result in tqdm.tqdm(
+            pool.imap_unordered(run_exercise, exercises), total=len(exercises)
+        ):
+            results.append(result)
         first_iteration = len(
             [
                 result
