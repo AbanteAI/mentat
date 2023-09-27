@@ -1,7 +1,7 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/bio_bootloader?style=social)](https://twitter.com/bio_bootloader)
 [![Discord Follow](https://dcbadge.vercel.app/api/server/XbPdxAMJte?style=flat)](https://discord.gg/zbvd9qx9Pb)
 [![Stable Version](https://img.shields.io/pypi/v/mentat?color=blue)](https://pypi.org/project/mentat/)
-[![License](https://img.shields.io/pypi/l/mentat.svg)](https://github.com/biobootloader/mentat/blob/main/LICENSE)
+[![License](https://img.shields.io/pypi/l/mentat.svg)](https://github.com/AbanteAI/mentat/blob/main/LICENSE)
 
 # 🧙‍♂️ Mentat ⚡
 
@@ -21,7 +21,7 @@ Want help understanding a new codebase? Need to add a new feature? Refactor exis
 
 # 🍿 Example Videos (🔊 on!)
 
-https://github.com/biobootloader/mentat/assets/128252497/35b027a9-d639-452c-a53c-ef019a645719
+https://github.com/AbanteAI/mentat/assets/128252497/35b027a9-d639-452c-a53c-ef019a645719
 
 See more videos on [Twitter](https://twitter.com/bio_bootloader/status/1683906735248125955) or YouTube:
 - [Intro (2 min - same video as above)](https://www.youtube.com/watch?v=lODjaWclwpY)
@@ -46,12 +46,12 @@ Note that you'll have to have activated the virtual environment to run mentat if
 
 There are then 3 install methods. The first two will just let you run it:
 - PyPI: `python -m pip install mentat`
-- Github: `python -m pip install git+https://github.com/biobootloader/mentat.git`
+- Github: `python -m pip install git+https://github.com/AbanteAI/mentat.git`
 
 The third option is useful if you'd also like to modify Mentat's code, as well as run it:
 
 ```
-git clone https://github.com/biobootloader/mentat.git
+git clone https://github.com/AbanteAI/mentat.git
 cd mentat
 
 # install with pip in editable mode:
@@ -122,4 +122,4 @@ The goal for Mentat is to become the best way to write code. Some big improvemen
 
 If this is something you'd like to work on, jump right in! And if you want to join the team to work on this full time, message [@bio_bootloader](https://twitter.com/bio_bootloader) on twitter.
 
-To find something specific to work on, take a look at [open issues](https://github.com/biobootloader/mentat/issues) and/or check this Github Project: [Mentat Development](https://github.com/users/biobootloader/projects/2)
+To find something specific to work on, take a look at [open issues](https://github.com/AbanteAI/mentat/issues) and/or check this Github Project: [Mentat Development](https://github.com/users/AbanteAI/projects/2)
