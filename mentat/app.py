@@ -151,13 +151,13 @@ def loop(
     git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
     config = ConfigManager(git_root)
     parser = parser_map[config.parser()]
+    code_file_manager = CodeFileManager(config)
     code_context = CodeContext(
         config, paths, exclude_paths or [], diff, pr_diff, no_code_map
     )
     code_context.display_context()
     user_input_manager = UserInputManager(config, code_context)
-    code_file_manager = CodeFileManager(user_input_manager, config, code_context)
-    conv = Conversation(parser, config, cost_tracker, code_file_manager)
+    conv = Conversation(parser, config, cost_tracker, code_context, code_file_manager)
 
     cprint("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")
     cprint("What can I do for you?", color="light_blue")
@@ -175,7 +175,12 @@ def loop(
         ]
         if file_edits:
             need_user_request = get_user_feedback_on_edits(
-                config, conv, user_input_manager, code_file_manager, file_edits
+                config,
+                conv,
+                code_context,
+                user_input_manager,
+                code_file_manager,
+                file_edits,
             )
         else:
             need_user_request = True
@@ -184,6 +189,7 @@ def loop(
 def get_user_feedback_on_edits(
     config: ConfigManager,
     conv: Conversation,
+    code_context: CodeContext,
     user_input_manager: UserInputManager,
     code_file_manager: CodeFileManager,
     file_edits: list[FileEdit],
@@ -224,7 +230,9 @@ def get_user_feedback_on_edits(
         file_edit.resolve_conflicts(user_input_manager)
 
     if edits_to_apply:
-        code_file_manager.write_changes_to_files(edits_to_apply)
+        code_file_manager.write_changes_to_files(
+            edits_to_apply, code_context, user_input_manager
+        )
         cprint("Changes applied.", color="light_blue")
     else:
         cprint("No changes applied.", color="light_blue")

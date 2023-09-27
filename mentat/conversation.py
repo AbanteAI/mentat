@@ -17,6 +17,7 @@ from mentat.llm_api import (
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import Parser
 
+from .code_context import CodeContext
 from .code_file_manager import CodeFileManager
 
 
@@ -26,12 +27,14 @@ class Conversation:
         parser: Parser,
         config: ConfigManager,
         cost_tracker: CostTracker,
+        code_context: CodeContext,
         code_file_manager: CodeFileManager,
     ):
         self.messages = list[dict[str, str]]()
         prompt = parser.get_system_prompt()
         self.add_system_message(prompt)
         self.cost_tracker = cost_tracker
+        self.code_context = code_context
         self.code_file_manager = code_file_manager
         self.model = config.model()
         if not is_model_available(self.model):
@@ -54,7 +57,8 @@ class Conversation:
                 )
 
         tokens = count_tokens(
-            code_file_manager.get_code_message(self.model), self.model
+            code_context.get_code_message(self.model, self.code_file_manager),
+            self.model,
         ) + count_tokens(prompt, self.model)
         context_size = model_context_size(self.model)
         maximum_context = config.maximum_context()
@@ -135,7 +139,9 @@ class Conversation:
         self, parser: Parser, config: ConfigManager
     ) -> list[FileEdit]:
         messages = self.messages.copy()
-        code_message = self.code_file_manager.get_code_message(self.model)
+        code_message = self.code_context.get_code_message(
+            self.model, self.code_file_manager
+        )
         messages.append({"role": "system", "content": code_message})
 
         num_prompt_tokens = get_prompt_token_count(messages, self.model)
