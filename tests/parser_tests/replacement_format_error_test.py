@@ -30,13 +30,13 @@ def test_invalid_line_numbers(
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
-        @ {temp_file_name} 2 2
+        @ {temp_file_name} insert_line=2
         # I inserted this comment
         @
-        @ {temp_file_name} -1 -2
+        @ {temp_file_name} starting_line=-1 ending_line-2
         # I will not be used
         @
-        @ {temp_file_name} 1 1
+        @ {temp_file_name} insert_line=1
         # I also will not be used
         @""")])
 
@@ -67,13 +67,13 @@ def test_invalid_special_line(
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
-        @ {temp_file_name} 2 2
+        @ {temp_file_name} insert_line=2
         # I inserted this comment
         @
         @ {temp_file_name}
         # I will not be used
         @
-        @ {temp_file_name} 1 1
+        @ {temp_file_name} insert_line=1
         # I will not be used
         @""")])
 

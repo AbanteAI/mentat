@@ -29,7 +29,7 @@ def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
-        @ {temp_file_name} 2 2
+        @ {temp_file_name} insert_line=2
         # I inserted this comment
         @""")])
 
@@ -58,7 +58,7 @@ def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
-        @ {temp_file_name} 1 2
+        @ {temp_file_name} starting_line=1 ending_line=1
         @""")])
 
     run([temp_file_name])
@@ -84,7 +84,7 @@ def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key)
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
-        @ {temp_file_name} 2 3
+        @ {temp_file_name} starting_line=2 ending_line=2
         # I inserted this comment
         @""")])
 
@@ -108,7 +108,7 @@ def test_create_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_
         Conversation
 
         @ {temp_file_name} +
-        @ {temp_file_name} 1 1
+        @ {temp_file_name} insert_line=1
         # New line
         @""")])
 
@@ -188,11 +188,11 @@ def test_change_then_rename_then_change(
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
         
-        @ {temp_file_name} 1 2
+        @ {temp_file_name} starting_line=1 ending_line=1
         # New line 1
         @
         @ {temp_file_name} {temp_file_name_2}
-        @ {temp_file_name_2} 2 2
+        @ {temp_file_name_2} insert_line=2
         # New line 2
         @""")])
 

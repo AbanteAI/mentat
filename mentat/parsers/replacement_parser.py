@@ -45,6 +45,11 @@ class ReplacementParser(Parser):
         file_name = Path(info[0])
         file_lines = self._get_file_lines(code_file_manager, rename_map, file_name)
         new_name = None
+
+        # For an insert, just make the second number 1 less than the starting line (since we sub 1 from starting line)
+        if len(info) == 2 and info[1].startswith("insert_line="):
+            info.append(f"ending_line={int(info[1].split('=')[1])-1}")
+
         if len(info) == 2:
             starting_line = 0
             ending_line = 0
@@ -58,11 +63,12 @@ class ReplacementParser(Parser):
                     file_action_type = FileActionType.RenameFile
                     new_name = Path(info[1])
         elif len(info) == 3:
-            # Convert from 1-index to 0-index
             try:
-                starting_line = int(info[1]) - 1
-                ending_line = starting_line if info[2] == "+" else int(info[2]) - 1
-            except ValueError:
+                # Convert from 1-index to 0-index
+                starting_line = int(info[1].split("=")[1]) - 1
+                # 1-index to 0-index = -1, inclusive to exclusive = +1
+                ending_line = int(info[2].split("=")[1])
+            except (ValueError, IndexError):
                 raise ModelError("Error: Invalid line numbers given")
             if starting_line > ending_line or starting_line < 0 or ending_line < 0:
                 raise ModelError("Error: Invalid line numbers given")
