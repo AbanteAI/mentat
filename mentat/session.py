@@ -13,7 +13,7 @@ from .commands import Command
 from .config_manager import ConfigManager
 from .conversation import Conversation
 from .git_handler import get_shared_git_root_for_paths
-from .llm_api import CostTracker
+from .llm_api import CostTracker, setup_api_key
 from .parsers.block_parser import BlockParser
 from .session_input import collect_user_input
 from .session_stream import SessionStream, set_session_stream
@@ -34,6 +34,7 @@ class Session:
         self.parser = BlockParser()
         self.code_file_manager = CodeFileManager(self.config, self.code_context)
         self.cost_tracker = CostTracker()
+        setup_api_key()
 
         self._main_task: asyncio.Task[None] | None = None
         self._stop_task: asyncio.Task[None] | None = None
