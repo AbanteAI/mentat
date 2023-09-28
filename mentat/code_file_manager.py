@@ -1,43 +1,52 @@
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from termcolor import cprint
 
 from mentat.parsers.file_edit import FileEdit
 
-from .code_file import CodeFile
 from .config_manager import ConfigManager
 from .errors import MentatError
 from .user_input_manager import UserInputManager
+from .utils import sha256
 
 if TYPE_CHECKING:
     # This normally will cause a circular import
     from .code_context import CodeContext
 
 
-class CodeFileManager:
+def _read_file(config: ConfigManager, path: Path) -> list[str]:
+    abs_path = path if path.is_absolute() else Path(config.git_root / path)
+    with open(abs_path, "r") as f:
+        lines = f.read().split("\n")
+    return lines
+
+
+class FileLineReader:
+    """A temporary helper class to replace the pre-loaded list of lines."""
     def __init__(self, config: ConfigManager):
         self.config = config
 
-    def read_file(self, path: Path) -> list[str]:
-        abs_path = path if path.is_absolute() else Path(self.config.git_root / path)
-        with open(abs_path, "r") as f:
-            lines = f.read().split("\n")
-        return lines
+    def get(self, path: Path, default: Any=None) -> list[str]:
+        try:
+            return _read_file(self.config, path)
+        except FileNotFoundError:
+            return default
 
-    def read_all_file_lines(self, files: list[Path]) -> None:
-        self.file_lines = dict[Path, list[str]]()
-        for path in files:
-            # self.file_lines is relative to git root
-            rel_path = Path(os.path.relpath(path, self.config.git_root))
-            abs_path = Path(self.config.git_root / rel_path)
-            self.file_lines[rel_path] = self.read_file(abs_path)
+    def __getitem__(self, path: Path) -> list[str]:
+        return _read_file(self.config, path)
 
-    def _add_file(self, abs_path: Path, code_context: "CodeContext"):
-        logging.info(f"Adding new file {abs_path} to context")
-        code_context.files[abs_path] = CodeFile(abs_path)
+
+class CodeFileManager:
+    def __init__(self, config: ConfigManager):
+        self.config = config
+        self.file_lines = FileLineReader(config)
+
+    def _create_file(self, abs_path: Path, code_context: "CodeContext"):
+        logging.info(f"Creating new file {abs_path}")
+        code_context.settings.paths.append(abs_path)
         # create any missing directories in the path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         with open(abs_path, "w") as f:
@@ -45,8 +54,8 @@ class CodeFileManager:
 
     def _delete_file(self, abs_path: Path, code_context: "CodeContext"):
         logging.info(f"Deleting file {abs_path}")
-        if abs_path in code_context.files:
-            del code_context.files[abs_path]
+        if abs_path in code_context.include_files:
+            del code_context.include_files[abs_path]
         abs_path.unlink()
 
     # Mainly does checks on if file is in context, file exists, file is unchanged, etc.
@@ -64,13 +73,13 @@ class CodeFileManager:
                         f"Model attempted to create file {file_edit.file_path} which"
                         " already exists"
                     )
-                self._add_file(file_edit.file_path, code_context)
+                self._create_file(file_edit.file_path, code_context)
             else:
                 if not file_edit.file_path.exists():
                     raise MentatError(
                         f"Attempted to edit non-existent file {file_edit.file_path}"
                     )
-                elif file_edit.file_path not in code_context.files:
+                elif file_edit.file_path not in code_context.include_files:
                     raise MentatError(
                         f"Attempted to edit file {file_edit.file_path} not in context"
                     )
@@ -86,7 +95,7 @@ class CodeFileManager:
 
             if not file_edit.is_creation:
                 stored_lines = self.file_lines[rel_path]
-                if stored_lines != self.read_file(rel_path):
+                if stored_lines != _read_file(self.config, rel_path):
                     logging.info(
                         f"File '{file_edit.file_path}' changed while generating changes"
                     )
@@ -106,10 +115,15 @@ class CodeFileManager:
                         f"Attempted to rename file {file_edit.file_path} to existing"
                         f" file {file_edit.rename_file_path}"
                     )
-                self._add_file(file_edit.rename_file_path, code_context)
+                self._create_file(file_edit.rename_file_path, code_context)
                 self._delete_file(file_edit.file_path, code_context)
                 file_edit.file_path = file_edit.rename_file_path
 
             new_lines = file_edit.get_updated_file_lines(stored_lines)
             with open(file_edit.file_path, "w") as f:
                 f.write("\n".join(new_lines))
+
+    def get_file_checksum(self, path: Path) -> str:
+        if path.is_dir():
+            return ""  # TODO: Build and maintain a hash tree for git_root
+        return sha256(path.read_text())

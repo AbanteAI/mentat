@@ -1,6 +1,8 @@
 import os
 from textwrap import dedent
 
+import pytest
+
 from mentat.app import run
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
@@ -48,6 +50,7 @@ def test_partial_files(mock_config):
         paths=[file_path_partial],
         exclude_paths=[],
         no_code_map=True,
+        max_tokens=0,  # Add no additional context
     )
     code_message = code_context.get_code_message(mock_config.model(), code_file_manager)
     assert code_message == dedent("""\

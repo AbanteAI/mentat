@@ -25,7 +25,7 @@ class DiffAnnotation:
         return sum(bool(line.startswith("+")) for line in self.message)
 
 
-def _parse_diff(diff: str) -> list[DiffAnnotation]:
+def parse_diff(diff: str) -> list[DiffAnnotation]:
     """Parse diff into a list of annotations."""
     annotations: list[DiffAnnotation] = []
     active_annotation: Optional[DiffAnnotation] = None
@@ -52,7 +52,7 @@ def _parse_diff(diff: str) -> list[DiffAnnotation]:
     return annotations
 
 
-def _annotate_file_message(
+def annotate_file_message(
     code_message: list[str], annotations: list[DiffAnnotation]
 ) -> list[str]:
     """Return the code_message with annotations inserted."""
@@ -104,11 +104,15 @@ class DiffContext:
             self.target = target
             self.name = name
 
+    _files_cache: list[Path] | None = None
+
     @property
     def files(self) -> list[Path]:
-        if self.target == "HEAD" and not check_head_exists(self.config.git_root):
-            return []  # A new repo without any commits
-        return get_files_in_diff(self.config.git_root, self.target)
+        if self._files_cache is None:
+            if self.target == "HEAD" and not check_head_exists(self.config.git_root):
+                return []  # A new repo without any commits
+            self._files_cache = get_files_in_diff(self.config.git_root, self.target)
+        return self._files_cache
 
     def display_context(self) -> None:
         if not self.files:
@@ -133,8 +137,8 @@ class DiffContext:
             return file_message
 
         diff = get_diff_for_file(self.config.git_root, self.target, rel_path)
-        annotations = _parse_diff(diff)
-        return _annotate_file_message(file_message, annotations)
+        annotations = parse_diff(diff)
+        return annotate_file_message(file_message, annotations)
 
 
 TreeishType = Literal["commit", "branch", "relative"]

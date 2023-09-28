@@ -1,5 +1,4 @@
 import argparse
-import glob
 import logging
 from pathlib import Path
 from typing import Optional
@@ -12,12 +11,12 @@ from mentat.parsers.parser import Parser
 from mentat.parsers.replacement_parser import ReplacementParser
 
 from .code_context import CodeContext
-from .code_file import parse_intervals
 from .code_file_manager import CodeFileManager
 from .config_manager import ConfigManager, mentat_dir_path
 from .conversation import Conversation
 from .errors import MentatError, UserError
 from .git_handler import get_shared_git_root_for_paths
+from .include_files import expand_paths
 from .llm_api import CostTracker, setup_api_key
 from .logging_config import setup_logging
 from .user_input_manager import UserInputManager, UserQuitInterrupt
@@ -75,35 +74,6 @@ def run_cli():
         diff,
         pr_diff,
     )
-
-
-def expand_paths(paths: list[str]) -> list[Path]:
-    globbed_paths = set[str]()
-    invalid_paths = list[str]()
-    for path in paths:
-        new_paths = glob.glob(pathname=path, recursive=True)
-        if new_paths:
-            globbed_paths.update(new_paths)
-        else:
-            split = path.rsplit(":", 1)
-            p = split[0]
-            if len(split) > 1:
-                # Parse additional syntax, e.g. "path/to/file.py:1-5,7,12-40"
-                intervals = parse_intervals(split[1])
-            else:
-                intervals = None
-            if Path(p).exists() and intervals:
-                globbed_paths.add(path)
-            else:
-                invalid_paths.append(path)
-    if invalid_paths:
-        cprint(
-            "The following paths do not exist:",
-            "light_yellow",
-        )
-        print("\n".join(invalid_paths))
-        exit()
-    return [Path(path) for path in globbed_paths]
 
 
 def run(

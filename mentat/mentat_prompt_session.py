@@ -112,7 +112,7 @@ class MentatCompleter(Completer):
     def refresh_completions(self):
         # Remove syntax completions for files not in the context
         for file_path in set(self.syntax_completions.keys()):
-            if file_path not in self.code_context.files:
+            if file_path not in self.code_context.include_files:
                 del self.syntax_completions[file_path]
                 file_name = file_path.name
                 self.file_name_completions[file_name].remove(file_path)
@@ -120,7 +120,7 @@ class MentatCompleter(Completer):
                     del self.file_name_completions[file_name]
 
         # Add/update syntax completions for files in the context
-        for file_path in self.code_context.files:
+        for file_path in self.code_context.include_files:
             if file_path not in self.syntax_completions:
                 self.refresh_completions_for_file_path(file_path)
             else:

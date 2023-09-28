@@ -1,12 +1,18 @@
 import os
+from pathlib import Path
 from unittest import TestCase
 
 import pytest
 
 from mentat.app import expand_paths
-from mentat.code_context import CodeContext
+from mentat.code_context import (CodeContext, 
+                                 _longer_feature_already_included, 
+                                 _shorter_features_already_included)
+from mentat.code_file import CodeMessageLevel
+from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
 from mentat.errors import UserError
+from mentat.llm_api import count_tokens
 
 
 def test_path_gitignoring(temp_testbed, mock_config):
@@ -27,7 +33,7 @@ def test_path_gitignoring(temp_testbed, mock_config):
             file.write("I am a file")
 
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
-    paths = [testing_dir_path, ignored_file_path_2]
+    paths = [Path(testing_dir_path), Path(ignored_file_path_2)]
     code_context = CodeContext(config=mock_config, paths=paths, exclude_paths=[])
 
     expected_file_paths = [
@@ -36,7 +42,7 @@ def test_path_gitignoring(temp_testbed, mock_config):
     ]
 
     case = TestCase()
-    file_paths = [str(file_path.resolve()) for file_path in code_context.files]
+    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     case.assertListEqual(sorted(expected_file_paths), sorted(file_paths))
 
 
@@ -68,7 +74,7 @@ def test_config_glob_exclude(mocker, temp_testbed, mock_config):
         paths=[".", directly_added_glob_excluded_path],
         exclude_paths=[],
     )
-    file_paths = [str(file_path.resolve()) for file_path in code_context.files]
+    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
     assert os.path.join(temp_testbed, glob_include_path) in file_paths
     assert os.path.join(temp_testbed, directly_added_glob_excluded_path) in file_paths
@@ -96,7 +102,7 @@ def test_glob_include(temp_testbed, mock_config):
         paths=file_paths,
         exclude_paths=[],
     )
-    file_paths = [str(file_path.resolve()) for file_path in code_context.files]
+    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
     assert os.path.join(temp_testbed, glob_include_path) in file_paths
     assert os.path.join(temp_testbed, glob_include_path2) in file_paths
@@ -124,7 +130,7 @@ def test_cli_glob_exclude(temp_testbed, mock_config):
         exclude_paths=exclude_paths,
     )
 
-    file_paths = [file_path for file_path in code_context.files]
+    file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_include_then_exclude_path) not in file_paths
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
 
@@ -142,7 +148,7 @@ def test_text_encoding_checking(temp_testbed, mock_config):
         paths=paths,
         exclude_paths=[],
     )
-    file_paths = [file_path for file_path in code_context.files]
+    file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, nontext_path) not in file_paths
 
     with pytest.raises(UserError) as e_info:
@@ -158,3 +164,122 @@ def test_text_encoding_checking(temp_testbed, mock_config):
             exclude_paths=[],
         )
     assert e_info.type == UserError
+
+
+@pytest.fixture
+def features(mocker):
+    features_meta = [
+        ('somefile.txt', CodeMessageLevel.CODE, 'some diff'),
+        ('somefile.txt', CodeMessageLevel.CMAP_FULL, 'some diff'),
+        ('somefile.txt', CodeMessageLevel.CMAP_FULL, None),
+        ('somefile.txt', CodeMessageLevel.CMAP, None),
+        ('differentfile.txt', CodeMessageLevel.CODE, 'some diff'),
+    ]
+    features = []
+    for file, level, diff in features_meta:
+        feature = mocker.MagicMock()
+        feature.path = Path(file)
+        feature.level = level
+        feature.diff = diff
+        features.append(feature)
+    return features
+
+
+def test_longer_feature_already_included(features):
+    higher_level = _longer_feature_already_included(
+        features[1], [features[0]]
+    )
+    assert higher_level == True
+    lower_diff = _longer_feature_already_included(
+        features[1], [features[2]]
+    )
+    assert lower_diff == False
+    higher_diff = _longer_feature_already_included(
+        features[2], [features[1]]
+    )
+    assert higher_diff == True
+
+def test_shorter_features_already_included(features):
+    lower_level = _shorter_features_already_included(
+        features[1], [features[0]] + features[2:]
+    )
+    assert set(lower_level) == set(features[2:4])
+
+
+def test_get_code_message_cache(mocker, temp_testbed, mock_config):
+    code_file_manager = CodeFileManager(mock_config)
+    code_context = CodeContext(
+        config=mock_config,
+        paths=['multifile_calculator'],
+        exclude_paths=['multifile_calculator/calculator.py'], 
+        max_tokens=10,
+    )
+    file = Path("multifile_calculator/operations.py")
+    feature = mocker.MagicMock()
+    feature.path = file
+    code_context.features = [feature]
+    
+    # Return cached value if no changes to file or settings
+    mock_get_code_message = mocker.patch(
+        "mentat.code_context.CodeContext._get_code_message"
+    )
+    mock_get_code_message.return_value = "test1"
+    value1 = code_context.get_code_message('gpt-4', code_file_manager)
+    mock_get_code_message.return_value = "test2"
+    value2 = code_context.get_code_message('gpt-4', code_file_manager)
+    assert value1 == value2
+
+    # Regenerate if settings change
+    code_context.settings.max_tokens = 11
+    value3 = code_context.get_code_message('gpt-4', code_file_manager)
+    assert value1 != value3
+    
+    # Regenerate if feature files change
+    mock_get_code_message.return_value = "test3"
+    lines = file.read_text().splitlines()
+    lines[0] = "something different"
+    file.write_text("\n".join(lines))
+    value4 = code_context.get_code_message('gpt-4', code_file_manager)
+    assert value3 != value4
+
+
+def test_get_code_message_include(temp_testbed, mock_config):
+    code_file_manager = CodeFileManager(mock_config)
+    code_context = CodeContext(
+        config=mock_config,
+        paths=['multifile_calculator'],
+        exclude_paths=['multifile_calculator/calculator.py'], 
+    )
+
+    # If max tokens is less than include_files, return include_files without
+    # raising and Exception (that's handled elsewhere)
+    code_context.settings.max_tokens = 10
+    code_message = code_context.get_code_message('gpt-4', code_file_manager)
+    expected = [
+        'Code Files:',
+        '',
+        'multifile_calculator/__init__.py',
+        '',
+        'multifile_calculator/operations.py',
+        *[f"{i+1}:{line}" for i, line in enumerate(
+            Path('multifile_calculator/operations.py').read_text().splitlines()
+        )],
+    ]
+    assert code_message.splitlines() == expected
+
+    # Fill-in complete files if there's enough room
+    code_context.settings.max_tokens = 1000 * .99 # Sometimes it's imprecise
+    code_message = code_context.get_code_message('gpt-4', code_file_manager)
+    assert 500 <= count_tokens(code_message, 'gpt-4') <= 1000
+    messages = code_message.split("\n\n")
+    assert messages[0] == 'Code Files:'
+    for message in messages[1:]:
+        message_lines = message.splitlines()
+        if message_lines:
+            assert Path(message_lines[0]).exists()
+
+    # Otherwise, fill-in what fits
+    code_context.settings.max_tokens = 400
+    code_message = code_context.get_code_message('gpt-4', code_file_manager)
+    print(code_message)
+    assert count_tokens(code_message, 'gpt-4') <= 800

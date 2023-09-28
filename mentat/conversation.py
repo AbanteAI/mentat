@@ -56,10 +56,6 @@ class Conversation:
                     color="yellow",
                 )
 
-        tokens = count_tokens(
-            code_context.get_code_message(self.model, self.code_file_manager),
-            self.model,
-        ) + count_tokens(prompt, self.model)
         context_size = model_context_size(self.model)
         maximum_context = config.maximum_context()
         if maximum_context:
@@ -67,6 +63,17 @@ class Conversation:
                 context_size = min(context_size, maximum_context)
             else:
                 context_size = maximum_context
+
+        prompt_tokens = count_tokens(prompt, self.model)
+        response_buffer = 1000
+        if context_size is not None:
+            context_buffer = context_size - prompt_tokens - response_buffer
+            self.code_context.settings.max_tokens = context_buffer
+        else:
+            self.code_context.settings.max_tokens -= prompt_tokens
+        code_message = code_context.get_code_message(self.model, self.code_file_manager)
+        context_tokens = count_tokens(code_message, self.model)
+        tokens = prompt_tokens + context_tokens
 
         if not context_size:
             raise KeyboardInterrupt(
@@ -79,7 +86,7 @@ class Conversation:
                 f" {context_size}). Please try running again with a reduced"
                 " number of files."
             )
-        elif tokens + 1000 > context_size:
+        elif tokens + response_buffer > context_size:
             cprint(
                 f"Warning: Included files are close to token limit ({tokens} /"
                 f" {context_size}), you may not be able to have a long"
@@ -126,8 +133,7 @@ class Conversation:
         except InvalidRequestError as e:
             raise MentatError(
                 "Something went wrong - invalid request to OpenAI API. OpenAI"
-                " returned:\n"
-                + str(e)
+                " returned:\n" + str(e)
             )
         except RateLimitError as e:
             raise UserError("OpenAI gave a rate limit error:\n" + str(e))
