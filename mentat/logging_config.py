@@ -1,13 +1,8 @@
 import datetime
 import logging
 import logging.handlers
-<<<<<<< HEAD
-import os
-from typing import Iterable
-=======
 
 from mentat.llm_api import is_test_environment
->>>>>>> main
 
 from .config_manager import mentat_dir_path
 
@@ -49,8 +44,6 @@ def setup_logging():
     costs_logger.propagate = False
 
     handlers = [console_handler, file_handler, file_handler_latest]
-    # if extra_handlers:
-    #     handlers.extend(extra_handlers)
 
     logging.basicConfig(
         level=logging.DEBUG,
