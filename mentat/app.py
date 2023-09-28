@@ -8,6 +8,8 @@ from termcolor import cprint
 
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.file_edit import FileEdit
+from mentat.parsers.parser import Parser
+from mentat.parsers.replacement_parser import ReplacementParser
 
 from .code_context import CodeContext
 from .code_file import parse_intervals
@@ -132,6 +134,12 @@ def run(
         cost_tracker.display_total_cost()
 
 
+parser_map: dict[str, Parser] = {
+    "block": BlockParser(),
+    "replacement": ReplacementParser(),
+}
+
+
 def loop(
     paths: list[Path],
     exclude_paths: Optional[list[Path]],
@@ -141,9 +149,8 @@ def loop(
     pr_diff: Optional[str],
 ) -> None:
     git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
-    # The parser can be selected here
-    parser = BlockParser()
     config = ConfigManager(git_root)
+    parser = parser_map[config.parser()]
     code_file_manager = CodeFileManager(config)
     code_context = CodeContext(
         config, paths, exclude_paths or [], diff, pr_diff, no_code_map

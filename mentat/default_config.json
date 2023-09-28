@@ -15,5 +15,6 @@
             "#ffffff bold"
         ]
     ],
-    "file-exclude-glob-list": []
+    "file-exclude-glob-list": [],
+    "format": "block"
 }

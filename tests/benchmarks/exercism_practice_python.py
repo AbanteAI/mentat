@@ -1,11 +1,13 @@
-import concurrent.futures
 import os
 import subprocess
 import sys
 import threading
+from multiprocessing import Pool
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
+import tqdm
 from git import Repo
 
 from mentat.app import run
@@ -52,7 +54,7 @@ def mock_user_input_manager(max_iterations, mocker):
             threadLocal.confirm = True
             return dedent(
                 f"""\
-                Use the instructions in {threadLocal.exercise}/.docs/instructions.md to modify \
+                Use the instructions in {threadLocal.exercise}/.docs to modify \
                 {threadLocal.exercise_file}. Keep and implement the existing function or class stubs, they will be \
                 called from unit tests. Only use standard python libraries, don't suggest installing any packages."""
             )
@@ -132,10 +134,11 @@ def run_exercise(problem_dir):
 
         threadLocal.iterations = 0
         run(
-            [
-                threadLocal.exercise_file,
-                f"{threadLocal.exercise}/.docs/instructions.md",
+            paths=[
+                Path(threadLocal.exercise_file),
+                Path(f"{threadLocal.exercise}/.docs"),
             ],
+            exclude_paths=[Path(f"{threadLocal.exercise}/.docs/hints.md")],
             no_code_map=True,
         )
         passed = exercise_passed()
@@ -169,8 +172,12 @@ def test_practice_directory_performance(
     print(f"Running {num_exercises} exercises")
     sys.stdout = open("mentat_output.txt", "w")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(run_exercise, exercises))
+    with Pool(processes=max_workers) as pool:
+        results = []
+        for result in tqdm.tqdm(
+            pool.imap_unordered(run_exercise, exercises), total=len(exercises)
+        ):
+            results.append(result)
         first_iteration = len(
             [
                 result

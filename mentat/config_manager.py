@@ -72,6 +72,9 @@ class ConfigManager:
     def file_exclude_glob_list(self) -> list[str]:
         return cast(list[str], self._get_key("file-exclude-glob-list"))
 
+    def parser(self) -> str:
+        return cast(str, self._get_key("format"))
+
     def _get_key(self, key: str) -> Any:
         if key in self.project_config:
             return self.project_config[key]

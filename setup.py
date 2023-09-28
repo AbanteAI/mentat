@@ -20,7 +20,7 @@ setup(
     packages=find_packages(),
     install_requires=read_requirements("requirements.txt"),
     package_data={
-        "mentat": ["default_config.json"],
+        "mentat": ["default_config.json", "prompts/*.txt"],
     },
     entry_points={
         "console_scripts": [

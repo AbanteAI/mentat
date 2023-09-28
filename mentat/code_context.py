@@ -280,7 +280,7 @@ class CodeContext:
 
                 cprint_message = f"\nIncluding CodeMap ({cprint_message_level})"
                 cprint(cprint_message, color="green")
-                code_message += f"\n{code_map_message}"
+                code_message += [f"\n{code_map_message.content}"]
             else:
                 cprint_message = [
                     "\nExcluding CodeMap from system message.",
