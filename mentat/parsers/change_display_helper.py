@@ -165,7 +165,9 @@ def get_removed_lines(
 def get_previous_lines(
     display_information: DisplayInformation,
     num: int = 2,
-):
+) -> str:
+    if display_information.first_changed_line < 0:
+        return ""
     lines = _remove_extra_empty_lines(
         [
             display_information.file_lines[i]
@@ -195,7 +197,9 @@ def get_previous_lines(
 def get_later_lines(
     display_information: DisplayInformation,
     num: int = 2,
-):
+) -> str:
+    if display_information.last_changed_line < 0:
+        return ""
     lines = _remove_extra_empty_lines(
         [
             display_information.file_lines[i]

@@ -98,15 +98,17 @@ class Parser(ABC):
                             to_print = (
                                 cur_line
                                 if not in_code_lines or display_information is None
-                                else self._code_line_beginning(display_information)
-                                + self._code_line_content(cur_line)
+                                else self._code_line_beginning(
+                                    display_information, cur_block
+                                )
+                                + self._code_line_content(cur_line, cur_block)
                             )
                             printer.add_string(to_print, end="")
                     else:
                         to_print = (
                             content
                             if not in_code_lines
-                            else self._code_line_content(content)
+                            else self._code_line_content(content, cur_block)
                         )
                         printer.add_string(to_print, end="")
 
@@ -117,6 +119,19 @@ class Parser(ABC):
 
                 # New line handling
                 if "\n" in cur_line:
+                    # Always print whitespace lines (even though they 'match' could_be_special)
+                    if not cur_line.strip() and not line_printed:
+                        to_print = (
+                            cur_line
+                            if not in_code_lines or display_information is None
+                            else self._code_line_beginning(
+                                display_information, cur_block
+                            )
+                            + self._code_line_content(cur_line, cur_block)
+                        )
+                        printer.add_string(to_print, end="")
+                        line_printed = True
+
                     if self._starts_special(cur_line.strip()):
                         in_special_lines = True
 
@@ -208,11 +223,19 @@ class Parser(ABC):
                     elif in_code_lines and self._ends_code(cur_line.strip()):
                         # Adding code lines to previous file_edit and printing later lines
                         if display_information is not None and file_edit is not None:
-                            self._add_code_block(
-                                prev_block, cur_block, display_information, file_edit
+                            to_display = self._add_code_block(
+                                code_file_manager,
+                                rename_map,
+                                prev_block,
+                                cur_block,
+                                display_information,
+                                file_edit,
                             )
                             printer.add_string(get_later_lines(display_information))
-                        printer.add_string(change_delimiter)
+                            printer.add_string(change_delimiter)
+                            printer.add_string(to_display)
+                        else:
+                            printer.add_string(change_delimiter)
 
                         in_code_lines = False
                         prev_block = cur_block
@@ -226,11 +249,17 @@ class Parser(ABC):
                 and display_information is not None
                 and file_edit is not None
             ):
-                self._add_code_block(
-                    prev_block, cur_block, display_information, file_edit
+                to_display = self._add_code_block(
+                    code_file_manager,
+                    rename_map,
+                    prev_block,
+                    cur_block,
+                    display_information,
+                    file_edit,
                 )
                 printer.add_string(get_later_lines(display_information))
                 printer.add_string(change_delimiter)
+                printer.add_string(to_display)
 
             # Only finish printing if we don't quit from ctrl-c
             printer.wrap_it_up()
@@ -253,8 +282,13 @@ class Parser(ABC):
         )
         return code_file_manager.file_lines.get(path, [])
 
-    # These 2 methods aren't abstract, since most parsers will use this implementation, but can be overriden easily
-    def _code_line_beginning(self, display_information: DisplayInformation) -> str:
+    # These methods aren't abstract, since most parsers will use this implementation, but can be overriden easily
+    def provide_line_numbers(self) -> bool:
+        return True
+
+    def _code_line_beginning(
+        self, display_information: DisplayInformation, cur_block: str
+    ) -> str:
         """
         The beginning of a code line; normally this means printing the + prefix
         """
@@ -262,7 +296,7 @@ class Parser(ABC):
             "+" + " " * (display_information.line_number_buffer - 1), color="green"
         )
 
-    def _code_line_content(self, content: str) -> str:
+    def _code_line_content(self, content: str, cur_block: str) -> str:
         """
         Part of a code line; normally this means printing in green
         """
@@ -313,12 +347,15 @@ class Parser(ABC):
     @abstractmethod
     def _add_code_block(
         self,
+        code_file_manager: CodeFileManager,
+        rename_map: dict[Path, Path],
         special_block: str,
         code_block: str,
         display_information: DisplayInformation,
         file_edit: FileEdit,
-    ):
+    ) -> str:
         """
-        Using the special block, code block and display_information, edits the FileEdit to add the new code block
+        Using the special block, code block and display_information, edits the FileEdit to add the new code block.
+        Can return a message to print after this change is finished.
         """
         pass
