@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import DefaultDict, Dict, Set, cast
+from typing import Callable, DefaultDict, Dict, Set, cast
 
 from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.completion.word_completer import WordCompleter
@@ -57,7 +57,7 @@ class MentatCompleter(Completer):
         self.file_name_completions[file_path.name].add(file_path)
 
         tokens = list(lexer.get_tokens(file_content))
-        filtered_tokens = set()
+        filtered_tokens = set[str]()
         for token_type, token_value in tokens:
             if token_type not in Token.Name:
                 continue
@@ -88,14 +88,16 @@ class MentatCompleter(Completer):
                     self.refresh_completions_for_file_path(file_path)
 
         # Build de-duped syntax completions
-        _all_syntax_words = set()
+        _all_syntax_words = set[str]()
         for syntax_completion in self.syntax_completions.values():
             _all_syntax_words.update(syntax_completion.words)
         self._all_syntax_words = _all_syntax_words
 
         self._last_refresh_at = datetime.utcnow()
 
-    def get_completions(self, document: Document, complete_event: CompleteEvent):
+    def get_completions(  # pyright: ignore
+        self, document: Document, complete_event: CompleteEvent
+    ):
         raise NotImplementedError
 
     async def get_completions_async(
@@ -125,10 +127,10 @@ class MentatCompleter(Completer):
             return
 
         last_word = document_words[-1]
-        get_completion_insert = lambda word: f"`{word}`"
+        get_completion_insert: Callable[[str], str] = lambda word: f"`{word}`"
         if last_word[0] == "`" and len(last_word) > 1:
             last_word = last_word.lstrip("`")
-            get_completion_insert = lambda word: f"{word}`"
+            get_completion_insert: Callable[[str], str] = lambda word: f"{word}`"
 
         completions = self._all_syntax_words.union(set(self.file_name_completions))
 
@@ -138,7 +140,7 @@ class MentatCompleter(Completer):
                 if file_names:
                     for file_name in file_names:
                         yield Completion(
-                            get_completion_insert(file_name),
+                            get_completion_insert(str(file_name)),
                             start_position=-len(last_word),
                             display=str(file_name),
                         )

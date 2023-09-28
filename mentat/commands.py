@@ -1,33 +1,47 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
+from mentat.session_stream import get_session_stream
+
+from .code_context import CodeContext
+from .code_file import CodeFile
 from .errors import MentatError
 from .git_handler import commit
-from .session_stream import get_session_stream
 
 
 class Command(ABC):
-    _registered_commands = {}
+    # Unfortunately, Command isn't defined here yet, so even with annotations we need quotation marks
+    _registered_commands = dict[str, type["Command"]]()
 
     def __init_subclass__(cls, command_name: str | None) -> None:
         if command_name is not None:
             Command._registered_commands[command_name] = cls
 
     @classmethod
-    def create_command(cls, command_name: str) -> Command:
+    def create_command(
+        cls, command_name: str, code_context: Optional[CodeContext] = None
+    ) -> Command:
         if command_name not in cls._registered_commands:
             return InvalidCommand(command_name)
+
+        command_cls = cls._registered_commands[command_name]
+        if command_cls in [AddCommand, RemoveCommand]:
+            if code_context is None:
+                raise MentatError(
+                    f"Code context must be provided for {command_cls.__name__}"
+                )
+            return command_cls(code_context)
         else:
-            return cls._registered_commands[command_name]()
+            return command_cls()
 
     @classmethod
     def get_command_completions(cls) -> List[str]:
         return list(map(lambda name: "/" + name, cls._registered_commands))
 
     @abstractmethod
-    def apply(self, *args: str) -> None:
+    async def apply(self, *args: str) -> None:
         pass
 
     # TODO: make more robust way to specify arguments for commands
@@ -43,11 +57,11 @@ class Command(ABC):
 
 
 class InvalidCommand(Command, command_name=None):
-    def __init__(self, invalid_name):
+    def __init__(self, invalid_name: str):
         self.invalid_name = invalid_name
 
-    def apply(self, *args: str) -> None:
-        get_session_stream().send_nowait(
+    async def apply(self, *args: str) -> None:
+        await get_session_stream().send(
             f"{self.invalid_name} is not a valid command. Use /help to see a list of"
             " all valid commands",
             color="light_yellow",
@@ -66,7 +80,7 @@ help_message_width = 60
 
 
 class HelpCommand(Command, command_name="help"):
-    def apply(self, *args: str) -> None:
+    async def apply(self, *args: str) -> None:
         stream = get_session_stream()
 
         if not args:
@@ -75,20 +89,20 @@ class HelpCommand(Command, command_name="help"):
             commands = args
         for command_name in commands:
             if command_name not in Command._registered_commands:
-                stream.send_nowait(
+                await stream.send(
                     f"Error: Command {command_name} does not exist.", color="red"
                 )
             else:
                 command_class = Command._registered_commands[command_name]
                 argument_names = command_class.argument_names()
                 help_message = command_class.help_message()
-                message_content = (
+                message = (
                     " ".join(
                         [f"/{command_name}"] + [f"<{arg}>" for arg in argument_names]
                     ).ljust(help_message_width)
                     + help_message
                 )
-                stream.send_nowait(message_content)
+                await stream.send(message)
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -102,7 +116,7 @@ class HelpCommand(Command, command_name="help"):
 class CommitCommand(Command, command_name="commit"):
     default_message = "Automatic commit"
 
-    def apply(self, *args: str) -> None:
+    async def apply(self, *args: str) -> None:
         if args:
             commit(args[0])
         else:
@@ -115,3 +129,48 @@ class CommitCommand(Command, command_name="commit"):
     @classmethod
     def help_message(cls) -> str:
         return "Commits all of your unstaged and staged changes to git"
+
+
+class AddCommand(Command, command_name="add"):
+    def __init__(self, code_context: CodeContext):
+        self.code_context = code_context
+
+    async def apply(self, *args: str) -> None:
+        stream = get_session_stream()
+
+        if len(args) == 0:
+            await stream.send("No files specified", color="yellow")
+            return
+        for file_path in args:
+            code_file = CodeFile(file_path)
+            await self.code_context.add_file(code_file)
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return ["file1", "file2", "..."]
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Add files to the code context"
+
+
+class RemoveCommand(Command, command_name="remove"):
+    def __init__(self, code_context: CodeContext):
+        self.code_context = code_context
+
+    async def apply(self, *args: str) -> None:
+        stream = get_session_stream()
+        if len(args) == 0:
+            await stream.send("No files specified", color="yellow")
+            return
+        for file_path in args:
+            code_file = CodeFile(file_path)
+            await self.code_context.remove_file(code_file)
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return ["file1", "file2", "..."]
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Remove files from the code context"

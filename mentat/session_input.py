@@ -1,8 +1,6 @@
 import asyncio
 import logging
-from typing import Coroutine
-
-from ipdb import set_trace
+from typing import Any, Coroutine
 
 from .errors import RemoteKeyboardInterrupt
 from .session_stream import StreamMessage, get_session_stream
@@ -18,10 +16,6 @@ async def collect_user_input() -> StreamMessage:
     close the channel after receiving the input
     """
     stream = get_session_stream()
-
-    # data = {"type": "collect_user_input"}
-    # message = await stream.send(data)
-    # response = await stream.recv(f"default:{message.id}")
 
     message = await stream.send("", channel="input_request")
     response = await stream.recv(f"input_request:{message.id}")
@@ -43,9 +37,14 @@ async def ask_yes_no(default_yes: bool) -> bool:
 
 
 async def listen_for_interrupt(
-    coro: Coroutine, raise_exception_on_interrupt: bool = True
+    coro: Coroutine[None, None, Any], raise_exception_on_interrupt: bool = True
 ):
-    """
+    """Listens for an 'interrupt' message from a client
+
+    This function is used to cancel long-running coroutines from a remote client. If a
+    message is received on the "interrupt" channel for the current session stream, the
+    asyncio.Task created from `coro` will be canceled.
+
     TODO:
     - handle exceptions raised by either task
     - make sure task cancellation actually cancels the tasks
@@ -72,7 +71,7 @@ async def listen_for_interrupt(
             except asyncio.CancelledError:
                 pass
             except Exception as e:
-                set_trace()
+                # TODO: should we be capturing exceptions here?
                 raise e
 
         if wrapped_task in done:

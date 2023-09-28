@@ -5,19 +5,19 @@ from pathlib import Path
 class Interval:
     def __init__(
         self,
-        start: int,
-        end: int,
+        start: int | float,
+        end: int | float,
     ):
         self.start = start
         self.end = end
 
-    def contains(self, k):
-        return self.start <= k <= self.end
+    def contains(self, line_number: int):
+        return self.start <= line_number <= self.end
 
 
-def parse_intervals(interval_string: str) -> list[Interval] | None:
+def parse_intervals(interval_string: str) -> list[Interval]:
     try:
-        intervals = []
+        intervals = list[Interval]()
         for interval in interval_string.split(","):
             interval = interval.split("-", 1)
             if len(interval) == 1:
@@ -26,7 +26,7 @@ def parse_intervals(interval_string: str) -> list[Interval] | None:
                 intervals += [Interval(int(interval[0]), int(interval[1]))]
         return intervals
     except (ValueError, IndexError):
-        return None
+        return []
 
 
 class CodeFile:
@@ -36,7 +36,7 @@ class CodeFile:
     such as "path/to/file.py:1-5,7,12-40".
 
     Attributes:
-        path: The path to the file.
+        path: The absolute path to the file.
         intervals: The lines in context.
     """
 

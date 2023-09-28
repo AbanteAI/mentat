@@ -3,20 +3,17 @@ import asyncio
 import logging
 import signal
 import traceback
-from typing import Coroutine, List, Set
+from pathlib import Path
+from typing import Any, Coroutine, List, Set
 
 from ipdb import set_trace
 from prompt_toolkit.completion import Completer
 
-from mentat.logging_config import setup_logging
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.output import cprint_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
-
-# Move this to the cli file?
-setup_logging()
 
 logger = logging.getLogger("mentat.terminal")
 logger.setLevel(logging.DEBUG)
@@ -25,25 +22,29 @@ logger.setLevel(logging.DEBUG)
 class TerminalClient:
     def __init__(
         self,
-        paths: List[str] = [],
-        exclude_paths: List[str] = [],
+        paths: List[Path] = [],
+        exclude_paths: List[Path] = [],
         no_code_map: bool = False,
+        diff: str | None = None,
+        pr_diff: str | None = None,
     ):
         self.paths = paths
         self.exclude_paths = exclude_paths
         self.no_code_map = no_code_map
+        self.diff = diff
+        self.pr_diff = pr_diff
 
-        self.session = Session(self.paths, self.exclude_paths, self.no_code_map)
+        self.session: Session | None = None
 
-        self._tasks: Set[asyncio.Task] = set()
+        self._tasks: Set[asyncio.Task[None]] = set()
         self._prompt_session = MentatPromptSession(message=[("class:prompt", ">>> ")])
         self._should_exit = False
         self._force_exit = False
 
-    def _create_task(self, coro: Coroutine):
+    def _create_task(self, coro: Coroutine[None, None, Any]):
         """Utility method for running a Task in the background"""
 
-        def task_cleanup(task: asyncio.Task):
+        def task_cleanup(task: asyncio.Task[None]):
             self._tasks.remove(task)
 
         task = asyncio.create_task(coro)
@@ -53,14 +54,16 @@ class TerminalClient:
         return task
 
     async def _cprint_session_stream(self):
+        assert isinstance(self.session, Session), "TerminalClient is not running"
         async for message in self.session.stream.listen():
             cprint_stream_message(message)
 
     async def _handle_input_requests(self, prompt_completer: Completer | None = None):
+        assert isinstance(self.session, Session), "TerminalClient is not running"
         while True:
             input_request_message = await self.session.stream.recv("input_request")
 
-            user_input = await self._prompt_session.prompt_async(
+            user_input: str = await self._prompt_session.prompt_async(
                 handle_sigint=False, completer=prompt_completer
             )
             if user_input == "q":
@@ -74,11 +77,13 @@ class TerminalClient:
             )
 
     async def _send_session_stream_interrupt(self):
+        assert isinstance(self.session, Session), "TerminalClient is not running"
         await self.session.stream.send(
             "", source=StreamMessageSource.CLIENT, channel="interrupt"
         )
 
     def _handle_exit(self):
+        assert isinstance(self.session, Session), "TerminalClient is not running"
         if (
             self.session.is_stopped
             or self.session.stream.interrupt_lock.locked() is False
@@ -100,7 +105,13 @@ class TerminalClient:
         loop.add_signal_handler(signal.SIGTERM, self._handle_exit)
 
     async def _startup(self):
+        assert self.session == None, "TerminalClient already running"
+
         logger.debug("Running startup")
+
+        self.session = await Session.create(
+            self.paths, self.exclude_paths, self.no_code_map, self.diff, self.pr_diff
+        )
         self.session.start()
 
         mentat_completer = MentatCompleter(self.session)
@@ -112,6 +123,8 @@ class TerminalClient:
         logger.debug("Completed startup")
 
     async def _shutdown(self):
+        assert isinstance(self.session, Session), "TerminalClient is not running"
+
         logger.debug("Running shutdown")
 
         # Stop all background tasks
@@ -127,10 +140,12 @@ class TerminalClient:
         self.session.stop()
         while not self._force_exit and not self.session.is_stopped:
             await asyncio.sleep(0.1)
+        self.session = None
 
         logger.debug("Completed shutdown")
 
     async def _main(self):
+        assert isinstance(self.session, Session), "TerminalClient is not running"
         logger.debug("Running main loop")
 
         counter = 0
@@ -177,10 +192,26 @@ def run_cli():
         action="store_true",
         help="Exclude the file structure/syntax map from the system prompt",
     )
+    parser.add_argument(
+        "--diff",
+        "-d",
+        type=str,
+        default=None,
+        help="A git tree-ish (e.g. commit, branch, tag) to diff against",
+    )
+    parser.add_argument(
+        "--pr-diff",
+        "-p",
+        type=str,
+        default=None,
+        help="A git tree-ish to diff against the latest common ancestor of",
+    )
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
     no_code_map = args.no_code_map
+    diff = args.diff
+    pr_diff = args.pr_diff
 
-    terminal_client = TerminalClient(paths, exclude_paths, no_code_map)
+    terminal_client = TerminalClient(paths, exclude_paths, no_code_map, diff, pr_diff)
     terminal_client.run()

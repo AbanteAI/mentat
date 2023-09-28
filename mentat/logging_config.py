@@ -1,16 +1,21 @@
 import datetime
 import logging
 import logging.handlers
+<<<<<<< HEAD
 import os
 from typing import Iterable
+=======
+
+from mentat.llm_api import is_test_environment
+>>>>>>> main
 
 from .config_manager import mentat_dir_path
 
 
 def setup_logging():
     logs_dir = "logs"
-    if "PYTEST_CURRENT_TEST" in os.environ:
-        logs_dir += "/test_logs"
+    if is_test_environment():
+        return
     logs_path = mentat_dir_path / logs_dir
 
     logging.getLogger("openai").setLevel(logging.WARNING)

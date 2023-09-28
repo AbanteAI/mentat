@@ -6,8 +6,8 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from textwrap import dedent
 from typing import Any, Literal
-
 
 from .config_manager import ConfigManager
 from .git_handler import get_non_gitignored_files
@@ -143,7 +143,21 @@ class CodeMap:
         self.ctags_disabled = True
         self.ctags_disabled_reason = ""
 
-    async def check_ctags_executable(self):
+    @classmethod
+    async def create(cls, config: ConfigManager, token_limit: int | None = None):
+        self = cls(config, token_limit)
+        await self._check_ctags_executable()
+        if self.ctags_disabled:
+            ctags_disabled_message = f"""
+                There was an error with your universal ctags installation, disabling CodeMap.
+                Reason: {self.ctags_disabled_reason}
+            """
+            ctags_disabled_message = dedent(ctags_disabled_message)
+            await get_session_stream().send(ctags_disabled_message, color="yellow")
+
+        return self
+
+    async def _check_ctags_executable(self):
         try:
             cmd = ["ctags", "--version"]
             output = subprocess.check_output(cmd, stderr=subprocess.PIPE).decode(

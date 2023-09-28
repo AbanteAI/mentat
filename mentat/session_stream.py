@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-import logging
 from typing import Any, AsyncGenerator, Dict, List, cast
 from uuid import UUID, uuid4
 
@@ -14,6 +14,14 @@ from .broadcast import Broadcast
 logger = logging.getLogger()
 
 _SESSION_STREAM: ContextVar[SessionStream] = ContextVar("mentat:session_stream")
+
+
+def get_session_stream():
+    return _SESSION_STREAM.get()
+
+
+def set_session_stream(session_stream: SessionStream):
+    _SESSION_STREAM.set(session_stream)
 
 
 class StreamMessageSource(Enum):
@@ -29,10 +37,6 @@ class StreamMessage:
     data: Any
     extra: Dict[str, Any] | None
     created_at: datetime
-
-
-def get_session_stream():
-    return _SESSION_STREAM.get()
 
 
 class SessionStream:
@@ -70,41 +74,11 @@ class SessionStream:
             created_at=datetime.utcnow(),
             extra=kwargs,
         )
-        
+
         logger.info(message)
 
         self.messages.append(message)
         await self._broadcast.publish(channel=channel, message=message)
-
-        return message
-
-    def send_nowait(
-        self,
-        data: Any,
-        source: StreamMessageSource = StreamMessageSource.SERVER,
-        channel: str = "default",
-        **kwargs: Any,
-    ):
-        """Send a message to the underlying message queue.
-
-        This method should be used only when it's inconvienent to await `send` (such as
-        needing to send messages in an __init__ call).
-
-        There is currently no max queue size, so `send_nowait` will never throw a
-        `QueueFull` exception. Awaiting `send` allows the asyncio loop to get more
-        cycles, potentially giving messages a more "real-time" feel (though probably)
-        unnoticable.
-        """
-        message = StreamMessage(
-            id=uuid4(),
-            source=source,
-            channel=channel,
-            data=data,
-            created_at=datetime.utcnow(),
-            extra=kwargs,
-        )
-        self.messages.append(message)
-        self._broadcast.publish_nowait(channel=channel, message=message)
 
         return message
 

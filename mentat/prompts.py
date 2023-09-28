@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-system_prompt = """
+block_parser_prompt = """
     You are part of an automated coding system. As such, responses must adhere strictly
     to the required format, so they can be parsed programmaticaly. Your input will
     consist of a user request, the contents of code files, and sometimes the git diff of
@@ -206,4 +206,4 @@ system_prompt = """
         say_goodbye()
     @@end
 """
-system_prompt = dedent(system_prompt).strip()
+block_parser_prompt = dedent(block_parser_prompt).strip()

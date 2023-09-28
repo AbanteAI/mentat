@@ -1,30 +1,35 @@
+# This file is mainly kept as legacy so that we don't have to rewrite this code
+
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
+from asyncio import Event
 from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
-from timeit import default_timer
-from typing import Generator
+from typing import Any, AsyncGenerator
 
 import attr
-import openai
-import openai.error
 from ipdb import set_trace
 
-from .code_change import CodeChange, CodeChangeAction
-from .code_change_display import (
+from mentat.code_file_manager import CodeFileManager
+from mentat.config_manager import ConfigManager
+from mentat.errors import ModelError
+from mentat.parsers.change_display_helper import (
     change_delimiter,
-    print_file_name,
-    print_later_lines,
-    print_previous_lines,
-    print_removed_block,
+    get_file_name,
+    get_later_lines,
+    get_line_number_buffer,
+    get_previous_lines,
+    get_removed_lines,
 )
-from .code_file_manager import CodeFileManager
-from .errors import MentatError, ModelError, RemoteKeyboardInterrupt, UserError
-from .llm_api import call_llm_api
-from .session_input import listen_for_interrupt
-from .session_stream import get_session_stream
+from mentat.parsers.file_edit import FileEdit
+from mentat.session_input import listen_for_interrupt
+from mentat.session_stream import get_session_stream
+
+from .original_format_change import OriginalFormatChange, OriginalFormatChangeAction
 
 
 class _BlockIndicator(Enum):
@@ -33,22 +38,22 @@ class _BlockIndicator(Enum):
     End = "@@end"
 
 
-@attr.s
+@attr.define
 class ParsingState:
-    message: str = attr.ib(default="")
-    cur_line: str = attr.ib(default="")
-    cur_printed: bool = attr.ib(default=False)
-    time_elapsed: float = attr.ib(default=0)
-    in_special_lines: bool = attr.ib(default=False)
-    in_code_lines: bool = attr.ib(default=False)
-    explanation: str = attr.ib(default="")
-    explained_since_change: bool = attr.ib(default=True)
-    code_changes: list[CodeChange] = attr.ib(factory=list)
-    json_lines: list[str] = attr.ib(factory=list)
-    code_lines: list[str] = attr.ib(factory=list)
-    rename_map: dict[Path, Path] = attr.ib(factory=dict)
+    message: str = attr.field(default="")
+    cur_line: str = attr.field(default="")
+    cur_printed: bool = attr.field(default=False)
+    time_elapsed: float = attr.field(default=0)
+    in_special_lines: bool = attr.field(default=False)
+    in_code_lines: bool = attr.field(default=False)
+    explanation: str = attr.field(default="")
+    explained_since_change: bool = attr.field(default=True)
+    code_changes: list[OriginalFormatChange] = attr.field(factory=list)
+    json_lines: list[str] = attr.field(factory=list)
+    code_lines: list[str] = attr.field(factory=list)
+    rename_map: dict[Path, Path] = attr.field(factory=dict)
 
-    def parse_line_printing(self, content):
+    def parse_line_printing(self, content: str):
         to_print = ""
         if self.cur_printed:
             to_print = content
@@ -79,12 +84,12 @@ class ParsingState:
                 already_added_to_changelist=False,
             )
 
-        new_change = CodeChange(
+        new_change = OriginalFormatChange(
             json_data, self.code_lines, code_file_manager, self.rename_map
         )
         self.code_changes.append(new_change)
         self.json_lines, self.code_lines = [], []
-        if new_change.action == CodeChangeAction.RenameFile:
+        if new_change.action == OriginalFormatChangeAction.RenameFile:
             # This rename_map is a bit hacky; it shouldn't be used outside of streaming/parsing
             self.rename_map[new_change.name] = new_change.file
 
@@ -114,7 +119,7 @@ class ParsingState:
                     )
                 self.in_code_lines = True
                 self.create_code_change(code_file_manager)
-                if not self.code_changes[-1].action.has_additions():
+                if not self.code_changes[-1].has_additions():
                     raise ModelError(
                         "Model gave code indicator for action without code",
                         already_added_to_changelist=True,
@@ -156,82 +161,76 @@ class ParsingState:
         return to_print, entered_code_lines, exited_code_lines, created_code_change
 
 
-async def run_stream_and_parse_llm_response(
-    messages: list[dict[str, str]],
-    model: str,
-    code_file_manager: CodeFileManager,
-) -> ParsingState:
-    stream = get_session_stream()
-
-    state: ParsingState = ParsingState()
-    start_time = default_timer()
-
-    try:
-        await listen_for_interrupt(
-            stream_and_parse_llm_response(messages, model, state, code_file_manager)
-        )
-    except openai.error.InvalidRequestError as e:
-        raise MentatError(
-            "Something went wrong - invalid request to OpenAI API. OpenAI returned:\n"
-            + str(e)
-        )
-    except openai.error.RateLimitError as e:
-        raise UserError("OpenAI gave a rate limit error:\n" + str(e))
-    except RemoteKeyboardInterrupt:
-        await stream.send("Interrupted by user. Using the response up to this point.")
-        # if the last change is incomplete, remove it
-        if state.in_code_lines:
-            state.code_changes = state.code_changes[:-1]
-        logging.debug("User interrupted response.")
-
-    state.code_changes = list(
-        filter(lambda change: not change.error, state.code_changes)
-    )
-
-    state.time_elapsed = default_timer() - start_time
-    return state
-
-
 async def stream_and_parse_llm_response(
-    messages: list[dict[str, str]],
-    model: str,
-    state: ParsingState,
+    response: AsyncGenerator[Any, None],
     code_file_manager: CodeFileManager,
-) -> None:
-    stream = get_session_stream()
+    config: ConfigManager,
+    shutdown: Event,
+) -> tuple[str, list[FileEdit]]:
+    state = ParsingState()
 
-    response = await call_llm_api(messages, model)
+    process_response_coro = _process_response(
+        state, response, code_file_manager, shutdown
+    )
+    await listen_for_interrupt(process_response_coro)
 
-    await stream.send("streaming...  use control-c to interrupt the model at any point")
+    # printer = StreamingPrinter()
+    # printer_task = asyncio.create_task(printer.print_lines())
+    # try:
+    #     if await _process_response(
+    #         state, response, printer, code_file_manager, shutdown
+    #     ):
+    #         printer.wrap_it_up()
+    #         await printer_task
+    #     else:
+    #         printer_task.cancel()
+    # except ModelError as e:
+    #     logging.info(f"Model created error {e}")
+    #     printer.wrap_it_up()
+    #     # make sure we finish printing everything model sent before we encountered the crash
+    #     await printer_task
+    #     cprint("\n\nFatal error while processing model response:", "red")
+    #     cprint(str(e), color="red")
+    #     cprint("Using response up to this point.")
+    #     if e.already_added_to_changelist:
+    #         state.code_changes = state.code_changes[:-1]
+    # finally:
+    #     logging.debug(f"LLM response:\n{state.message}")
 
-    try:
-        await _process_response(state, response, code_file_manager)
-    except ModelError as e:
-        logging.info(f"Model created error {e}")
-        # make sure we finish printing everything model sent before we encountered the crash
-        await stream.send(
-            f"Fatal error while processing model response: {e}", color="red"
-        )
-        await stream.send("Using response up to this point.")
-        if e.already_added_to_changelist:
-            state.code_changes = state.code_changes[:-1]
-    finally:
-        logging.debug(f"LLM response:\n{state.message}")
+    code_changes = list(filter(lambda change: not change.error, state.code_changes))
+    return (state.message, OriginalFormatChange.to_file_edits(code_changes, config))
 
 
 async def _process_response(
     state: ParsingState,
-    response: Generator,
+    response: AsyncGenerator[Any, None],
     code_file_manager: CodeFileManager,
-):
-    def chunk_to_lines(chunk):
+    shutdown: Event,
+) -> bool:
+    def chunk_to_lines(chunk: Any) -> list[str]:
         return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)
 
     async for chunk in response:
-        for content_line in chunk_to_lines(chunk):
-            if content_line:
-                state.message += content_line
-                await _process_content_line(state, content_line, code_file_manager)
+        # for content_line in chunk_to_lines(chunk):
+        #     if content_line:
+        #         state.message += content_line
+        #         await _process_content_line(state, content_line, code_file_manager)
+        # if shutdown.is_set():
+        #     if state.in_code_lines:
+        #         state.code_changes = state.code_changes[:-1]
+        #     return False
+
+        # TODO: test this logic matches the above code
+        try:
+            for content_line in chunk_to_lines(chunk):
+                if content_line:
+                    state.message += content_line
+                    await _process_content_line(state, content_line, code_file_manager)
+        except asyncio.CancelledError:
+            set_trace()
+            if state.in_code_lines:
+                state.code_changes = state.code_changes[:-1]
+            return False
 
     # This newline solves at least 5 edge cases singlehandedly
     await _process_content_line(state, "\n", code_file_manager)
@@ -240,9 +239,14 @@ async def _process_response(
     if state.in_special_lines:
         logging.info("Model forgot an @@end!")
         await _process_content_line(state, "@@end\n", code_file_manager)
+    return True
 
 
-async def _process_content_line(state, content, code_file_manager: CodeFileManager):
+async def _process_content_line(
+    state: ParsingState,
+    content: str,
+    code_file_manager: CodeFileManager,
+):
     stream = get_session_stream()
 
     beginning = state.cur_line == ""
@@ -253,7 +257,7 @@ async def _process_content_line(state, content, code_file_manager: CodeFileManag
     ) or not state.in_special_lines:
         to_print = state.parse_line_printing(content)
         prefix = (
-            "+" + " " * (state.code_changes[-1].line_number_buffer - 1)
+            "+" + " " * (get_line_number_buffer(state.code_changes[-1].file_lines) - 1)
             if state.in_code_lines and beginning
             else ""
         )
@@ -264,7 +268,7 @@ async def _process_content_line(state, content, code_file_manager: CodeFileManag
     if "\n" in content:
         (
             to_print,
-            entered_code_lines,
+            entered_code_lines,  # pyright: ignore[reportUnusedVariable]
             exited_code_lines,
             created_code_change,
         ) = state.new_line(code_file_manager)
@@ -278,38 +282,36 @@ async def _process_content_line(state, content, code_file_manager: CodeFileManag
                 await stream.send("Not showing skipped change due to error:")
                 await stream.send(cur_change.error, color="red")
                 await stream.send("Continuing model response...", color="light_green")
-
             else:
+                display_information = cur_change.get_change_display_information()
                 if (
                     len(state.code_changes) < 2
                     or state.code_changes[-2].file != cur_change.file
                     or state.explained_since_change
-                    or state.code_changes[-1].action == CodeChangeAction.RenameFile
+                    or state.code_changes[-1].action
+                    == OriginalFormatChangeAction.RenameFile
                 ):
-                    await print_file_name(cur_change)
-                    if (
-                        cur_change.action.has_additions()
-                        or cur_change.action.has_removals()
-                    ):
+                    await stream.send(get_file_name(display_information))
+                    if cur_change.has_additions() or cur_change.has_removals():
                         await stream.send(change_delimiter)
                 state.explained_since_change = False
-                await print_previous_lines(cur_change)
-                await print_removed_block(cur_change)
-                if (
-                    not cur_change.action.has_additions()
-                    and cur_change.action.has_removals()
-                ):
-                    await print_later_lines(cur_change)
+                await stream.send(get_previous_lines(display_information))
+                await stream.send(get_removed_lines(display_information))
+                if not cur_change.has_additions() and cur_change.has_removals():
+                    await stream.send(get_later_lines(display_information))
                     await stream.send(change_delimiter)
 
         if to_print and not (state.in_code_lines and state.code_changes[-1].error):
             prefix = (
-                "+" + " " * (state.code_changes[-1].line_number_buffer - 1)
+                "+"
+                + " " * (get_line_number_buffer(state.code_changes[-1].file_lines) - 1)
                 if state.in_code_lines and beginning
                 else ""
             )
             color = "green" if state.in_code_lines else None
             await stream.send(prefix + to_print, end="", color=color)
         if exited_code_lines and not state.code_changes[-1].error:
-            await print_later_lines(state.code_changes[-1])
+            await stream.send(
+                get_later_lines(state.code_changes[-1].get_change_display_information())
+            )
             await stream.send(change_delimiter)
