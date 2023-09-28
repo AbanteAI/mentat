@@ -2,6 +2,8 @@ import asyncio
 import logging
 from typing import Any, Coroutine
 
+from ipdb import set_trace
+
 from .errors import RemoteKeyboardInterrupt
 from .session_stream import StreamMessage, get_session_stream
 
@@ -72,9 +74,14 @@ async def listen_for_interrupt(
                 pass
             except Exception as e:
                 # TODO: should we be capturing exceptions here?
+                set_trace()
                 raise e
 
         if wrapped_task in done:
             return wrapped_task.result()
         else:
-            raise RemoteKeyboardInterrupt
+            # Send a newline for terminal clients
+            await stream.send("\n")
+
+            if raise_exception_on_interrupt:
+                raise RemoteKeyboardInterrupt

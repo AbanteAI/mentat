@@ -63,9 +63,10 @@ class TerminalClient:
         while True:
             input_request_message = await self.session.stream.recv("input_request")
 
-            user_input: str = await self._prompt_session.prompt_async(
-                handle_sigint=False, completer=prompt_completer
+            user_input = await self._prompt_session.prompt_async(  # type: ignore
+                completer=prompt_completer
             )
+            assert isinstance(user_input, str)
             if user_input == "q":
                 self._should_exit = True
                 return
@@ -89,6 +90,7 @@ class TerminalClient:
             or self.session.stream.interrupt_lock.locked() is False
         ):
             if self._should_exit:
+                set_trace()
                 logger.debug("Force exiting client...")
                 self._force_exit = True
             else:

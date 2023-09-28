@@ -78,7 +78,7 @@ class Session:
                 # Intercept and run command
                 if isinstance(message.data, str) and message.data.startswith("/"):
                     arguments = shlex.split(message.data[1:])
-                    command = Command.create_command(arguments[0])
+                    command = Command.create_command(arguments[0], self.code_context)
                     await command.apply(*arguments[1:])
                     continue
 

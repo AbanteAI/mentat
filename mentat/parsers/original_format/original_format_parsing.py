@@ -1,5 +1,4 @@
 # This file is mainly kept as legacy so that we don't have to rewrite this code
-
 from __future__ import annotations
 
 import asyncio
@@ -168,35 +167,12 @@ async def stream_and_parse_llm_response(
     shutdown: Event,
 ) -> tuple[str, list[FileEdit]]:
     state = ParsingState()
-
     process_response_coro = _process_response(
         state, response, code_file_manager, shutdown
     )
-    await listen_for_interrupt(process_response_coro)
-
-    # printer = StreamingPrinter()
-    # printer_task = asyncio.create_task(printer.print_lines())
-    # try:
-    #     if await _process_response(
-    #         state, response, printer, code_file_manager, shutdown
-    #     ):
-    #         printer.wrap_it_up()
-    #         await printer_task
-    #     else:
-    #         printer_task.cancel()
-    # except ModelError as e:
-    #     logging.info(f"Model created error {e}")
-    #     printer.wrap_it_up()
-    #     # make sure we finish printing everything model sent before we encountered the crash
-    #     await printer_task
-    #     cprint("\n\nFatal error while processing model response:", "red")
-    #     cprint(str(e), color="red")
-    #     cprint("Using response up to this point.")
-    #     if e.already_added_to_changelist:
-    #         state.code_changes = state.code_changes[:-1]
-    # finally:
-    #     logging.debug(f"LLM response:\n{state.message}")
-
+    await listen_for_interrupt(
+        process_response_coro, raise_exception_on_interrupt=False
+    )
     code_changes = list(filter(lambda change: not change.error, state.code_changes))
     return (state.message, OriginalFormatChange.to_file_edits(code_changes, config))
 
