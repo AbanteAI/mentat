@@ -6,7 +6,11 @@ from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
-from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
+from mentat.parsers.change_display_helper import (
+    DisplayInformation,
+    FileActionType,
+    get_file_action_type,
+)
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import Parser
 from mentat.prompts.prompts import read_prompt
@@ -87,15 +91,7 @@ class SplitDiffParser(Parser):
             file_name, new_name = Path(info), None
 
         file_lines = self._get_file_lines(code_file_manager, rename_map, file_name)
-        if is_creation:
-            file_action_type = FileActionType.CreateFile
-        elif is_deletion:
-            file_action_type = FileActionType.DeleteFile
-        elif new_name is not None:
-            file_action_type = FileActionType.RenameFile
-        else:
-            file_action_type = FileActionType.UpdateFile
-
+        file_action_type = get_file_action_type(is_creation, is_deletion, new_name)
         display_information = DisplayInformation(
             file_name=file_name,
             file_lines=file_lines,
@@ -136,7 +132,7 @@ class SplitDiffParser(Parser):
         # excluding case and stripped. If we don't find one, we throw away this change.
         file_lines = self._get_file_lines(
             code_file_manager, rename_map, display_information.file_name
-        ).copy()
+        )
         # Remove the delimiters, ending fence, and new line after ending fence
         lines = code_block.split("\n")[1:-3]
         middle_index = lines.index(SplitDiffDelimiters.Middle.value)
@@ -144,24 +140,30 @@ class SplitDiffParser(Parser):
         added_lines = lines[middle_index + 1 :]
         index = self._matching_index(file_lines, removed_lines)
         if index == -1:
-            file_lines = [s.lower() for s in file_lines]
-            removed_lines = [s.lower() for s in removed_lines]
-            index = self._matching_index(file_lines, removed_lines)
-            if index == -1:
-                file_lines = [s.strip() for s in file_lines]
-                removed_lines = [s.strip() for s in removed_lines]
-                index = self._matching_index(file_lines, removed_lines)
-                if index == -1:
-                    return colored(
-                        "Error: Original lines not found. Discarding this change.",
-                        color="red",
-                    )
+            return colored(
+                "Error: Original lines not found. Discarding this change.",
+                color="red",
+            )
         file_edit.replacements.append(
             Replacement(index, index + len(removed_lines), added_lines)
         )
         return ""
 
     def _matching_index(self, orig_lines: list[str], new_lines: list[str]) -> int:
+        orig_lines = orig_lines.copy()
+        new_lines = new_lines.copy()
+        index = self._exact_match(orig_lines, new_lines)
+        if index == -1:
+            orig_lines = [s.lower() for s in orig_lines]
+            new_lines = [s.lower() for s in new_lines]
+            index = self._exact_match(orig_lines, new_lines)
+            if index == -1:
+                orig_lines = [s.strip() for s in orig_lines]
+                new_lines = [s.strip() for s in new_lines]
+                index = self._exact_match(orig_lines, new_lines)
+        return index
+
+    def _exact_match(self, orig_lines: list[str], new_lines: list[str]) -> int:
         if "".join(new_lines).strip() == "" and "".join(orig_lines).strip() == "":
             return 0
         for i in range(len(orig_lines) - (len(new_lines) - 1)):

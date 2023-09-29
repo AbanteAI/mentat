@@ -34,6 +34,18 @@ class FileActionType(Enum):
     UpdateFile = "update"
 
 
+def get_file_action_type(is_creation: bool, is_deletion: bool, new_name: Path | None):
+    if is_creation:
+        file_action_type = FileActionType.CreateFile
+    elif is_deletion:
+        file_action_type = FileActionType.DeleteFile
+    elif new_name is not None:
+        file_action_type = FileActionType.RenameFile
+    else:
+        file_action_type = FileActionType.UpdateFile
+    return file_action_type
+
+
 @attr.define(slots=False)
 class DisplayInformation:
     file_name: Path = attr.field()
