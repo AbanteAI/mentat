@@ -78,3 +78,4 @@ Available formats:
 * block
 * replacement
 * split-diff
+* unified-diff

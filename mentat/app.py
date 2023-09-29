@@ -11,6 +11,7 @@ from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import Parser
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.parsers.split_diff_parser import SplitDiffParser
+from mentat.parsers.unified_diff_parser import UnifiedDiffParser
 
 from .code_context import CodeContext
 from .code_file import parse_intervals
@@ -139,6 +140,7 @@ parser_map: dict[str, Parser] = {
     "block": BlockParser(),
     "replacement": ReplacementParser(),
     "split-diff": SplitDiffParser(),
+    "unified-diff": UnifiedDiffParser(),
 }
 
 
