@@ -42,6 +42,12 @@ def pytest_addoption(parser):
         help="Number of times to rerun mentat with error messages",
     )
     parser.addoption(
+        "--language",
+        action="store",
+        default="python",
+        help="Which exercism language to do exercises for",
+    )
+    parser.addoption(
         "--max_workers",
         action="store",
         default="1",
