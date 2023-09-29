@@ -107,7 +107,7 @@ def clone_exercism_repo(refresh_repo, language):
         repo = Repo.clone_from(exercism_url, local_dir)
     os.chdir(local_dir)
     if language == "javascript":
-        proc = subprocess.run(["npm", "install"], stdout=subprocess.PIPE)
+        subprocess.run(["npm", "install"], stdout=subprocess.PIPE)
 
 
 @pytest.fixture
