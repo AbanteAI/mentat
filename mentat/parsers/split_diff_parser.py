@@ -11,6 +11,7 @@ from mentat.parsers.change_display_helper import (
     FileActionType,
     get_file_action_type,
 )
+from mentat.parsers.diff_utils import matching_index
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import Parser
 from mentat.prompts.prompts import read_prompt
@@ -48,7 +49,13 @@ class SplitDiffParser(Parser):
             return colored("-", color="red")
 
     @override
-    def _code_line_content(self, content: str, cur_block: str) -> str:
+    def _code_line_content(
+        self,
+        display_information: DisplayInformation,
+        content: str,
+        cur_line: str,
+        cur_block: str,
+    ) -> str:
         lines = cur_block.split("\n")
         if SplitDiffDelimiters.Middle.value in lines:
             return colored(content, color="green")
@@ -138,7 +145,7 @@ class SplitDiffParser(Parser):
         middle_index = lines.index(SplitDiffDelimiters.Middle.value)
         removed_lines = lines[:middle_index]
         added_lines = lines[middle_index + 1 :]
-        index = self._matching_index(file_lines, removed_lines)
+        index = matching_index(file_lines, removed_lines)
         if index == -1:
             return colored(
                 "Error: Original lines not found. Discarding this change.",
@@ -148,25 +155,3 @@ class SplitDiffParser(Parser):
             Replacement(index, index + len(removed_lines), added_lines)
         )
         return ""
-
-    def _matching_index(self, orig_lines: list[str], new_lines: list[str]) -> int:
-        orig_lines = orig_lines.copy()
-        new_lines = new_lines.copy()
-        index = self._exact_match(orig_lines, new_lines)
-        if index == -1:
-            orig_lines = [s.lower() for s in orig_lines]
-            new_lines = [s.lower() for s in new_lines]
-            index = self._exact_match(orig_lines, new_lines)
-            if index == -1:
-                orig_lines = [s.strip() for s in orig_lines]
-                new_lines = [s.strip() for s in new_lines]
-                index = self._exact_match(orig_lines, new_lines)
-        return index
-
-    def _exact_match(self, orig_lines: list[str], new_lines: list[str]) -> int:
-        if "".join(new_lines).strip() == "" and "".join(orig_lines).strip() == "":
-            return 0
-        for i in range(len(orig_lines) - (len(new_lines) - 1)):
-            if orig_lines[i : i + len(new_lines)] == new_lines:
-                return i
-        return -1

@@ -1,3 +1,4 @@
+from enum import Enum
 from pathlib import Path
 
 from termcolor import colored
@@ -7,13 +8,23 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
+    change_delimiter,
     get_file_action_type,
+    highlight_text,
 )
+from mentat.parsers.diff_utils import matching_index
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import Parser
 from mentat.prompts.prompts import read_prompt
 
 unified_diff_parser_prompt_filename = Path("unified_diff_parser_prompt.txt")
+
+
+class UnifiedDiffDelimiter(Enum):
+    SpecialStart = "---"
+    SpecialEnd = "+++"
+    MidChange = "@@\n"
+    EndChange = "@@end\n"
 
 
 class UnifiedDiffParser(Parser):
@@ -32,34 +43,43 @@ class UnifiedDiffParser(Parser):
         return ""
 
     @override
-    def _code_line_content(self, content: str, cur_block: str) -> str:
-        cur_line = cur_block.split("\n")[-1]
-        if cur_line.startswith("+"):
+    def _code_line_content(
+        self,
+        display_information: DisplayInformation,
+        content: str,
+        cur_line: str,
+        cur_block: str,
+    ) -> str:
+        if cur_line == UnifiedDiffDelimiter.MidChange.value:
+            return change_delimiter + "\n"
+        elif cur_line.startswith("+"):
             return colored(content, "green")
         elif cur_line.startswith("-"):
             return colored(content, "red")
         else:
-            return content
+            return highlight_text(display_information, content)
 
     @override
     def _could_be_special(self, cur_line: str) -> bool:
-        line = cur_line.strip()
         return (
-            "@".startswith(line)
-            or "@@".startswith(line)
-            or line.startswith("---")
-            or line.startswith("+++")
-            or "---".startswith(line)
-            or "+++".startswith(line)
+            # Since the model is printing the context lines, we can only
+            # highlight them once we get a full line, so we choose to
+            # add the lines to the printer all at once.
+            not cur_line.endswith("\n")
+            or UnifiedDiffDelimiter.EndChange.value.startswith(cur_line)
+            or cur_line.startswith(UnifiedDiffDelimiter.SpecialStart.value)
+            or cur_line.startswith(UnifiedDiffDelimiter.SpecialEnd.value)
+            or UnifiedDiffDelimiter.SpecialStart.value.startswith(cur_line)
+            or UnifiedDiffDelimiter.SpecialEnd.value.startswith(cur_line)
         )
 
     @override
     def _starts_special(self, line: str) -> bool:
-        return line.startswith("---")
+        return line.startswith(UnifiedDiffDelimiter.SpecialStart.value)
 
     @override
     def _ends_special(self, line: str) -> bool:
-        return line.startswith("+++")
+        return line.startswith(UnifiedDiffDelimiter.SpecialEnd.value)
 
     @override
     def _special_block(
@@ -94,7 +114,7 @@ class UnifiedDiffParser(Parser):
 
     @override
     def _ends_code(self, line: str) -> bool:
-        return line.strip() == "@@"
+        return line.strip() == UnifiedDiffDelimiter.EndChange.value.strip()
 
     @override
     def _add_code_block(
@@ -110,15 +130,18 @@ class UnifiedDiffParser(Parser):
             code_file_manager, rename_map, display_information.file_name
         ).copy()
 
-        # First, we split by the @ symbols that separate changes.
+        # First, we split by the @@ symbols that separate changes.
         lines = code_block.split("\n")
         changes = list[list[str]]()
         cur_lines = list[str]()
         for line in lines:
-            if line.strip() == "@" or line.strip() == "@@":
+            if (
+                line.strip() == UnifiedDiffDelimiter.MidChange.value.strip()
+                or line.strip() == UnifiedDiffDelimiter.EndChange.value.strip()
+            ):
                 changes.append(cur_lines)
                 cur_lines = list[str]()
-                if line.strip() == "@@":
+                if line.strip() == UnifiedDiffDelimiter.EndChange.value.strip():
                     break
             else:
                 if (
@@ -144,24 +167,18 @@ class UnifiedDiffParser(Parser):
                 if line.startswith("-") or line.startswith(" "):
                     search_lines.append(line[1:])
             if not search_lines:
-                if not "".join(file_lines):
-                    replacements.append(
-                        Replacement(0, 0, [line[1:] for line in change])
-                    )
-                    continue
-                else:
-                    return colored(
-                        "Error: No context given for line insertion. Discarding this"
-                        " change.",
-                        "red",
-                    )
+                # If the model gave us no context lines, we place at the start of the file;
+                # this most commonly happens with imports
+                replacements.append(Replacement(0, 0, [line[1:] for line in change]))
+                continue
 
-            start_index = self._matching_index(file_lines, search_lines)
+            start_index = matching_index(file_lines, search_lines)
             if start_index == -1:
                 return colored(
                     "Error: Original lines not found. Discarding this change.",
                     color="red",
                 )
+
             # We need a separate Replacement whenever context lines are between a group of additions/removals
             cur_start = None
             cur_additions = list[str]()
@@ -188,25 +205,3 @@ class UnifiedDiffParser(Parser):
 
         file_edit.replacements.extend(replacements)
         return ""
-
-    def _matching_index(self, orig_lines: list[str], new_lines: list[str]) -> int:
-        orig_lines = orig_lines.copy()
-        new_lines = new_lines.copy()
-        index = self._exact_match(orig_lines, new_lines)
-        if index == -1:
-            orig_lines = [s.lower() for s in orig_lines]
-            new_lines = [s.lower() for s in new_lines]
-            index = self._exact_match(orig_lines, new_lines)
-            if index == -1:
-                orig_lines = [s.strip() for s in orig_lines]
-                new_lines = [s.strip() for s in new_lines]
-                index = self._exact_match(orig_lines, new_lines)
-        return index
-
-    def _exact_match(self, orig_lines: list[str], new_lines: list[str]) -> int:
-        if "".join(new_lines).strip() == "" and "".join(orig_lines).strip() == "":
-            return 0
-        for i in range(len(orig_lines) - (len(new_lines) - 1)):
-            if orig_lines[i : i + len(new_lines)] == new_lines:
-                return i
-        return -1
