@@ -4,6 +4,7 @@ from textwrap import dedent
 from mentat.app import run
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
+from mentat.parsers.block_parser import BlockParser
 
 
 # Make sure we always give posix paths to GPT
@@ -22,7 +23,10 @@ def test_posix_paths(mock_config):
         paths=[file_path],
         exclude_paths=[],
     )
-    code_message = code_context.get_code_message(mock_config.model(), code_file_manager)
+    parser = BlockParser()
+    code_message = code_context.get_code_message(
+        mock_config.model(), code_file_manager, parser
+    )
     assert dir_name + "/" + file_name in code_message.split("\n")
 
 
@@ -49,7 +53,10 @@ def test_partial_files(mock_config):
         exclude_paths=[],
         no_code_map=True,
     )
-    code_message = code_context.get_code_message(mock_config.model(), code_file_manager)
+    parser = BlockParser()
+    code_message = code_context.get_code_message(
+        mock_config.model(), code_file_manager, parser
+    )
     assert code_message == dedent("""\
             Code Files:
 

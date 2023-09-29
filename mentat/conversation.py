@@ -57,7 +57,7 @@ class Conversation:
                 )
 
         tokens = count_tokens(
-            code_context.get_code_message(self.model, self.code_file_manager),
+            code_context.get_code_message(self.model, self.code_file_manager, parser),
             self.model,
         ) + count_tokens(prompt, self.model)
         context_size = model_context_size(self.model)
@@ -140,7 +140,7 @@ class Conversation:
     ) -> list[FileEdit]:
         messages = self.messages.copy()
         code_message = self.code_context.get_code_message(
-            self.model, self.code_file_manager
+            self.model, self.code_file_manager, parser
         )
         messages.append({"role": "system", "content": code_message})
 

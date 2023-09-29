@@ -182,11 +182,13 @@ class BlockParser(Parser):
     @override
     def _add_code_block(
         self,
+        code_file_manager: CodeFileManager,
+        rename_map: dict[Path, Path],
         special_block: str,
         code_block: str,
         display_information: DisplayInformation,
         file_edit: FileEdit,
-    ):
+    ) -> str:
         file_edit.replacements.append(
             Replacement(
                 display_information.first_changed_line,
@@ -194,3 +196,4 @@ class BlockParser(Parser):
                 code_block.split("\n")[:-2],
             )
         )
+        return ""

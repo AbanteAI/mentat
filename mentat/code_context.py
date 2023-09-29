@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import glob
 import logging
 import os
@@ -20,6 +22,7 @@ from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 if TYPE_CHECKING:
     # This normally will cause a circular import
     from mentat.code_file_manager import CodeFileManager
+    from mentat.parsers.parser import Parser
 
 
 def _is_file_text_encoded(file_path: Path):
@@ -218,7 +221,9 @@ class CodeContext:
         print()
         self.diff_context.display_context()
 
-    def get_code_message(self, model: str, code_file_manager: "CodeFileManager") -> str:
+    def get_code_message(
+        self, model: str, code_file_manager: CodeFileManager, parser: Parser
+    ) -> str:
         code_message: list[str] = []
         if self.diff_context.files:
             code_message += [
@@ -242,7 +247,10 @@ class CodeContext:
             file_lines = code_file_manager.file_lines[rel_path]
             for i, line in enumerate(file_lines, start=1):
                 if file.contains_line(i):
-                    file_message.append(f"{i}:{line}")
+                    if parser.provide_line_numbers():
+                        file_message.append(f"{i}:{line}")
+                    else:
+                        file_message.append(f"{line}")
             file_message.append("")
 
             if rel_path in self.diff_context.files:
