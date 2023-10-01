@@ -100,7 +100,7 @@ class Broadcast:
             for queue in list(self._subscribers.get(event.channel, [])):
                 await queue.put(event)
 
-    async def publish(self, channel: str, message: Any, nowait: bool = False) -> None:
+    async def publish(self, channel: str, message: Any) -> None:
         await self._backend.publish(channel, message)
 
     @asynccontextmanager

@@ -111,7 +111,7 @@ class FileEdit:
     ) -> bool:
         if self.is_creation:
             display_information = DisplayInformation(
-                self.file_path, [], [], [], FileActionType.CreateFile, None, None, None
+                self.file_path, [], [], [], FileActionType.CreateFile
             )
             if not await _ask_user_change(display_information, "Create this file?"):
                 return False
@@ -168,12 +168,14 @@ class FileEdit:
     async def _print_resolution(self, first: Replacement, second: Replacement):
         stream = get_session_stream()
 
-        await stream.send("Change overlap detected, auto-merged back to back changes:")
+        await stream.send(
+            "Change overlap detected, auto-merged back to back changes:\n"
+        )
         await stream.send(self.file_path)
         await stream.send(change_delimiter)
         for line in first.new_lines + second.new_lines:
             await stream.send("+ " + line, color="green")
-        await stream.send("\n")
+        await stream.send("")
 
     async def resolve_conflicts(self):
         self.replacements.sort(reverse=True)

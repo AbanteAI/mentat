@@ -50,6 +50,18 @@ def is_test_environment():
     )
 
 
+async def _add_newline(response: AsyncGenerator[Any, None]):
+    """
+    The model normally ends it's response without a newline,
+    but since our parsing relies on newlines to determine if a line is
+    conversation or part of our format, adding a newline to the end
+    makes everything much easier.
+    """
+    async for chunk in response:
+        yield chunk
+    yield {"choices": [{"delta": {"content": "\n"}}]}
+
+
 async def call_llm_api(
     messages: list[dict[str, str]], model: str
 ) -> AsyncGenerator[Any, None]:
@@ -67,7 +79,12 @@ async def call_llm_api(
         ),
     )
 
-    return response
+    return _add_newline(response)
+
+
+# Ensures that each chunk will have at most one newline character
+def chunk_to_lines(chunk: Any) -> list[str]:
+    return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)
 
 
 def count_tokens(message: str, model: str) -> int:

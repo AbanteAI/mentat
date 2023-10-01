@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
-from termcolor import cprint
+from mentat.session_stream import get_session_stream
 
 from .config_manager import ConfigManager
 from .errors import UserError
@@ -110,10 +110,12 @@ class DiffContext:
             return []  # A new repo without any commits
         return get_files_in_diff(self.config.git_root, self.target)
 
-    def display_context(self) -> None:
+    async def display_context(self) -> None:
+        stream = get_session_stream()
+
         if not self.files:
             return
-        cprint("Diff annotations:", "green")
+        await stream.send("Diff annotations:", color="green")
         num_files = len(self.files)
         num_lines = 0
         # TODO: Only include paths in context
@@ -123,7 +125,7 @@ class DiffContext:
             num_lines += len(
                 [line for line in diff_lines if line.startswith(("+ ", "- "))]
             )
-        print(f" ─•─ {self.name} | {num_files} files | {num_lines} lines\n")
+        await stream.send(f" ─•─ {self.name} | {num_files} files | {num_lines} lines\n")
 
     def annotate_file_message(
         self, rel_path: Path, file_message: list[str]

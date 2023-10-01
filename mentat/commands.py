@@ -139,7 +139,7 @@ class AddCommand(Command, command_name="add"):
         stream = get_session_stream()
 
         if len(args) == 0:
-            await stream.send("No files specified", color="yellow")
+            await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
             code_file = CodeFile(file_path)
@@ -161,7 +161,7 @@ class RemoveCommand(Command, command_name="remove"):
     async def apply(self, *args: str) -> None:
         stream = get_session_stream()
         if len(args) == 0:
-            await stream.send("No files specified", color="yellow")
+            await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
             code_file = CodeFile(file_path)

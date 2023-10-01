@@ -1,15 +1,9 @@
 import datetime
 import logging
 import logging.handlers
-<<<<<<< HEAD
-import os
-from typing import Iterable
-=======
-
-from mentat.llm_api import is_test_environment
->>>>>>> main
 
 from .config_manager import mentat_dir_path
+from .llm_api import is_test_environment
 
 
 def setup_logging():

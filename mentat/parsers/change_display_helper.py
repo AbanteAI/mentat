@@ -41,8 +41,8 @@ class DisplayInformation:
     added_block: list[str] = attr.field()
     removed_block: list[str] = attr.field()
     file_action_type: FileActionType = attr.field()
-    first_changed_line: int | None = attr.field(default=None)
-    last_changed_line: int | None = attr.field(default=None)
+    first_changed_line: int = attr.field(default=0)
+    last_changed_line: int = attr.field(default=0)
     new_name: Path | None = attr.field(default=None)
 
     def __attrs_post_init__(self):
@@ -123,7 +123,9 @@ def get_file_name(
         case FileActionType.CreateFile:
             return colored(f"\n{display_information.file_name}*", color="light_green")
         case FileActionType.DeleteFile:
-            return colored(f"\n{display_information.file_name}", color="light_red")
+            return colored(
+                f"\nDeletion: {display_information.file_name}", color="light_red"
+            )
         case FileActionType.RenameFile:
             return colored(
                 f"\nRename: {display_information.file_name} ->"
@@ -163,14 +165,14 @@ def get_removed_lines(
 def get_previous_lines(
     display_information: DisplayInformation,
     num: int = 2,
-):
-    if display_information.first_changed_line is None:
+) -> str:
+    if display_information.first_changed_line < 0:
         return ""
     lines = _remove_extra_empty_lines(
         [
             display_information.file_lines[i]
             for i in range(
-                max(0, display_information.first_changed_line - (num + 1)),
+                max(0, display_information.first_changed_line - num),
                 min(
                     display_information.first_changed_line,
                     len(display_information.file_lines),
@@ -195,8 +197,8 @@ def get_previous_lines(
 def get_later_lines(
     display_information: DisplayInformation,
     num: int = 2,
-):
-    if display_information.last_changed_line is None:
+) -> str:
+    if display_information.last_changed_line < 0:
         return ""
     lines = _remove_extra_empty_lines(
         [

@@ -1,22 +1,34 @@
+from __future__ import annotations
+
 import glob
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from textwrap import dedent
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+import attr
+
+from mentat.llm_api import count_tokens, model_context_size
 
 from .code_file import CodeFile
 from .code_map import CodeMap
 from .config_manager import ConfigManager
-from .diff_context import DiffContext, get_diff_context
+from .diff_context import get_diff_context
 from .errors import UserError
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from .session_stream import get_session_stream
+
+if TYPE_CHECKING:
+    # This normally will cause a circular import
+    from mentat.code_file_manager import CodeFileManager
+    from mentat.parsers.parser import Parser
 
 
 def _is_file_text_encoded(file_path: Path):
     try:
         # The ultimate filetype test
-        with open(file_path) as f:
+        with open(file_path, "r") as f:
             f.read()
         return True
     except UnicodeDecodeError:
@@ -111,7 +123,6 @@ async def _print_path_tree(
     tree: dict[str, Any], changed_files: set[Path], cur_path: Path, prefix: str = ""
 ):
     stream = get_session_stream()
-
     keys = list(tree.keys())
     for i, key in enumerate(sorted(keys)):
         if i < len(keys) - 1:
@@ -134,18 +145,23 @@ async def _print_path_tree(
             await _print_path_tree(tree[key], changed_files, cur, new_prefix)
 
 
+@attr.define
+class CodeContextSettings:
+    paths: list[Path]
+    exclude_paths: list[Path]
+    diff: Optional[str] = None
+    pr_diff: Optional[str] = None
+    no_code_map: bool = False
+
+
 class CodeContext:
-    def __init__(
-        self,
-        config: ConfigManager,
-        files: Dict[Path, CodeFile],
-        diff_context: DiffContext,
-        code_map: CodeMap | None,
-    ):
+    settings: CodeContextSettings
+    files: dict[Path, CodeFile]  # included path -> CodeFile
+    file_lines: dict[Path, list[str]]  # included path -> cached lines
+
+    def __init__(self, config: ConfigManager, settings: CodeContextSettings):
         self.config = config
-        self.files = files
-        self.diff_context = diff_context
-        self.code_map = code_map
+        self.settings = settings
 
     @classmethod
     async def create(
@@ -157,26 +173,48 @@ class CodeContext:
         pr_diff: Optional[str] = None,
         no_code_map: bool = False,
     ):
+        settings = CodeContextSettings(
+            paths=paths,
+            exclude_paths=exclude_paths,
+            diff=diff,
+            pr_diff=pr_diff,
+            no_code_map=no_code_map,
+        )
+        self = CodeContext(config, settings)
+        await self.refresh(replace_paths=True)
+
+        return self
+
+    async def refresh(self, replace_paths: bool | None = False):
         stream = get_session_stream()
 
         # Diff context
         try:
-            diff_context = get_diff_context(config, diff, pr_diff)
-            if not paths:
-                paths = diff_context.files
+            self.diff_context = get_diff_context(
+                self.config, self.settings.diff, self.settings.pr_diff
+            )
+            if replace_paths and not self.settings.paths:
+                self.settings.paths = self.diff_context.files
         except UserError as e:
             await stream.send(str(e), color="light_yellow")
-            exit()  # NOTE: should this be here?
+            exit()  # NOTE: should this be an exit()?
         # User-specified Files
-        files = _get_files(config, paths, exclude_paths)
+        self.files = _get_files(
+            self.config, self.settings.paths, self.settings.exclude_paths
+        )
         # Universal ctags
-        code_map = None
-        if not no_code_map:
-            code_map = await CodeMap.create(config, token_limit=2048)
-
-        self = CodeContext(config, files, diff_context, code_map)
-
-        return self
+        self.code_map = (
+            CodeMap(self.config, token_limit=2048)
+            if not self.settings.no_code_map
+            else None
+        )
+        if self.code_map is not None and self.code_map.ctags_disabled:
+            ctags_disabled_message = f"""
+                There was an error with your universal ctags installation, disabling CodeMap.
+                Reason: {self.code_map.ctags_disabled_reason}
+            """
+            ctags_disabled_message = dedent(ctags_disabled_message)
+            await stream.send(ctags_disabled_message, color="yellow")
 
     async def display_context(self):
         stream = get_session_stream()
@@ -192,7 +230,87 @@ class CodeContext:
             get_paths_with_git_diffs(self.config.git_root),
             self.config.git_root,
         )
-        self.diff_context.display_context()  # TODO: make async
+        await self.diff_context.display_context()
+
+    async def get_code_message(
+        self, model: str, code_file_manager: CodeFileManager, parser: Parser
+    ) -> str:
+        stream = get_session_stream()
+
+        code_message: list[str] = []
+        if self.diff_context.files:
+            code_message += [
+                "Diff References:",
+                f' "-" = {self.diff_context.name}',
+                ' "+" = Active Changes',
+                "",
+            ]
+
+        code_file_manager.read_all_file_lines(list(self.files.keys()))
+        code_message += ["Code Files:\n"]
+        for file in self.files.values():
+            file_message: list[str] = []
+            abs_path = file.path
+            rel_path = Path(os.path.relpath(abs_path, self.config.git_root))
+
+            # We always want to give GPT posix paths
+            posix_rel_path = Path(rel_path).as_posix()
+            file_message.append(posix_rel_path)
+
+            file_lines = code_file_manager.file_lines[rel_path]
+            for i, line in enumerate(file_lines, start=1):
+                if file.contains_line(i):
+                    if parser.provide_line_numbers():
+                        file_message.append(f"{i}:{line}")
+                    else:
+                        file_message.append(f"{line}")
+            file_message.append("")
+
+            if rel_path in self.diff_context.files:
+                file_message = self.diff_context.annotate_file_message(
+                    rel_path, file_message
+                )
+
+            code_message += file_message
+
+        if self.code_map is not None:
+            code_message_tokens = count_tokens("\n".join(code_message), model)
+            context_size = model_context_size(model)
+            if context_size:
+                max_tokens_for_code_map = context_size - code_message_tokens
+                if self.code_map.token_limit:
+                    code_map_message_token_limit = min(
+                        self.code_map.token_limit, max_tokens_for_code_map
+                    )
+                else:
+                    code_map_message_token_limit = max_tokens_for_code_map
+            else:
+                code_map_message_token_limit = self.code_map.token_limit
+
+            code_map_message = await self.code_map.get_message(
+                token_limit=code_map_message_token_limit
+            )
+            if code_map_message:
+                match (code_map_message.level):
+                    case "signatures":
+                        level_message = "full syntax tree"
+                    case "no_signatures":
+                        level_message = "partial syntax tree"
+                    case "filenames":
+                        level_message = "filepaths only"
+
+                message = f"\nIncluding CodeMap ({level_message})"
+                await stream.send(message, color="green")
+                code_message += [f"\n{code_map_message.content}"]
+            else:
+                message = [
+                    "\nExcluding CodeMap from system message.",
+                    "Reason: not enough tokens available in model context.",
+                ]
+                message = "\n".join(message)
+                await stream.send(message, color="yellow")
+
+        return "\n".join(code_message)
 
     async def add_file(self, code_file: CodeFile):
         stream = get_session_stream()

@@ -7,8 +7,9 @@ from pathlib import Path
 
 import pytest
 
+from mentat import config_manager
 from mentat.code_context import CodeContext
-from mentat.config_manager import ConfigManager
+from mentat.config_manager import ConfigManager, config_file_name
 from mentat.streaming_printer import StreamingPrinter
 from mentat.user_input_manager import UserInputManager
 
@@ -39,6 +40,12 @@ def pytest_addoption(parser):
         action="store",
         default="1",
         help="Number of times to rerun mentat with error messages",
+    )
+    parser.addoption(
+        "--language",
+        action="store",
+        default="python",
+        help="Which exercism language to do exercises for",
     )
     parser.addoption(
         "--max_workers",
@@ -76,6 +83,7 @@ def mock_call_llm_api(mocker):
         async def async_generator():
             for value in values:
                 yield {"choices": [{"delta": {"content": value}}]}
+            yield {"choices": [{"delta": {"content": "\n"}}]}
 
         mock.return_value = async_generator()
 
@@ -171,6 +179,13 @@ def temp_testbed(monkeypatch):
         yield temp_testbed
 
     shutil.rmtree(temp_dir, onerror=add_permissions)
+
+
+# Always set the user config to just be a config in the temp_testbed; that way,
+# it will be unset unless a specific test wants to make a config in the testbed
+@pytest.fixture(autouse=True)
+def mock_user_config(mocker):
+    config_manager.user_config_path = Path(config_file_name)
 
 
 @pytest.fixture(autouse=True)

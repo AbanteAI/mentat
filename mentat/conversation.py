@@ -2,9 +2,14 @@ from timeit import default_timer
 
 from openai.error import InvalidRequestError, RateLimitError
 
-from mentat.config_manager import ConfigManager, user_config_path
-from mentat.errors import MentatError, UserError
-from mentat.llm_api import (
+from mentat.parsers.file_edit import FileEdit
+from mentat.parsers.parser import Parser
+
+from .code_context import CodeContext
+from .code_file_manager import CodeFileManager
+from .config_manager import ConfigManager, user_config_path
+from .errors import MentatError, UserError
+from .llm_api import (
     CostTracker,
     call_llm_api,
     count_tokens,
@@ -12,22 +17,19 @@ from mentat.llm_api import (
     is_model_available,
     model_context_size,
 )
-from mentat.parsers.file_edit import FileEdit
-from mentat.parsers.parser import Parser
-from mentat.session_stream import get_session_stream
-
-from .code_file_manager import CodeFileManager
+from .session_stream import get_session_stream
 
 
 class Conversation:
     def __init__(
         self,
-        parser: Parser,
         config: ConfigManager,
         cost_tracker: CostTracker,
+        code_context: CodeContext,
         code_file_manager: CodeFileManager,
     ):
         self.cost_tracker = cost_tracker
+        self.code_context = code_context
         self.code_file_manager = code_file_manager
         self.model = config.model()
 
@@ -39,11 +41,12 @@ class Conversation:
         parser: Parser,
         config: ConfigManager,
         cost_tracker: CostTracker,
+        code_context: CodeContext,
         code_file_manager: CodeFileManager,
     ):
         stream = get_session_stream()
 
-        self = Conversation(parser, config, cost_tracker, code_file_manager)
+        self = Conversation(config, cost_tracker, code_context, code_file_manager)
 
         if not is_model_available(self.model):
             raise Exception(
@@ -68,7 +71,10 @@ class Conversation:
         self.add_system_message(prompt)
 
         tokens = count_tokens(
-            await code_file_manager.get_code_message(self.model), self.model
+            await code_context.get_code_message(
+                self.model, self.code_file_manager, parser
+            ),
+            self.model,
         ) + count_tokens(prompt, self.model)
         context_size = model_context_size(self.model)
         maximum_context = config.maximum_context()
@@ -145,7 +151,9 @@ class Conversation:
         self, parser: Parser, config: ConfigManager
     ) -> list[FileEdit]:
         messages = self.messages.copy()
-        code_message = await self.code_file_manager.get_code_message(self.model)
+        code_message = await self.code_context.get_code_message(
+            self.model, self.code_file_manager, parser
+        )
         messages.append({"role": "system", "content": code_message})
 
         num_prompt_tokens = await get_prompt_token_count(messages, self.model)
