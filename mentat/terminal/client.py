@@ -56,6 +56,8 @@ class TerminalClient:
     async def _cprint_session_stream(self):
         assert isinstance(self.session, Session), "TerminalClient is not running"
         async for message in self.session.stream.listen():
+            if self._should_exit:
+                return
             cprint_stream_message(message)
 
     async def _handle_input_requests(self, prompt_completer: Completer | None = None):
@@ -63,8 +65,9 @@ class TerminalClient:
         while True:
             input_request_message = await self.session.stream.recv("input_request")
 
+            # TODO: fix user_input typing
             user_input = await self._prompt_session.prompt_async(  # type: ignore
-                completer=prompt_completer
+                completer=prompt_completer, handle_sigint=False
             )
             assert isinstance(user_input, str)
             if user_input == "q":
@@ -85,6 +88,9 @@ class TerminalClient:
 
     def _handle_exit(self):
         assert isinstance(self.session, Session), "TerminalClient is not running"
+
+        set_trace()
+
         if (
             self.session.is_stopped
             or self.session.stream.interrupt_lock.locked() is False
@@ -161,7 +167,10 @@ class TerminalClient:
             await self._shutdown()
         # NOTE: if an exception is caught here, the main process will likely still run
         # due to background ascynio Tasks that are still running
+        # NOTE: we should remove this try/except. The code inside of `self._run` should
+        # never throw an exception
         except Exception as e:
+            set_trace()
             logger.error(f"Unexpected Exception {e}")
             logger.error(traceback.format_exc())
 
