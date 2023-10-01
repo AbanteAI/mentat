@@ -13,27 +13,42 @@ from .commands import Command
 from .config_manager import ConfigManager
 from .conversation import Conversation
 from .git_handler import get_shared_git_root_for_paths
-from .llm_api import CostTracker
+from .llm_api import CostTracker, setup_api_key
 from .parsers.block_parser import BlockParser
+from .parsers.parser import Parser
+from .parsers.replacement_parser import ReplacementParser
+from .parsers.split_diff_parser import SplitDiffParser
 from .session_input import collect_user_input
 from .session_stream import SessionStream, set_session_stream
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
+parser_map: dict[str, Parser] = {
+    "block": BlockParser(),
+    "replacement": ReplacementParser(),
+    "split-diff": SplitDiffParser(),
+}
+
 
 class Session:
     def __init__(
-        self, stream: SessionStream, config: ConfigManager, code_context: CodeContext
+        self,
+        stream: SessionStream,
+        config: ConfigManager,
+        code_context: CodeContext,
+        parser: Parser,
     ):
         self.stream = stream
         self.config = config
         self.code_context = code_context
+        self.parser = parser
 
         self.id = uuid4()
         self.parser = BlockParser()
-        self.code_file_manager = CodeFileManager(self.config, self.code_context)
+        self.code_file_manager = CodeFileManager(self.config)
         self.cost_tracker = CostTracker()
+        setup_api_key()
 
         self._main_task: asyncio.Task[None] | None = None
         self._stop_task: asyncio.Task[None] | None = None
@@ -51,12 +66,13 @@ class Session:
         set_session_stream(stream)
 
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
-        config = ConfigManager(git_root)
+        config = await ConfigManager.create(git_root)
         code_context = await CodeContext.create(
             config, paths, exclude_paths, diff, pr_diff, no_code_map
         )
+        parser = parser_map[config.parser()]
 
-        self = Session(stream, config, code_context)
+        self = Session(stream, config, code_context, parser)
 
         return self
 

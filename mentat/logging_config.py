@@ -43,8 +43,6 @@ def setup_logging():
     costs_logger.propagate = False
 
     handlers = [console_handler, file_handler, file_handler_latest]
-    # if extra_handlers:
-    #     handlers.extend(extra_handlers)
 
     logging.basicConfig(
         level=logging.DEBUG,
