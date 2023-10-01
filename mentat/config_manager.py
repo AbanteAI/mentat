@@ -78,6 +78,9 @@ class ConfigManager:
     def model(self) -> str:
         return cast(str, self._get_key("model"))
 
+    def log_full_transcript(self) -> bool:
+        return cast(bool, self._get_key("log-full-transcript"))
+
     def maximum_context(self) -> Optional[int]:
         maximum_context = self._get_key("maximum-context")
         if maximum_context:
