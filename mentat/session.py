@@ -63,6 +63,7 @@ class Session:
         pr_diff: Optional[str] = None,
     ):
         stream = SessionStream()
+        await stream.start()
         set_session_stream(stream)
 
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
@@ -79,7 +80,11 @@ class Session:
     async def _main(self):
         await self.code_context.display_context()
         conv = await Conversation.create(
-            self.parser, self.config, self.cost_tracker, self.code_file_manager
+            parser=self.parser,
+            config=self.config,
+            cost_tracker=self.cost_tracker,
+            code_context=self.code_context,
+            code_file_manager=self.code_file_manager,
         )
 
         await self.stream.send(
@@ -131,7 +136,6 @@ class Session:
 
         async def run_main():
             try:
-                await self.stream.start()
                 await self._main()
             except asyncio.CancelledError:
                 pass
@@ -175,7 +179,7 @@ class Session:
                 self._main_task = cast(Union[asyncio.Task[None], None], self._main_task)
 
                 while self._main_task is not None:
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.01)
                 await self.stream.stop()
             except asyncio.CancelledError:
                 pass

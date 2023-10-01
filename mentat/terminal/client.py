@@ -136,12 +136,12 @@ class TerminalClient:
         while not self._force_exit:
             if all([task.cancelled() for task in self._tasks]):
                 break
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)
 
         # Stop session
         self.session.stop()
         while not self._force_exit and not self.session.is_stopped:
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)
         self.session = None
 
         logger.debug("Completed shutdown")
@@ -150,11 +150,8 @@ class TerminalClient:
         assert isinstance(self.session, Session), "TerminalClient is not running"
         logger.debug("Running main loop")
 
-        counter = 0
         while not self._should_exit and not self.session.is_stopped:
-            counter += 1
-            counter = counter % 86400
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)
 
     async def _run(self):
         try:

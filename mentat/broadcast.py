@@ -80,7 +80,7 @@ class Broadcast:
         await self.connect()
         return self
 
-    async def __aexit__(self, *args: Any, **kwargs: Any) -> None:
+    async def __aexit__(self) -> None:
         await self.disconnect()
 
     async def connect(self) -> None:

@@ -10,8 +10,6 @@ import pytest
 from mentat import config_manager
 from mentat.code_context import CodeContext
 from mentat.config_manager import ConfigManager, config_file_name
-from mentat.streaming_printer import StreamingPrinter
-from mentat.user_input_manager import UserInputManager
 
 pytest_plugins = ("pytest_reportlog",)
 
@@ -92,14 +90,6 @@ def mock_call_llm_api(mocker):
 
 
 @pytest.fixture
-def mock_collect_user_input(mocker):
-    mock_method = mocker.MagicMock()
-    mocker.patch.object(UserInputManager, "collect_user_input", new=mock_method)
-
-    return mock_method
-
-
-@pytest.fixture
 def mock_setup_api_key(mocker):
     mocker.patch("mentat.app.setup_api_key")
     mocker.patch("mentat.conversation.is_model_available")
@@ -116,11 +106,6 @@ def mock_config(temp_testbed):
 @pytest.fixture
 def mock_context(mock_config):
     return CodeContext(mock_config, [], [])
-
-
-@pytest.fixture
-def mock_user_input_manager(mock_config, mock_context):
-    return UserInputManager(mock_config, mock_context)
 
 
 def add_permissions(func, path, exc_info):
@@ -186,11 +171,6 @@ def temp_testbed(monkeypatch):
 @pytest.fixture(autouse=True)
 def mock_user_config(mocker):
     config_manager.user_config_path = Path(config_file_name)
-
-
-@pytest.fixture(autouse=True)
-def mock_sleep_time(mocker):
-    mocker.patch.object(StreamingPrinter, "sleep_time", new=lambda self: 0)
 
 
 # Creating a prompt session in Github Actions on Windows throws an error

@@ -1,7 +1,5 @@
-import asyncio
 import logging
 from abc import ABC, abstractmethod
-from asyncio import Event
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
@@ -21,13 +19,10 @@ from mentat.parsers.change_display_helper import (
     get_removed_lines,
 )
 from mentat.parsers.file_edit import FileEdit
-from tests.conftest import StreamingPrinter
+from mentat.session_stream import get_session_stream
 
 
 class Parser(ABC):
-    def __init__(self):
-        self.shutdown = Event()
-
     @abstractmethod
     def get_system_prompt(self) -> str:
         pass
@@ -45,9 +40,8 @@ class Parser(ABC):
         3. 'code' lines, which are the actual code written and are shown to the user in a special format
         To make a parser that differs from these assumptions, make this functionality a subclass of Parser
         """
+        stream = get_session_stream()
 
-        printer = StreamingPrinter()
-        printer_task = asyncio.create_task(printer.print_lines())
         message = ""
         file_edits = dict[Path, FileEdit]()
 
@@ -63,10 +57,6 @@ class Parser(ABC):
         printed_delimiter = False
         rename_map = dict[Path, Path]()
         async for chunk in response:
-            if self.shutdown.is_set():
-                printer_task.cancel()
-                break
-
             for content in chunk_to_lines(chunk):
                 if not content:
                     continue
@@ -86,14 +76,14 @@ class Parser(ABC):
                                 )
                                 + self._code_line_content(cur_line, cur_block)
                             )
-                            printer.add_string(to_print, end="")
+                            await stream.send(to_print, end="")
                     else:
                         to_print = (
                             content
                             if not in_code_lines
                             else self._code_line_content(content, cur_block)
                         )
-                        printer.add_string(to_print, end="")
+                        await stream.send(to_print, end="")
 
                 # If we print non code lines, we want to reprint the file name of the next change,
                 # even if it's the same file as the last change
@@ -112,7 +102,7 @@ class Parser(ABC):
                             )
                             + self._code_line_content(cur_line, cur_block)
                         )
-                        printer.add_string(to_print, end="")
+                        await stream.send(to_print, end="")
                         line_printed = True
 
                     if self._starts_special(cur_line.strip()):
@@ -135,10 +125,8 @@ class Parser(ABC):
                                 code_file_manager, config, rename_map, cur_block
                             )
                         except ModelError as e:
-                            printer.add_string(str(e), color="red")
-                            printer.add_string("Using existing changes.")
-                            printer.wrap_it_up()
-                            await printer_task
+                            await stream.send(str(e), color="red")
+                            await stream.send("Using existing changes.")
                             logging.debug("LLM Response:")
                             logging.debug(message)
                             return (
@@ -186,25 +174,25 @@ class Parser(ABC):
                             or (file_edit.file_path != previous_file)
                         ):
                             conversation = False
-                            printer.add_string(get_file_name(display_information))
+                            await stream.send(get_file_name(display_information))
                             if in_code_lines or display_information.removed_block:
                                 printed_delimiter = True
-                                printer.add_string(change_delimiter)
+                                await stream.send(change_delimiter)
                             else:
                                 printed_delimiter = False
                         elif not printed_delimiter:
                             # We have to have this so that putting a change like an insert after a rename
                             # still has a change delimiter
-                            printer.add_string(change_delimiter)
+                            await stream.send(change_delimiter)
                             printed_delimiter = True
 
                         # Print previous lines, removed block, and possibly later lines
                         if in_code_lines or display_information.removed_block:
-                            printer.add_string(get_previous_lines(display_information))
-                            printer.add_string(get_removed_lines(display_information))
+                            await stream.send(get_previous_lines(display_information))
+                            await stream.send(get_removed_lines(display_information))
                             if not in_code_lines:
-                                printer.add_string(get_later_lines(display_information))
-                                printer.add_string(change_delimiter)
+                                await stream.send(get_later_lines(display_information))
+                                await stream.send(change_delimiter)
                     elif in_code_lines and self._ends_code(cur_line.strip()):
                         # Adding code lines to previous file_edit and printing later lines
                         if display_information is not None and file_edit is not None:
@@ -216,11 +204,11 @@ class Parser(ABC):
                                 display_information,
                                 file_edit,
                             )
-                            printer.add_string(get_later_lines(display_information))
-                            printer.add_string(change_delimiter)
-                            printer.add_string(to_display)
+                            await stream.send(get_later_lines(display_information))
+                            await stream.send(change_delimiter)
+                            await stream.send(to_display)
                         else:
-                            printer.add_string(change_delimiter)
+                            await stream.send(change_delimiter)
 
                         in_code_lines = False
                         prev_block = cur_block
@@ -242,13 +230,9 @@ class Parser(ABC):
                     display_information,
                     file_edit,
                 )
-                printer.add_string(get_later_lines(display_information))
-                printer.add_string(change_delimiter)
-                printer.add_string(to_display)
-
-            # Only finish printing if we don't quit from ctrl-c
-            printer.wrap_it_up()
-            await printer_task
+                await stream.send(get_later_lines(display_information))
+                await stream.send(change_delimiter)
+                await stream.send(to_display)
 
         logging.debug("LLM Response:")
         logging.debug(message)
