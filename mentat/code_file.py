@@ -97,12 +97,7 @@ class CodeFile:
         posix_rel_path = Path(rel_path).as_posix()
         file_message.append(posix_rel_path)
 
-        if self.level == CodeMessageLevel.CODE:
-            file_lines = abs_path.read_text().splitlines()
-            for i, line in enumerate(file_lines, start=1):
-                if self.contains_line(i):
-                    file_message.append(f"{i}:{line}")
-        elif self.level == CodeMessageLevel.INTERVAL:
+        if self.level in {CodeMessageLevel.CODE, CodeMessageLevel.INTERVAL}:
             file_lines = abs_path.read_text().splitlines()
             for i, line in enumerate(file_lines, start=1):
                 if self.contains_line(i):

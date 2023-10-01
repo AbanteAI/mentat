@@ -6,11 +6,13 @@ from typing import TYPE_CHECKING, Optional
 import attr
 from termcolor import cprint
 
+from mentat.llm_api import count_tokens
+
 from .code_file import CodeFile, CodeMessageLevel
 from .code_map import check_ctags_disabled
 from .config_manager import ConfigManager
 from .diff_context import DiffContext, get_diff_context
-from .errors import UserError
+from .errors import UserError, MentatError
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from .include_files import build_path_tree, get_include_files, print_path_tree
 from .utils import sha256
@@ -63,7 +65,7 @@ class CodeContextSettings:
     diff: Optional[str] = None
     pr_diff: Optional[str] = None
     no_code_map: bool = False
-    max_tokens: int = 8192
+    auto_tokens: Optional[int] = None
 
 
 class CodeContext:
@@ -82,7 +84,7 @@ class CodeContext:
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
         no_code_map: bool = False,
-        max_tokens: int = 8192,
+        auto_tokens: Optional[int] = None,
     ):
         self.config = config
         self.settings = CodeContextSettings(
@@ -91,9 +93,8 @@ class CodeContext:
             diff=diff,
             pr_diff=pr_diff,
             no_code_map=no_code_map,
-            max_tokens=max_tokens,
+            auto_tokens=auto_tokens,
         )
-
         self._set_diff_context(replace_paths=True)
         self._set_include_files()
         self._set_code_map()
@@ -153,7 +154,9 @@ class CodeContext:
     _code_message: str | None = None
     _code_message_checksum: str | None = None
 
-    def _get_code_message_checksum(self, code_file_manager: "CodeFileManager") -> str:
+    def _get_code_message_checksum(
+        self, code_file_manager: "CodeFileManager", max_tokens: Optional[int] = None
+    ) -> str:
         if not self.features:
             features_checksum = ""
         else:
@@ -162,23 +165,30 @@ class CodeContext:
                 code_file_manager.get_file_checksum(f) for f in feature_files
             ]
             features_checksum = sha256("".join(feature_file_checksums))
-        settings_checksum = sha256(str(self.settings))
+        settings = attr.asdict(self.settings)
+        settings["max_tokens"] = max_tokens
+        settings_checksum = sha256(str(settings))
         return features_checksum + settings_checksum
 
-    def get_code_message(self, model: str, code_file_manager: "CodeFileManager") -> str:
-        code_message_checksum = self._get_code_message_checksum(code_file_manager)
+    def get_code_message(
+        self, 
+        model: str, 
+        code_file_manager: "CodeFileManager", 
+        max_tokens: Optional[int] = None, 
+    ) -> str:
+        code_message_checksum = self._get_code_message_checksum(code_file_manager, max_tokens)
         if (
             self._code_message is None
             or code_message_checksum != self._code_message_checksum
         ):
-            self._code_message = self._get_code_message(model, code_file_manager)
+            self._code_message = self._get_code_message(model, code_file_manager, max_tokens)
             self._code_message_checksum = self._get_code_message_checksum(
-                code_file_manager
+                code_file_manager, max_tokens
             )
         return self._code_message
 
     def _get_code_message(
-        self, model: str, code_file_manager: "CodeFileManager"
+        self, model: str, code_file_manager: "CodeFileManager", max_tokens: Optional[int] = None
     ) -> str:
         code_message = list[str]()
 
@@ -192,11 +202,57 @@ class CodeContext:
                 ' "+" = Active Changes',
                 "",
             ]
-
         code_message += ["Code Files:\n"]
 
-        # Initalize all features while splitting into include and candidate
+        features = self._get_include_features()
+        include_feature_tokens = sum(
+            f.count_tokens(self.config, code_file_manager, model)
+            for f in features
+        ) + count_tokens('\n'.join(code_message), model)
+        _max_auto = None if max_tokens is None else max(0, max_tokens - include_feature_tokens)
+        _max_user = self.settings.auto_tokens
+        if _max_auto == 0 or _max_user == 0:
+            self.features = features
+        else:
+            if _max_auto is None and _max_user is None:
+                auto_tokens = None
+            elif _max_auto and _max_user:
+                auto_tokens = min(_max_auto, _max_user)
+            else:
+                auto_tokens = _max_auto or _max_user
+            self.features = self._get_auto_features(code_file_manager, model, features, auto_tokens)
+
+        for f in self.features:
+            code_message += f.get_code_message(self.config, code_file_manager)
+        return "\n".join(code_message)
+        
+    def _get_include_features(self) -> list[CodeFile]:
         include_features = list[CodeFile]()
+        for path, feature in self.include_files.items():
+            if feature.level == CodeMessageLevel.INTERVAL:
+                interval_str = ",".join(f"{i.start}-{i.end}" for i in feature.intervals)
+                path = f"{path}:{interval_str}"
+            diff_target = (
+                self.diff_context.target
+                if path in self.diff_context.files
+                else None
+            )
+            feature = CodeFile(path, feature.level, diff=diff_target)
+            include_features.append(feature)
+        
+        def _feature_relative_path(f: CodeFile) -> str:
+            return os.path.relpath(f.path, self.config.git_root)
+        return sorted(include_features, key=_feature_relative_path)
+    
+    def _get_auto_features(
+        self, 
+        code_file_manager: "CodeFileManager",
+        model: str,
+        include_features: list[CodeFile], 
+        max_tokens: Optional[int] = None
+    ) -> list[CodeFile]:
+
+        # Generate all possible permutations for all files in the project.
         candidate_features = list[CodeFile]()
         for path in get_non_gitignored_files(self.config.git_root):
             permutations: list[tuple[CodeMessageLevel, str | None]] = [
@@ -205,74 +261,38 @@ class CodeContext:
                 (CodeMessageLevel.CMAP, None),
                 (CodeMessageLevel.FILE_NAME, None),
             ]
+            if self.diff_context.target and path in self.diff_context.files:
+                permutations += [(level, self.diff_context.target) for level, _ in permutations]
             for level, diff in permutations:
                 feature = CodeFile(path, level=level, diff=diff)
-                diff_target = (
-                    self.diff_context.target
-                    if path in self.diff_context.files
-                    else None
-                )
-                if diff_target is not None:
-                    candidate_features.append(feature)
-                    feature = CodeFile(path, level=level, diff=diff_target)
-                included_path = self.include_files.get(feature.path.absolute())
-                if included_path and level == CodeMessageLevel.CODE:
-                    if included_path.level == CodeMessageLevel.INTERVAL:
-                        candidate_features.append(feature)
-                        interval_str = ",".join(
-                            f"{i.start}-{i.end}" for i in included_path.intervals
-                        )
-                        feature = CodeFile(
-                            path=f"{feature.path}:{interval_str}",
-                            level=CodeMessageLevel.INTERVAL,
-                            diff=diff_target,
-                        )
-                    include_features.append(feature)
-                else:
-                    candidate_features.append(feature)
-        include_feature_tokens = sum(
-            f.count_tokens(self.config, code_file_manager, model)
-            for f in include_features
-        )
-        tokens_remaining = self.settings.max_tokens - include_feature_tokens
-        # If required features exceed settings.max_tokens, return them directly.
-        if tokens_remaining <= 0:
-            self.features = sorted(
-                include_features,
-                key=lambda x: os.path.relpath(x.path, self.config.git_root),
-            )
-            for f in self.features:
-                code_message += f.get_code_message(self.config, code_file_manager)
-            return "\n".join(code_message)
+                candidate_features.append(feature)
 
-        # If extra space, sort candidates by relevance/density and fill-in features.
+        # Sort candidates by relevance/density.
+        tokens_remaining = 1e6 if max_tokens is None else max_tokens
         def _calculate_feature_score(feature: CodeFile) -> float:
             score = 0.0
             tokens = feature.count_tokens(self.config, code_file_manager, model)
-            if tokens < tokens_remaining:
-                if feature.diff is not None:
-                    score += 1
-                if feature.level == CodeMessageLevel.FILE_NAME:
-                    score += 0.1
-                if feature.level == CodeMessageLevel.CMAP:
-                    score += 0.25
-                elif feature.level == CodeMessageLevel.CMAP_FULL:
-                    score += 0.5
-                elif feature.level == CodeMessageLevel.CODE:
-                    score += 0.75
-                score /= tokens
+            if tokens == 0:
+                raise MentatError(f"Feature {feature} has 0 tokens.")
+            if feature.diff is not None:
+                score += 1
+            if feature.level == CodeMessageLevel.FILE_NAME:
+                score += 0.1
+            if feature.level == CodeMessageLevel.CMAP:
+                score += 0.25
+            elif feature.level == CodeMessageLevel.CMAP_FULL:
+                score += 0.5
+            elif feature.level == CodeMessageLevel.CODE:
+                score += 0.75
+            score /= tokens
             return score
 
-        candidates_sorted = sorted(
-            candidate_features, key=lambda x: _calculate_feature_score(x), reverse=True
-        )
         all_features = include_features.copy()
-        for feature in candidates_sorted:
-            if (
-                tokens_remaining
-                - feature.count_tokens(self.config, code_file_manager, model)
-                <= 0
-            ):
+        candidates_scored = [(f, _calculate_feature_score(f)) for f in candidate_features]
+        candidates_sorted = sorted(candidates_scored, key=lambda x: x[1], reverse=True)
+        for feature, _ in candidates_sorted:
+            feature_tokens = feature.count_tokens(self.config, code_file_manager, model)
+            if tokens_remaining - feature_tokens <= 0:
                 continue
             if _longer_feature_already_included(feature, all_features):
                 continue
@@ -288,12 +308,10 @@ class CodeContext:
             tokens_remaining -= feature.count_tokens(
                 self.config, code_file_manager, model
             )
-        self.features = sorted(
-            all_features, key=lambda x: os.path.relpath(x.path, self.config.git_root)
-        )
-        for f in self.features:
-            code_message += f.get_code_message(self.config, code_file_manager)
-        return "\n".join(code_message)
+
+        def _feature_relative_path(f: CodeFile) -> str:
+            return os.path.relpath(f.path, self.config.git_root)
+        return sorted(all_features, key=_feature_relative_path)
 
     def include_file(self, code_file: CodeFile):
         if not os.path.exists(code_file.path):

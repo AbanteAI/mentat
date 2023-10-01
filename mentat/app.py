@@ -58,6 +58,13 @@ def run_cli():
         default=None,
         help="A git tree-ish to diff against the latest common ancestor of",
     )
+    parser.add_argument(
+        "--auto-tokens",
+        "-a",
+        type=int,
+        default=None,
+        help="Maximum number of auto-generated tokens to include in the prompt context",
+    )
 
     args = parser.parse_args()
     paths = args.paths
@@ -65,6 +72,7 @@ def run_cli():
     no_code_map = args.no_code_map
     diff = args.diff
     pr_diff = args.pr_diff
+    auto_tokens = args.auto_tokens
     # Expanding paths as soon as possible because some shells such as zsh automatically
     # expand globs and we want to avoid differences in functionality between shells
     run(
@@ -73,6 +81,7 @@ def run_cli():
         no_code_map,
         diff,
         pr_diff,
+        auto_tokens,
     )
 
 
@@ -82,6 +91,7 @@ def run(
     no_code_map: bool = False,
     diff: Optional[str] = None,
     pr_diff: Optional[str] = None,
+    auto_tokens: Optional[int] = None,
 ):
     mentat_dir_path.mkdir(parents=True, exist_ok=True)
     setup_logging()
@@ -90,7 +100,7 @@ def run(
     cost_tracker = CostTracker()
     try:
         setup_api_key()
-        loop(paths, exclude_paths, cost_tracker, no_code_map, diff, pr_diff)
+        loop(paths, exclude_paths, cost_tracker, no_code_map, diff, pr_diff, auto_tokens)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -117,13 +127,14 @@ def loop(
     no_code_map: bool,
     diff: Optional[str],
     pr_diff: Optional[str],
+    auto_tokens: Optional[int],
 ) -> None:
     git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
     config = ConfigManager(git_root)
     parser = parser_map[config.parser()]
     code_file_manager = CodeFileManager(config)
     code_context = CodeContext(
-        config, paths, exclude_paths or [], diff, pr_diff, no_code_map
+        config, paths, exclude_paths or [], diff, pr_diff, no_code_map, auto_tokens
     )
     code_context.display_context()
     user_input_manager = UserInputManager(config, code_context)

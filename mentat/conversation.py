@@ -63,30 +63,26 @@ class Conversation:
                 context_size = min(context_size, maximum_context)
             else:
                 context_size = maximum_context
-
-        prompt_tokens = count_tokens(prompt, self.model)
-        response_buffer = 1000
-        if context_size is not None:
-            context_buffer = context_size - prompt_tokens - response_buffer
-            self.code_context.settings.max_tokens = context_buffer
-        else:
-            self.code_context.settings.max_tokens -= prompt_tokens
-        code_message = code_context.get_code_message(self.model, self.code_file_manager)
-        context_tokens = count_tokens(code_message, self.model)
-        tokens = prompt_tokens + context_tokens
+        self.prompt_tokens = count_tokens(prompt, self.model)
+        tokens = count_tokens(
+            code_context.get_code_message(self.model, self.code_file_manager, max_tokens=0), 
+            self.model
+        ) + self.prompt_tokens
 
         if not context_size:
             raise KeyboardInterrupt(
                 f"Context size for {self.model} is not known. Please set"
                 f" maximum-context in {user_config_path}."
             )
+        else:
+            self.max_tokens = context_size
         if context_size and tokens > context_size:
             raise KeyboardInterrupt(
                 f"Included files already exceed token limit ({tokens} /"
                 f" {context_size}). Please try running again with a reduced"
                 " number of files."
             )
-        elif tokens + response_buffer > context_size:
+        elif tokens + 1000 > context_size:
             cprint(
                 f"Warning: Included files are close to token limit ({tokens} /"
                 f" {context_size}), you may not be able to have a long"
@@ -95,7 +91,7 @@ class Conversation:
             )
         else:
             cprint(
-                f"File and prompt token count: {tokens} / {context_size}",
+                f"Prompt and included files token count: {tokens} / {context_size}",
                 "cyan",
             )
 
@@ -145,8 +141,11 @@ class Conversation:
         self, parser: Parser, config: ConfigManager
     ) -> list[FileEdit]:
         messages = self.messages.copy()
+        conversation_history = "\n".join([m["content"] for m in messages])
+        tokens = self.prompt_tokens + count_tokens(conversation_history, self.model)
+        response_buffer = 1000
         code_message = self.code_context.get_code_message(
-            self.model, self.code_file_manager
+            self.model, self.code_file_manager, self.max_tokens - tokens - response_buffer
         )
         messages.append({"role": "system", "content": code_message})
 
