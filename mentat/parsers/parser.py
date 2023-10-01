@@ -3,8 +3,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
-from termcolor import colored
-
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
 from mentat.errors import ModelError
@@ -13,10 +11,10 @@ from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
     change_delimiter,
-    get_file_name,
-    get_later_lines,
-    get_previous_lines,
-    get_removed_lines,
+    print_file_name,
+    print_later_lines,
+    print_previous_lines,
+    print_removed_lines,
 )
 from mentat.parsers.file_edit import FileEdit
 from mentat.session_stream import get_session_stream
@@ -68,22 +66,36 @@ class Parser(ABC):
                     if not line_printed:
                         if not self._could_be_special(cur_line.strip()):
                             line_printed = True
-                            to_print = (
-                                cur_line
-                                if not in_code_lines or display_information is None
-                                else self._code_line_beginning(
+
+                            # to_print = (
+                            #     cur_line
+                            #     if not in_code_lines or display_information is None
+                            #     else self._code_line_beginning(
+                            #         display_information, cur_block
+                            #     )
+                            #     + self._code_line_content(cur_line, cur_block)
+                            # )
+
+                            if in_code_lines and display_information is not None:
+                                await self._print_code_line_beginning(
                                     display_information, cur_block
                                 )
-                                + self._code_line_content(cur_line, cur_block)
-                            )
-                            await stream.send(to_print, end="")
+                                await self._print_code_line_content(cur_line, cur_block)
+                            else:
+                                await stream.send(cur_line, end="")
+
                     else:
-                        to_print = (
-                            content
-                            if not in_code_lines
-                            else self._code_line_content(content, cur_block)
-                        )
-                        await stream.send(to_print, end="")
+                        # to_print = (
+                        #     content
+                        #     if not in_code_lines
+                        #     else self._code_line_content(content, cur_block)
+                        # )
+                        # await stream.send(to_print, end="")
+
+                        if in_code_lines:
+                            await self._print_code_line_content(content, cur_block)
+                        else:
+                            await stream.send(content, end="")
 
                 # If we print non code lines, we want to reprint the file name of the next change,
                 # even if it's the same file as the last change
@@ -94,15 +106,23 @@ class Parser(ABC):
                 if "\n" in cur_line:
                     # Always print whitespace lines (even though they 'match' could_be_special)
                     if not cur_line.strip() and not line_printed:
-                        to_print = (
-                            cur_line
-                            if not in_code_lines or display_information is None
-                            else self._code_line_beginning(
+                        # to_print = (
+                        #     cur_line
+                        #     if not in_code_lines or display_information is None
+                        #     else self._code_line_beginning(
+                        #         display_information, cur_block
+                        #     )
+                        #     + self._code_line_content(cur_line, cur_block)
+                        # )
+
+                        if in_code_lines and display_information is not None:
+                            await self._print_code_line_beginning(
                                 display_information, cur_block
                             )
-                            + self._code_line_content(cur_line, cur_block)
-                        )
-                        await stream.send(to_print, end="")
+                            await self._print_code_line_content(cur_line, cur_block)
+                        else:
+                            await stream.send(cur_line, end="")
+
                         line_printed = True
 
                     if self._starts_special(cur_line.strip()):
@@ -174,7 +194,7 @@ class Parser(ABC):
                             or (file_edit.file_path != previous_file)
                         ):
                             conversation = False
-                            await stream.send(get_file_name(display_information))
+                            await print_file_name(display_information)
                             if in_code_lines or display_information.removed_block:
                                 printed_delimiter = True
                                 await stream.send(change_delimiter)
@@ -188,10 +208,10 @@ class Parser(ABC):
 
                         # Print previous lines, removed block, and possibly later lines
                         if in_code_lines or display_information.removed_block:
-                            await stream.send(get_previous_lines(display_information))
-                            await stream.send(get_removed_lines(display_information))
+                            await print_previous_lines(display_information)
+                            await print_removed_lines(display_information)
                             if not in_code_lines:
-                                await stream.send(get_later_lines(display_information))
+                                await print_later_lines(display_information)
                                 await stream.send(change_delimiter)
                     elif in_code_lines and self._ends_code(cur_line.strip()):
                         # Adding code lines to previous file_edit and printing later lines
@@ -204,7 +224,7 @@ class Parser(ABC):
                                 display_information,
                                 file_edit,
                             )
-                            await stream.send(get_later_lines(display_information))
+                            await print_later_lines(display_information)
                             await stream.send(change_delimiter)
                             await stream.send(to_display)
                         else:
@@ -230,7 +250,7 @@ class Parser(ABC):
                     display_information,
                     file_edit,
                 )
-                await stream.send(get_later_lines(display_information))
+                await print_later_lines(display_information)
                 await stream.send(change_delimiter)
                 await stream.send(to_display)
 
@@ -255,21 +275,39 @@ class Parser(ABC):
     def provide_line_numbers(self) -> bool:
         return True
 
-    def _code_line_beginning(
+    # def _code_line_beginning(
+    #     self, display_information: DisplayInformation, cur_block: str
+    # ) -> str:
+    #     """
+    #     The beginning of a code line; normally this means printing the + prefix
+    #     """
+    #     return colored(
+    #         "+" + " " * (display_information.line_number_buffer - 1), color="green"
+    #     )
+
+    async def _print_code_line_beginning(
         self, display_information: DisplayInformation, cur_block: str
-    ) -> str:
+    ):
         """
         The beginning of a code line; normally this means printing the + prefix
         """
-        return colored(
-            "+" + " " * (display_information.line_number_buffer - 1), color="green"
+        await get_session_stream().send(
+            "+" + " " * (display_information.line_number_buffer - 1),
+            color="green",
+            end="",
         )
 
-    def _code_line_content(self, content: str, cur_block: str) -> str:
+    # def _code_line_content(self, content: str, cur_block: str) -> str:
+    #     """
+    #     Part of a code line; normally this means printing in green
+    #     """
+    #     return colored(content, color="green")
+
+    async def _print_code_line_content(self, content: str, cur_block: str):
         """
         Part of a code line; normally this means printing in green
         """
-        return colored(content, color="green")
+        await get_session_stream().send(content, color="green", end="")
 
     @abstractmethod
     def _could_be_special(self, cur_line: str) -> bool:

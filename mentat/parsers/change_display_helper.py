@@ -2,12 +2,11 @@ from enum import Enum
 from pathlib import Path
 
 import attr
-from pygments import highlight  # pyright: ignore[reportUnknownVariableType]
-from pygments.formatters import TerminalFormatter
 from pygments.lexer import Lexer
 from pygments.lexers import TextLexer, get_lexer_for_filename
 from pygments.util import ClassNotFound
-from termcolor import colored
+
+from mentat.session_stream import get_session_stream
 
 change_delimiter = 60 * "="
 
@@ -81,67 +80,59 @@ def _prefixed_lines(line_number_buffer: int, lines: list[str], prefix: str):
     )
 
 
-def _get_code_block(
+async def _print_code_block(
     code_lines: list[str],
     line_number_buffer: int,
     prefix: str,
     color: str | None,
 ):
+    stream = get_session_stream()
     lines = _prefixed_lines(line_number_buffer, code_lines, prefix)
     if lines:
-        return colored(lines, color=color)
-    else:
-        return ""
+        await stream.send(lines, color=color)
 
 
-def get_full_change(display_information: DisplayInformation):
-    to_print = [
-        get_file_name(display_information),
-        (
-            change_delimiter
-            if display_information.added_block or display_information.removed_block
-            else ""
-        ),
-        get_previous_lines(display_information),
-        get_removed_lines(display_information),
-        get_added_lines(display_information),
-        get_later_lines(display_information),
-        (
-            change_delimiter
-            if display_information.added_block or display_information.removed_block
-            else ""
-        ),
-    ]
-    full_change = "\n".join([line for line in to_print if line])
-    return full_change
+async def print_full_change(display_information: DisplayInformation):
+    stream = get_session_stream()
+
+    await print_file_name(display_information)
+    if display_information.added_block or display_information.removed_block:
+        await stream.send(change_delimiter)
+    await print_previous_lines(display_information)
+    await print_removed_lines(display_information)
+    await print_added_lines(display_information)
+    await print_later_lines(display_information)
+    if display_information.added_block or display_information.removed_block:
+        await stream.send(change_delimiter)
 
 
-def get_file_name(
-    display_information: DisplayInformation,
-):
+async def print_file_name(display_information: DisplayInformation):
+    stream = get_session_stream()
     match display_information.file_action_type:
         case FileActionType.CreateFile:
-            return colored(f"\n{display_information.file_name}*", color="light_green")
+            await stream.send(
+                f"\n{display_information.file_name}*", color="light_green"
+            )
         case FileActionType.DeleteFile:
-            return colored(
+            await stream.send(
                 f"\nDeletion: {display_information.file_name}", color="light_red"
             )
         case FileActionType.RenameFile:
-            return colored(
+            await stream.send(
                 f"\nRename: {display_information.file_name} ->"
                 f" {display_information.new_name}",
                 color="yellow",
             )
         case FileActionType.UpdateFile:
-            return colored(f"\n{display_information.file_name}", color="light_blue")
+            await stream.send(f"\n{display_information.file_name}", color="light_blue")
 
 
-def get_added_lines(
+async def print_added_lines(
     display_information: DisplayInformation,
     prefix: str = "+",
     color: str | None = "green",
 ):
-    return _get_code_block(
+    await _print_code_block(
         display_information.added_block,
         display_information.line_number_buffer,
         prefix,
@@ -149,12 +140,12 @@ def get_added_lines(
     )
 
 
-def get_removed_lines(
+async def print_removed_lines(
     display_information: DisplayInformation,
     prefix: str = "-",
     color: str | None = "red",
 ):
-    return _get_code_block(
+    await _print_code_block(
         display_information.removed_block,
         display_information.line_number_buffer,
         prefix,
@@ -162,12 +153,11 @@ def get_removed_lines(
     )
 
 
-def get_previous_lines(
-    display_information: DisplayInformation,
-    num: int = 2,
-) -> str:
+async def print_previous_lines(display_information: DisplayInformation, num: int = 2):
+    stream = get_session_stream()
+
     if display_information.first_changed_line < 0:
-        return ""
+        return
     lines = _remove_extra_empty_lines(
         [
             display_information.file_lines[i]
@@ -189,17 +179,15 @@ def get_previous_lines(
     ]
 
     prev = "\n".join(numbered)
-    # pygments doesn't have type hints on TerminalFormatter
-    h_prev: str = highlight(prev, display_information.lexer, TerminalFormatter(bg="dark"))  # type: ignore
-    return h_prev
+
+    await stream.send(prev, lexer=display_information.lexer, bg="dark")
 
 
-def get_later_lines(
-    display_information: DisplayInformation,
-    num: int = 2,
-) -> str:
+async def print_later_lines(display_information: DisplayInformation, num: int = 2):
+    stream = get_session_stream()
+
     if display_information.last_changed_line < 0:
-        return ""
+        return
     lines = _remove_extra_empty_lines(
         [
             display_information.file_lines[i]
@@ -221,6 +209,5 @@ def get_later_lines(
     ]
 
     later = "\n".join(numbered)
-    # pygments doesn't have type hints on TerminalFormatter
-    h_later: str = highlight(later, display_information.lexer, TerminalFormatter(bg="dark"))  # type: ignore
-    return h_later
+
+    await stream.send(later, lexer=display_information.lexer, bg="dark")

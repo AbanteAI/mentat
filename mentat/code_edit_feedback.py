@@ -2,6 +2,7 @@ from mentat.parsers.file_edit import FileEdit
 from mentat.session_input import collect_user_input
 from mentat.session_stream import get_session_stream
 
+from .code_context import CodeContext
 from .code_file_manager import CodeFileManager
 from .config_manager import ConfigManager
 from .conversation import Conversation
@@ -11,6 +12,7 @@ async def get_user_feedback_on_edits(
     config: ConfigManager,
     conv: Conversation,
     code_file_manager: CodeFileManager,
+    code_context: CodeContext,
     file_edits: list[FileEdit],
 ) -> bool:
     stream = get_session_stream()
@@ -52,7 +54,9 @@ async def get_user_feedback_on_edits(
         await file_edit.resolve_conflicts()
 
     if edits_to_apply:
-        code_file_manager.write_changes_to_files(edits_to_apply)
+        await code_file_manager.write_changes_to_files(
+            file_edits=edits_to_apply, code_context=code_context
+        )
         await stream.send("Changes applied.", color="light_blue")
     else:
         await stream.send("No changes applied.", color="light_blue")

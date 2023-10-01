@@ -12,7 +12,7 @@ from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
     change_delimiter,
-    get_full_change,
+    print_full_change,
 )
 from mentat.session_input import ask_yes_no
 from mentat.session_stream import get_session_stream
@@ -49,7 +49,7 @@ async def _ask_user_change(
     text: str,
 ) -> bool:
     stream = get_session_stream()
-    await stream.send(get_full_change(display_information))
+    await print_full_change(display_information)
     await stream.send(text, color="light_blue")
     return await ask_yes_no(default_yes=True)
 

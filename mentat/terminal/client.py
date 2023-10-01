@@ -16,7 +16,7 @@ from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
 
 logger = logging.getLogger("mentat.terminal")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class TerminalClient:

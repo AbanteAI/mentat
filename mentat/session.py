@@ -22,7 +22,6 @@ from .session_input import collect_user_input
 from .session_stream import SessionStream, set_session_stream
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
 
 parser_map: dict[str, Parser] = {
     "block": BlockParser(),
@@ -113,7 +112,11 @@ class Session:
             ]
             if file_edits:
                 need_user_request = await get_user_feedback_on_edits(
-                    self.config, conv, self.code_file_manager, file_edits
+                    config=self.config,
+                    conv=conv,
+                    code_file_manager=self.code_file_manager,
+                    code_context=self.code_context,
+                    file_edits=file_edits,
                 )
             else:
                 need_user_request = True
