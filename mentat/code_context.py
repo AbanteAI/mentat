@@ -9,14 +9,13 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import attr
 
-from mentat.llm_api import count_tokens, model_context_size
-
 from .code_file import CodeFile
 from .code_map import CodeMap
 from .config_manager import ConfigManager
 from .diff_context import get_diff_context
 from .errors import UserError
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
+from .llm_api import count_tokens, model_context_size
 from .session_stream import get_session_stream
 
 if TYPE_CHECKING:

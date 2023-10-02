@@ -1,14 +1,13 @@
 from textwrap import dedent
 
-from mentat.app import run
-
 temp_file_name = "temp.py"
 template_insert_content = "# I inserted this comment"
 template_insert_expected_content = template_insert_content + "\n"
 template_double_insert_expected_content = (
     template_insert_content + "\n\n" + template_insert_content
 )
-template_insert = dedent(f"""\
+template_insert = dedent(
+    f"""\
     @@start
     {{
         "file": "{temp_file_name}",
@@ -19,8 +18,10 @@ template_insert = dedent(f"""\
     @@code
     {template_insert_content}
     @@end
-    """)
-template_insert2 = dedent(f"""\
+    """
+)
+template_insert2 = dedent(
+    f"""\
     @@start
     {{
         "file": "{temp_file_name}",
@@ -31,7 +32,8 @@ template_insert2 = dedent(f"""\
     @@code
     {template_insert_content}
     @@end
-    """)
+    """
+)
 
 
 def error_test_template(
@@ -64,7 +66,9 @@ def test_malformed_json(mock_call_llm_api, mock_collect_user_input, mock_setup_a
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
-        template_insert + dedent("""\
+        template_insert
+        + dedent(
+            """\
         @@start
         {{
             "malformed-json: [,
@@ -72,7 +76,9 @@ def test_malformed_json(mock_call_llm_api, mock_collect_user_input, mock_setup_a
         @@code
         # My json is malformed :(
         @@end
-        """) + template_insert2,
+        """
+        )
+        + template_insert2,
     )
     assert content == template_insert_expected_content
 
@@ -83,7 +89,9 @@ def test_unknown_action(mock_call_llm_api, mock_collect_user_input, mock_setup_a
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
-        template_insert + dedent(f"""\
+        template_insert
+        + dedent(
+            f"""\
         @@start
         {{
             "file": "{temp_file_name}",
@@ -94,7 +102,9 @@ def test_unknown_action(mock_call_llm_api, mock_collect_user_input, mock_setup_a
         @@code
         # I am unknown
         @@end
-        """) + template_insert2,
+        """
+        )
+        + template_insert2,
     )
     assert content == template_insert_expected_content
 
@@ -107,7 +117,9 @@ def test_no_line_numbers(
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
-        template_insert + dedent(f"""\
+        template_insert
+        + dedent(
+            f"""\
         @@start
         {{
             "file": "{temp_file_name}",
@@ -116,7 +128,9 @@ def test_no_line_numbers(
         @@code
         # I have no line numbers
         @@end
-        """) + template_insert2,
+        """
+        )
+        + template_insert2,
     )
     assert content == template_insert_expected_content
 
@@ -129,7 +143,9 @@ def test_invalid_line_numbers(
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
-        template_insert + dedent(f"""\
+        template_insert
+        + dedent(
+            f"""\
         @@start
         {{
             "file": "{temp_file_name}",
@@ -140,7 +156,9 @@ def test_invalid_line_numbers(
         @@code
         # I have wrong line numbers
         @@end
-        """) + template_insert2,
+        """
+        )
+        + template_insert2,
     )
     assert content == template_insert_expected_content
 
@@ -151,7 +169,9 @@ def test_existing_file(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
-        template_insert + dedent(f"""\
+        template_insert
+        + dedent(
+            f"""\
         @@start
         {{
             "file": "{temp_file_name}",
@@ -160,7 +180,9 @@ def test_existing_file(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
         @@code
         # I already exist
         @@end
-        """) + template_insert2,
+        """
+        )
+        + template_insert2,
     )
     assert content == ""
 
@@ -175,7 +197,9 @@ def test_file_not_in_context(
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
-        template_insert + dedent("""\
+        template_insert
+        + dedent(
+            """\
         @@start
         {
             "file": "iamnotincontext",
@@ -186,7 +210,9 @@ def test_file_not_in_context(
         @@code
         # I am not in context
         @@end
-        """) + template_insert2,
+        """
+        )
+        + template_insert2,
     )
     assert content == template_double_insert_expected_content
 
@@ -202,7 +228,9 @@ def test_rename_file_already_exists(
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
-        template_insert + dedent(f"""\
+        template_insert
+        + dedent(
+            f"""\
         @@start
         {{
             "file": "{temp_file_name}",
@@ -210,6 +238,8 @@ def test_rename_file_already_exists(
             "name": "{existing_file_name}"
         }}
         @@end
-        """) + template_insert2,
+        """
+        )
+        + template_insert2,
     )
     assert content == template_double_insert_expected_content

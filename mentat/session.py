@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional, Union, cast
 from uuid import uuid4
 
-from mentat.errors import MentatError
+from ipdb import set_trace
 
 from .code_context import CodeContext
 from .code_edit_feedback import get_user_feedback_on_edits
@@ -14,6 +14,7 @@ from .code_file_manager import CodeFileManager
 from .commands import Command
 from .config_manager import ConfigManager
 from .conversation import Conversation
+from .errors import MentatError
 from .git_handler import get_shared_git_root_for_paths
 from .llm_api import CostTracker, setup_api_key
 from .parsers.block_parser import BlockParser
@@ -21,9 +22,10 @@ from .parsers.parser import Parser
 from .parsers.replacement_parser import ReplacementParser
 from .parsers.split_diff_parser import SplitDiffParser
 from .session_input import collect_user_input
-from .session_stream import SessionStream, set_session_stream
+from .session_stream import SessionStream, StreamMessage, set_session_stream
 
 logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 parser_map: dict[str, Parser] = {
     "block": BlockParser(),
@@ -100,7 +102,13 @@ class Session:
         need_user_request = True
         while True:
             if need_user_request:
-                message = await collect_user_input()
+                try:
+                    message = await collect_user_input()
+                except Exception as e:
+                    set_trace()
+                    raise e
+                else:
+                    print(message)
 
                 # Intercept and run command
                 if isinstance(message.data, str) and message.data.startswith("/"):
@@ -108,6 +116,10 @@ class Session:
                     command = Command.create_command(arguments[0], self.code_context)
                     await command.apply(*arguments[1:])
                     continue
+
+                # NOTE: keep this?
+                if message.data == "q":
+                    break
 
                 conv.add_user_message(message.data)
 
@@ -134,7 +146,7 @@ class Session:
     def is_stopped(self):
         return self._main_task is None and self._stop_task is None
 
-    def start(self):
+    def start(self) -> asyncio.Task[None]:
         """Asynchronously start the Session.
 
         A background asyncio. Task will be created to run the startup sequence and run
@@ -142,11 +154,12 @@ class Session:
         """
         if self._main_task:
             logger.warning("Job already started")
-            return
+            return self._main_task
 
         async def run_main():
             try:
                 await self._main()
+                await cast(asyncio.Task[None], self.stop())
             except asyncio.CancelledError:
                 pass
 
@@ -164,7 +177,9 @@ class Session:
         self._main_task = asyncio.create_task(run_main())
         self._main_task.add_done_callback(cleanup_main)
 
-    def stop(self):
+        return self._main_task
+
+    def stop(self) -> asyncio.Task[None] | None:
         """Asynchronously stop the Session.
 
         A background asyncio.Task will be created that handles the shutdown sequence
@@ -173,7 +188,7 @@ class Session:
         """
         if self._stop_task is not None:
             logger.debug("Task is already stopping")
-            return
+            return self._stop_task
         if self.is_stopped:
             logger.debug("Task is already stopped")
             return
@@ -185,7 +200,7 @@ class Session:
                 self._main_task.cancel()
 
                 # Pyright can't see `self._main_task` being set to `None` in the task
-                # callback handler, so we have to cast the type explicityly here
+                # callback handler, so we have to cast the type explicitly here
                 self._main_task = cast(Union[asyncio.Task[None], None], self._main_task)
 
                 while self._main_task is not None:
@@ -200,3 +215,5 @@ class Session:
 
         self._stop_task = asyncio.create_task(run_stop())
         self._stop_task.add_done_callback(cleanup_stop)
+
+        return self._stop_task
