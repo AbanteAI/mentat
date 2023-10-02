@@ -100,9 +100,9 @@ def mock_setup_api_key(mocker):
     return
 
 
-@pytest.fixture
-def mock_config(temp_testbed):
-    config = ConfigManager(Path(temp_testbed))
+@pytest_asyncio.fixture
+async def mock_config(temp_testbed):
+    config = await ConfigManager.create(Path(temp_testbed))
     config.project_config = {}
     return config
 
