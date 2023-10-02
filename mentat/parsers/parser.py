@@ -1,11 +1,11 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Dict, List
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
-from mentat.errors import ModelError
+from mentat.errors import ModelError, RemoteKeyboardInterrupt
 from mentat.llm_api import chunk_to_lines
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
@@ -17,6 +17,7 @@ from mentat.parsers.change_display_helper import (
     print_removed_lines,
 )
 from mentat.parsers.file_edit import FileEdit
+from mentat.session_input import listen_for_interrupt
 from mentat.session_stream import get_session_stream
 
 
@@ -25,23 +26,15 @@ class Parser(ABC):
     def get_system_prompt(self) -> str:
         pass
 
-    async def stream_and_parse_llm_response(
+    async def _stream_and_parse_llm_response_chunks(
         self,
         response: AsyncGenerator[Any, None],
         code_file_manager: CodeFileManager,
         config: ConfigManager,
-    ) -> tuple[str, list[FileEdit]]:
-        """
-        This general parsing structure relies on the assumption that all formats require three types of lines:
-        1. 'conversation' lines, which are streamed as they come,
-        2. 'special' lines, that are never shown to the user and contain information such as the file_name
-        3. 'code' lines, which are the actual code written and are shown to the user in a special format
-        To make a parser that differs from these assumptions, make this functionality a subclass of Parser
-        """
+        message: List[str],
+        file_edits: Dict[Path, FileEdit],
+    ):
         stream = get_session_stream()
-
-        message = ""
-        file_edits = dict[Path, FileEdit]()
 
         cur_line = ""
         prev_block = ""
@@ -54,11 +47,12 @@ class Parser(ABC):
         conversation = True
         printed_delimiter = False
         rename_map = dict[Path, Path]()
+
         async for chunk in response:
             for content in chunk_to_lines(chunk):
                 if not content:
                     continue
-                message += content
+                message.append(content)
                 cur_line += content
 
                 # Print if not in special lines and line is confirmed not special
@@ -66,16 +60,6 @@ class Parser(ABC):
                     if not line_printed:
                         if not self._could_be_special(cur_line.strip()):
                             line_printed = True
-
-                            # to_print = (
-                            #     cur_line
-                            #     if not in_code_lines or display_information is None
-                            #     else self._code_line_beginning(
-                            #         display_information, cur_block
-                            #     )
-                            #     + self._code_line_content(cur_line, cur_block)
-                            # )
-
                             if in_code_lines and display_information is not None:
                                 await self._print_code_line_beginning(
                                     display_information, cur_block
@@ -85,13 +69,6 @@ class Parser(ABC):
                                 await stream.send(cur_line, end="")
 
                     else:
-                        # to_print = (
-                        #     content
-                        #     if not in_code_lines
-                        #     else self._code_line_content(content, cur_block)
-                        # )
-                        # await stream.send(to_print, end="")
-
                         if in_code_lines:
                             await self._print_code_line_content(content, cur_block)
                         else:
@@ -106,15 +83,6 @@ class Parser(ABC):
                 if "\n" in cur_line:
                     # Always print whitespace lines (even though they 'match' could_be_special)
                     if not cur_line.strip() and not line_printed:
-                        # to_print = (
-                        #     cur_line
-                        #     if not in_code_lines or display_information is None
-                        #     else self._code_line_beginning(
-                        #         display_information, cur_block
-                        #     )
-                        #     + self._code_line_content(cur_line, cur_block)
-                        # )
-
                         if in_code_lines and display_information is not None:
                             await self._print_code_line_beginning(
                                 display_information, cur_block
@@ -147,12 +115,7 @@ class Parser(ABC):
                         except ModelError as e:
                             await stream.send(str(e), color="red")
                             await stream.send("Using existing changes.")
-                            logging.debug("LLM Response:")
-                            logging.debug(message)
-                            return (
-                                message,
-                                [file_edit for file_edit in file_edits.values()],
-                            )
+                            return
 
                         in_special_lines = False
                         prev_block = cur_block
@@ -235,28 +198,65 @@ class Parser(ABC):
                         cur_block = ""
                     line_printed = False
                     cur_line = ""
-        else:
-            # If the model doesn't close out the code lines, we might as well do it for it
-            if (
-                in_code_lines
-                and display_information is not None
-                and file_edit is not None
-            ):
-                to_display = self._add_code_block(
-                    code_file_manager,
-                    rename_map,
-                    prev_block,
-                    cur_block,
-                    display_information,
-                    file_edit,
-                )
-                await print_later_lines(display_information)
-                await stream.send(change_delimiter)
-                await stream.send(to_display)
+                else:
+                    # If the model doesn't close out the code lines, we might as well do it for it
+                    if (
+                        in_code_lines
+                        and display_information is not None
+                        and file_edit is not None
+                    ):
+                        to_display = self._add_code_block(
+                            code_file_manager,
+                            rename_map,
+                            prev_block,
+                            cur_block,
+                            display_information,
+                            file_edit,
+                        )
+                        await print_later_lines(display_information)
+                        await stream.send(change_delimiter)
+                        await stream.send(to_display)
+
+    async def stream_and_parse_llm_response(
+        self,
+        response: AsyncGenerator[Any, None],
+        code_file_manager: CodeFileManager,
+        config: ConfigManager,
+    ) -> tuple[str, list[FileEdit]]:
+        """
+        This general parsing structure relies on the assumption that all formats require three types of lines:
+        1. 'conversation' lines, which are streamed as they come,
+        2. 'special' lines, that are never shown to the user and contain information such as the file_name
+        3. 'code' lines, which are the actual code written and are shown to the user in a special format
+        To make a parser that differs from these assumptions, make this functionality a subclass of Parser
+        """
+        stream = get_session_stream()
+
+        message: List[str] = []
+        file_edits = dict[Path, FileEdit]()
+
+        stream_and_parse_llm_response_chunks_coro = (
+            self._stream_and_parse_llm_response_chunks(
+                response,
+                code_file_manager,
+                config,
+                message,
+                file_edits,
+            )
+        )
+        try:
+            await listen_for_interrupt(
+                stream_and_parse_llm_response_chunks_coro,
+            )
+        except RemoteKeyboardInterrupt:
+            await stream.send(
+                "Interrupted by user. Using the response up to this point."
+            )
 
         logging.debug("LLM Response:")
-        logging.debug(message)
-        return (message, [file_edit for file_edit in file_edits.values()])
+        message_string = "".join(message)
+        logging.debug(message_string)
+        return (message_string, [file_edit for file_edit in file_edits.values()])
 
     # Ideally this would be called in this class instead of subclasses
     def _get_file_lines(
@@ -275,16 +275,6 @@ class Parser(ABC):
     def provide_line_numbers(self) -> bool:
         return True
 
-    # def _code_line_beginning(
-    #     self, display_information: DisplayInformation, cur_block: str
-    # ) -> str:
-    #     """
-    #     The beginning of a code line; normally this means printing the + prefix
-    #     """
-    #     return colored(
-    #         "+" + " " * (display_information.line_number_buffer - 1), color="green"
-    #     )
-
     async def _print_code_line_beginning(
         self, display_information: DisplayInformation, cur_block: str
     ):
@@ -296,12 +286,6 @@ class Parser(ABC):
             color="green",
             end="",
         )
-
-    # def _code_line_content(self, content: str, cur_block: str) -> str:
-    #     """
-    #     Part of a code line; normally this means printing in green
-    #     """
-    #     return colored(content, color="green")
 
     async def _print_code_line_content(self, content: str, cur_block: str):
         """

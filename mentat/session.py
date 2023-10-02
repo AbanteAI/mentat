@@ -6,8 +6,6 @@ from pathlib import Path
 from typing import List, Optional, Union, cast
 from uuid import uuid4
 
-from ipdb import set_trace
-
 from mentat.errors import MentatError
 
 from .code_context import CodeContext

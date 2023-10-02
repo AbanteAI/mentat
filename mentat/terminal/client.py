@@ -16,7 +16,7 @@ from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
 
 logger = logging.getLogger("mentat.terminal")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 class TerminalClient:
@@ -89,7 +89,7 @@ class TerminalClient:
     def _handle_exit(self):
         assert isinstance(self.session, Session), "TerminalClient is not running"
 
-        set_trace()
+        # set_trace()
 
         if (
             self.session.is_stopped

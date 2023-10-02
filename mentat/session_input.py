@@ -2,8 +2,6 @@ import asyncio
 import logging
 from typing import Any, Coroutine
 
-from ipdb import set_trace
-
 from .errors import RemoteKeyboardInterrupt
 from .session_stream import StreamMessage, get_session_stream
 
@@ -48,7 +46,6 @@ async def listen_for_interrupt(
     asyncio.Task created from `coro` will be canceled.
 
     TODO:
-    - handle exceptions raised by either task
     - make sure task cancellation actually cancels the tasks
       - Is there any kind of delay, or a possiblity of one?
     - make sure there's no race conditions
@@ -72,15 +69,11 @@ async def listen_for_interrupt(
                 await task
             except asyncio.CancelledError:
                 pass
-            except Exception as e:
-                # TODO: should we be capturing exceptions here?
-                set_trace()
-                raise e
 
         if wrapped_task in done:
             return wrapped_task.result()
         else:
-            # Send a newline for terminal clients
+            # Send a newline for terminal clients (remove later)
             await stream.send("\n")
 
             if raise_exception_on_interrupt:
