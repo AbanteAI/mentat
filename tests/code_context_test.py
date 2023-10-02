@@ -5,9 +5,11 @@ from unittest import TestCase
 import pytest
 
 from mentat.app import expand_paths
-from mentat.code_context import (CodeContext, 
-                                 _longer_feature_already_included, 
-                                 _shorter_features_already_included)
+from mentat.code_context import (
+    CodeContext,
+    _longer_feature_already_included,
+    _shorter_features_already_included,
+)
 from mentat.code_file import CodeMessageLevel
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
@@ -170,11 +172,11 @@ def test_text_encoding_checking(temp_testbed, mock_config):
 @pytest.fixture
 def features(mocker):
     features_meta = [
-        ('somefile.txt', CodeMessageLevel.CODE, 'some diff'),
-        ('somefile.txt', CodeMessageLevel.CMAP_FULL, 'some diff'),
-        ('somefile.txt', CodeMessageLevel.CMAP_FULL, None),
-        ('somefile.txt', CodeMessageLevel.CMAP, None),
-        ('differentfile.txt', CodeMessageLevel.CODE, 'some diff'),
+        ("somefile.txt", CodeMessageLevel.CODE, "some diff"),
+        ("somefile.txt", CodeMessageLevel.CMAP_FULL, "some diff"),
+        ("somefile.txt", CodeMessageLevel.CMAP_FULL, None),
+        ("somefile.txt", CodeMessageLevel.CMAP, None),
+        ("differentfile.txt", CodeMessageLevel.CODE, "some diff"),
     ]
     features = []
     for file, level, diff in features_meta:
@@ -187,18 +189,13 @@ def features(mocker):
 
 
 def test_longer_feature_already_included(features):
-    higher_level = _longer_feature_already_included(
-        features[1], [features[0]]
-    )
+    higher_level = _longer_feature_already_included(features[1], [features[0]])
     assert higher_level is True
-    lower_diff = _longer_feature_already_included(
-        features[1], [features[2]]
-    )
+    lower_diff = _longer_feature_already_included(features[1], [features[2]])
     assert lower_diff is False
-    higher_diff = _longer_feature_already_included(
-        features[2], [features[1]]
-    )
+    higher_diff = _longer_feature_already_included(features[2], [features[1]])
     assert higher_diff is True
+
 
 def test_shorter_features_already_included(features):
     lower_level = _shorter_features_already_included(
@@ -212,36 +209,36 @@ def test_get_code_message_cache(mocker, temp_testbed, mock_config):
     parser = BlockParser()
     code_context = CodeContext(
         config=mock_config,
-        paths=['multifile_calculator'],
-        exclude_paths=['multifile_calculator/calculator.py'], 
+        paths=["multifile_calculator"],
+        exclude_paths=["multifile_calculator/calculator.py"],
         auto_tokens=10,
     )
     file = Path("multifile_calculator/operations.py")
     feature = mocker.MagicMock()
     feature.path = file
     code_context.features = [feature]
-    
+
     # Return cached value if no changes to file or settings
     mock_get_code_message = mocker.patch(
         "mentat.code_context.CodeContext._get_code_message"
     )
     mock_get_code_message.return_value = "test1"
-    value1 = code_context.get_code_message('gpt-4', code_file_manager, parser)
+    value1 = code_context.get_code_message("gpt-4", code_file_manager, parser)
     mock_get_code_message.return_value = "test2"
-    value2 = code_context.get_code_message('gpt-4', code_file_manager, parser)
+    value2 = code_context.get_code_message("gpt-4", code_file_manager, parser)
     assert value1 == value2
 
     # Regenerate if settings change
     code_context.settings.auto_tokens = 11
-    value3 = code_context.get_code_message('gpt-4', code_file_manager, parser)
+    value3 = code_context.get_code_message("gpt-4", code_file_manager, parser)
     assert value1 != value3
-    
+
     # Regenerate if feature files change
     mock_get_code_message.return_value = "test3"
     lines = file.read_text().splitlines()
     lines[0] = "something different"
     file.write_text("\n".join(lines))
-    value4 = code_context.get_code_message('gpt-4', code_file_manager, parser)
+    value4 = code_context.get_code_message("gpt-4", code_file_manager, parser)
     assert value3 != value4
 
 
@@ -250,34 +247,37 @@ def test_get_code_message_include(temp_testbed, mock_config):
     parser = BlockParser()
     code_context = CodeContext(
         config=mock_config,
-        paths=['multifile_calculator'],
-        exclude_paths=['multifile_calculator/calculator.py'], 
+        paths=["multifile_calculator"],
+        exclude_paths=["multifile_calculator/calculator.py"],
     )
 
     # If max tokens is less than include_files, return include_files without
     # raising and Exception (that's handled elsewhere)
     code_context.settings.auto_tokens = 0
-    code_message = code_context.get_code_message('gpt-4', code_file_manager, parser)
+    code_message = code_context.get_code_message("gpt-4", code_file_manager, parser)
     expected = [
-        'Code Files:',
-        '',
-        'multifile_calculator/__init__.py',
+        "Code Files:",
+        "",
+        "multifile_calculator/__init__.py",
         "1:",
-        '',
-        'multifile_calculator/operations.py',
-        *[f"{i+1}:{line}" for i, line in enumerate(
-            Path('multifile_calculator/operations.py').read_text().split('\n')
-        )],
+        "",
+        "multifile_calculator/operations.py",
+        *[
+            f"{i+1}:{line}"
+            for i, line in enumerate(
+                Path("multifile_calculator/operations.py").read_text().split("\n")
+            )
+        ],
     ]
     assert code_message.splitlines() == expected
 
     # Fill-in complete files if there's enough room
-    code_context.settings.auto_tokens = 1000 * .95 # Sometimes it's imprecise
-    code_message = code_context.get_code_message('gpt-4', code_file_manager, parser)
+    code_context.settings.auto_tokens = 1000 * 0.95  # Sometimes it's imprecise
+    code_message = code_context.get_code_message("gpt-4", code_file_manager, parser)
     print(code_message)
-    assert 500 <= count_tokens(code_message, 'gpt-4') <= 1000
+    assert 500 <= count_tokens(code_message, "gpt-4") <= 1000
     messages = code_message.split("\n\n")
-    assert messages[0] == 'Code Files:'
+    assert messages[0] == "Code Files:"
     for message in messages[1:]:
         message_lines = message.splitlines()
         if message_lines:
@@ -285,6 +285,6 @@ def test_get_code_message_include(temp_testbed, mock_config):
 
     # Otherwise, fill-in what fits
     code_context.settings.auto_tokens = 400
-    code_message = code_context.get_code_message('gpt-4', code_file_manager, parser)
+    code_message = code_context.get_code_message("gpt-4", code_file_manager, parser)
     print(code_message)
-    assert count_tokens(code_message, 'gpt-4') <= 800
+    assert count_tokens(code_message, "gpt-4") <= 800

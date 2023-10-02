@@ -89,7 +89,10 @@ class CodeFile:
         self.diff = diff
 
     def __repr__(self):
-        return f"CodeFile(fname={self.path.name}, intervals={self.intervals}, level={self.level}, diff={self.diff})"
+        return (
+            f"CodeFile(fname={self.path.name}, intervals={self.intervals},"
+            f" level={self.level}, diff={self.diff})"
+        )
 
     def contains_line(self, line_number: int):
         return any([interval.contains(line_number) for interval in self.intervals])
