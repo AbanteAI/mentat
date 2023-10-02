@@ -87,9 +87,6 @@ class TerminalClient:
 
     def _handle_exit(self):
         assert isinstance(self.session, Session), "TerminalClient is not running"
-
-        # set_trace()
-
         if (
             self.session.is_stopped
             or self.session.stream.interrupt_lock.locked() is False
