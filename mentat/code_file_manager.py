@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from termcolor import cprint
 
@@ -17,32 +17,18 @@ if TYPE_CHECKING:
     from .code_context import CodeContext
 
 
-def _read_file(config: ConfigManager, path: Path) -> list[str]:
-    abs_path = path if path.is_absolute() else Path(config.git_root / path)
-    with open(abs_path, "r") as f:
-        lines = f.read().split("\n")
-    return lines
-
-
-class FileLineReader:
-    """A temporary helper class to replace the pre-loaded list of lines."""
-    def __init__(self, config: ConfigManager):
-        self.config = config
-
-    def get(self, path: Path, default: Any=None) -> list[str]:
-        try:
-            return _read_file(self.config, path)
-        except FileNotFoundError:
-            return default
-
-    def __getitem__(self, path: Path) -> list[str]:
-        return _read_file(self.config, path)
-
-
 class CodeFileManager:
     def __init__(self, config: ConfigManager):
         self.config = config
-        self.file_lines = FileLineReader(config)
+        self.file_lines = dict[Path, list[str]]()
+
+    def read_file(self, path: Path) -> list[str]:
+        abs_path = path if path.is_absolute() else Path(self.config.git_root / path)
+        rel_path = Path(os.path.relpath(abs_path, self.config.git_root))
+        with open(abs_path, "r") as f:
+            lines = f.read().split("\n")
+        self.file_lines[rel_path] = lines
+        return lines
 
     def _create_file(self, abs_path: Path, code_context: "CodeContext"):
         logging.info(f"Creating new file {abs_path}")
@@ -95,7 +81,7 @@ class CodeFileManager:
 
             if not file_edit.is_creation:
                 stored_lines = self.file_lines[rel_path]
-                if stored_lines != _read_file(self.config, rel_path):
+                if stored_lines != self.read_file(rel_path):
                     logging.info(
                         f"File '{file_edit.file_path}' changed while generating changes"
                     )

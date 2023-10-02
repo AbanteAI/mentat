@@ -86,9 +86,9 @@ class FileEdit:
                     color="red",
                 )
                 return False
-            # elif rel_path not in code_file_manager.file_lines:
-            #     cprint(f"File {rel_path} not in context, canceling all edits to file.")
-            #     return False
+            elif rel_path not in code_file_manager.file_lines:
+                cprint(f"File {rel_path} not in context, canceling all edits to file.")
+                return False
 
         if self.rename_file_path is not None and self.rename_file_path.exists():
             rel_rename_path = Path(

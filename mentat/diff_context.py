@@ -3,8 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
-from termcolor import cprint
-
 from .config_manager import ConfigManager
 from .errors import UserError
 from .git_handler import (

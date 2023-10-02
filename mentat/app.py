@@ -100,7 +100,9 @@ def run(
     cost_tracker = CostTracker()
     try:
         setup_api_key()
-        loop(paths, exclude_paths, cost_tracker, no_code_map, diff, pr_diff, auto_tokens)
+        loop(
+            paths, exclude_paths, cost_tracker, no_code_map, diff, pr_diff, auto_tokens
+        )
     except (
         EOFError,
         KeyboardInterrupt,

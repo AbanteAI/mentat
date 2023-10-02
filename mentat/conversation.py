@@ -64,8 +64,10 @@ class Conversation:
             else:
                 context_size = maximum_context
         tokens = count_tokens(
-            code_context.get_code_message(self.model, self.code_file_manager, max_tokens=0), 
-            self.model
+            code_context.get_code_message(
+                self.model, self.code_file_manager, max_tokens=0
+            ),
+            self.model,
         ) + count_tokens(prompt, self.model)
 
         if not context_size:
@@ -146,7 +148,9 @@ class Conversation:
         tokens = count_tokens(conversation_history, self.model)
         response_buffer = 1000
         code_message = self.code_context.get_code_message(
-            self.model, self.code_file_manager, self.max_tokens - tokens - response_buffer
+            self.model,
+            self.code_file_manager,
+            self.max_tokens - tokens - response_buffer,
         )
         messages.append({"role": "system", "content": code_message})
 

@@ -259,10 +259,11 @@ def test_get_code_message_include(temp_testbed, mock_config):
         'Code Files:',
         '',
         'multifile_calculator/__init__.py',
+        "1:",
         '',
         'multifile_calculator/operations.py',
         *[f"{i+1}:{line}" for i, line in enumerate(
-            Path('multifile_calculator/operations.py').read_text().splitlines()
+            Path('multifile_calculator/operations.py').read_text().split('\n')
         )],
     ]
     assert code_message.splitlines() == expected

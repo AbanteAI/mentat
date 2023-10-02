@@ -167,9 +167,6 @@ def test_existing_file(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
     assert content == ""
 
 
-# This conflicts with auto-context, because it will have access to (and 
-# could suggest modifications on) files besides what the user specifies.
-@pytest.mark.xfail
 def test_file_not_in_context(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
