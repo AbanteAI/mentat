@@ -177,9 +177,9 @@ class Parser(ABC):
 
                         # Rename map handling
                         if display_information.new_name is not None:
-                            rename_map[
-                                display_information.new_name
-                            ] = display_information.file_name
+                            rename_map[display_information.new_name] = (
+                                display_information.file_name
+                            )
                         if display_information.file_name in rename_map:
                             file_edit.file_path = (
                                 config.git_root

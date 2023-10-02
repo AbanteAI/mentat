@@ -30,7 +30,7 @@ class StreamMessageSource(Enum):
     CLIENT = "client"
 
 
-@dataclass
+@dataclass(slots=True)
 class StreamMessage:
     id: UUID
     channel: str

@@ -46,7 +46,6 @@ class Session:
         self.parser = parser
 
         self.id = uuid4()
-        self.parser = BlockParser()
         self.code_file_manager = CodeFileManager(self.config)
         self.cost_tracker = CostTracker()
         setup_api_key()

@@ -11,6 +11,7 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
+from mentat.config_manager import ConfigManager
 from mentat.session_stream import StreamMessage, StreamMessageSource
 
 pytest_plugins = ("pytest_reportlog",)
@@ -126,8 +127,6 @@ def mock_setup_api_key(mocker):
 
 @pytest_asyncio.fixture
 async def mock_config(temp_testbed):
-    from mentat.config_manager import ConfigManager
-
     config = await ConfigManager.create(Path(temp_testbed))
     config.project_config = {}
     return config
@@ -156,7 +155,29 @@ def add_permissions(func, path, exc_info):
         raise
 
 
-# Auto-used fixtures
+# The contexvar needs to be set in a synchronous fixture due to pytest not propagating
+# async fixture contexts to test contexts.
+# https://github.com/pytest-dev/pytest-asyncio/issues/127
+@pytest.fixture
+def _mock_stream():
+    from mentat.session_stream import _SESSION_STREAM, SessionStream, set_session_stream
+
+    session_stream = SessionStream()
+    token = set_session_stream(session_stream)
+    yield session_stream
+    _SESSION_STREAM.reset(token)
+
+
+@pytest_asyncio.fixture()
+async def mock_stream(_mock_stream):
+    await _mock_stream.start()
+    yield _mock_stream
+    await _mock_stream.stop()
+
+
+### Auto-used fixtures
+
+
 def run_git_command(cwd, *args):
     """Helper function to run a git command."""
     subprocess.run(
@@ -214,23 +235,3 @@ def mock_user_config(mocker):
 #     if os.name == "nt":
 #         mocker.patch("mentat.user_input_manager.PromptSession")
 #         mocker.patch("mentat.user_input_manager.MentatPromptSession")
-
-
-# The contexvar needs to be set in a synchronous fixture due to pytest not propagating
-# async fixture contexts to test contexts.
-# https://github.com/pytest-dev/pytest-asyncio/issues/127
-@pytest.fixture
-def _mock_stream():
-    from mentat.session_stream import _SESSION_STREAM, SessionStream, set_session_stream
-
-    session_stream = SessionStream()
-    token = set_session_stream(session_stream)
-    yield session_stream
-    _SESSION_STREAM.reset(token)
-
-
-@pytest_asyncio.fixture()
-async def mock_stream(_mock_stream):
-    await _mock_stream.start()
-    yield _mock_stream
-    await _mock_stream.stop()
