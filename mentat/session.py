@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import List, Optional, Union, cast
 from uuid import uuid4
 
+from ipdb import set_trace
+
+from mentat.errors import MentatError
+
 from .code_context import CodeContext
 from .code_edit_feedback import get_user_feedback_on_edits
 from .code_file_manager import CodeFileManager
@@ -78,13 +82,18 @@ class Session:
 
     async def _main(self):
         await self.code_context.display_context()
-        conv = await Conversation.create(
-            parser=self.parser,
-            config=self.config,
-            cost_tracker=self.cost_tracker,
-            code_context=self.code_context,
-            code_file_manager=self.code_file_manager,
-        )
+
+        try:
+            conv = await Conversation.create(
+                parser=self.parser,
+                config=self.config,
+                cost_tracker=self.cost_tracker,
+                code_context=self.code_context,
+                code_file_manager=self.code_file_manager,
+            )
+        except MentatError as e:
+            await self.stream.send(str(e), color="red")
+            return
 
         await self.stream.send(
             "Type 'q' or use Ctrl-C to quit at any time.", color="cyan"
@@ -130,7 +139,7 @@ class Session:
     def start(self):
         """Asynchronously start the Session.
 
-        A background asyncio.Task will be created to run the startup sequence and run
+        A background asyncio. Task will be created to run the startup sequence and run
         the main loop which runs forever (until a client interrupts it).
         """
         if self._main_task:
@@ -165,10 +174,10 @@ class Session:
         order to make sure the shutdown sequence has finished.
         """
         if self._stop_task is not None:
-            logger.warning("Task is already stopping")
+            logger.debug("Task is already stopping")
             return
         if self.is_stopped:
-            logger.warning("Task is already stopped")
+            logger.debug("Task is already stopped")
             return
 
         async def run_stop():

@@ -49,7 +49,7 @@ class Conversation:
         self = Conversation(config, cost_tracker, code_context, code_file_manager)
 
         if not is_model_available(self.model):
-            raise Exception(
+            raise MentatError(
                 f"Model {self.model} is not available. Please try again with a"
                 " different model."
             )
@@ -85,12 +85,12 @@ class Conversation:
                 context_size = maximum_context
 
         if not context_size:
-            raise Exception(
+            raise MentatError(
                 f"Context size for {self.model} is not known. Please set"
                 f" maximum-context in {user_config_path}."
             )
         if context_size and tokens > context_size:
-            raise Exception(
+            raise MentatError(
                 f"Included files already exceed token limit ({tokens} /"
                 f" {context_size}). Please try running again with a reduced"
                 " number of files."
@@ -131,7 +131,7 @@ class Conversation:
         try:
             response = await call_llm_api(messages, self.model)
             await stream.send(
-                "Streaming...  use control-c to interrupt the model at any point"
+                "Streaming... use control-c to interrupt the model at any point"
             )
             message, file_edits = await parser.stream_and_parse_llm_response(
                 response, self.code_file_manager, config
