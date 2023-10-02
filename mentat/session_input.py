@@ -30,7 +30,7 @@ async def ask_yes_no(default_yes: bool) -> bool:
         # TODO: combine this into a single message (include content)
         await stream.send("(Y/n)" if default_yes else "(y/N)")
         response = await collect_user_input()
-        content = response.data["content"]
+        content = response.data
         if content in ["y", "n", ""]:
             break
     return content == "y" or (content != "n" and default_yes)
