@@ -1,11 +1,8 @@
-from os import walk
 from pathlib import Path
 
 import pytest
-from ipdb import set_trace
 
 from mentat.parsers.file_edit import FileEdit, Replacement
-from mentat.session_stream import SessionStream, get_session_stream, set_session_stream
 
 # Since file creation, deletion, and renaming is almost entirely handled in
 # the CodeFileManager, no need to test that here

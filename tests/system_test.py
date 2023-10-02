@@ -1,13 +1,9 @@
-import asyncio
-import os
-import sys
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
-from ipdb import set_trace
 
-import mentat.session_input
+from mentat.session import Session
 
 # def get_stream_messages(*values: str):
 #     from datetime import datetime
@@ -30,46 +26,25 @@ import mentat.session_input
 #     return stream_messages
 
 
-async def get_stream_messages(*values: str):
-    from datetime import datetime
-    from uuid import uuid4
-
-    from mentat.session_stream import StreamMessage, StreamMessageSource
-
-    for value in values:
-        yield StreamMessage(
-            id=uuid4(),
-            channel="default",
-            source=StreamMessageSource.CLIENT,
-            data=value,
-            extra=None,
-            created_at=datetime.utcnow(),
-        )
-
-
 @pytest.mark.asyncio
-async def test_system(mock_call_llm_api, mock_setup_api_key, monkeypatch):
+async def test_system(mock_call_llm_api, mock_setup_api_key, mock_collect_user_input):
     # Create a temporary file
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
         f.write("# This is a temporary file.")
 
-    stream_messages = get_stream_messages(
-        'Replace comment with print("Hello, world!")', "y", "q"
-    )
-
-    # Mock collect_user_input to consume user_input_generator
-    async def mock_collect_user_input():
-        return await stream_messages.__anext__()
-
-    monkeypatch.setattr(
-        mentat.session_input, "collect_user_input", mock_collect_user_input
-    )
-
-    mock_call_llm_api.set_generator_values(
+    mock_collect_user_input.set_stream_messages(
         [
-            dedent(
-                """\
+            "Add changes to the file",
+            "i",
+            "y",
+            "n",
+            "y",
+            "q",
+        ]
+    )
+
+    mock_call_llm_api.set_generator_values([dedent("""\
         I will add a print statement.
 
         Steps:
@@ -84,14 +59,7 @@ async def test_system(mock_call_llm_api, mock_setup_api_key, monkeypatch):
         }}
         @@code
         print("Hello, world!")
-        @@end""".format(
-                    file_name=temp_file_name
-                )
-            )
-        ]
-    )
-
-    from mentat.session import Session
+        @@end""".format(file_name=temp_file_name))])
 
     session = await Session.create([temp_file_name])
     await session.start()
@@ -106,29 +74,25 @@ async def test_system(mock_call_llm_api, mock_setup_api_key, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_interactive_change_selection(
-    mock_call_llm_api, mock_setup_api_key, monkeypatch
+    mock_call_llm_api, mock_setup_api_key, mock_collect_user_input
 ):
     # Create a temporary file
     temp_file_name = Path("temp_interactive.py")
     with open(temp_file_name, "w") as f:
         f.write("# This is a temporary file for interactive test.")
 
-    stream_messages = get_stream_messages(
-        "Add changes to the file", "i", "y", "n", "y", "q"
-    )
-
-    # Mock collect_user_input to consume user_input_generator
-    async def mock_collect_user_input():
-        return await stream_messages.__anext__()
-
-    monkeypatch.setattr(
-        mentat.session_input, "collect_user_input", mock_collect_user_input
-    )
-
-    mock_call_llm_api.set_generator_values(
+    mock_collect_user_input.set_stream_messages(
         [
-            dedent(
-                """\
+            "Add changes to the file",
+            "i",
+            "y",
+            "n",
+            "y",
+            "q",
+        ]
+    )
+
+    mock_call_llm_api.set_generator_values([dedent("""\
         I will make three changes to the file.
 
         Steps:
@@ -165,14 +129,7 @@ async def test_interactive_change_selection(
         }}
         @@code
         print("Change 3")
-        @@end""".format(
-                    file_name=temp_file_name
-                )
-            )
-        ]
-    )
-
-    from mentat.session import Session
+        @@end""".format(file_name=temp_file_name))])
 
     session = await Session.create([temp_file_name])
     await session.start()
@@ -182,8 +139,6 @@ async def test_interactive_change_selection(
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = 'print("Change 1")\n\nprint("Change 3")'
-
-    set_trace()
 
     assert content == expected_content
 

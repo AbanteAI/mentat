@@ -6,7 +6,6 @@ import traceback
 from pathlib import Path
 from typing import Any, Coroutine, List, Set
 
-from ipdb import set_trace
 from prompt_toolkit.completion import Completer
 
 from mentat.session import Session
@@ -96,7 +95,6 @@ class TerminalClient:
             or self.session.stream.interrupt_lock.locked() is False
         ):
             if self._should_exit:
-                set_trace()
                 logger.debug("Force exiting client...")
                 self._force_exit = True
             else:
@@ -113,7 +111,7 @@ class TerminalClient:
         loop.add_signal_handler(signal.SIGTERM, self._handle_exit)
 
     async def _startup(self):
-        assert self.session == None, "TerminalClient already running"
+        assert self.session is None, "TerminalClient already running"
 
         logger.debug("Running startup")
 
@@ -170,7 +168,6 @@ class TerminalClient:
         # NOTE: we should remove this try/except. The code inside of `self._run` should
         # never throw an exception
         except Exception as e:
-            set_trace()
             logger.error(f"Unexpected Exception {e}")
             logger.error(traceback.format_exc())
 

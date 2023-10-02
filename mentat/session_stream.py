@@ -76,8 +76,7 @@ class SessionStream:
             extra=kwargs,
         )
 
-        # logger.info(message)
-        print(message)
+        logger.info(message)
 
         self.messages.append(message)
         await self._broadcast.publish(channel=channel, message=message)

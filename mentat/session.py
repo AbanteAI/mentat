@@ -6,8 +6,6 @@ from pathlib import Path
 from typing import List, Optional, Union, cast
 from uuid import uuid4
 
-from ipdb import set_trace
-
 from .code_context import CodeContext
 from .code_edit_feedback import get_user_feedback_on_edits
 from .code_file_manager import CodeFileManager
@@ -22,7 +20,7 @@ from .parsers.parser import Parser
 from .parsers.replacement_parser import ReplacementParser
 from .parsers.split_diff_parser import SplitDiffParser
 from .session_input import collect_user_input
-from .session_stream import SessionStream, StreamMessage, set_session_stream
+from .session_stream import SessionStream, set_session_stream
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -105,10 +103,7 @@ class Session:
                 try:
                     message = await collect_user_input()
                 except Exception as e:
-                    set_trace()
                     raise e
-                else:
-                    print(message)
 
                 # Intercept and run command
                 if isinstance(message.data, str) and message.data.startswith("/"):

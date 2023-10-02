@@ -1,4 +1,1 @@
-{
-  "include": ["mentat", "tests", "testbed"],
-  "strict": ["mentat"]
-}
+{"include": ["mentat"], "ignore": ["testbed", "tests"], "typeCheckingMode": "strict"}

@@ -3,10 +3,15 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from datetime import datetime
 from pathlib import Path
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+
+from mentat.session_stream import StreamMessage, StreamMessageSource
 
 pytest_plugins = ("pytest_reportlog",)
 
@@ -87,10 +92,35 @@ def mock_call_llm_api(mocker):
     return mock
 
 
+@pytest.fixture
+def mock_collect_user_input(mocker):
+    async_mock = AsyncMock()
+
+    mocker.patch("mentat.code_edit_feedback.collect_user_input", side_effect=async_mock)
+    mocker.patch("mentat.session_input.collect_user_input", side_effect=async_mock)
+    mocker.patch("mentat.session.collect_user_input", side_effect=async_mock)
+
+    def set_stream_messages(values):
+        async_mock.side_effect = [
+            StreamMessage(
+                id=uuid4(),
+                channel="default",
+                source=StreamMessageSource.CLIENT,
+                data=value,
+                extra=None,
+                created_at=datetime.utcnow(),
+            )
+            for value in values
+        ]
+
+    async_mock.set_stream_messages = set_stream_messages
+    return async_mock
+
+
 @pytest.fixture(scope="function")
 def mock_setup_api_key(mocker):
-    mocker.patch("mentat.llm_api.setup_api_key")
-    mocker.patch("mentat.llm_api.is_model_available")
+    mocker.patch("mentat.session.setup_api_key")
+    mocker.patch("mentat.conversation.is_model_available")
     return
 
 
