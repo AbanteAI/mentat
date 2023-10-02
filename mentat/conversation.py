@@ -133,9 +133,10 @@ class Conversation:
             await stream.send(
                 "Streaming... use control-c to interrupt the model at any point"
             )
-            message, file_edits = await parser.stream_and_parse_llm_response(
-                response, self.code_file_manager, config
-            )
+            async with parser.interrupt_catcher():
+                message, file_edits = await parser.stream_and_parse_llm_response(
+                    response, self.code_file_manager, config
+                )
         except InvalidRequestError as e:
             raise MentatError(
                 "Something went wrong - invalid request to OpenAI API. OpenAI"

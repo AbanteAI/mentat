@@ -11,12 +11,12 @@ from prompt_toolkit.completion import Completer
 
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
-from mentat.terminal.output import cprint_stream_message
+from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
 
 logger = logging.getLogger("mentat.terminal")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class TerminalClient:
@@ -58,14 +58,14 @@ class TerminalClient:
         async for message in self.session.stream.listen():
             if self._should_exit:
                 return
-            cprint_stream_message(message)
+            print_stream_message(message)
 
     async def _handle_input_requests(self, prompt_completer: Completer | None = None):
         assert isinstance(self.session, Session), "TerminalClient is not running"
         while True:
             input_request_message = await self.session.stream.recv("input_request")
 
-            # TODO: fix user_input typing
+            # TODO: fix pyright typing for user_input
             user_input = await self._prompt_session.prompt_async(  # type: ignore
                 completer=prompt_completer, handle_sigint=False
             )
