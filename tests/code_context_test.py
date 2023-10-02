@@ -13,6 +13,7 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
 from mentat.errors import UserError
 from mentat.llm_api import count_tokens
+from mentat.parsers.block_parser import BlockParser
 
 
 def test_path_gitignoring(temp_testbed, mock_config):
@@ -208,6 +209,7 @@ def test_shorter_features_already_included(features):
 
 def test_get_code_message_cache(mocker, temp_testbed, mock_config):
     code_file_manager = CodeFileManager(mock_config)
+    parser = BlockParser()
     code_context = CodeContext(
         config=mock_config,
         paths=['multifile_calculator'],
@@ -224,14 +226,14 @@ def test_get_code_message_cache(mocker, temp_testbed, mock_config):
         "mentat.code_context.CodeContext._get_code_message"
     )
     mock_get_code_message.return_value = "test1"
-    value1 = code_context.get_code_message('gpt-4', code_file_manager)
+    value1 = code_context.get_code_message('gpt-4', code_file_manager, parser)
     mock_get_code_message.return_value = "test2"
-    value2 = code_context.get_code_message('gpt-4', code_file_manager)
+    value2 = code_context.get_code_message('gpt-4', code_file_manager, parser)
     assert value1 == value2
 
     # Regenerate if settings change
     code_context.settings.auto_tokens = 11
-    value3 = code_context.get_code_message('gpt-4', code_file_manager)
+    value3 = code_context.get_code_message('gpt-4', code_file_manager, parser)
     assert value1 != value3
     
     # Regenerate if feature files change
@@ -239,12 +241,13 @@ def test_get_code_message_cache(mocker, temp_testbed, mock_config):
     lines = file.read_text().splitlines()
     lines[0] = "something different"
     file.write_text("\n".join(lines))
-    value4 = code_context.get_code_message('gpt-4', code_file_manager)
+    value4 = code_context.get_code_message('gpt-4', code_file_manager, parser)
     assert value3 != value4
 
 
 def test_get_code_message_include(temp_testbed, mock_config):
     code_file_manager = CodeFileManager(mock_config)
+    parser = BlockParser()
     code_context = CodeContext(
         config=mock_config,
         paths=['multifile_calculator'],
@@ -254,7 +257,7 @@ def test_get_code_message_include(temp_testbed, mock_config):
     # If max tokens is less than include_files, return include_files without
     # raising and Exception (that's handled elsewhere)
     code_context.settings.auto_tokens = 0
-    code_message = code_context.get_code_message('gpt-4', code_file_manager)
+    code_message = code_context.get_code_message('gpt-4', code_file_manager, parser)
     expected = [
         'Code Files:',
         '',
@@ -270,7 +273,7 @@ def test_get_code_message_include(temp_testbed, mock_config):
 
     # Fill-in complete files if there's enough room
     code_context.settings.auto_tokens = 1000 * .95 # Sometimes it's imprecise
-    code_message = code_context.get_code_message('gpt-4', code_file_manager)
+    code_message = code_context.get_code_message('gpt-4', code_file_manager, parser)
     print(code_message)
     assert 500 <= count_tokens(code_message, 'gpt-4') <= 1000
     messages = code_message.split("\n\n")
@@ -282,6 +285,6 @@ def test_get_code_message_include(temp_testbed, mock_config):
 
     # Otherwise, fill-in what fits
     code_context.settings.auto_tokens = 400
-    code_message = code_context.get_code_message('gpt-4', code_file_manager)
+    code_message = code_context.get_code_message('gpt-4', code_file_manager, parser)
     print(code_message)
     assert count_tokens(code_message, 'gpt-4') <= 800

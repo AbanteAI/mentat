@@ -20,6 +20,7 @@ from .utils import sha256
 if TYPE_CHECKING:
     # This normally will cause a circular import
     from mentat.code_file_manager import CodeFileManager
+    from mentat.parsers.parser import Parser
 
 
 def _longer_feature_already_included(
@@ -184,6 +185,7 @@ class CodeContext:
         self,
         model: str,
         code_file_manager: "CodeFileManager",
+        parser: "Parser",
         max_tokens: Optional[int] = None,
     ) -> str:
         code_message_checksum = self._get_code_message_checksum(
@@ -194,7 +196,7 @@ class CodeContext:
             or code_message_checksum != self._code_message_checksum
         ):
             self._code_message = self._get_code_message(
-                model, code_file_manager, max_tokens
+                model, code_file_manager, parser, max_tokens
             )
             self._code_message_checksum = self._get_code_message_checksum(
                 code_file_manager, max_tokens
@@ -205,6 +207,7 @@ class CodeContext:
         self,
         model: str,
         code_file_manager: "CodeFileManager",
+        parser: "Parser",
         max_tokens: Optional[int] = None,
     ) -> str:
         code_message = list[str]()
@@ -223,7 +226,8 @@ class CodeContext:
 
         features = self._get_include_features()
         include_feature_tokens = sum(
-            f.count_tokens(self.config, code_file_manager, model) for f in features
+            f.count_tokens(self.config, code_file_manager, parser, model)
+            for f in features
         ) + count_tokens("\n".join(code_message), model)
         _max_auto = (
             None if max_tokens is None else max(0, max_tokens - include_feature_tokens)
@@ -239,11 +243,11 @@ class CodeContext:
             else:
                 auto_tokens = _max_auto or _max_user
             self.features = self._get_auto_features(
-                code_file_manager, model, features, auto_tokens
+                code_file_manager, parser, model, features, auto_tokens
             )
 
         for f in self.features:
-            code_message += f.get_code_message(self.config, code_file_manager)
+            code_message += f.get_code_message(self.config, code_file_manager, parser)
         return "\n".join(code_message)
 
     def _get_include_features(self) -> list[CodeFile]:
@@ -266,6 +270,7 @@ class CodeContext:
     def _get_auto_features(
         self,
         code_file_manager: "CodeFileManager",
+        parser: "Parser",
         model: str,
         include_features: list[CodeFile],
         max_tokens: Optional[int] = None,
@@ -292,7 +297,7 @@ class CodeContext:
 
         def _calculate_feature_score(feature: CodeFile) -> float:
             score = 0.0
-            tokens = feature.count_tokens(self.config, code_file_manager, model)
+            tokens = feature.count_tokens(self.config, code_file_manager, parser, model)
             if tokens == 0:
                 raise MentatError(f"Feature {feature} has 0 tokens.")
             if feature.diff is not None:
@@ -314,7 +319,9 @@ class CodeContext:
         ]
         candidates_sorted = sorted(candidates_scored, key=lambda x: x[1], reverse=True)
         for feature, _ in candidates_sorted:
-            feature_tokens = feature.count_tokens(self.config, code_file_manager, model)
+            feature_tokens = feature.count_tokens(
+                self.config, code_file_manager, parser, model
+            )
             if tokens_remaining - feature_tokens <= 0:
                 continue
             if _longer_feature_already_included(feature, all_features):
@@ -324,12 +331,12 @@ class CodeContext:
                 for f in to_replace:
                     f_index = all_features.index(f)
                     tokens_remaining += all_features[f_index].count_tokens(
-                        self.config, code_file_manager, model
+                        self.config, code_file_manager, parser, model
                     )
                     all_features = all_features[:f_index] + all_features[f_index + 1 :]
             all_features.append(feature)
             tokens_remaining -= feature.count_tokens(
-                self.config, code_file_manager, model
+                self.config, code_file_manager, parser, model
             )
 
         def _feature_relative_path(f: CodeFile) -> str:

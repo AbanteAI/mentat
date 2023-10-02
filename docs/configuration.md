@@ -77,3 +77,4 @@ Mentat is able to edit files by parsing a specific format that the model is told
 Available formats:
 * block
 * replacement
+* split-diff

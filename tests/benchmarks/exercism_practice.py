@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import threading
+from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
 from textwrap import dedent
@@ -18,11 +19,14 @@ threadLocal = threading.local()
 pytestmark = pytest.mark.benchmark
 
 
-def exercise_passed():
+def exercise_passed(language):
     try:
         with open(threadLocal.test_output_file, "r") as f:
             lines = f.readlines()
-            return "failed" not in lines[-1] and "passed" in lines[-1]
+            if language == "python":
+                return "failed" not in lines[-1] and "passed" in lines[-1]
+            else:
+                return "FAIL" not in lines[0] and "PASS" in lines[0]
     except FileNotFoundError:
         return False
 
@@ -34,11 +38,19 @@ def get_error_message():
         return "\n".join(lines)
 
 
-def run_exercise_test():
+def run_exercise_test(language):
     try:
-        proc = subprocess.run(
-            ["pytest", threadLocal.exercise], stdout=subprocess.PIPE, timeout=5
-        )
+        if language == "python":
+            proc = subprocess.run(
+                ["pytest", threadLocal.exercise], stdout=subprocess.PIPE, timeout=5
+            )
+        else:
+            proc = subprocess.run(
+                ["./node_modules/jest/bin/jest.js", threadLocal.exercise],
+                stderr=subprocess.STDOUT,
+                stdout=subprocess.PIPE,
+                timeout=5,
+            )
         results = proc.stdout.decode("utf-8")
     except subprocess.TimeoutExpired:
         results = "Test timed out"
@@ -47,7 +59,7 @@ def run_exercise_test():
 
 
 @pytest.fixture
-def mock_user_input_manager(max_iterations, mocker):
+def mock_user_input_manager(max_iterations, mocker, language):
     def mocked_collect_user_input(self, use_plain_session=False):
         if threadLocal.iterations == 0:
             threadLocal.iterations = 1
@@ -56,14 +68,14 @@ def mock_user_input_manager(max_iterations, mocker):
                 f"""\
                 Use the instructions in {threadLocal.exercise}/.docs to modify \
                 {threadLocal.exercise_file}. Keep and implement the existing function or class stubs, they will be \
-                called from unit tests. Only use standard python libraries, don't suggest installing any packages."""
+                called from unit tests. Only use standard libraries, don't suggest installing any packages."""
             )
         else:
             if threadLocal.confirm:
                 threadLocal.confirm = False
                 return "y"
-            run_exercise_test()
-            if threadLocal.iterations >= max_iterations or exercise_passed():
+            run_exercise_test(language)
+            if threadLocal.iterations >= max_iterations or exercise_passed(language):
                 raise UserQuitInterrupt()
             else:
                 threadLocal.iterations += 1
@@ -81,10 +93,10 @@ def mock_user_input_manager(max_iterations, mocker):
 
 
 @pytest.fixture
-def clone_exercism_python_repo(refresh_repo):
-    exercism_url = "https://github.com/exercism/python.git"
+def clone_exercism_repo(refresh_repo, language):
+    exercism_url = f"https://github.com/exercism/{language}.git"
 
-    local_dir = f"{os.path.dirname(__file__)}/../../../exercism-python"
+    local_dir = f"{os.path.dirname(__file__)}/../../../exercism-{language}"
     if os.path.exists(local_dir):
         if refresh_repo:
             repo = Repo(local_dir)
@@ -94,6 +106,8 @@ def clone_exercism_python_repo(refresh_repo):
     else:
         repo = Repo.clone_from(exercism_url, local_dir)
     os.chdir(local_dir)
+    if language == "javascript":
+        subprocess.run(["npm", "install"], stdout=subprocess.PIPE)
 
 
 @pytest.fixture
@@ -116,23 +130,33 @@ def max_workers(request):
     return int(request.config.getoption("--max_workers"))
 
 
-def run_exercise(problem_dir):
+@pytest.fixture
+def language(request):
+    return request.config.getoption("--language")
+
+
+def run_exercise(problem_dir, language="python"):
     try:
-        sys.__stdout__.write(f"\nStarting {problem_dir}")
+        if language == "python":
+            file_ext = "py"
+        else:
+            file_ext = "js"
         threadLocal.exercise = f"exercises/practice/{problem_dir}"
-        problem_file = problem_dir.replace("-", "_")
-        threadLocal.exercise_file = f"{threadLocal.exercise}/{problem_file}.py"
+        if language == "python":
+            problem_file = problem_dir.replace("-", "_")
+        else:
+            problem_file = problem_dir
+        threadLocal.exercise_file = f"{threadLocal.exercise}/{problem_file}.{file_ext}"
         threadLocal.test_output_file = f"{threadLocal.exercise}/test_output.txt"
+        threadLocal.iterations = 0
         if os.path.exists(threadLocal.test_output_file):
-            sys.__stdout__.write(f"\nSkipping {problem_dir}: test_output.txt exists")
-            passed = exercise_passed()
+            passed = exercise_passed(language)
             return {
                 "iterations": None,
                 "passed": passed,
                 "test": problem_dir,
             }
 
-        threadLocal.iterations = 0
         run(
             paths=[
                 Path(threadLocal.exercise_file),
@@ -141,10 +165,7 @@ def run_exercise(problem_dir):
             exclude_paths=[Path(f"{threadLocal.exercise}/.docs/hints.md")],
             no_code_map=True,
         )
-        passed = exercise_passed()
-        sys.__stdout__.write(
-            f"\nFinished {problem_dir} in {threadLocal.iterations} iterations {passed}"
-        )
+        passed = exercise_passed(language)
         return {
             "iterations": threadLocal.iterations,
             "passed": passed,
@@ -160,35 +181,44 @@ def run_exercise(problem_dir):
         }
 
 
+def summarize_results(results):
+    passed_in_n = {}
+    failed = 0
+    for result in results:
+        if result["passed"]:
+            iteration = result["iterations"]
+            if iteration:
+                passed_in_n[iteration] = passed_in_n.get(iteration, 0) + 1
+        else:
+            failed += 1
+    return "Passed: " + str(passed_in_n)[1:-1] + "| Failed: " + str(failed)
+
+
 def test_practice_directory_performance(
     mock_user_input_manager,
-    clone_exercism_python_repo,
+    clone_exercism_repo,
     max_exercises,
     max_iterations,
     max_workers,
+    language,
 ):
     exercises = os.listdir("exercises/practice")[:max_exercises]
     num_exercises = len(exercises)
-    print(f"Running {num_exercises} exercises")
     sys.stdout = open("mentat_output.txt", "w")
 
     with Pool(processes=max_workers) as pool:
         results = []
-        for result in tqdm.tqdm(
-            pool.imap_unordered(run_exercise, exercises), total=len(exercises)
-        ):
-            results.append(result)
-        first_iteration = len(
-            [
-                result
-                for result in results
-                if result["iterations"] == 1 and result["passed"]
-            ]
+        pbar = tqdm.tqdm(
+            pool.imap_unordered(partial(run_exercise, language=language), exercises),
+            total=num_exercises,
         )
-        eventually = len([result for result in results if result["passed"]])
+        for result in pbar:
+            results.append(result)
+            with open("results.txt", "a") as f:
+                f.write(f"{result}\n")
+            pbar.set_description(
+                summarize_results(results) + "| Last Ran: " + result["test"]
+            )
         sys.stdout.close()
         sys.stdout = sys.__stdout__
-        print(dedent(f"""
-            Results: {results}
-            Passed in first attempt: {first_iteration}/{num_exercises}
-            Passed in {max_iterations} attempts: {eventually}/{num_exercises}"""))
+        print(f"Results: {results}")

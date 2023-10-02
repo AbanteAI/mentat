@@ -12,6 +12,7 @@ from .llm_api import count_tokens
 
 if TYPE_CHECKING:
     from .code_file_manager import CodeFileManager
+    from .parsers.parser import Parser
 
 
 class Interval:
@@ -94,7 +95,10 @@ class CodeFile:
         return any([interval.contains(line_number) for interval in self.intervals])
 
     def _get_file_message(
-        self, config: ConfigManager, code_file_manager: "CodeFileManager"
+        self,
+        config: ConfigManager,
+        code_file_manager: "CodeFileManager",
+        parser: "Parser",
     ) -> list[str]:
         file_message: list[str] = []
 
@@ -108,7 +112,10 @@ class CodeFile:
             file_lines = code_file_manager.read_file(abs_path)
             for i, line in enumerate(file_lines, start=1):
                 if self.contains_line(i):
-                    file_message.append(f"{i}:{line}")
+                    if parser.provide_line_numbers():
+                        file_message.append(f"{i}:{line}")
+                    else:
+                        file_message.append(f"{line}")
         elif self.level == CodeMessageLevel.CMAP_FULL:
             file_message += get_code_map(config.git_root, self.path)
         elif self.level == CodeMessageLevel.CMAP:
@@ -133,17 +140,28 @@ class CodeFile:
     _file_message: list[str] | None = None
 
     def get_code_message(
-        self, config: ConfigManager, code_file_manager: "CodeFileManager"
+        self,
+        config: ConfigManager,
+        code_file_manager: "CodeFileManager",
+        parser: "Parser",
     ) -> list[str]:
         abs_path = config.git_root / self.path
         file_checksum = code_file_manager.get_file_checksum(Path(abs_path))
         if file_checksum != self._file_checksum or self._file_message is None:
             self._file_checksum = file_checksum
-            self._file_message = self._get_file_message(config, code_file_manager)
+            self._file_message = self._get_file_message(
+                config, code_file_manager, parser
+            )
         return self._file_message
 
     def count_tokens(
-        self, config: ConfigManager, code_file_manager: "CodeFileManager", model: str
+        self,
+        config: ConfigManager,
+        code_file_manager: "CodeFileManager",
+        parser: "Parser",
+        model: str,
     ) -> int:
-        code_message = "\n".join(self.get_code_message(config, code_file_manager))
+        code_message = "\n".join(
+            self.get_code_message(config, code_file_manager, parser)
+        )
         return count_tokens(code_message, model)

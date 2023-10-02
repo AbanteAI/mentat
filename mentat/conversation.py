@@ -65,7 +65,7 @@ class Conversation:
                 context_size = maximum_context
         tokens = count_tokens(
             code_context.get_code_message(
-                self.model, self.code_file_manager, max_tokens=0
+                self.model, self.code_file_manager, parser, max_tokens=0
             ),
             self.model,
         ) + count_tokens(prompt, self.model)
@@ -150,6 +150,7 @@ class Conversation:
         code_message = self.code_context.get_code_message(
             self.model,
             self.code_file_manager,
+            parser,
             self.max_tokens - tokens - response_buffer,
         )
         messages.append({"role": "system", "content": code_message})
