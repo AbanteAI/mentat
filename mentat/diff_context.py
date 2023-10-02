@@ -3,8 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
-from mentat.session_stream import get_session_stream
-
 from .config_manager import ConfigManager
 from .errors import UserError
 from .git_handler import (
@@ -13,6 +11,7 @@ from .git_handler import (
     get_files_in_diff,
     get_treeish_metadata,
 )
+from .session_stream import get_session_stream
 
 
 @dataclass
