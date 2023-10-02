@@ -21,7 +21,7 @@ def get_session_stream():
 
 
 def set_session_stream(session_stream: SessionStream):
-    _SESSION_STREAM.set(session_stream)
+    return _SESSION_STREAM.set(session_stream)
 
 
 class StreamMessageSource(Enum):

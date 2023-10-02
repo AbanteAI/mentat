@@ -3,13 +3,17 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from contextvars import Context
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
+from ipdb import set_trace
 
 from mentat import config_manager
 from mentat.code_context import CodeContext
 from mentat.config_manager import ConfigManager, config_file_name
+from mentat.session_stream import _SESSION_STREAM, SessionStream, set_session_stream
 
 pytest_plugins = ("pytest_reportlog",)
 
@@ -181,3 +185,20 @@ def mock_prompt_session(mocker):
     if os.name == "nt":
         mocker.patch("mentat.user_input_manager.PromptSession")
         mocker.patch("mentat.user_input_manager.MentatPromptSession")
+
+
+# The contexrvar needs to be set in a synchronous fixture due to pytest not propagating
+# fixture contexts to test contexts: https://github.com/pytest-dev/pytest-asyncio/issues/127
+@pytest.fixture
+def _mock_stream():
+    session_stream = SessionStream()
+    token = set_session_stream(session_stream)
+    yield session_stream
+    _SESSION_STREAM.reset(token)
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def mock_stream(_mock_stream):
+    await _mock_stream.start()
+    yield _mock_stream
+    await _mock_stream.stop()

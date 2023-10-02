@@ -1,18 +1,24 @@
+from os import walk
 from pathlib import Path
 
+import pytest
+from ipdb import set_trace
+
 from mentat.parsers.file_edit import FileEdit, Replacement
+from mentat.session_stream import SessionStream, get_session_stream, set_session_stream
 
 # Since file creation, deletion, and renaming is almost entirely handled in
 # the CodeFileManager, no need to test that here
 
 
-def test_replacement(mock_user_input_manager):
+@pytest.mark.asyncio
+async def test_replacement():
     replacements = [
         Replacement(0, 2, ["# Line 0", "# Line 1", "# Line 2"]),
         Replacement(3, 3, ["# Inserted"]),
     ]
     file_edit = FileEdit(file_path=Path("test.py"), replacements=replacements)
-    file_edit.resolve_conflicts(mock_user_input_manager)
+    await file_edit.resolve_conflicts()
     original_lines = ["# Remove me", "# Remove me", "# Line 3", "# Line 4"]
     new_lines = file_edit.get_updated_file_lines(original_lines)
     assert new_lines == [
@@ -26,7 +32,8 @@ def test_replacement(mock_user_input_manager):
 
 
 # When we add user conflict resolution, this test will need to be changed
-def test_replacement_conflict(mock_user_input_manager):
+@pytest.mark.asyncio
+async def test_replacement_conflict():
     replacements = [
         Replacement(0, 2, ["L0"]),
         Replacement(1, 3, ["L1"]),
@@ -34,7 +41,7 @@ def test_replacement_conflict(mock_user_input_manager):
         Replacement(5, 6, ["L2"]),
     ]
     file_edit = FileEdit(file_path=Path("test.py"), replacements=replacements)
-    file_edit.resolve_conflicts(mock_user_input_manager)
+    await file_edit.resolve_conflicts()
     original_lines = ["O0", "O1", "O2", "O3", "O4", "O5", "O6"]
     new_lines = file_edit.get_updated_file_lines(original_lines)
     print(new_lines)
