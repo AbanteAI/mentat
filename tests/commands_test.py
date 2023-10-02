@@ -18,14 +18,14 @@ def test_invalid_command():
 
 
 @pytest.mark.asyncio
-async def test_help_command():
+async def test_help_command(mock_stream):
     command = Command.create_command("help")
     await command.apply()
     assert isinstance(command, HelpCommand)
 
 
 @pytest.mark.asyncio
-async def test_commit_command(temp_testbed):
+async def test_commit_command(mock_stream, temp_testbed):
     file_name = "test_file.py"
     with open(file_name, "w") as f:
         f.write("# Commit me!")
@@ -36,7 +36,7 @@ async def test_commit_command(temp_testbed):
 
 
 @pytest.mark.asyncio
-async def test_add_command(mock_config):
+async def test_add_command(mock_stream, mock_config):
     code_context = await CodeContext.create(
         config=mock_config,
         paths=[],
@@ -49,10 +49,10 @@ async def test_add_command(mock_config):
 
 
 @pytest.mark.asyncio
-async def test_remove_command(mock_config):
+async def test_remove_command(mock_stream, mock_config):
     code_context = await CodeContext.create(
         config=mock_config,
-        paths=["__init__.py"],
+        paths=[Path("__init__.py")],
         exclude_paths=[],
     )
     command = Command.create_command("remove", code_context=code_context)
