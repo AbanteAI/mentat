@@ -1,11 +1,12 @@
 import os
 import subprocess
 from textwrap import dedent
+from unittest.mock import AsyncMock
 
 import pytest
 from prompt_toolkit import PromptSession
 
-from mentat.app import run
+from mentat.terminal.client import TerminalClient
 
 # Unfortunately these tests just can't be run on Windows
 pytestmark = pytest.mark.skipif(
@@ -16,9 +17,8 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def mock_prompt_session_prompt(mocker):
-    mock_method = mocker.MagicMock()
-    # Mock the super().prompt that MentatPromptSession calls
-    mocker.patch.object(PromptSession, "prompt", new=mock_method)
+    mock_method = AsyncMock()
+    mocker.patch.object(PromptSession, "prompt_async", new=mock_method)
     return mock_method
 
 
@@ -30,7 +30,7 @@ def test_request_and_command(
         f"Create a file called {file_name}",
         "y",
         "/commit",
-        KeyboardInterrupt,
+        "q",
     ]
 
     mock_call_llm_api.set_generator_values([dedent(f"""\
@@ -47,7 +47,8 @@ def test_request_and_command(
         # I created this file
         @@end""")])
 
-    run(["."])
+    terminal_client = TerminalClient(["."])
+    terminal_client.run()
 
     with open(file_name, "r") as f:
         content = f.read()

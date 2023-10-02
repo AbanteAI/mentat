@@ -1,14 +1,19 @@
+from typing import Any
+
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, Suggestion
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
+from prompt_toolkit.formatted_text import AnyFormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
+from prompt_toolkit.styles import Style
 
 from mentat.config_manager import mentat_dir_path
+from mentat.session import Session
 
 
 class FilteredFileHistory(FileHistory):
@@ -38,20 +43,24 @@ class FilteredHistorySuggestions(AutoSuggestFromHistory):
             return super().get_suggestion(buffer, document)
 
 
-class MentatPromptSession(PromptSession):
-    def __init__(self, *args, **kwargs):
+class MentatPromptSession(PromptSession[str]):
+    def __init__(self, session: Session, *args: Any, **kwargs: Any):
         self._setup_bindings()
         super().__init__(
+            message=[("class:prompt", ">>> ")],
+            style=Style(session.config.input_style()),
             history=FilteredFileHistory(str(mentat_dir_path.joinpath("history"))),
             auto_suggest=FilteredHistorySuggestions(),
             multiline=True,
-            # prompt_continuation=self.prompt_continuation,
+            prompt_continuation=self.prompt_continuation,
             key_bindings=self.bindings,
             *args,
             **kwargs,
         )
 
-    def prompt_continuation(self, width, line_number, is_soft_wrap):
+    def prompt_continuation(
+        self, width: int, line_number: int, is_soft_wrap: int
+    ) -> AnyFormattedText:
         return (
             "" if is_soft_wrap else [("class:continuation", " " * (width - 2) + "> ")]
         )
@@ -75,7 +84,7 @@ class MentatPromptSession(PromptSession):
                 app.current_buffer.suggestion is not None
                 and len(app.current_buffer.suggestion.text) > 0
                 and app.current_buffer.document.is_cursor_at_the_end
-                and app.current_buffer.text is not None
+                and bool(app.current_buffer.text)
                 and app.current_buffer.text[0] != "/"
             )
 

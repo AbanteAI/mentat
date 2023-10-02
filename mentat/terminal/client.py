@@ -39,7 +39,6 @@ class TerminalClient:
         self.session: Session | None = None
 
         self._tasks: Set[asyncio.Task[None]] = set()
-        self._prompt_session = MentatPromptSession(message=[("class:prompt", ">>> ")])
         self._should_exit = False
         self._force_exit = False
 
@@ -66,7 +65,6 @@ class TerminalClient:
         assert isinstance(self.session, Session), "TerminalClient is not running"
         while True:
             input_request_message = await self.session.stream.recv("input_request")
-
             # TODO: fix pyright typing for user_input
             user_input = await self._prompt_session.prompt_async(  # type: ignore
                 completer=prompt_completer, handle_sigint=False
@@ -119,6 +117,7 @@ class TerminalClient:
             self.paths, self.exclude_paths, self.no_code_map, self.diff, self.pr_diff
         )
         self.session.start()
+        self._prompt_session = MentatPromptSession(self.session)
 
         mentat_completer = MentatCompleter(self.session)
 

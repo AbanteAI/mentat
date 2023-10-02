@@ -1,29 +1,10 @@
+import os
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
 
 from mentat.session import Session
-
-# def get_stream_messages(*values: str):
-#     from datetime import datetime
-#     from uuid import uuid4
-#
-#     from mentat.session_stream import StreamMessage, StreamMessageSource
-#
-#     stream_messages = []
-#     for value in values:
-#         stream_message = StreamMessage(
-#             id=uuid4(),
-#             channel="default",
-#             source=StreamMessageSource.CLIENT,
-#             data=value,
-#             extra=None,
-#             created_at=datetime.utcnow(),
-#         )
-#         stream_messages.append(stream_message)
-#
-#     return stream_messages
 
 
 @pytest.mark.asyncio
@@ -143,60 +124,43 @@ async def test_interactive_change_selection(
     assert content == expected_content
 
 
-# # Makes sure we're properly turning the model output into correct path no matter the os
-# @pytest.mark.asyncio
-# async def test_without_os_join(mock_call_llm_api, mock_setup_api_key):
-#     with patch(
-#         "mentat.session_input.collect_user_input", new_callable=AsyncMock
-#     ) as mock_collect_user_input:
-#         from mentat.session import Session
-#
-#         temp_dir = "dir"
-#         temp_file_name = "temp.py"
-#         temp_file_path = Path(os.path.join(temp_dir, temp_file_name))
-#         os.makedirs(temp_dir, exist_ok=True)
-#         with open(temp_file_path, "w") as f:
-#             f.write("# This is a temporary file.")
-#
-#         stream_messages = get_stream_messages(
-#             'Replace comment with print("Hello, world!")', "y", "q"
-#         )
-#         mock_collect_user_input.side_effect = stream_messages
-#
-#         # Use / here since that should always be what the model outputs
-#         fake_file_path = temp_dir + "/" + temp_file_name
-#         mock_call_llm_api.set_generator_values(
-#             [
-#                 dedent(
-#                     """\
-#             I will add a print statement.
-#
-#             Steps:
-#             1. Add a print statement after the last line
-#
-#             @@start
-#             {{
-#                 "file": "{file_name}",
-#                 "action": "replace",
-#                 "start-line": 1,
-#                 "end-line": 1
-#             }}
-#             @@code
-#             print("Hello, world!")
-#             @@end""".format(
-#                         file_name=fake_file_path
-#                     )
-#                 )
-#             ]
-#         )
-#
-#         session = await Session.create([temp_file_path])
-#         await session.start()
-#         await session.stream.stop()
-#
-#         mock_collect_user_input.reset_mock()
-#
-#         with open(temp_file_path, "r") as f:
-#             content = f.read()
-#             expected_content = 'print("Hello, world!")'
-#         assert content == expected_content
+# Makes sure we're properly turning the model output into correct path no matter the os
+@pytest.mark.asyncio
+async def test_without_os_join(
+    mock_call_llm_api, mock_setup_api_key, mock_collect_user_input
+):
+    temp_dir = "dir"
+    temp_file_name = "temp.py"
+    temp_file_path = Path(os.path.join(temp_dir, temp_file_name))
+    os.makedirs(temp_dir, exist_ok=True)
+    with open(temp_file_path, "w") as f:
+        f.write("# This is a temporary file.")
+
+    mock_collect_user_input.set_stream_messages(
+        ['Replace comment with print("Hello, world!")', "y", "q"]
+    )
+
+    # Use / here since that should always be what the model outputs
+    fake_file_path = temp_dir + "/" + temp_file_name
+    mock_call_llm_api.set_generator_values([dedent("""\
+        I will add a print statement.
+        Steps:
+        1. Add a print statement after the last line
+        @@start
+        {{
+            "file": "{file_name}",
+            "action": "replace",
+            "start-line": 1,
+            "end-line": 1
+        }}
+        @@code
+        print("Hello, world!")
+        @@end""".format(file_name=fake_file_path))])
+    session = await Session.create([temp_file_path])
+    await session.start()
+    await session.stream.stop()
+    mock_collect_user_input.reset_mock()
+    with open(temp_file_path, "r") as f:
+        content = f.read()
+        expected_content = 'print("Hello, world!")'
+    assert content == expected_content

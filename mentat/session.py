@@ -68,6 +68,7 @@ class Session:
         set_session_stream(stream)
 
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
+        # TODO: Config should be created in the client (i.e., to get vscode settings) and passed to session
         config = await ConfigManager.create(git_root)
         code_context = await CodeContext.create(
             config, paths, exclude_paths, diff, pr_diff, no_code_map
