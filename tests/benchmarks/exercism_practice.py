@@ -1,9 +1,10 @@
 import os
+from uuid import uuid4
 import subprocess
 import sys
 import threading
 from functools import partial
-from multiprocessing import Pool
+from aiomultiprocess import Pool
 from pathlib import Path
 from textwrap import dedent
 
@@ -11,8 +12,8 @@ import pytest
 import tqdm
 from git import Repo
 
-from mentat.app import run
-from mentat.user_input_manager import UserInputManager, UserQuitInterrupt
+from mentat.session import Session
+from mentat.session_stream import StreamMessage, StreamMessageSource
 
 threadLocal = threading.local()
 
@@ -58,38 +59,49 @@ def run_exercise_test(language):
         f.write(results)
 
 
+def wrap(value):
+    return StreamMessage(
+        id=uuid4(),
+        channel="default",
+        source=StreamMessageSource.CLIENT,
+        data=value,
+        extra=None,
+        created_at=datetime.utcnow(),
+    )
+
 @pytest.fixture
 def mock_user_input_manager(max_iterations, mocker, language):
-    def mocked_collect_user_input(self, use_plain_session=False):
+    async def mocked_collect_user_input():
         if threadLocal.iterations == 0:
             threadLocal.iterations = 1
             threadLocal.confirm = True
-            return dedent(
+            return wrap(dedent(
                 f"""\
                 Use the instructions in {threadLocal.exercise}/.docs to modify \
                 {threadLocal.exercise_file}. Keep and implement the existing function or class stubs, they will be \
                 called from unit tests. Only use standard libraries, don't suggest installing any packages."""
-            )
+            ))
         else:
             if threadLocal.confirm:
                 threadLocal.confirm = False
-                return "y"
+                return wrap("y")
             run_exercise_test(language)
             if threadLocal.iterations >= max_iterations or exercise_passed(language):
-                raise UserQuitInterrupt()
+                return wrap("q")
             else:
                 threadLocal.iterations += 1
                 threadLocal.confirm = True
-                return get_error_message() + dedent(
+                return wrap(get_error_message() + dedent(
                     f"""
                     See the testing errors above.
                     The tests are correct.
                     Fix the code in {threadLocal.exercise_file} to resolve the errors."""
-                )
+                ))
 
-    mocker.patch.object(
-        UserInputManager, "collect_user_input", new=mocked_collect_user_input
-    )
+    print("We're mocking")
+    mocker.patch("mentat.code_edit_feedback.collect_user_input", new=mocked_collect_user_input)
+    mocker.patch("mentat.session_input.collect_user_input", new=mocked_collect_user_input)
+    mocker.patch("mentat.session.collect_user_input", new=mocked_collect_user_input)
 
 
 @pytest.fixture
@@ -135,7 +147,7 @@ def language(request):
     return request.config.getoption("--language")
 
 
-def run_exercise(problem_dir, language="python"):
+async def run_exercise(problem_dir, language="python"):
     try:
         if language == "python":
             file_ext = "py"
@@ -157,7 +169,8 @@ def run_exercise(problem_dir, language="python"):
                 "test": problem_dir,
             }
 
-        run(
+
+        session = await Session.create(
             paths=[
                 Path(threadLocal.exercise_file),
                 Path(f"{threadLocal.exercise}/.docs"),
@@ -165,6 +178,8 @@ def run_exercise(problem_dir, language="python"):
             exclude_paths=[Path(f"{threadLocal.exercise}/.docs/hints.md")],
             no_code_map=True,
         )
+        await session.start()
+        await session.stream.stop()
         passed = exercise_passed(language)
         return {
             "iterations": threadLocal.iterations,
@@ -194,7 +209,8 @@ def summarize_results(results):
     return "Passed: " + str(passed_in_n)[1:-1] + "| Failed: " + str(failed)
 
 
-def test_practice_directory_performance(
+@pytest.mark.asyncio
+async def test_practice_directory_performance(
     mock_user_input_manager,
     clone_exercism_repo,
     max_exercises,
@@ -204,21 +220,21 @@ def test_practice_directory_performance(
 ):
     exercises = os.listdir("exercises/practice")[:max_exercises]
     num_exercises = len(exercises)
-    sys.stdout = open("mentat_output.txt", "w")
+    # sys.stdout = open("mentat_output.txt", "w")
 
-    with Pool(processes=max_workers) as pool:
-        results = []
-        pbar = tqdm.tqdm(
-            pool.imap_unordered(partial(run_exercise, language=language), exercises),
-            total=num_exercises,
-        )
-        for result in pbar:
+    async with Pool(processes=max_workers) as pool:
+        # results = []
+        # pbar = tqdm.tqdm(
+            # total=num_exercises,
+        # )
+        results = await pool.map(partial(run_exercise, language=language), exercises),
+        for result in results:
             results.append(result)
             with open("results.txt", "a") as f:
                 f.write(f"{result}\n")
-            pbar.set_description(
-                summarize_results(results) + "| Last Ran: " + result["test"]
-            )
-        sys.stdout.close()
-        sys.stdout = sys.__stdout__
+            # pbar.set_description(
+                # summarize_results(results) + "| Last Ran: " + result["test"]
+            # )
+        # sys.stdout.close()
+        # sys.stdout = sys.__stdout__
         print(f"Results: {results}")
