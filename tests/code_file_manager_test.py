@@ -1,8 +1,6 @@
 import os
 from textwrap import dedent
 
-import pytest
-
 from mentat.app import run
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager

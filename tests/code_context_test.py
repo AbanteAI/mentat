@@ -190,15 +190,15 @@ def test_longer_feature_already_included(features):
     higher_level = _longer_feature_already_included(
         features[1], [features[0]]
     )
-    assert higher_level == True
+    assert higher_level is True
     lower_diff = _longer_feature_already_included(
         features[1], [features[2]]
     )
-    assert lower_diff == False
+    assert lower_diff is False
     higher_diff = _longer_feature_already_included(
         features[2], [features[1]]
     )
-    assert higher_diff == True
+    assert higher_diff is True
 
 def test_shorter_features_already_included(features):
     lower_level = _shorter_features_already_included(

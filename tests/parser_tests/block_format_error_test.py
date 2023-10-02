@@ -1,7 +1,5 @@
 from textwrap import dedent
 
-import pytest
-
 from mentat.app import run
 
 temp_file_name = "temp.py"

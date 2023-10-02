@@ -280,10 +280,13 @@ class CodeContext:
         for path in get_non_gitignored_files(self.config.git_root):
             permutations: list[tuple[CodeMessageLevel, str | None]] = [
                 (CodeMessageLevel.CODE, None),
-                (CodeMessageLevel.CMAP_FULL, None),
-                (CodeMessageLevel.CMAP, None),
                 (CodeMessageLevel.FILE_NAME, None),
             ]
+            if not self.settings.no_code_map:
+                permutations += [
+                    (CodeMessageLevel.CMAP_FULL, None),
+                    (CodeMessageLevel.CMAP, None),
+                ]
             if self.diff_context.target and path in self.diff_context.files:
                 permutations += [
                     (level, self.diff_context.target) for level, _ in permutations
