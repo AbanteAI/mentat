@@ -201,3 +201,7 @@ def mock_prompt_session(mocker):
     if os.name == "nt":
         mocker.patch("mentat.user_input_manager.PromptSession")
         mocker.patch("mentat.user_input_manager.MentatPromptSession")
+
+@pytest.fixture(autouse=True)
+def mock_get_codemaps(mocker):
+    mocker.patch("mentat.code_map.get_code_map", return_value=[])

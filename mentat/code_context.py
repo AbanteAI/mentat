@@ -119,6 +119,7 @@ class CodeContext:
                 """
                 ctags_disabled_message = dedent(ctags_disabled_message)
                 cprint(ctags_disabled_message, color="yellow")
+                self.settings.no_code_map = True
                 self.code_map = False
             else:
                 self.code_map = True
