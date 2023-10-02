@@ -42,12 +42,16 @@ def parse_intervals(interval_string: str) -> list[Interval]:
 
 
 class CodeMessageLevel(Enum):
-    CODE = "code"
-    INTERVAL = "interval"
-    CMAP_FULL = "cmap_full"
-    CMAP = "cmap"
-    FILE_NAME = "file_name"
+    CODE = ("code", 1, "Complete code")
+    INTERVAL = ("interval", 2, "Specific range(s)")
+    CMAP_FULL = ("cmap_full", 3, "Function/Class names and signatures")
+    CMAP = ("cmap", 4, "Function/Class names")
+    FILE_NAME = ("file_name", 5, "Relative path/filename")
 
+    def __init__(self, key: str, rank: int, description: str):
+        self.key = key
+        self.rank = rank
+        self.description = description
 
 class CodeFile:
     """

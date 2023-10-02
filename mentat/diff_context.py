@@ -114,20 +114,18 @@ class DiffContext:
             self._files_cache = get_files_in_diff(self.config.git_root, self.target)
         return self._files_cache
 
-    def display_context(self) -> None:
+    def get_display_context(self) -> str:
         if not self.files:
-            return
-        cprint("Diff annotations:", "green")
+            return ""
         num_files = len(self.files)
         num_lines = 0
-        # TODO: Only include paths in context
         for file in self.files:
             diff = get_diff_for_file(self.config.git_root, self.target, file)
             diff_lines = diff.splitlines()
             num_lines += len(
                 [line for line in diff_lines if line.startswith(("+ ", "- "))]
             )
-        print(f" ─•─ {self.name} | {num_files} files | {num_lines} lines\n")
+        return f" {self.name} | {num_files} files | {num_lines} lines"
 
     def annotate_file_message(
         self, rel_path: Path, file_message: list[str]

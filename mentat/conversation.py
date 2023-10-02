@@ -63,11 +63,10 @@ class Conversation:
                 context_size = min(context_size, maximum_context)
             else:
                 context_size = maximum_context
-        self.prompt_tokens = count_tokens(prompt, self.model)
         tokens = count_tokens(
             code_context.get_code_message(self.model, self.code_file_manager, max_tokens=0), 
             self.model
-        ) + self.prompt_tokens
+        ) + count_tokens(prompt, self.model)
 
         if not context_size:
             raise KeyboardInterrupt(
@@ -141,14 +140,18 @@ class Conversation:
         self, parser: Parser, config: ConfigManager
     ) -> list[FileEdit]:
         messages = self.messages.copy()
+
+        # Rebuild code context with active code and available tokens
         conversation_history = "\n".join([m["content"] for m in messages])
-        tokens = self.prompt_tokens + count_tokens(conversation_history, self.model)
+        tokens = count_tokens(conversation_history, self.model)
         response_buffer = 1000
         code_message = self.code_context.get_code_message(
             self.model, self.code_file_manager, self.max_tokens - tokens - response_buffer
         )
         messages.append({"role": "system", "content": code_message})
 
+        print()
+        self.code_context.display_features()
         num_prompt_tokens = get_prompt_token_count(messages, self.model)
         message, file_edits, time_elapsed = self._handle_async_stream(
             parser, config, messages

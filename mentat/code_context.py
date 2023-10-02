@@ -22,15 +22,6 @@ if TYPE_CHECKING:
     from mentat.code_file_manager import CodeFileManager
 
 
-_feature_order = [
-    CodeMessageLevel.CODE,
-    CodeMessageLevel.INTERVAL,
-    CodeMessageLevel.CMAP_FULL,
-    CodeMessageLevel.CMAP,
-    CodeMessageLevel.FILE_NAME,
-]
-
-
 def _longer_feature_already_included(
     feature: CodeFile, features: list[CodeFile]
 ) -> bool:
@@ -39,7 +30,7 @@ def _longer_feature_already_included(
             continue
         elif f.diff and not feature.diff:
             return True
-        elif _feature_order.index(f.level) < _feature_order.index(feature.level):
+        elif f.level.rank < feature.level.rank:
             return True
     return False
 
@@ -53,7 +44,7 @@ def _shorter_features_already_included(
             continue
         elif feature.diff and not f.diff:
             to_replace.append(f)
-        elif _feature_order.index(f.level) > _feature_order.index(feature.level):
+        elif f.level.rank > feature.level.rank:
             to_replace.append(f)
     return to_replace
 
@@ -132,24 +123,39 @@ class CodeContext:
                 self.code_map = True
 
     def display_context(self):
+        """Display the baseline context: included files and auto-context settings"""
+        cprint("\nCode Context:", "blue")
+        prefix = "  "
+        cprint(f"{prefix}Directory: {self.config.git_root}")
+        if self.diff_context.name:
+            cprint(f"{prefix}Diff:", end=" ")
+            cprint(self.diff_context.get_display_context(), color="green")
         if self.include_files:
-            cprint("Files included in context:", "green")
+            cprint(f"{prefix}Included files:")
+            cprint(f"{prefix + prefix}{self.config.git_root.name}")
+            print_path_tree(
+                build_path_tree(list(self.include_files.values()), self.config.git_root),
+                get_paths_with_git_diffs(self.config.git_root),
+                self.config.git_root,
+                prefix + prefix
+            )
         else:
-            cprint("No files included in context.\n", "red")
-            cprint("Git project: ", "green", end="")
-        cprint(self.config.git_root.name, "blue")
-        print_path_tree(
-            build_path_tree(list(self.include_files.values()), self.config.git_root),
-            get_paths_with_git_diffs(self.config.git_root),
-            self.config.git_root,
-        )
-        print()
-        self.diff_context.display_context()
-        print()
-        if self.code_map:
-            cprint("Including CodeMaps", "green")
-        else:
-            cprint("Code Maps disabled", "yellow")
+            cprint(f"{prefix}Included files: None", "yellow")
+        cprint(f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}")
+        auto = self.settings.auto_tokens
+        cprint(f"{prefix}Auto-tokens: {'Model max (default)' if auto is None else auto}")
+
+    def display_features(self):
+        """Display a summary of all active features"""
+        auto_features = {level: 0 for level in CodeMessageLevel}
+        for f in self.features:
+            if f.path not in self.include_files:
+                auto_features[f.level] += 1
+        if any(auto_features.values()):
+            cprint("Auto-Selected Features:", "blue")
+            for level, count in auto_features.items():
+                if count:
+                    print(f"  {count} {level.description}")
 
     _code_message: str | None = None
     _code_message_checksum: str | None = None
@@ -317,20 +323,24 @@ class CodeContext:
         if not os.path.exists(code_file.path):
             cprint(f"File does not exist: {code_file.path}\n", "red")
             return
-        if code_file.path in self.include_files:
+        if code_file.path in self.settings.paths:
             cprint(f"File already in context: {code_file.path}\n", "yellow")
             return
         if code_file.path in self.settings.exclude_paths:
             self.settings.exclude_paths.remove(code_file.path)
         self.settings.paths.append(code_file.path)
+        self._set_include_files()
         cprint(f"File included in context: {code_file.path}\n", "green")
 
     def exclude_file(self, code_file: CodeFile):
         if not os.path.exists(code_file.path):
             cprint(f"File does not exist: {code_file.path}\n", "red")
             return
-        if code_file.path not in self.include_files:
+        if code_file.path not in self.settings.paths:
             cprint(f"File not in context: {code_file.path}\n", "yellow")
             return
-        del self.include_files[code_file.path]
+        if code_file.path in self.settings.exclude_paths:
+            self.settings.paths.remove(code_file.path)
+        self.settings.exclude_paths.append(code_file.path)
+        self._set_include_files()
         cprint(f"File removed from context: {code_file.path}\n", "green")

@@ -138,7 +138,7 @@ def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
     prompt_token_count = 0
     for message in messages:
         prompt_token_count += count_tokens(message["content"], model)
-    cprint(f"\nTotal token count: {prompt_token_count}", "cyan")
+    cprint(f"Total token count: {prompt_token_count}", "cyan")
 
     token_buffer = 500
     context_size = model_context_size(model)
