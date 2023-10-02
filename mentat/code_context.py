@@ -203,7 +203,7 @@ class CodeContext:
         )
         # Universal ctags
         self.code_map = (
-            CodeMap(self.config, token_limit=2048)
+            await CodeMap.create(self.config, token_limit=2048)
             if not self.settings.no_code_map
             else None
         )
