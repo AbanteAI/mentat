@@ -95,6 +95,7 @@ class MentatPromptSession(PromptSession[str]):
                 event.current_buffer.insert_text(suggestion.text)
 
         @self.bindings.add("c-c")
+        @self.bindings.add("c-d")
         def _(event: KeyPressEvent):
             if event.current_buffer.text != "":
                 event.current_buffer.reset()

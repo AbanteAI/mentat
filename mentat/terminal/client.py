@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Coroutine, List, Set
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.styles import Style
 from termcolor import cprint
 
@@ -110,7 +111,6 @@ class TerminalClient:
     def _init_signal_handlers(self):
         loop = asyncio.get_event_loop()
         loop.add_signal_handler(signal.SIGINT, self._handle_exit)
-        loop.add_signal_handler(signal.SIGTERM, self._handle_exit)
 
     async def _startup(self):
         assert self.session is None, "TerminalClient already running"
@@ -126,10 +126,22 @@ class TerminalClient:
         self._prompt_session = MentatPromptSession(
             self.session, completer=mentat_completer
         )
+
+        plain_bindings = KeyBindings()
+
+        @plain_bindings.add("c-c")
+        @plain_bindings.add("c-d")
+        def _(event: KeyPressEvent):
+            if event.current_buffer.text != "":
+                event.current_buffer.reset()
+            else:
+                event.app.exit(result="q")
+
         self._plain_session = PromptSession[str](
             message=[("class:prompt", ">>> ")],
             style=Style(self.session.config.input_style()),
             completer=None,
+            key_bindings=plain_bindings,
         )
 
         self._create_task(mentat_completer.refresh_completions())

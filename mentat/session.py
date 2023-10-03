@@ -97,10 +97,7 @@ class Session:
         need_user_request = True
         while True:
             if need_user_request:
-                try:
-                    message = await collect_user_input()
-                except Exception as e:
-                    raise e
+                message = await collect_user_input()
 
                 # Intercept and run command
                 if isinstance(message.data, str) and message.data.startswith("/"):
