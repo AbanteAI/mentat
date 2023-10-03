@@ -10,14 +10,10 @@ from mentat.config_manager import ConfigManager, config_file_name
 async def test_config_priority(mock_stream, temp_testbed):
     # First project config should be considered, then user config, then default config, then error
     with open(config_file_name, "w") as project_config_file:
-        project_config_file.write(
-            dedent(
-                """\
+        project_config_file.write(dedent("""\
         {
             "project-first": "project"
-        }"""
-            )
-        )
+        }"""))
 
     # Since we don't want to actually change user config file or default config file,
     # we have to just mock them
@@ -42,15 +38,11 @@ async def test_config_priority(mock_stream, temp_testbed):
 async def test_invalid_config(mock_stream, temp_testbed):
     # If invalid config file is found, it should use next config
     with open(config_file_name, "w") as project_config_file:
-        project_config_file.write(
-            dedent(
-                """\
+        project_config_file.write(dedent("""\
         {
             "mykey": "project",
             "invalid-json: []]
-        }"""
-            )
-        )
+        }"""))
 
     config = await ConfigManager.create(Path(temp_testbed))
     config.user_config = {"mykey": "user"}

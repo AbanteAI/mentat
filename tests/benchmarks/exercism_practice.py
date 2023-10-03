@@ -1,15 +1,15 @@
 import os
-from uuid import uuid4
 import subprocess
 import sys
 import threading
 from functools import partial
-from aiomultiprocess import Pool
 from pathlib import Path
 from textwrap import dedent
+from uuid import uuid4
 
 import pytest
 import tqdm
+from aiomultiprocess import Pool
 from git import Repo
 
 from mentat.session import Session
@@ -69,18 +69,21 @@ def wrap(value):
         created_at=datetime.utcnow(),
     )
 
+
 @pytest.fixture
 def mock_user_input_manager(max_iterations, mocker, language):
     async def mocked_collect_user_input():
         if threadLocal.iterations == 0:
             threadLocal.iterations = 1
             threadLocal.confirm = True
-            return wrap(dedent(
-                f"""\
+            return wrap(
+                dedent(
+                    f"""\
                 Use the instructions in {threadLocal.exercise}/.docs to modify \
                 {threadLocal.exercise_file}. Keep and implement the existing function or class stubs, they will be \
                 called from unit tests. Only use standard libraries, don't suggest installing any packages."""
-            ))
+                )
+            )
         else:
             if threadLocal.confirm:
                 threadLocal.confirm = False
@@ -91,16 +94,23 @@ def mock_user_input_manager(max_iterations, mocker, language):
             else:
                 threadLocal.iterations += 1
                 threadLocal.confirm = True
-                return wrap(get_error_message() + dedent(
-                    f"""
+                return wrap(
+                    get_error_message()
+                    + dedent(
+                        f"""
                     See the testing errors above.
                     The tests are correct.
                     Fix the code in {threadLocal.exercise_file} to resolve the errors."""
-                ))
+                    )
+                )
 
     print("We're mocking")
-    mocker.patch("mentat.code_edit_feedback.collect_user_input", new=mocked_collect_user_input)
-    mocker.patch("mentat.session_input.collect_user_input", new=mocked_collect_user_input)
+    mocker.patch(
+        "mentat.code_edit_feedback.collect_user_input", new=mocked_collect_user_input
+    )
+    mocker.patch(
+        "mentat.session_input.collect_user_input", new=mocked_collect_user_input
+    )
     mocker.patch("mentat.session.collect_user_input", new=mocked_collect_user_input)
 
 
@@ -169,7 +179,6 @@ async def run_exercise(problem_dir, language="python"):
                 "test": problem_dir,
             }
 
-
         session = await Session.create(
             paths=[
                 Path(threadLocal.exercise_file),
@@ -225,15 +234,15 @@ async def test_practice_directory_performance(
     async with Pool(processes=max_workers) as pool:
         # results = []
         # pbar = tqdm.tqdm(
-            # total=num_exercises,
+        # total=num_exercises,
         # )
-        results = await pool.map(partial(run_exercise, language=language), exercises),
+        results = (await pool.map(partial(run_exercise, language=language), exercises),)
         for result in results:
             results.append(result)
             with open("results.txt", "a") as f:
                 f.write(f"{result}\n")
             # pbar.set_description(
-                # summarize_results(results) + "| Last Ran: " + result["test"]
+            # summarize_results(results) + "| Last Ran: " + result["test"]
             # )
         # sys.stdout.close()
         # sys.stdout = sys.__stdout__

@@ -41,16 +41,12 @@ async def test_partial_files(mock_stream, mock_config):
     file_path = os.path.join(dir_name, file_name)
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
-        file_file.write(
-            dedent(
-                """\
+        file_file.write(dedent("""\
              I am a file
              with 5 lines
              third
              fourth
-             fifth"""
-            )
-        )
+             fifth"""))
     file_path_partial = file_path + ":1,3-5"
 
     code_file_manager = CodeFileManager(
@@ -66,8 +62,7 @@ async def test_partial_files(mock_stream, mock_config):
     code_message = await code_context.get_code_message(
         mock_config.model(), code_file_manager, parser
     )
-    assert code_message == dedent(
-        """\
+    assert code_message == dedent("""\
             Code Files:
 
             dir/file.txt
@@ -75,8 +70,7 @@ async def test_partial_files(mock_stream, mock_config):
             3:third
             4:fourth
             5:fifth
-              """
-    )
+              """)
 
 
 @pytest.mark.asyncio
@@ -96,10 +90,7 @@ async def test_run_from_subdirectory(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values(
-        [
-            dedent(
-                """\
+    mock_call_llm_api.set_generator_values([dedent("""\
         I will insert a comment in both files.
 
         @@start
@@ -121,10 +112,7 @@ async def test_run_from_subdirectory(
         }
         @@code
         # Hello
-        @@end"""
-            )
-        ]
-    )
+        @@end""")])
 
     session = await Session.create([Path("calculator.py"), Path("../scripts")])
     await session.start()

@@ -1,9 +1,9 @@
 import sys
+from unittest.mock import AsyncMock
 
 import pytest
 
-from mentat.app import run
-from mentat.user_input_manager import UserInputManager
+from tests.mentat_prompt_session_test import TerminalClient
 
 # These ui-tests won't run automatically
 # To run them, use pytest -s --uitest
@@ -18,14 +18,22 @@ def is_test_correct():
 
 
 @pytest.fixture
-def ui_mock_collect_user_input(mocker):
-    mock_method = mocker.MagicMock(side_effect=is_test_correct)
-    mocker.patch.object(UserInputManager, "collect_user_input", new=mock_method)
-    return mock_method
+def ui_mock_collect_user_input(
+    mocker,
+):
+    async_mock = AsyncMock()
+
+    mocker.patch("mentat.code_edit_feedback.collect_user_input", side_effect=async_mock)
+    mocker.patch("mentat.session_input.collect_user_input", side_effect=async_mock)
+    mocker.patch("mentat.session.collect_user_input", side_effect=async_mock)
+
+    async_mock.side_effect = is_test_correct
+    return async_mock
 
 
 def test_start(mock_call_llm_api, ui_mock_collect_user_input):
     print()
     with pytest.raises(SystemExit) as e_info:
-        run(["./"])
+        terminal_client = TerminalClient(["."])
+        terminal_client.run()
     assert e_info.value.code == 0
