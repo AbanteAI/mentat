@@ -46,6 +46,8 @@ class StreamingPrinter:
                 next_string = self.strings_to_print.popleft()
                 await stream.send(next_string, end="", flush=True)
                 self.chars_remaining -= 1
+            elif self.finishing:
+                break
             await asyncio.sleep(self.sleep_time())
 
     def wrap_it_up(self):
