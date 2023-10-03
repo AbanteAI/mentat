@@ -57,8 +57,6 @@ class TerminalClient:
     async def _cprint_session_stream(self):
         assert isinstance(self.session, Session), "TerminalClient is not running"
         async for message in self.session.stream.listen():
-            if self._should_exit:
-                return
             print_stream_message(message)
 
     async def _handle_input_requests(self):
@@ -155,6 +153,12 @@ class TerminalClient:
 
         logging.debug("Running shutdown")
 
+        # Stop session
+        self.session.stop()
+        while not self._force_exit and not self.session.is_stopped:
+            await asyncio.sleep(0.01)
+        self.session = None
+
         # Stop all background tasks
         for task in self._tasks:
             task.cancel()
@@ -163,12 +167,6 @@ class TerminalClient:
             if all([task.cancelled() for task in self._tasks]):
                 break
             await asyncio.sleep(0.01)
-
-        # Stop session
-        self.session.stop()
-        while not self._force_exit and not self.session.is_stopped:
-            await asyncio.sleep(0.01)
-        self.session = None
 
         logging.debug("Completed shutdown")
 

@@ -187,6 +187,7 @@ class Session:
             if self._main_task is None:
                 return
             try:
+                await self.cost_tracker.display_total_cost()
                 self._main_task.cancel()
 
                 # Pyright can't see `self._main_task` being set to `None` in the task

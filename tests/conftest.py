@@ -13,6 +13,7 @@ import pytest_asyncio
 
 from mentat.config_manager import ConfigManager
 from mentat.session_stream import StreamMessage, StreamMessageSource
+from mentat.streaming_printer import StreamingPrinter
 
 pytest_plugins = ("pytest_reportlog",)
 
@@ -235,3 +236,8 @@ def mock_user_config(mocker):
 #     if os.name == "nt":
 #         mocker.patch("mentat.user_input_manager.PromptSession")
 #         mocker.patch("mentat.user_input_manager.MentatPromptSession")
+
+
+@pytest.fixture(autouse=True)
+def mock_sleep_time(mocker):
+    mocker.patch.object(StreamingPrinter, "sleep_time", new=lambda self: 0)

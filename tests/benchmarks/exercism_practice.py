@@ -5,7 +5,6 @@ import sys
 from functools import partial
 from pathlib import Path
 from textwrap import dedent
-from uuid import uuid4
 
 import pytest
 import tqdm
