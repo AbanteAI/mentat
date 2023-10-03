@@ -35,9 +35,6 @@ class Parser(ABC):
         stream = get_session_stream()
         async with stream.interrupt_lock:
             await stream.recv("interrupt")
-            await stream.send(
-                "\n\nInterrupted by user. Using the response up to this point."
-            )
             logging.info("User interrupted response.")
             self.shutdown.set()
 
@@ -71,6 +68,7 @@ class Parser(ABC):
         To make a parser that differs from these assumptions, make this functionality a subclass of Parser
         """
 
+        stream = get_session_stream()
         printer = StreamingPrinter()
         printer_task = asyncio.create_task(printer.print_lines())
         message = ""
@@ -89,7 +87,12 @@ class Parser(ABC):
         rename_map = dict[Path, Path]()
         async for chunk in response:
             if self.shutdown.is_set():
-                printer_task.cancel()
+                printer.shutdown_printer()
+                await printer_task
+                await stream.send(
+                    colored("")  # Reset ANSI codes
+                    + "\n\nInterrupted by user. Using the response up to this point."
+                )
                 break
 
             for content in chunk_to_lines(chunk):
