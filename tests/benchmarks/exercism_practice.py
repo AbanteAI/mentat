@@ -1,7 +1,7 @@
+import asyncio
 import os
 import subprocess
 import sys
-import threading
 from functools import partial
 from pathlib import Path
 from textwrap import dedent
@@ -13,16 +13,14 @@ from aiomultiprocess import Pool
 from git import Repo
 
 from mentat.session import Session
-from mentat.session_stream import StreamMessage, StreamMessageSource
-
-threadLocal = threading.local()
+from mentat.session_stream import StreamMessageSource
 
 pytestmark = pytest.mark.benchmark
 
 
-def exercise_passed(language):
+def exercise_passed(test_output_file, language):
     try:
-        with open(threadLocal.test_output_file, "r") as f:
+        with open(test_output_file, "r") as f:
             lines = f.readlines()
             if language == "python":
                 return "failed" not in lines[-1] and "passed" in lines[-1]
@@ -32,22 +30,22 @@ def exercise_passed(language):
         return False
 
 
-def get_error_message():
-    with open(threadLocal.test_output_file, "r") as f:
+def get_error_message(test_output_file):
+    with open(test_output_file, "r") as f:
         lines = f.readlines()
         lines = lines[:50]
         return "\n".join(lines)
 
 
-def run_exercise_test(language):
+def run_exercise_test(exercise, test_output_file, language):
     try:
         if language == "python":
             proc = subprocess.run(
-                ["pytest", threadLocal.exercise], stdout=subprocess.PIPE, timeout=5
+                ["pytest", exercise], stdout=subprocess.PIPE, timeout=5
             )
         else:
             proc = subprocess.run(
-                ["./node_modules/jest/bin/jest.js", threadLocal.exercise],
+                ["./node_modules/jest/bin/jest.js", exercise],
                 stderr=subprocess.STDOUT,
                 stdout=subprocess.PIPE,
                 timeout=5,
@@ -55,63 +53,8 @@ def run_exercise_test(language):
         results = proc.stdout.decode("utf-8")
     except subprocess.TimeoutExpired:
         results = "Test timed out"
-    with open(threadLocal.test_output_file, "w") as f:
+    with open(test_output_file, "w") as f:
         f.write(results)
-
-
-def wrap(value):
-    return StreamMessage(
-        id=uuid4(),
-        channel="default",
-        source=StreamMessageSource.CLIENT,
-        data=value,
-        extra=None,
-        created_at=datetime.utcnow(),
-    )
-
-
-@pytest.fixture
-def mock_user_input_manager(max_iterations, mocker, language):
-    async def mocked_collect_user_input():
-        if threadLocal.iterations == 0:
-            threadLocal.iterations = 1
-            threadLocal.confirm = True
-            return wrap(
-                dedent(
-                    f"""\
-                Use the instructions in {threadLocal.exercise}/.docs to modify \
-                {threadLocal.exercise_file}. Keep and implement the existing function or class stubs, they will be \
-                called from unit tests. Only use standard libraries, don't suggest installing any packages."""
-                )
-            )
-        else:
-            if threadLocal.confirm:
-                threadLocal.confirm = False
-                return wrap("y")
-            run_exercise_test(language)
-            if threadLocal.iterations >= max_iterations or exercise_passed(language):
-                return wrap("q")
-            else:
-                threadLocal.iterations += 1
-                threadLocal.confirm = True
-                return wrap(
-                    get_error_message()
-                    + dedent(
-                        f"""
-                    See the testing errors above.
-                    The tests are correct.
-                    Fix the code in {threadLocal.exercise_file} to resolve the errors."""
-                    )
-                )
-
-    print("We're mocking")
-    mocker.patch(
-        "mentat.code_edit_feedback.collect_user_input", new=mocked_collect_user_input
-    )
-    mocker.patch(
-        "mentat.session_input.collect_user_input", new=mocked_collect_user_input
-    )
-    mocker.patch("mentat.session.collect_user_input", new=mocked_collect_user_input)
 
 
 @pytest.fixture
@@ -157,22 +100,30 @@ def language(request):
     return request.config.getoption("--language")
 
 
-async def run_exercise(problem_dir, language="python"):
+async def send_message(stream, message):
+    input_request_message = await stream.recv("input_request")
+    await stream.send(
+        message,
+        source=StreamMessageSource.CLIENT,
+        channel=f"input_request:{input_request_message.id}",
+    )
+
+
+async def run_exercise(problem_dir, language="python", max_iterations=2):
     try:
         if language == "python":
             file_ext = "py"
         else:
             file_ext = "js"
-        threadLocal.exercise = f"exercises/practice/{problem_dir}"
+        exercise = f"exercises/practice/{problem_dir}"
         if language == "python":
             problem_file = problem_dir.replace("-", "_")
         else:
             problem_file = problem_dir
-        threadLocal.exercise_file = f"{threadLocal.exercise}/{problem_file}.{file_ext}"
-        threadLocal.test_output_file = f"{threadLocal.exercise}/test_output.txt"
-        threadLocal.iterations = 0
-        if os.path.exists(threadLocal.test_output_file):
-            passed = exercise_passed(language)
+        exercise_file = f"{exercise}/{problem_file}.{file_ext}"
+        test_output_file = f"{exercise}/test_output.txt"
+        if os.path.exists(test_output_file):
+            passed = exercise_passed(test_output_file, language)
             return {
                 "iterations": None,
                 "passed": passed,
@@ -181,17 +132,44 @@ async def run_exercise(problem_dir, language="python"):
 
         session = await Session.create(
             paths=[
-                Path(threadLocal.exercise_file),
-                Path(f"{threadLocal.exercise}/.docs"),
+                Path(exercise_file),
+                Path(f"{exercise}/.docs"),
             ],
-            exclude_paths=[Path(f"{threadLocal.exercise}/.docs/hints.md")],
+            exclude_paths=[Path(f"{exercise}/.docs/hints.md")],
             no_code_map=True,
         )
-        await session.start()
-        await session.stream.stop()
-        passed = exercise_passed(language)
+        asyncio.ensure_future(session.start())
+
+        await send_message(
+            session.stream,
+            dedent(
+                f"""\
+                    Use the instructions in exercises/practice/{problem_dir} to modify \
+                    {exercise_file}. Keep and implement the existing function or class stubs, they will be \
+                    called from unit tests. Only use standard libraries, don't suggest installing any packages."""
+            ),
+        )
+        await send_message(session.stream, "y")
+        iterations = 1
+        run_exercise_test(exercise, test_output_file, language)
+        while iterations < max_iterations:
+            if exercise_passed(test_output_file, language):
+                break
+            await send_message(
+                session.stream,
+                get_error_message(test_output_file) + dedent(f"""
+                        See the testing errors above.
+                        The tests are correct.
+                        Fix the code in {exercise_file} to resolve the errors."""),
+            )
+            await send_message(session.stream, "y")
+            run_exercise_test(exercise, test_output_file, language)
+            iterations += 1
+
+        await send_message(session.stream, "q")
+        passed = exercise_passed(test_output_file, language)
         return {
-            "iterations": threadLocal.iterations,
+            "iterations": iterations,
             "passed": passed,
             "test": problem_dir,
         }
@@ -199,7 +177,7 @@ async def run_exercise(problem_dir, language="python"):
         sys.__stdout__.write(f"\nError running {problem_dir}")
         sys.__stdout__.write(str(e))
         return {
-            "iterations": threadLocal.iterations,
+            "iterations": iterations,
             "passed": False,
             "test": problem_dir,
         }
@@ -220,7 +198,6 @@ def summarize_results(results):
 
 @pytest.mark.asyncio
 async def test_practice_directory_performance(
-    mock_user_input_manager,
     clone_exercism_repo,
     max_exercises,
     max_iterations,
@@ -229,21 +206,24 @@ async def test_practice_directory_performance(
 ):
     exercises = os.listdir("exercises/practice")[:max_exercises]
     num_exercises = len(exercises)
-    # sys.stdout = open("mentat_output.txt", "w")
+    sys.stdout = open("mentat_output.txt", "w")
 
     async with Pool(processes=max_workers) as pool:
-        # results = []
-        # pbar = tqdm.tqdm(
-        # total=num_exercises,
-        # )
-        results = (await pool.map(partial(run_exercise, language=language), exercises),)
-        for result in results:
+        pbar = tqdm.tqdm(total=num_exercises)
+
+        result_map = pool.map(
+            partial(run_exercise, language=language, max_iterations=max_iterations),
+            exercises,
+        )
+        results = []
+        async for result in result_map:
             results.append(result)
+            pbar.update()
             with open("results.txt", "a") as f:
                 f.write(f"{result}\n")
-            # pbar.set_description(
-            # summarize_results(results) + "| Last Ran: " + result["test"]
-            # )
-        # sys.stdout.close()
-        # sys.stdout = sys.__stdout__
+            pbar.set_description(
+                summarize_results(results) + "| Last Ran: " + result["test"]
+            )
+        sys.stdout.close()
+        sys.stdout = sys.__stdout__
         print(f"Results: {results}")
