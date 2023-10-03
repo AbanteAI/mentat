@@ -15,6 +15,9 @@ accepted_licenses = [
     "MIT",
     "Mozilla Public License 2.0 (MPL 2.0)",
     "Python Software Foundation License",
+    "Apache 2.0",
+    "BSD 3-Clause",
+    "ISC License (ISCL)",
 ]
 
 
