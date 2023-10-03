@@ -131,7 +131,7 @@ class Conversation:
         try:
             response = await call_llm_api(messages, self.model)
             await stream.send(
-                "Streaming... use control-c to interrupt the model at any point"
+                "Streaming... use control-c to interrupt the model at any point\n"
             )
             async with parser.interrupt_catcher():
                 message, file_edits = await parser.stream_and_parse_llm_response(

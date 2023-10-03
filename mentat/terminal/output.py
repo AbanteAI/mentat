@@ -1,7 +1,6 @@
 from typing import Any
 
-from prompt_toolkit import print_formatted_text
-from prompt_toolkit.formatted_text import FormattedText
+from termcolor import cprint
 
 from mentat.session_stream import StreamMessage
 
@@ -12,13 +11,10 @@ def _print_stream_message_string(
     color: str | None = None,
     flush: bool = False,
 ):
-    if color:
-        f_color = color.replace("_", "").replace("light", "bright")
-        if f_color != "" and not f_color.startswith("ansi"):
-            f_color = "ansi" + f_color
-        print_formatted_text(FormattedText([(f_color, content)]), end=end, flush=flush)
+    if color is not None:
+        cprint(content, end=end, color=color, flush=flush)
     else:
-        print(content, end=end, flush=True)
+        print(content, end=end, flush=flush)
 
 
 def print_stream_message(message: StreamMessage):
