@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
@@ -72,8 +71,6 @@ class SessionStream:
             created_at=datetime.utcnow(),
             extra=kwargs,
         )
-
-        logging.info(message)
 
         self.messages.append(message)
         await self._broadcast.publish(channel=channel, message=message)

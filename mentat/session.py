@@ -144,6 +144,7 @@ class Session:
         A background asyncio. Task will be created to run the startup sequence and run
         the main loop which runs forever (until a client interrupts it).
         """
+
         if self._main_task:
             logging.warning("Job already started")
             return self._main_task

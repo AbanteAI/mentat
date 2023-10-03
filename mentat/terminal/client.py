@@ -12,6 +12,7 @@ from prompt_toolkit.styles import Style
 from termcolor import cprint
 
 from mentat.code_file import parse_intervals
+from mentat.logging_config import setup_logging
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.output import print_stream_message
@@ -211,6 +212,11 @@ def expand_paths(paths: list[str]) -> list[Path]:
 
 
 def run_cli():
+    # While it would be better to setup the logging in the session/server, other libraries can call logging.basicSetup
+    # on import, and only the first call to basicSetup applies, so we must call this as soon as possible.
+    # TODO: Don't use logging.basicSetup and call this in the server.
+    setup_logging()
+
     parser = argparse.ArgumentParser(
         description="Run conversation with command line args"
     )
