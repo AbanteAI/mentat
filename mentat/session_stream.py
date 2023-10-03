@@ -11,9 +11,6 @@ from uuid import UUID, uuid4
 
 from .broadcast import Broadcast
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
 _SESSION_STREAM: ContextVar[SessionStream] = ContextVar("mentat:session_stream")
 
 
@@ -76,7 +73,7 @@ class SessionStream:
             extra=kwargs,
         )
 
-        logger.info(message)
+        logging.info(message)
 
         self.messages.append(message)
         await self._broadcast.publish(channel=channel, message=message)

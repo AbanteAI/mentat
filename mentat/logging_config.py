@@ -39,7 +39,7 @@ def setup_logging():
     costs_handler = logging.FileHandler(logs_path / "costs.log")
     costs_handler.setFormatter(costs_formatter)
     costs_logger.addHandler(costs_handler)
-    costs_logger.setLevel(logging.INFO)
+    costs_logger.setLevel(logging.WARNING)
     costs_logger.propagate = False
 
     handlers = [console_handler, file_handler, file_handler_latest]

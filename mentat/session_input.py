@@ -1,11 +1,8 @@
 import asyncio
-import logging
 from typing import Any, Coroutine
 
 from .errors import RemoteKeyboardInterrupt
 from .session_stream import StreamMessage, get_session_stream
-
-logger = logging.getLogger()
 
 
 async def collect_user_input() -> StreamMessage:

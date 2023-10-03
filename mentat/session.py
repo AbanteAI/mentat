@@ -22,9 +22,6 @@ from .parsers.split_diff_parser import SplitDiffParser
 from .session_input import collect_user_input
 from .session_stream import SessionStream, set_session_stream
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
 parser_map: dict[str, Parser] = {
     "block": BlockParser(),
     "replacement": ReplacementParser(),
@@ -148,7 +145,7 @@ class Session:
         the main loop which runs forever (until a client interrupts it).
         """
         if self._main_task:
-            logger.warning("Job already started")
+            logging.warning("Job already started")
             return self._main_task
 
         async def run_main():
@@ -161,13 +158,13 @@ class Session:
         def cleanup_main(task: asyncio.Task[None]):
             exception = task.exception()
             if exception is not None:
-                logger.error(f"Main task for Session({self.id}) threw an exception")
+                logging.error(f"Main task for Session({self.id}) threw an exception")
                 traceback.print_exception(
                     type(exception), exception, exception.__traceback__
                 )
 
             self._main_task = None
-            logger.debug("Main task stopped")
+            logging.debug("Main task stopped")
 
         self._main_task = asyncio.create_task(run_main())
         self._main_task.add_done_callback(cleanup_main)
@@ -182,10 +179,10 @@ class Session:
         order to make sure the shutdown sequence has finished.
         """
         if self._stop_task is not None:
-            logger.debug("Task is already stopping")
+            logging.debug("Task is already stopping")
             return self._stop_task
         if self.is_stopped:
-            logger.debug("Task is already stopped")
+            logging.debug("Task is already stopped")
             return
 
         async def run_stop():
@@ -206,7 +203,7 @@ class Session:
 
         def cleanup_stop(_: asyncio.Task[None]):
             self._stop_task = None
-            logger.debug("Task has stopped")
+            logging.debug("Task has stopped")
 
         self._stop_task = asyncio.create_task(run_stop())
         self._stop_task.add_done_callback(cleanup_stop)

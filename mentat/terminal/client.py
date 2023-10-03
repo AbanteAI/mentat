@@ -17,9 +17,6 @@ from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
 
-logger = logging.getLogger("mentat.terminal")
-logger.setLevel(logging.INFO)
-
 
 class TerminalClient:
     def __init__(
@@ -93,14 +90,14 @@ class TerminalClient:
             or self.session.stream.interrupt_lock.locked() is False
         ):
             if self._should_exit:
-                logger.debug("Force exiting client...")
+                logging.debug("Force exiting client...")
                 self._force_exit = True
             else:
-                logger.debug("Should exit client...")
+                logging.debug("Should exit client...")
                 self._should_exit = True
 
         else:
-            logger.debug("Sending interrupt to session stream")
+            logging.debug("Sending interrupt to session stream")
             self._create_task(self._send_session_stream_interrupt())
 
     def _init_signal_handlers(self):
@@ -111,7 +108,7 @@ class TerminalClient:
     async def _startup(self):
         assert self.session is None, "TerminalClient already running"
 
-        logger.debug("Running startup")
+        logging.debug("Running startup")
 
         self.session = await Session.create(
             self.paths, self.exclude_paths, self.no_code_map, self.diff, self.pr_diff
@@ -125,17 +122,17 @@ class TerminalClient:
         self._create_task(self._cprint_session_stream())
         self._create_task(self._handle_input_requests(mentat_completer))
 
-        logger.debug("Completed startup")
+        logging.debug("Completed startup")
 
     async def _shutdown(self):
         assert isinstance(self.session, Session), "TerminalClient is not running"
 
-        logger.debug("Running shutdown")
+        logging.debug("Running shutdown")
 
         # Stop all background tasks
         for task in self._tasks:
             task.cancel()
-        logger.debug("Waiting for background tasks to finish. (CTRL+C to force quit)")
+        logging.debug("Waiting for background tasks to finish. (CTRL+C to force quit)")
         while not self._force_exit:
             if all([task.cancelled() for task in self._tasks]):
                 break
@@ -147,11 +144,11 @@ class TerminalClient:
             await asyncio.sleep(0.01)
         self.session = None
 
-        logger.debug("Completed shutdown")
+        logging.debug("Completed shutdown")
 
     async def _main(self):
         assert isinstance(self.session, Session), "TerminalClient is not running"
-        logger.debug("Running main loop")
+        logging.debug("Running main loop")
 
         while not self._should_exit and not self.session.is_stopped:
             await asyncio.sleep(0.01)
@@ -167,8 +164,8 @@ class TerminalClient:
         # NOTE: we should remove this try/except. The code inside of `self._run` should
         # never throw an exception
         except Exception as e:
-            logger.error(f"Unexpected Exception {e}")
-            logger.error(traceback.format_exc())
+            logging.error(f"Unexpected Exception {e}")
+            logging.error(traceback.format_exc())
 
     def run(self):
         asyncio.run(self._run())

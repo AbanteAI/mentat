@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 import os
 import subprocess
 import tempfile
@@ -13,8 +12,6 @@ from .config_manager import ConfigManager
 from .git_handler import get_non_gitignored_files
 from .llm_api import count_tokens
 from .session_stream import get_session_stream
-
-logger = logging.getLogger()
 
 
 async def _get_code_map(
