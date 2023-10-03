@@ -49,7 +49,7 @@ async def _ask_user_change(
     text: str,
 ) -> bool:
     stream = get_session_stream()
-    await stream.send(get_full_change(display_information), color="light_blue")
+    await stream.send(get_full_change(display_information))
     await stream.send(text, color="light_blue")
     return await ask_yes_no(default_yes=True)
 
