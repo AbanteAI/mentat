@@ -22,7 +22,7 @@ from mentat.parsers.change_display_helper import (
     get_removed_lines,
 )
 from mentat.parsers.file_edit import FileEdit
-from mentat.session_stream import get_session_stream
+from mentat.session_stream import SESSION_STREAM
 from mentat.streaming_printer import StreamingPrinter
 
 
@@ -32,7 +32,7 @@ class Parser(ABC):
         self._interrupt_task = None
 
     async def listen_for_interrupt(self):
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
         async with stream.interrupt_lock:
             await stream.recv("interrupt")
             logging.info("User interrupted response.")
@@ -68,7 +68,7 @@ class Parser(ABC):
         To make a parser that differs from these assumptions, make this functionality a subclass of Parser
         """
 
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
         printer = StreamingPrinter()
         printer_task = asyncio.create_task(printer.print_lines())
         message = ""

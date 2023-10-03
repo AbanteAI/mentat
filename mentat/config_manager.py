@@ -5,7 +5,7 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Dict, Optional, cast
 
-from mentat.session_stream import get_session_stream
+from mentat.session_stream import SESSION_STREAM
 
 mentat_dir_path = Path.home() / ".mentat"
 
@@ -35,7 +35,7 @@ class ConfigManager:
 
     @classmethod
     async def create(cls, git_root: Path):
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         if user_config_path.exists():
             with open(user_config_path) as config_file:

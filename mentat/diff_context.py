@@ -11,7 +11,7 @@ from .git_handler import (
     get_files_in_diff,
     get_treeish_metadata,
 )
-from .session_stream import get_session_stream
+from .session_stream import SESSION_STREAM
 
 
 @dataclass
@@ -110,7 +110,7 @@ class DiffContext:
         return get_files_in_diff(self.config.git_root, self.target)
 
     async def display_context(self) -> None:
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         if not self.files:
             return

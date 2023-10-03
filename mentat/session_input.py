@@ -2,7 +2,7 @@ import asyncio
 from typing import Any, Coroutine
 
 from .errors import RemoteKeyboardInterrupt
-from .session_stream import StreamMessage, get_session_stream
+from .session_stream import SESSION_STREAM, StreamMessage
 
 
 async def collect_user_input(**kwargs: Any) -> StreamMessage:
@@ -12,7 +12,7 @@ async def collect_user_input(**kwargs: Any) -> StreamMessage:
     create a new broadcast channel that listens for the input
     close the channel after receiving the input
     """
-    stream = get_session_stream()
+    stream = SESSION_STREAM.get()
 
     message = await stream.send("", channel="input_request", **kwargs)
     response = await stream.recv(f"input_request:{message.id}")
@@ -21,7 +21,7 @@ async def collect_user_input(**kwargs: Any) -> StreamMessage:
 
 
 async def ask_yes_no(default_yes: bool) -> bool:
-    stream = get_session_stream()
+    stream = SESSION_STREAM.get()
 
     while True:
         # TODO: combine this into a single message (include content)
@@ -50,7 +50,7 @@ async def listen_for_interrupt(
     The `.result()` call for `wrapped_task` will re-raise any exceptions thrown
     inside of that Task.
     """
-    stream = get_session_stream()
+    stream = SESSION_STREAM.get()
 
     async with stream.interrupt_lock:
         interrupt_task = asyncio.create_task(stream.recv("interrupt"))

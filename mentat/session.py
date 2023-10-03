@@ -20,7 +20,7 @@ from .parsers.parser import Parser
 from .parsers.replacement_parser import ReplacementParser
 from .parsers.split_diff_parser import SplitDiffParser
 from .session_input import collect_user_input
-from .session_stream import SessionStream, set_session_stream
+from .session_stream import SESSION_STREAM, SessionStream
 
 parser_map: dict[str, Parser] = {
     "block": BlockParser(),
@@ -61,7 +61,7 @@ class Session:
     ):
         stream = SessionStream()
         await stream.start()
-        set_session_stream(stream)
+        SESSION_STREAM.set(stream)
 
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
         # TODO: Config should be created in the client (i.e., to get vscode settings) and passed to session

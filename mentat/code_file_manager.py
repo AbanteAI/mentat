@@ -10,7 +10,7 @@ from .config_manager import ConfigManager
 from .errors import MentatError
 from .parsers.file_edit import FileEdit
 from .session_input import ask_yes_no
-from .session_stream import get_session_stream
+from .session_stream import SESSION_STREAM
 
 
 class CodeFileManager:
@@ -51,7 +51,7 @@ class CodeFileManager:
         file_edits: list[FileEdit],
         code_context: CodeContext,
     ):
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         for file_edit in file_edits:
             rel_path = Path(os.path.relpath(file_edit.file_path, self.config.git_root))

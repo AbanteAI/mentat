@@ -17,7 +17,7 @@ from .llm_api import (
     is_model_available,
     model_context_size,
 )
-from .session_stream import get_session_stream
+from .session_stream import SESSION_STREAM
 
 
 class Conversation:
@@ -44,7 +44,7 @@ class Conversation:
         code_context: CodeContext,
         code_file_manager: CodeFileManager,
     ):
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         self = Conversation(config, cost_tracker, code_context, code_file_manager)
 
@@ -125,7 +125,7 @@ class Conversation:
         config: ConfigManager,
         messages: list[dict[str, str]],
     ):
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         start_time = default_timer()
         try:

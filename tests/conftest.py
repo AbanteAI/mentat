@@ -12,7 +12,12 @@ import pytest
 import pytest_asyncio
 
 from mentat.config_manager import ConfigManager
-from mentat.session_stream import StreamMessage, StreamMessageSource
+from mentat.session_stream import (
+    SESSION_STREAM,
+    SessionStream,
+    StreamMessage,
+    StreamMessageSource,
+)
 from mentat.streaming_printer import StreamingPrinter
 
 pytest_plugins = ("pytest_reportlog",)
@@ -161,12 +166,10 @@ def add_permissions(func, path, exc_info):
 # https://github.com/pytest-dev/pytest-asyncio/issues/127
 @pytest.fixture
 def _mock_stream():
-    from mentat.session_stream import _SESSION_STREAM, SessionStream, set_session_stream
-
     session_stream = SessionStream()
-    token = set_session_stream(session_stream)
+    token = SESSION_STREAM.set(session_stream)
     yield session_stream
-    _SESSION_STREAM.reset(token)
+    SESSION_STREAM.reset(token)
 
 
 @pytest_asyncio.fixture()

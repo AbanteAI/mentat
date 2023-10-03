@@ -15,7 +15,7 @@ from mentat.parsers.change_display_helper import (
     get_full_change,
 )
 from mentat.session_input import ask_yes_no
-from mentat.session_stream import get_session_stream
+from mentat.session_stream import SESSION_STREAM
 
 if TYPE_CHECKING:
     # This normally will cause a circular import
@@ -48,7 +48,7 @@ async def _ask_user_change(
     display_information: DisplayInformation,
     text: str,
 ) -> bool:
-    stream = get_session_stream()
+    stream = SESSION_STREAM.get()
     await stream.send(get_full_change(display_information))
     await stream.send(text, color="light_blue")
     return await ask_yes_no(default_yes=True)
@@ -72,7 +72,7 @@ class FileEdit:
     async def is_valid(
         self, code_file_manager: CodeFileManager, config: ConfigManager
     ) -> bool:
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         rel_path = Path(os.path.relpath(self.file_path, config.git_root))
         if self.is_creation:
@@ -166,7 +166,7 @@ class FileEdit:
         )
 
     async def _print_resolution(self, first: Replacement, second: Replacement):
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         await stream.send(
             "Change overlap detected, auto-merged back to back changes:\n"

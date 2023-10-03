@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from mentat.session_stream import get_session_stream
+from mentat.session_stream import SESSION_STREAM
 
 from .code_context import CodeContext
 from .code_file import CodeFile
@@ -61,7 +61,7 @@ class InvalidCommand(Command, command_name=None):
         self.invalid_name = invalid_name
 
     async def apply(self, *args: str) -> None:
-        await get_session_stream().send(
+        await SESSION_STREAM.get().send(
             f"{self.invalid_name} is not a valid command. Use /help to see a list of"
             " all valid commands",
             color="light_yellow",
@@ -81,7 +81,7 @@ help_message_width = 60
 
 class HelpCommand(Command, command_name="help"):
     async def apply(self, *args: str) -> None:
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         if not args:
             commands = Command._registered_commands.keys()
@@ -136,7 +136,7 @@ class AddCommand(Command, command_name="add"):
         self.code_context = code_context
 
     async def apply(self, *args: str) -> None:
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         if len(args) == 0:
             await stream.send("No files specified\n", color="yellow")
@@ -159,7 +159,7 @@ class RemoveCommand(Command, command_name="remove"):
         self.code_context = code_context
 
     async def apply(self, *args: str) -> None:
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
         if len(args) == 0:
             await stream.send("No files specified\n", color="yellow")
             return

@@ -11,7 +11,7 @@ from typing import Any, Literal
 from .config_manager import ConfigManager
 from .git_handler import get_non_gitignored_files
 from .llm_api import count_tokens
-from .session_stream import get_session_stream
+from .session_stream import SESSION_STREAM
 
 
 async def _get_code_map(
@@ -51,7 +51,7 @@ async def _get_code_map(
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            await get_session_stream().send(
+            await SESSION_STREAM.get().send(
                 f"Error parsing ctags output: {err}\n{repr(output_line)}",
                 color="yellow",
             )
@@ -150,7 +150,7 @@ class CodeMap:
                 Reason: {self.ctags_disabled_reason}
             """
             ctags_disabled_message = dedent(ctags_disabled_message)
-            await get_session_stream().send(ctags_disabled_message, color="yellow")
+            await SESSION_STREAM.get().send(ctags_disabled_message, color="yellow")
 
         return self
 

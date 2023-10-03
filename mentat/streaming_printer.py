@@ -3,7 +3,7 @@ from collections import deque
 
 from termcolor import colored
 
-from mentat.session_stream import get_session_stream
+from mentat.session_stream import SESSION_STREAM
 
 
 class StreamingPrinter:
@@ -39,7 +39,7 @@ class StreamingPrinter:
         return max(min(max_sleep, required_sleep_time), min_sleep)
 
     async def print_lines(self):
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         while not self.shutdown:
             if self.strings_to_print:

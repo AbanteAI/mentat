@@ -10,7 +10,7 @@ import tiktoken
 from dotenv import load_dotenv
 from openai.error import AuthenticationError
 
-from mentat.session_stream import get_session_stream
+from mentat.session_stream import SESSION_STREAM
 
 from .config_manager import mentat_dir_path
 from .errors import MentatError, UserError
@@ -137,7 +137,7 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
 
 
 async def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
-    stream = get_session_stream()
+    stream = SESSION_STREAM.get()
 
     prompt_token_count = 0
     for message in messages:
@@ -167,7 +167,7 @@ class CostTracker:
         model: str,
         call_time: float,
     ) -> None:
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         tokens_per_second = num_sampled_tokens / call_time
         cost = model_price_per_1000_tokens(model)
@@ -188,7 +188,7 @@ class CostTracker:
         costs_logger.info(speed_and_cost_string)
 
     async def display_total_cost(self) -> None:
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
         await stream.send(
             f"Total session cost: ${self.total_cost:.2f}", color="light_blue"
         )

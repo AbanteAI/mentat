@@ -16,7 +16,7 @@ from .diff_context import get_diff_context
 from .errors import UserError
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from .llm_api import count_tokens, model_context_size
-from .session_stream import get_session_stream
+from .session_stream import SESSION_STREAM
 
 if TYPE_CHECKING:
     # This normally will cause a circular import
@@ -121,7 +121,7 @@ def _build_path_tree(files: list[CodeFile], git_root: Path):
 async def _print_path_tree(
     tree: dict[str, Any], changed_files: set[Path], cur_path: Path, prefix: str = ""
 ):
-    stream = get_session_stream()
+    stream = SESSION_STREAM.get()
     keys = list(tree.keys())
     for i, key in enumerate(sorted(keys)):
         if i < len(keys) - 1:
@@ -185,7 +185,7 @@ class CodeContext:
         return self
 
     async def refresh(self, replace_paths: bool | None = False):
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         # Diff context
         try:
@@ -216,7 +216,7 @@ class CodeContext:
             await stream.send(ctags_disabled_message, color="yellow")
 
     async def display_context(self):
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         if self.files:
             await stream.send("Files included in context:", color="green")
@@ -234,7 +234,7 @@ class CodeContext:
     async def get_code_message(
         self, model: str, code_file_manager: CodeFileManager, parser: Parser
     ) -> str:
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         code_message: list[str] = []
         if self.diff_context.files:
@@ -312,7 +312,7 @@ class CodeContext:
         return "\n".join(code_message)
 
     async def add_file(self, code_file: CodeFile):
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         if not os.path.exists(code_file.path):
             await stream.send(f"File does not exist: {code_file.path}\n", color="red")
@@ -326,7 +326,7 @@ class CodeContext:
         await stream.send(f"File added to context: {code_file.path}\n", color="green")
 
     async def remove_file(self, code_file: CodeFile):
-        stream = get_session_stream()
+        stream = SESSION_STREAM.get()
 
         if not os.path.exists(code_file.path):
             await stream.send(f"File does not exist: {code_file.path}\n", color="red")

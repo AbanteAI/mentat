@@ -10,15 +10,7 @@ from uuid import UUID, uuid4
 
 from .broadcast import Broadcast
 
-_SESSION_STREAM: ContextVar[SessionStream] = ContextVar("mentat:session_stream")
-
-
-def get_session_stream():
-    return _SESSION_STREAM.get()
-
-
-def set_session_stream(session_stream: SessionStream):
-    return _SESSION_STREAM.set(session_stream)
+SESSION_STREAM: ContextVar[SessionStream] = ContextVar("mentat:session_stream")
 
 
 class StreamMessageSource(Enum):

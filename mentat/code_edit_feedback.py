@@ -1,6 +1,6 @@
 from mentat.parsers.file_edit import FileEdit
 from mentat.session_input import collect_user_input
-from mentat.session_stream import get_session_stream
+from mentat.session_stream import SESSION_STREAM
 
 from .code_context import CodeContext
 from .code_file_manager import CodeFileManager
@@ -15,7 +15,7 @@ async def get_user_feedback_on_edits(
     code_context: CodeContext,
     file_edits: list[FileEdit],
 ) -> bool:
-    stream = get_session_stream()
+    stream = SESSION_STREAM.get()
 
     await stream.send(
         "Apply these changes? 'Y/n/i' or provide feedback.",
