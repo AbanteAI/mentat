@@ -5,7 +5,7 @@ from .errors import RemoteKeyboardInterrupt
 from .session_stream import StreamMessage, get_session_stream
 
 
-async def collect_user_input() -> StreamMessage:
+async def collect_user_input(**kwargs: Any) -> StreamMessage:
     """Listens for user input on a new channel
 
     send a message requesting user to send a response
@@ -14,7 +14,7 @@ async def collect_user_input() -> StreamMessage:
     """
     stream = get_session_stream()
 
-    message = await stream.send("", channel="input_request")
+    message = await stream.send("", channel="input_request", **kwargs)
     response = await stream.recv(f"input_request:{message.id}")
 
     return response
@@ -26,7 +26,7 @@ async def ask_yes_no(default_yes: bool) -> bool:
     while True:
         # TODO: combine this into a single message (include content)
         await stream.send("(Y/n)" if default_yes else "(y/N)")
-        response = await collect_user_input()
+        response = await collect_user_input(plain=True)
         content = response.data
         if content in ["y", "n", ""]:
             break

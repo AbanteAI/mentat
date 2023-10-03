@@ -7,7 +7,8 @@ import traceback
 from pathlib import Path
 from typing import Any, Coroutine, List, Set
 
-from prompt_toolkit.completion import Completer
+from prompt_toolkit import PromptSession
+from prompt_toolkit.styles import Style
 from termcolor import cprint
 
 from mentat.code_file import parse_intervals
@@ -58,14 +59,19 @@ class TerminalClient:
                 return
             print_stream_message(message)
 
-    async def _handle_input_requests(self, prompt_completer: Completer | None = None):
+    async def _handle_input_requests(self):
         assert isinstance(self.session, Session), "TerminalClient is not running"
         while True:
             input_request_message = await self.session.stream.recv("input_request")
-            # TODO: fix pyright typing for user_input
-            user_input = await self._prompt_session.prompt_async(  # type: ignore
-                completer=prompt_completer, handle_sigint=False
-            )
+            # TODO: Make extra kwargs like plain constants
+            if (
+                input_request_message.extra is not None
+                and input_request_message.extra.get("plain")
+            ):
+                prompt_session = self._plain_session
+            else:
+                prompt_session = self._prompt_session
+            user_input = await prompt_session.prompt_async(handle_sigint=False)
             assert isinstance(user_input, str)
             if user_input == "q":
                 self._should_exit = True
@@ -114,13 +120,20 @@ class TerminalClient:
             self.paths, self.exclude_paths, self.no_code_map, self.diff, self.pr_diff
         )
         self.session.start()
-        self._prompt_session = MentatPromptSession(self.session)
 
         mentat_completer = MentatCompleter(self.session)
+        self._prompt_session = MentatPromptSession(
+            self.session, completer=mentat_completer
+        )
+        self._plain_session = PromptSession[str](
+            message=[("class:prompt", ">>> ")],
+            style=Style(self.session.config.input_style()),
+            completer=None,
+        )
 
         self._create_task(mentat_completer.refresh_completions())
         self._create_task(self._cprint_session_stream())
-        self._create_task(self._handle_input_requests(mentat_completer))
+        self._create_task(self._handle_input_requests())
 
         logging.debug("Completed startup")
 

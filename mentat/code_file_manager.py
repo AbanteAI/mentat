@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from .code_context import CodeContext
 from .code_file import CodeFile
@@ -10,10 +11,6 @@ from .errors import MentatError
 from .parsers.file_edit import FileEdit
 from .session_input import ask_yes_no
 from .session_stream import get_session_stream
-
-if TYPE_CHECKING:
-    # This normally will cause a circular import
-    from .code_context import CodeContext
 
 
 class CodeFileManager:
@@ -34,7 +31,7 @@ class CodeFileManager:
             abs_path = Path(self.config.git_root / rel_path)
             self.file_lines[rel_path] = self.read_file(abs_path)
 
-    def _add_file(self, abs_path: Path, code_context: "CodeContext"):
+    def _add_file(self, abs_path: Path, code_context: CodeContext):
         logging.info(f"Adding new file {abs_path} to context")
         code_context.files[abs_path] = CodeFile(abs_path)
         # create any missing directories in the path
@@ -42,7 +39,7 @@ class CodeFileManager:
         with open(abs_path, "w") as f:
             f.write("")
 
-    def _delete_file(self, abs_path: Path, code_context: "CodeContext"):
+    def _delete_file(self, abs_path: Path, code_context: CodeContext):
         logging.info(f"Deleting file {abs_path}")
         if abs_path in code_context.files:
             del code_context.files[abs_path]
@@ -51,8 +48,8 @@ class CodeFileManager:
     # Mainly does checks on if file is in context, file exists, file is unchanged, etc.
     async def write_changes_to_files(
         self,
-        file_edits: list["FileEdit"],
-        code_context: "CodeContext",
+        file_edits: list[FileEdit],
+        code_context: CodeContext,
     ):
         stream = get_session_stream()
 
