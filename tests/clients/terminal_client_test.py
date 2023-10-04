@@ -22,10 +22,44 @@ def mock_prompt_session_prompt(mocker):
     return mock_method
 
 
+def test_editing_file(
+    mock_prompt_session_prompt, mock_call_llm_api, mock_setup_api_key
+):
+    file_name = "test.py"
+    with open(file_name, "w") as f:
+        f.write("# Line 1")
+    mock_prompt_session_prompt.side_effect = [
+        "",
+        "y",
+        "q",
+    ]
+
+    mock_call_llm_api.set_generator_values([dedent(f"""\
+        Conversation
+
+        @@start
+        {{
+            "file": "{file_name}",
+            "action": "insert",
+            "insert-before-line": 2,
+            "insert-after-line": 1
+        }}
+        @@code
+        # Line 2
+        @@end""")])
+
+    terminal_client = TerminalClient(["."])
+    terminal_client.run()
+    with open(file_name, "r") as f:
+        content = f.read()
+        expected_content = "# Line 1\n# Line 2"
+    assert content == expected_content
+
+
 def test_request_and_command(
     mock_prompt_session_prompt, mock_call_llm_api, mock_setup_api_key
 ):
-    file_name = "hello_world.py"
+    file_name = "test.py"
     mock_prompt_session_prompt.side_effect = [
         f"Create a file called {file_name}",
         "y",
