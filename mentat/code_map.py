@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -34,7 +33,7 @@ async def _get_code_map(
         *ctags_cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        preexec_fn=os.setpgrp,
+        start_new_session=True,
     )
     stdout, stderr = await process.communicate()
 
