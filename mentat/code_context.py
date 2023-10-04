@@ -13,7 +13,7 @@ from .code_file import CodeFile
 from .code_map import CodeMap
 from .config_manager import ConfigManager
 from .diff_context import get_diff_context
-from .errors import UserError
+from .errors import MentatError, UserError
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from .llm_api import count_tokens, model_context_size
 from .session_stream import SESSION_STREAM
@@ -146,11 +146,14 @@ async def _print_path_tree(
 
 @attr.define
 class CodeContextSettings:
-    paths: list[Path]
-    exclude_paths: list[Path]
+    paths: list[Path] = []
+    exclude_paths: list[Path] = []
     diff: Optional[str] = None
     pr_diff: Optional[str] = None
     no_code_map: bool = False
+
+    def asdict(self):
+        return attr.asdict(self)
 
 
 class CodeContext:
@@ -196,7 +199,7 @@ class CodeContext:
                 self.settings.paths = self.diff_context.files
         except UserError as e:
             await stream.send(str(e), color="light_yellow")
-            exit()  # NOTE: should this be an exit()?
+            raise MentatError("Failed to create diff context.")
         # User-specified Files
         self.files = _get_files(
             self.config, self.settings.paths, self.settings.exclude_paths

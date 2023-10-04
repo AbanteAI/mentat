@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional, Union, cast
 from uuid import uuid4
 
-from .code_context import CodeContext
+from .code_context import CodeContext, CodeContextSettings
 from .code_edit_feedback import get_user_feedback_on_edits
 from .code_file_manager import CodeFileManager
 from .commands import Command
@@ -34,13 +34,13 @@ class Session:
         self,
         stream: SessionStream,
         config: ConfigManager,
-        code_context: CodeContext,
         parser: Parser,
+        code_context_settings: Optional[CodeContextSettings] = None,
     ):
         self.stream = stream
         self.config = config
-        self.code_context = code_context
         self.parser = parser
+        self.code_context_settings = code_context_settings or CodeContextSettings()
 
         self.id = uuid4()
         self.code_file_manager = CodeFileManager(self.config)
@@ -66,19 +66,22 @@ class Session:
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
         # TODO: Config should be created in the client (i.e., to get vscode settings) and passed to session
         config = await ConfigManager.create(git_root)
-        code_context = await CodeContext.create(
-            config, paths, exclude_paths, diff, pr_diff, no_code_map
+        code_context_settings = CodeContextSettings(
+            paths, exclude_paths, diff, pr_diff, no_code_map
         )
         parser = parser_map[config.parser()]
 
-        self = Session(stream, config, code_context, parser)
+        self = Session(stream, config, parser, code_context_settings)
 
         return self
 
     async def _main(self):
-        await self.code_context.display_context()
-
         try:
+            self.code_context = await CodeContext.create(
+                self.config, **self.code_context_settings.asdict()
+            )
+            await self.code_context.display_context()
+
             conv = await Conversation.create(
                 parser=self.parser,
                 config=self.config,
