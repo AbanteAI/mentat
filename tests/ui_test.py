@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from tests.mentat_prompt_session_test import TerminalClient
+from mentat.terminal.client import TerminalClient
 
 # These ui-tests won't run automatically
 # To run them, use pytest -s --uitest

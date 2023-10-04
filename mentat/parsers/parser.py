@@ -42,12 +42,12 @@ class Parser(ABC):
     async def interrupt_catcher(self):
         self._interrupt_task = asyncio.create_task(self.listen_for_interrupt())
         yield
-        if self._interrupt_task is not None:
+        if self._interrupt_task is not None:  # type: ignore
             self._interrupt_task.cancel()
-        try:
-            await self._interrupt_task
-        except asyncio.CancelledError:
-            pass
+            try:
+                await self._interrupt_task
+            except asyncio.CancelledError:
+                pass
         self._interrupt_task = None
         self.shutdown.clear()
 
