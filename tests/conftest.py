@@ -11,7 +11,10 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
-from mentat.config_manager import ConfigManager
+from mentat.code_context import CODE_CONTEXT, CodeContext, CodeContextSettings
+from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
+from mentat.config_manager import CONFIG_MANAGER, ConfigManager
+from mentat.git_handler import GIT_ROOT
 from mentat.session_stream import (
     SESSION_STREAM,
     SessionStream,
@@ -131,18 +134,6 @@ def mock_setup_api_key(mocker):
     return
 
 
-@pytest_asyncio.fixture
-async def mock_config(temp_testbed):
-    config = await ConfigManager.create(Path(temp_testbed))
-    config.project_config = {}
-    return config
-
-
-# @pytest.fixture
-# def mock_context(mock_config):
-#     return CodeContext(mock_config, [], [])
-
-
 def add_permissions(func, path, exc_info):
     """
     Error handler for ``shutil.rmtree``.
@@ -161,9 +152,12 @@ def add_permissions(func, path, exc_info):
         raise
 
 
-# The contexvar needs to be set in a synchronous fixture due to pytest not propagating
+# ContextVars need to be set in a synchronous fixture due to pytest not propagating
 # async fixture contexts to test contexts.
 # https://github.com/pytest-dev/pytest-asyncio/issues/127
+
+
+# SessionStream
 @pytest.fixture
 def _mock_stream():
     session_stream = SessionStream()
@@ -177,6 +171,63 @@ async def mock_stream(_mock_stream):
     await _mock_stream.start()
     yield _mock_stream
     await _mock_stream.stop()
+
+
+# Git root
+@pytest.fixture
+def _mock_git_root(temp_testbed):
+    git_root = Path(temp_testbed)
+    token = GIT_ROOT.set(git_root)
+    yield git_root
+    GIT_ROOT.reset(token)
+
+
+@pytest_asyncio.fixture()
+async def mock_git_root(_mock_git_root):
+    yield _mock_git_root
+
+
+# ConfigManager
+@pytest.fixture
+def _mock_config():
+    config = ConfigManager({}, {})
+    token = CONFIG_MANAGER.set(config)
+    yield config
+    CONFIG_MANAGER.reset(token)
+
+
+@pytest_asyncio.fixture()
+async def mock_config(_mock_config):
+    yield _mock_config
+
+
+# CodeContext
+@pytest.fixture
+def _mock_code_context(_mock_git_root, _mock_config):
+    code_context = CodeContext(settings=CodeContextSettings())
+    token = CODE_CONTEXT.set(code_context)
+    yield code_context
+    CODE_CONTEXT.reset(token)
+
+
+@pytest_asyncio.fixture()
+async def mock_code_context(_mock_code_context):
+    await _mock_code_context.refresh(replace_paths=True)
+    yield _mock_code_context
+
+
+# CodeFileManager
+@pytest.fixture
+def _mock_code_file_manager():
+    code_file_manager = CodeFileManager()
+    token = CODE_FILE_MANAGER.set(code_file_manager)
+    yield code_file_manager
+    CODE_FILE_MANAGER.reset(token)
+
+
+@pytest_asyncio.fixture()
+async def mock_code_file_manager(_mock_code_file_manager):
+    yield _mock_code_file_manager
 
 
 ### Auto-used fixtures
@@ -229,16 +280,6 @@ def mock_user_config(mocker):
     from mentat.config_manager import config_file_name
 
     config_manager.user_config_path = Path(config_file_name)
-
-
-# # Creating a prompt session in Github Actions on Windows throws an error
-# # even though we don't use it, so we always have to mock the prompt session on Windows
-# @pytest.fixture(autouse=True)
-# def mock_prompt_session(mocker):
-#     # Only mock these on Windows
-#     if os.name == "nt":
-#         mocker.patch("mentat.user_input_manager.PromptSession")
-#         mocker.patch("mentat.user_input_manager.MentatPromptSession")
 
 
 @pytest.fixture(autouse=True)

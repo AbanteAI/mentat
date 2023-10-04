@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import logging
 import os
 import sys
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Optional, cast
 
@@ -154,6 +157,9 @@ async def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> 
                 color="yellow",
             )
     return prompt_token_count
+
+
+COST_TRACKER: ContextVar[CostTracker] = ContextVar("mentat:cost_tracker")
 
 
 @dataclass

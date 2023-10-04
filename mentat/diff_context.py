@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
-from .config_manager import ConfigManager
 from .errors import UserError
 from .git_handler import (
+    GIT_ROOT,
     check_head_exists,
     get_diff_for_file,
     get_files_in_diff,
@@ -87,15 +87,11 @@ def _annotate_file_message(
 
 
 class DiffContext:
-    config: ConfigManager
-
     def __init__(
         self,
-        config: ConfigManager,
         target: Optional[str] = None,
         name: Optional[str] = None,
     ):
-        self.config = config
         if target is None:
             self.target = "HEAD"
             self.name = "HEAD (last commit)"
@@ -103,14 +99,51 @@ class DiffContext:
             self.target = target
             self.name = name
 
+    @classmethod
+    def create(
+        cls,
+        diff: Optional[str] = None,
+        pr_diff: Optional[str] = None,
+    ):
+        git_root = GIT_ROOT.get()
+
+        if diff and pr_diff:
+            raise UserError("Cannot specify more than one type of diff.")
+
+        target = diff or pr_diff
+        if not target:
+            return cls()
+
+        name = ""
+        treeish_type = _get_treeish_type(git_root, target)
+        if treeish_type == "branch":
+            name += f"Branch {target}: "
+        elif treeish_type == "relative":
+            name += f"{target}: "
+
+        if pr_diff:
+            name = f"Merge-base {name}"
+            target = _git_command(git_root, "merge-base", "HEAD", pr_diff)
+            if not target:
+                raise UserError(
+                    f"Cannot identify merge base between HEAD and {pr_diff}"
+                )
+
+        meta = get_treeish_metadata(git_root, target)
+        name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
+        return cls(target, name)
+
     @property
     def files(self) -> list[Path]:
-        if self.target == "HEAD" and not check_head_exists(self.config.git_root):
+        git_root = GIT_ROOT.get()
+
+        if self.target == "HEAD" and not check_head_exists(git_root):
             return []  # A new repo without any commits
-        return get_files_in_diff(self.config.git_root, self.target)
+        return get_files_in_diff(git_root, self.target)
 
     async def display_context(self) -> None:
         stream = SESSION_STREAM.get()
+        git_root = GIT_ROOT.get()
 
         if not self.files:
             return
@@ -119,7 +152,7 @@ class DiffContext:
         num_lines = 0
         # TODO: Only include paths in context
         for file in self.files:
-            diff = get_diff_for_file(self.config.git_root, self.target, file)
+            diff = get_diff_for_file(git_root, self.target, file)
             diff_lines = diff.splitlines()
             num_lines += len(
                 [line for line in diff_lines if line.startswith(("+ ", "- "))]
@@ -130,10 +163,12 @@ class DiffContext:
         self, rel_path: Path, file_message: list[str]
     ) -> list[str]:
         """Return file_message annotated with active diff."""
+
+        git_root = GIT_ROOT.get()
+
         if not self.files:
             return file_message
-
-        diff = get_diff_for_file(self.config.git_root, self.target, rel_path)
+        diff = get_diff_for_file(git_root, self.target, rel_path)
         annotations = _parse_diff(diff)
         return _annotate_file_message(file_message, annotations)
 
@@ -166,33 +201,3 @@ def _get_treeish_type(git_root: Path, treeish: str) -> TreeishType:
             return "commit"
 
     raise UserError(f"Unsupported treeish type: {object_type}")
-
-
-def get_diff_context(
-    config: ConfigManager,
-    diff: Optional[str] = None,
-    pr_diff: Optional[str] = None,
-):
-    if diff and pr_diff:
-        raise UserError("Cannot specify more than one type of diff.")
-
-    target = diff or pr_diff
-    if not target:
-        return DiffContext(config)
-
-    name = ""
-    treeish_type = _get_treeish_type(config.git_root, target)
-    if treeish_type == "branch":
-        name += f"Branch {target}: "
-    elif treeish_type == "relative":
-        name += f"{target}: "
-
-    if pr_diff:
-        name = f"Merge-base {name}"
-        target = _git_command(config.git_root, "merge-base", "HEAD", pr_diff)
-        if not target:
-            raise UserError(f"Cannot identify merge base between HEAD and {pr_diff}")
-
-    meta = get_treeish_metadata(config.git_root, target)
-    name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
-    return DiffContext(config, target, name)

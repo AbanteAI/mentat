@@ -1,9 +1,12 @@
 import logging
 import os
 import subprocess
+from contextvars import ContextVar
 from pathlib import Path
 
 from mentat.errors import UserError
+
+GIT_ROOT: ContextVar[Path] = ContextVar("mentat:git_root")
 
 
 def get_git_diff_for_path(git_root: Path, path: Path) -> str:
