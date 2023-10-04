@@ -3,9 +3,9 @@ import logging
 from importlib import resources
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, Dict, Optional, cast
 
-from termcolor import cprint
+from mentat.session_stream import SESSION_STREAM
 
 mentat_dir_path = Path.home() / ".mentat"
 
@@ -17,45 +17,60 @@ user_config_path = mentat_dir_path / config_file_name
 
 
 class ConfigManager:
-    def __init__(self, git_root: Path):
+    def __init__(
+        self,
+        git_root: Path,
+        user_config: Dict[str, str],
+        project_config: Dict[str, str],
+    ):
         self.git_root = git_root
-
-        if user_config_path.exists():
-            with open(user_config_path) as config_file:
-                try:
-                    self.user_config = json.load(config_file)
-                except JSONDecodeError:
-                    logging.info("User config file contains invalid json")
-                    cprint(
-                        "Warning: User .mentat_config.json contains invalid"
-                        " json; ignoring user configuration file",
-                        "light_yellow",
-                    )
-                    self.user_config = dict[str, str]()
-        else:
-            self.user_config = dict[str, str]()
-
-        project_config_path = self.git_root / config_file_name
-        if project_config_path.exists():
-            with open(project_config_path) as config_file:
-                try:
-                    self.project_config = json.load(config_file)
-                except JSONDecodeError:
-                    logging.info("Project config file contains invalid json")
-                    cprint(
-                        "Warning: Git project .mentat_config.json contains invalid"
-                        " json; ignoring project configuration file",
-                        "light_yellow",
-                    )
-                    self.project_config = dict[str, str]()
-        else:
-            self.project_config = dict[str, str]()
+        self.user_config = user_config
+        self.project_config = project_config
 
         default_config_path = resources.files(package_name).joinpath(
             default_config_file_name
         )
         with default_config_path.open("r") as config_file:
             self.default_config = json.load(config_file)
+
+    @classmethod
+    async def create(cls, git_root: Path):
+        stream = SESSION_STREAM.get()
+
+        if user_config_path.exists():
+            with open(user_config_path) as config_file:
+                try:
+                    user_config = json.load(config_file)
+                except JSONDecodeError:
+                    logging.info("User config file contains invalid json")
+                    await stream.send(
+                        "Warning: User .mentat_config.json contains invalid"
+                        " json; ignoring user configuration file",
+                        color="light_yellow",
+                    )
+                    user_config = dict[str, str]()
+        else:
+            user_config = dict[str, str]()
+
+        project_config_path = git_root / config_file_name
+        if project_config_path.exists():
+            with open(project_config_path) as config_file:
+                try:
+                    project_config = json.load(config_file)
+                except JSONDecodeError:
+                    logging.info("Project config file contains invalid json")
+                    await stream.send(
+                        "Warning: Git project .mentat_config.json contains invalid"
+                        " json; ignoring project configuration file",
+                        color="light_yellow",
+                    )
+                    project_config = dict[str, str]()
+        else:
+            project_config = dict[str, str]()
+
+        self = cls(git_root, user_config, project_config)
+
+        return self
 
     def input_style(self) -> list[tuple[str, str]]:
         return cast(list[tuple[str, str]], self._get_key("input-style"))

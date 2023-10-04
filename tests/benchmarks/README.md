@@ -26,5 +26,5 @@ The following is a list of some best practices for writing benchmarks
 - You should not automatically tear down github repos you clone and modify so people running the test can inspect code output in detail.
 
 In [the exercism benchmark](./exercism_practice.py) you can see examples of the following things you might want for a benchmark:
-- How to simulate an interaction with Mentat in the function `mock_user_input_manager`.
+- How to simulate an interaction with Mentat in the function `send_message`.
 - How to clone a github repo in `clone_exercism_repo`.

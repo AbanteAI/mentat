@@ -1,20 +1,16 @@
+from __future__ import annotations
+
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from termcolor import cprint
-
-from mentat.parsers.file_edit import FileEdit
-
+from .code_context import CodeContext
 from .code_file import CodeFile
 from .config_manager import ConfigManager
 from .errors import MentatError
-from .user_input_manager import UserInputManager
-
-if TYPE_CHECKING:
-    # This normally will cause a circular import
-    from .code_context import CodeContext
+from .parsers.file_edit import FileEdit
+from .session_input import ask_yes_no
+from .session_stream import SESSION_STREAM
 
 
 class CodeFileManager:
@@ -35,7 +31,7 @@ class CodeFileManager:
             abs_path = Path(self.config.git_root / rel_path)
             self.file_lines[rel_path] = self.read_file(abs_path)
 
-    def _add_file(self, abs_path: Path, code_context: "CodeContext"):
+    def _add_file(self, abs_path: Path, code_context: CodeContext):
         logging.info(f"Adding new file {abs_path} to context")
         code_context.files[abs_path] = CodeFile(abs_path)
         # create any missing directories in the path
@@ -43,19 +39,20 @@ class CodeFileManager:
         with open(abs_path, "w") as f:
             f.write("")
 
-    def _delete_file(self, abs_path: Path, code_context: "CodeContext"):
+    def _delete_file(self, abs_path: Path, code_context: CodeContext):
         logging.info(f"Deleting file {abs_path}")
         if abs_path in code_context.files:
             del code_context.files[abs_path]
         abs_path.unlink()
 
     # Mainly does checks on if file is in context, file exists, file is unchanged, etc.
-    def write_changes_to_files(
+    async def write_changes_to_files(
         self,
-        file_edits: list["FileEdit"],
-        code_context: "CodeContext",
-        user_input_manager: "UserInputManager",
+        file_edits: list[FileEdit],
+        code_context: CodeContext,
     ):
+        stream = SESSION_STREAM.get()
+
         for file_edit in file_edits:
             rel_path = Path(os.path.relpath(file_edit.file_path, self.config.git_root))
             if file_edit.is_creation:
@@ -76,13 +73,15 @@ class CodeFileManager:
                     )
 
             if file_edit.is_deletion:
-                cprint(f"Are you sure you want to delete {rel_path}?", "red")
-                if user_input_manager.ask_yes_no(default_yes=False):
-                    cprint(f"Deleting {rel_path}...", "red")
+                await stream.send(
+                    f"Are you sure you want to delete {rel_path}?", color="red"
+                )
+                if await ask_yes_no(default_yes=False):
+                    await stream.send(f"Deleting {rel_path}...", color="red")
                     self._delete_file(file_edit.file_path, code_context)
                     continue
                 else:
-                    cprint(f"Not deleting {rel_path}", "green")
+                    await stream.send(f"Not deleting {rel_path}", color="green")
 
             if not file_edit.is_creation:
                 stored_lines = self.file_lines[rel_path]
@@ -90,13 +89,13 @@ class CodeFileManager:
                     logging.info(
                         f"File '{file_edit.file_path}' changed while generating changes"
                     )
-                    cprint(
+                    await stream.send(
                         f"File '{rel_path}' changed while generating; current"
                         " file changes will be erased. Continue?",
                         color="light_yellow",
                     )
-                    if not user_input_manager.ask_yes_no(default_yes=False):
-                        cprint(f"Not applying changes to file {rel_path}")
+                    if not await ask_yes_no(default_yes=False):
+                        await stream.send(f"Not applying changes to file {rel_path}")
             else:
                 stored_lines = []
 
