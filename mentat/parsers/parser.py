@@ -42,7 +42,8 @@ class Parser(ABC):
     async def interrupt_catcher(self):
         self._interrupt_task = asyncio.create_task(self.listen_for_interrupt())
         yield
-        self._interrupt_task.cancel()
+        if self._interrupt_task is not None:
+            self._interrupt_task.cancel()
         try:
             await self._interrupt_task
         except asyncio.CancelledError:

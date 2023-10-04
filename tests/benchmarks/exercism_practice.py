@@ -165,7 +165,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
             run_exercise_test(exercise, test_output_file, language)
             iterations += 1
 
-        await send_message(session.stream, "q")
+        await session.stop()
         passed = exercise_passed(test_output_file, language)
         return {
             "iterations": iterations,
