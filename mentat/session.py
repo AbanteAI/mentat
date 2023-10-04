@@ -109,7 +109,6 @@ class Session:
                     await command.apply(*arguments[1:])
                     continue
 
-                # NOTE: keep this?
                 if message.data == "q":
                     break
 

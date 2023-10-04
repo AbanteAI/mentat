@@ -3,7 +3,6 @@ import asyncio
 import glob
 import logging
 import signal
-import traceback
 from pathlib import Path
 from typing import Any, Coroutine, List, Set
 
@@ -178,18 +177,10 @@ class TerminalClient:
             await asyncio.sleep(0.01)
 
     async def _run(self):
-        try:
-            self._init_signal_handlers()
-            await self._startup()
-            await self._main()
-            await self._shutdown()
-        # NOTE: if an exception is caught here, the main process will likely still run
-        # due to background ascynio Tasks that are still running
-        # NOTE: we should remove this try/except. The code inside of `self._run` should
-        # never throw an exception
-        except Exception as e:
-            logging.error(f"Unexpected Exception {e}")
-            logging.error(traceback.format_exc())
+        self._init_signal_handlers()
+        await self._startup()
+        await self._main()
+        await self._shutdown()
 
     def run(self):
         asyncio.run(self._run())
