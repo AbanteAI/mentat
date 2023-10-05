@@ -16,6 +16,5 @@
         ]
     ],
     "file-exclude-glob-list": [],
-    "format": "block",
-    "log-full-transcript": false
+    "format": "block"
 }
