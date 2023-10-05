@@ -55,7 +55,7 @@ def _get_file_message(temp_testbed):
     return file_message
 
 
-def test_diff_context_default(mock_config, temp_testbed, git_history):
+def test_diff_context_default(mock_stream, mock_config, temp_testbed, git_history):
     # DiffContext.__init__() (default): active code vs last commit
     diff_context = DiffContext(mock_config)
     assert diff_context.config
@@ -77,7 +77,7 @@ def test_diff_context_default(mock_config, temp_testbed, git_history):
     assert annotated_message == expected
 
 
-def test_diff_context_commit(mock_config, temp_testbed, git_history):
+def test_diff_context_commit(mock_stream, mock_config, temp_testbed, git_history):
     # Get the hash of 2-commits-ago
     last_commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD~2"], cwd=temp_testbed, text=True
@@ -96,7 +96,7 @@ def test_diff_context_commit(mock_config, temp_testbed, git_history):
     assert annotated_message == expected
 
 
-def test_diff_context_branch(mock_config, temp_testbed, git_history):
+def test_diff_context_branch(mock_stream, mock_config, temp_testbed, git_history):
     diff_context = get_diff_context(mock_config, diff="test_branch")
     assert diff_context.target == "test_branch"
     assert diff_context.name.startswith("Branch test_branch:")
@@ -112,7 +112,7 @@ def test_diff_context_branch(mock_config, temp_testbed, git_history):
     assert annotated_message == expected
 
 
-def test_diff_context_relative(mock_config, temp_testbed, git_history):
+def test_diff_context_relative(mock_stream, mock_config, temp_testbed, git_history):
     diff_context = get_diff_context(mock_config, diff="HEAD~2")
     assert diff_context.target == "HEAD~2"
     assert diff_context.name.startswith("HEAD~2: ")
@@ -128,7 +128,7 @@ def test_diff_context_relative(mock_config, temp_testbed, git_history):
     assert annotated_message == expected
 
 
-def test_diff_context_errors(mock_config, temp_testbed, git_history):
+def test_diff_context_errors(mock_stream, mock_config, temp_testbed, git_history):
     # Can't use both diff and pr_diff
     with pytest.raises(UserError) as e:
         get_diff_context(mock_config, diff="HEAD", pr_diff="master")
@@ -140,7 +140,7 @@ def test_diff_context_errors(mock_config, temp_testbed, git_history):
     assert str(e.value) == "Invalid treeish: invalid"
 
 
-def test_diff_context_pr(mock_config, temp_testbed, git_history):
+def test_diff_context_pr(mock_stream, mock_config, temp_testbed, git_history):
     subprocess.run(["git", "checkout", "test_branch"], cwd=temp_testbed)
     diff_context = get_diff_context(mock_config, pr_diff="master")
 

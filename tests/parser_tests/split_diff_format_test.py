@@ -1,7 +1,7 @@
 from pathlib import Path
 from textwrap import dedent
 
-from mentat.app import run
+from mentat.session import Session
 from tests.conftest import ConfigManager, pytest
 
 
@@ -12,7 +12,10 @@ def split_diff_parser(mocker):
     mock_method.return_value = "split-diff"
 
 
-def test_replacement(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+@pytest.mark.asyncio
+async def test_replacement(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
@@ -23,11 +26,13 @@ def test_replacement(mock_call_llm_api, mock_collect_user_input, mock_setup_api_
             # with
             # 6 lines"""))
 
-    mock_collect_user_input.side_effect = [
-        "",
-        "y",
-        KeyboardInterrupt,
-    ]
+    mock_collect_user_input.set_stream_messages(
+        [
+            "",
+            "y",
+            "q",
+        ]
+    )
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
@@ -41,7 +46,9 @@ def test_replacement(mock_call_llm_api, mock_collect_user_input, mock_setup_api_
         >>>>>>> updated
         {{fence[1]}}""")])
 
-    run([temp_file_name])
+    session = await Session.create([temp_file_name])
+    await session.start()
+    await session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -54,7 +61,8 @@ def test_replacement(mock_call_llm_api, mock_collect_user_input, mock_setup_api_
     assert content == expected_content
 
 
-def test_replacement_case_not_matching(
+@pytest.mark.asyncio
+async def test_replacement_case_not_matching(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
     temp_file_name = "temp.py"
@@ -65,11 +73,13 @@ def test_replacement_case_not_matching(
             # with
             # 4 lines"""))
 
-    mock_collect_user_input.side_effect = [
-        "",
-        "y",
-        KeyboardInterrupt,
-    ]
+    mock_collect_user_input.set_stream_messages(
+        [
+            "",
+            "y",
+            "q",
+        ]
+    )
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
@@ -83,7 +93,9 @@ def test_replacement_case_not_matching(
         >>>>>>> updated
         {{fence[1]}}""")])
 
-    run([temp_file_name])
+    session = await Session.create([temp_file_name])
+    await session.start()
+    await session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -94,7 +106,8 @@ def test_replacement_case_not_matching(
     assert content == expected_content
 
 
-def test_replacement_whitespace_not_matching(
+@pytest.mark.asyncio
+async def test_replacement_whitespace_not_matching(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
     temp_file_name = "temp.py"
@@ -105,11 +118,13 @@ def test_replacement_whitespace_not_matching(
             # with
             # 4 lines"""))
 
-    mock_collect_user_input.side_effect = [
-        "",
-        "y",
-        KeyboardInterrupt,
-    ]
+    mock_collect_user_input.set_stream_messages(
+        [
+            "",
+            "y",
+            "q",
+        ]
+    )
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
@@ -123,7 +138,9 @@ def test_replacement_whitespace_not_matching(
         >>>>>>> updated
         {{fence[1]}}""")])
 
-    run([temp_file_name])
+    session = await Session.create([temp_file_name])
+    await session.start()
+    await session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -134,23 +151,33 @@ def test_replacement_whitespace_not_matching(
     assert content == expected_content
 
 
-def test_file_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+@pytest.mark.asyncio
+async def test_file_creation(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+):
     temp_file_name = "temp.py"
-    mock_collect_user_input.side_effect = [
-        "",
-        "y",
-        KeyboardInterrupt,
-    ]
+    mock_collect_user_input.set_stream_messages(
+        [
+            "",
+            "y",
+            "q",
+        ]
+    )
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
         {{fence[0]}} {temp_file_name} +""")])
 
-    run([temp_file_name])
+    session = await Session.create([temp_file_name])
+    await session.start()
+    await session.stream.stop()
     assert Path(temp_file_name).exists()
 
 
-def test_file_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+@pytest.mark.asyncio
+async def test_file_deletion(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
@@ -159,22 +186,29 @@ def test_file_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
             # with
             # 4 lines"""))
 
-    mock_collect_user_input.side_effect = [
-        "",
-        "y",
-        "y",
-        KeyboardInterrupt,
-    ]
+    mock_collect_user_input.set_stream_messages(
+        [
+            "",
+            "y",
+            "y",
+            "q",
+        ]
+    )
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
         {{fence[0]}} {temp_file_name} -""")])
 
-    run([temp_file_name])
+    session = await Session.create([temp_file_name])
+    await session.start()
+    await session.stream.stop()
     assert not Path(temp_file_name).exists()
 
 
-def test_file_rename(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+@pytest.mark.asyncio
+async def test_file_rename(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+):
     temp_file_name = "temp.py"
     temp_file_name_2 = "temp2.py"
     with open(temp_file_name, "w") as f:
@@ -184,17 +218,21 @@ def test_file_rename(mock_call_llm_api, mock_collect_user_input, mock_setup_api_
             # with
             # 4 lines"""))
 
-    mock_collect_user_input.side_effect = [
-        "",
-        "y",
-        KeyboardInterrupt,
-    ]
+    mock_collect_user_input.set_stream_messages(
+        [
+            "",
+            "y",
+            "q",
+        ]
+    )
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
         {{fence[0]}} {temp_file_name} -> {temp_file_name_2}""")])
 
-    run([temp_file_name])
+    session = await Session.create([temp_file_name])
+    await session.start()
+    await session.stream.stop()
     with open(temp_file_name_2, "r") as f:
         content = f.read()
         expected_content = dedent("""\

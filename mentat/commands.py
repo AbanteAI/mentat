@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from termcolor import colored, cprint
+from mentat.session_stream import SESSION_STREAM
 
 from .code_context import CodeContext
 from .code_file import CodeFile
@@ -41,7 +41,7 @@ class Command(ABC):
         return list(map(lambda name: "/" + name, cls._registered_commands))
 
     @abstractmethod
-    def apply(self, *args: str) -> None:
+    async def apply(self, *args: str) -> None:
         pass
 
     # TODO: make more robust way to specify arguments for commands
@@ -60,8 +60,8 @@ class InvalidCommand(Command, command_name=None):
     def __init__(self, invalid_name: str):
         self.invalid_name = invalid_name
 
-    def apply(self, *args: str) -> None:
-        cprint(
+    async def apply(self, *args: str) -> None:
+        await SESSION_STREAM.get().send(
             f"{self.invalid_name} is not a valid command. Use /help to see a list of"
             " all valid commands",
             color="light_yellow",
@@ -80,14 +80,16 @@ help_message_width = 60
 
 
 class HelpCommand(Command, command_name="help"):
-    def apply(self, *args: str) -> None:
+    async def apply(self, *args: str) -> None:
+        stream = SESSION_STREAM.get()
+
         if not args:
             commands = Command._registered_commands.keys()
         else:
             commands = args
         for command_name in commands:
             if command_name not in Command._registered_commands:
-                message = colored(
+                await stream.send(
                     f"Error: Command {command_name} does not exist.", color="red"
                 )
             else:
@@ -100,7 +102,7 @@ class HelpCommand(Command, command_name="help"):
                     ).ljust(help_message_width)
                     + help_message
                 )
-            print(message)
+                await stream.send(message)
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -114,7 +116,7 @@ class HelpCommand(Command, command_name="help"):
 class CommitCommand(Command, command_name="commit"):
     default_message = "Automatic commit"
 
-    def apply(self, *args: str) -> None:
+    async def apply(self, *args: str) -> None:
         if args:
             commit(args[0])
         else:
@@ -133,13 +135,15 @@ class AddCommand(Command, command_name="add"):
     def __init__(self, code_context: CodeContext):
         self.code_context = code_context
 
-    def apply(self, *args: str) -> None:
+    async def apply(self, *args: str) -> None:
+        stream = SESSION_STREAM.get()
+
         if len(args) == 0:
-            cprint("No files specified\n", "yellow")
+            await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
             code_file = CodeFile(file_path)
-            self.code_context.add_file(code_file)
+            await self.code_context.add_file(code_file)
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -154,13 +158,14 @@ class RemoveCommand(Command, command_name="remove"):
     def __init__(self, code_context: CodeContext):
         self.code_context = code_context
 
-    def apply(self, *args: str) -> None:
+    async def apply(self, *args: str) -> None:
+        stream = SESSION_STREAM.get()
         if len(args) == 0:
-            cprint("No files specified\n", "yellow")
+            await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
             code_file = CodeFile(file_path)
-            self.code_context.remove_file(code_file)
+            await self.code_context.remove_file(code_file)
 
     @classmethod
     def argument_names(cls) -> list[str]:

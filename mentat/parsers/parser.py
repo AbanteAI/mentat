@@ -1,11 +1,9 @@
 import asyncio
 import logging
-import signal
 from abc import ABC, abstractmethod
 from asyncio import Event
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from pathlib import Path
-from types import FrameType
 from typing import Any, AsyncGenerator
 
 from termcolor import colored
@@ -24,25 +22,33 @@ from mentat.parsers.change_display_helper import (
     get_removed_lines,
 )
 from mentat.parsers.file_edit import FileEdit
-from tests.conftest import StreamingPrinter
+from mentat.session_stream import SESSION_STREAM
+from mentat.streaming_printer import StreamingPrinter
 
 
 class Parser(ABC):
     def __init__(self):
         self.shutdown = Event()
+        self._interrupt_task = None
 
-    def shutdown_handler(self, sig: int, frame: FrameType | None):
-        print("\n\nInterrupted by user. Using the response up to this point.")
-        logging.info("User interrupted response.")
-        self.shutdown.set()
+    async def listen_for_interrupt(self):
+        stream = SESSION_STREAM.get()
+        async with stream.interrupt_lock:
+            await stream.recv("interrupt")
+            logging.info("User interrupted response.")
+            self.shutdown.set()
 
-    # Interface redesign will likely completely change interrupt handling
-    @contextmanager
-    def interrupt_catcher(self):
-        signal.signal(signal.SIGINT, self.shutdown_handler)
+    @asynccontextmanager
+    async def interrupt_catcher(self):
+        self._interrupt_task = asyncio.create_task(self.listen_for_interrupt())
         yield
-        # Reset to default interrupt handler
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        if self._interrupt_task is not None:  # type: ignore
+            self._interrupt_task.cancel()
+            try:
+                await self._interrupt_task
+            except asyncio.CancelledError:
+                pass
+        self._interrupt_task = None
         self.shutdown.clear()
 
     @abstractmethod
@@ -63,6 +69,7 @@ class Parser(ABC):
         To make a parser that differs from these assumptions, make this functionality a subclass of Parser
         """
 
+        stream = SESSION_STREAM.get()
         printer = StreamingPrinter()
         printer_task = asyncio.create_task(printer.print_lines())
         message = ""
@@ -81,7 +88,12 @@ class Parser(ABC):
         rename_map = dict[Path, Path]()
         async for chunk in response:
             if self.shutdown.is_set():
-                printer_task.cancel()
+                printer.shutdown_printer()
+                await printer_task
+                await stream.send(
+                    colored("")  # Reset ANSI codes
+                    + "\n\nInterrupted by user. Using the response up to this point."
+                )
                 break
 
             for content in chunk_to_lines(chunk):
@@ -155,10 +167,12 @@ class Parser(ABC):
                         )
 
                         try:
-                            display_information, file_edit, in_code_lines = (
-                                self._special_block(
-                                    code_file_manager, config, rename_map, cur_block
-                                )
+                            (
+                                display_information,
+                                file_edit,
+                                in_code_lines,
+                            ) = self._special_block(
+                                code_file_manager, config, rename_map, cur_block
                             )
                         except ModelError as e:
                             printer.add_string(str(e), color="red")

@@ -1,10 +1,8 @@
 import datetime
 import logging
-import logging.handlers
-
-from mentat.llm_api import is_test_environment
 
 from .config_manager import mentat_dir_path
+from .llm_api import is_test_environment
 
 
 def setup_logging():
@@ -43,7 +41,19 @@ def setup_logging():
     costs_logger.setLevel(logging.INFO)
     costs_logger.propagate = False
 
+    transcripts_logger = logging.getLogger("transcript")
+    transcripts_formatter = logging.Formatter("%(message)s")
+    transcripts_handler = logging.FileHandler(logs_path / f"transcript_{timestamp}.log")
+    transcripts_handler.setFormatter(transcripts_formatter)
+    transcripts_logger.addHandler(transcripts_handler)
+    transcripts_logger.setLevel(logging.INFO)
+    transcripts_logger.propagate = False
+
     handlers = [console_handler, file_handler, file_handler_latest]
+    # logging.basicConfig can only be called once, and is sometimes called on import
+    # in other libraries, which means we can't call it in the session/server, and are currently
+    # calling it in the client.
+    # TODO: switch to something other than basicConfig and call this function in the server
     logging.basicConfig(
         level=logging.DEBUG,
         handlers=handlers,

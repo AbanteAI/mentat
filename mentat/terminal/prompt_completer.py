@@ -1,62 +1,21 @@
 import logging
 import os
-import shlex
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, DefaultDict, Dict, Set, cast
+from typing import Callable, DefaultDict, Dict, Set, cast
 
-from prompt_toolkit import PromptSession
-from prompt_toolkit.application.current import get_app
-from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, Suggestion
-from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.completion.word_completer import WordCompleter
 from prompt_toolkit.document import Document
-from prompt_toolkit.filters import Condition
-from prompt_toolkit.formatted_text import AnyFormattedText
-from prompt_toolkit.history import FileHistory
-from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from pygments.lexer import Lexer
 from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
 from pygments.util import ClassNotFound
-from typing_extensions import override
 
-from .code_context import CodeContext
-from .commands import Command
-from .config_manager import mentat_dir_path
-
-logger = logging.getLogger()
-
-
-class FilteredFileHistory(FileHistory):
-    def __init__(self, filename: str):
-        self.excluded_phrases = ["y", "n", "i", "q"]
-        super().__init__(filename)
-
-    def append_string(self, string: str):
-        if (
-            string.strip().lower() not in self.excluded_phrases
-            # If the user mistypes a command, we don't want it to appear later
-            and string.strip()
-            and string.strip()[0] != "/"
-        ):
-            super().append_string(string)
-
-
-class FilteredHistorySuggestions(AutoSuggestFromHistory):
-    def __init__(self):
-        super().__init__()
-
-    def get_suggestion(self, buffer: Buffer, document: Document) -> Suggestion | None:
-        # We want the auto completer to handle commands instead of the suggester
-        if buffer.text[0] == "/":
-            return None
-        else:
-            return super().get_suggestion(buffer, document)
+from mentat.commands import Command
+from mentat.session import Session
 
 
 @dataclass
@@ -66,8 +25,8 @@ class SyntaxCompletion:
 
 
 class MentatCompleter(Completer):
-    def __init__(self, code_context: CodeContext):
-        self.code_context = code_context
+    def __init__(self, session: Session):
+        self.session = session
 
         self.syntax_completions: Dict[Path, SyntaxCompletion] = dict()
         self.file_name_completions: DefaultDict[str, Set[Path]] = defaultdict(set)
@@ -77,10 +36,8 @@ class MentatCompleter(Completer):
             sentence=True,
         )
 
-        self._all_syntax_words: Set[str]
-        self._last_refresh_at: datetime
-
-        self.refresh_completions()
+        self._all_syntax_words: Set[str] = set()
+        self._last_refresh_at: datetime | None = None
 
     def refresh_completions_for_file_path(self, file_path: Path):
         """Add/edit/delete completions for some filepath"""
@@ -109,10 +66,12 @@ class MentatCompleter(Completer):
             filtered_tokens.add(token_value)
         self.syntax_completions[file_path] = SyntaxCompletion(words=filtered_tokens)
 
-    def refresh_completions(self):
+    async def refresh_completions(self):
+        file_paths = list(self.session.code_context.files.keys())
+
         # Remove syntax completions for files not in the context
         for file_path in set(self.syntax_completions.keys()):
-            if file_path not in self.code_context.files:
+            if file_path not in file_paths:
                 del self.syntax_completions[file_path]
                 file_name = file_path.name
                 self.file_name_completions[file_name].remove(file_path)
@@ -120,7 +79,7 @@ class MentatCompleter(Completer):
                     del self.file_name_completions[file_name]
 
         # Add/update syntax completions for files in the context
-        for file_path in self.code_context.files:
+        for file_path in file_paths:
             if file_path not in self.syntax_completions:
                 self.refresh_completions_for_file_path(file_path)
             else:
@@ -136,11 +95,21 @@ class MentatCompleter(Completer):
 
         self._last_refresh_at = datetime.utcnow()
 
-    def get_completions(self, document: Document, complete_event: CompleteEvent):
+    def get_completions(  # pyright: ignore
+        self, document: Document, complete_event: CompleteEvent
+    ):
+        raise NotImplementedError
+
+    async def get_completions_async(
+        self, document: Document, complete_event: CompleteEvent
+    ):
         if document.text_before_cursor == "":
             return
-        if (datetime.utcnow() - self._last_refresh_at).seconds > 5:
-            self.refresh_completions()
+        if (
+            self._last_refresh_at is None
+            or (datetime.utcnow() - self._last_refresh_at).seconds > 5
+        ):
+            await self.refresh_completions()
         if (
             document.text_before_cursor[0] == "/"
             and not document.text_before_cursor[-1].isspace()
@@ -181,73 +150,3 @@ class MentatCompleter(Completer):
                         start_position=-len(last_word),
                         display=completion,
                     )
-
-
-class MentatPromptSession(PromptSession[str]):
-    def __init__(self, code_context: CodeContext, *args: Any, **kwargs: Any):
-        self.code_context = code_context
-
-        self._setup_bindings()
-        super().__init__(
-            completer=MentatCompleter(self.code_context),
-            history=FilteredFileHistory(str(mentat_dir_path / "history")),
-            auto_suggest=FilteredHistorySuggestions(),
-            multiline=True,
-            prompt_continuation=self.prompt_continuation,
-            key_bindings=self.bindings,
-            *args,
-            **kwargs,
-        )
-
-    @override
-    def prompt(self, *args: Any, **kwargs: Any) -> str:
-        # Automatically capture all commands
-        while (user_input := super().prompt(*args, **kwargs)).startswith("/"):
-            arguments = shlex.split(user_input[1:])
-            command = Command.create_command(arguments[0], self.code_context)
-            command.apply(*arguments[1:])
-        return user_input
-
-    @override
-    def prompt_continuation(
-        self, width: int, line_number: int, is_soft_wrap: int
-    ) -> AnyFormattedText:
-        return (
-            "" if is_soft_wrap else [("class:continuation", " " * (width - 2) + "> ")]
-        )
-
-    def _setup_bindings(self):
-        self.bindings = KeyBindings()
-
-        @self.bindings.add("s-down")
-        @self.bindings.add("c-j")
-        def _(event: KeyPressEvent):
-            event.current_buffer.insert_text("\n")
-
-        @self.bindings.add("enter")
-        def _(event: KeyPressEvent):
-            event.current_buffer.validate_and_handle()
-
-        @Condition
-        def complete_suggestion() -> bool:
-            app = get_app()
-            return (
-                app.current_buffer.suggestion is not None
-                and len(app.current_buffer.suggestion.text) > 0
-                and app.current_buffer.document.is_cursor_at_the_end
-                and bool(app.current_buffer.text)
-                and app.current_buffer.text[0] != "/"
-            )
-
-        @self.bindings.add("right", filter=complete_suggestion)
-        def _(event: KeyPressEvent):
-            suggestion = event.current_buffer.suggestion
-            if suggestion:
-                event.current_buffer.insert_text(suggestion.text)
-
-        @self.bindings.add("c-c")
-        def _(event: KeyPressEvent):
-            if event.current_buffer.text != "":
-                event.current_buffer.reset()
-            else:
-                event.app.exit(result="q")

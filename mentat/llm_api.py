@@ -5,10 +5,12 @@ from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Optional, cast
 
 import openai
+import openai.error
 import tiktoken
 from dotenv import load_dotenv
 from openai.error import AuthenticationError
-from termcolor import cprint
+
+from mentat.session_stream import SESSION_STREAM
 
 from .config_manager import mentat_dir_path
 from .errors import MentatError, UserError
@@ -134,20 +136,22 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
         return None
 
 
-def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
+async def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
+    stream = SESSION_STREAM.get()
+
     prompt_token_count = 0
     for message in messages:
         prompt_token_count += count_tokens(message["content"], model)
-    cprint(f"\nTotal token count: {prompt_token_count}", "cyan")
+    await stream.send(f"Total token count: {prompt_token_count}", color="cyan")
 
     token_buffer = 500
     context_size = model_context_size(model)
     if context_size:
         if prompt_token_count > context_size - token_buffer:
-            cprint(
+            await stream.send(
                 f"Warning: {model} has a maximum context length of {context_size}"
                 " tokens. Attempting to run anyway:",
-                "yellow",
+                color="yellow",
             )
     return prompt_token_count
 
@@ -156,13 +160,15 @@ def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
 class CostTracker:
     total_cost: float = 0
 
-    def display_api_call_stats(
+    async def display_api_call_stats(
         self,
         num_prompt_tokens: int,
         num_sampled_tokens: int,
         model: str,
         call_time: float,
     ) -> None:
+        stream = SESSION_STREAM.get()
+
         tokens_per_second = num_sampled_tokens / call_time
         cost = model_price_per_1000_tokens(model)
         if cost:
@@ -176,10 +182,13 @@ class CostTracker:
             )
         else:
             speed_and_cost_string = f"Speed: {tokens_per_second:.2f} tkns/s"
-        cprint(speed_and_cost_string, "cyan")
+        await stream.send(speed_and_cost_string, color="cyan")
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
 
-    def display_total_cost(self) -> None:
-        cprint(f"\nTotal session cost: ${self.total_cost:.2f}", color="light_blue")
+    async def display_total_cost(self) -> None:
+        stream = SESSION_STREAM.get()
+        await stream.send(
+            f"Total session cost: ${self.total_cost:.2f}", color="light_blue"
+        )

@@ -2,7 +2,7 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.app import run
+from mentat.session import Session
 from tests.conftest import ConfigManager
 
 
@@ -45,7 +45,7 @@ template_insert2 = dedent(f"""\
     """)
 
 
-def error_test_template(
+async def error_test_template(
     mock_call_llm_api,
     mock_collect_user_input,
     mock_setup_api_key,
@@ -55,23 +55,30 @@ def error_test_template(
     with open(temp_file_name, "w") as f:
         f.write("")
 
-    mock_collect_user_input.side_effect = [
-        "Go!",
-        "y",
-        KeyboardInterrupt,
-    ]
+    mock_collect_user_input.set_stream_messages(
+        [
+            "Go!",
+            "y",
+            "q",
+        ]
+    )
     mock_call_llm_api.set_generator_values([changes])
 
-    run([temp_file_name])
+    session = await Session.create([temp_file_name])
+    await session.start()
+    await session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
     return content
 
 
 # These tests should not accept any changes after the invalid one
-def test_malformed_json(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+@pytest.mark.asyncio
+async def test_malformed_json(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+):
     # Should stop and only allow applying changes up to that point, not including malformed change
-    content = error_test_template(
+    content = await error_test_template(
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
@@ -88,9 +95,12 @@ def test_malformed_json(mock_call_llm_api, mock_collect_user_input, mock_setup_a
     assert content == template_insert_expected_content
 
 
-def test_unknown_action(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+@pytest.mark.asyncio
+async def test_unknown_action(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+):
     # Should stop and only allow applying changes up to that point, not including unknown action change
-    content = error_test_template(
+    content = await error_test_template(
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
@@ -110,11 +120,12 @@ def test_unknown_action(mock_call_llm_api, mock_collect_user_input, mock_setup_a
     assert content == template_insert_expected_content
 
 
-def test_no_line_numbers(
+@pytest.mark.asyncio
+async def test_no_line_numbers(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
     # Should have line numbers
-    content = error_test_template(
+    content = await error_test_template(
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
@@ -132,11 +143,12 @@ def test_no_line_numbers(
     assert content == template_insert_expected_content
 
 
-def test_invalid_line_numbers(
+@pytest.mark.asyncio
+async def test_invalid_line_numbers(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
     # First line number should be <= the last line number
-    content = error_test_template(
+    content = await error_test_template(
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
@@ -156,9 +168,12 @@ def test_invalid_line_numbers(
     assert content == template_insert_expected_content
 
 
-def test_existing_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+@pytest.mark.asyncio
+async def test_existing_file(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+):
     # Creating file that already exists should fail
-    content = error_test_template(
+    content = await error_test_template(
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
@@ -176,13 +191,14 @@ def test_existing_file(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
     assert content == ""
 
 
-def test_file_not_in_context(
+@pytest.mark.asyncio
+async def test_file_not_in_context(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
     with open("iamnotincontext", "w") as f:
         f.write("")
     # Trying to access file not in context should fail
-    content = error_test_template(
+    content = await error_test_template(
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,
@@ -202,14 +218,15 @@ def test_file_not_in_context(
     assert content == template_double_insert_expected_content
 
 
-def test_rename_file_already_exists(
+@pytest.mark.asyncio
+async def test_rename_file_already_exists(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
     # Trying to rename to existing file shouldn't work
     existing_file_name = "existing.py"
     with open(existing_file_name, "w") as existing_file:
         existing_file.write("I was always here")
-    content = error_test_template(
+    content = await error_test_template(
         mock_call_llm_api,
         mock_collect_user_input,
         mock_setup_api_key,

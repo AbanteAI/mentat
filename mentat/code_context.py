@@ -8,16 +8,15 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import attr
-from termcolor import cprint
-
-from mentat.llm_api import count_tokens, model_context_size
 
 from .code_file import CodeFile
 from .code_map import CodeMap
 from .config_manager import ConfigManager
 from .diff_context import get_diff_context
-from .errors import UserError
+from .errors import MentatError, UserError
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
+from .llm_api import count_tokens, model_context_size
+from .session_stream import SESSION_STREAM
 
 if TYPE_CHECKING:
     # This normally will cause a circular import
@@ -119,17 +118,18 @@ def _build_path_tree(files: list[CodeFile], git_root: Path):
     return tree
 
 
-def _print_path_tree(
+async def _print_path_tree(
     tree: dict[str, Any], changed_files: set[Path], cur_path: Path, prefix: str = ""
 ):
+    stream = SESSION_STREAM.get()
     keys = list(tree.keys())
     for i, key in enumerate(sorted(keys)):
         if i < len(keys) - 1:
             new_prefix = prefix + "│   "
-            print(f"{prefix}├── ", end="")
+            await stream.send(f"{prefix}├── ", end="")
         else:
             new_prefix = prefix + "    "
-            print(f"{prefix}└── ", end="")
+            await stream.send(f"{prefix}└── ", end="")
 
         cur = cur_path / key
         star = "* " if cur in changed_files else ""
@@ -139,18 +139,21 @@ def _print_path_tree(
             color = "green"
         else:
             color = None
-        cprint(f"{star}{key}", color)
+        await stream.send(f"{star}{key}", color=color)
         if tree[key]:
-            _print_path_tree(tree[key], changed_files, cur, new_prefix)
+            await _print_path_tree(tree[key], changed_files, cur, new_prefix)
 
 
 @attr.define
 class CodeContextSettings:
-    paths: list[Path]
-    exclude_paths: list[Path]
+    paths: list[Path] = []
+    exclude_paths: list[Path] = []
     diff: Optional[str] = None
     pr_diff: Optional[str] = None
     no_code_map: bool = False
+
+    def asdict(self):
+        return attr.asdict(self)
 
 
 class CodeContext:
@@ -158,8 +161,13 @@ class CodeContext:
     files: dict[Path, CodeFile]  # included path -> CodeFile
     file_lines: dict[Path, list[str]]  # included path -> cached lines
 
-    def __init__(
-        self,
+    def __init__(self, config: ConfigManager, settings: CodeContextSettings):
+        self.config = config
+        self.settings = settings
+
+    @classmethod
+    async def create(
+        cls,
         config: ConfigManager,
         paths: list[Path],
         exclude_paths: list[Path],
@@ -167,17 +175,21 @@ class CodeContext:
         pr_diff: Optional[str] = None,
         no_code_map: bool = False,
     ):
-        self.config = config
-        self.settings = CodeContextSettings(
+        settings = CodeContextSettings(
             paths=paths,
             exclude_paths=exclude_paths,
             diff=diff,
             pr_diff=pr_diff,
             no_code_map=no_code_map,
         )
-        self.refresh(replace_paths=True)
+        self = CodeContext(config, settings)
+        await self.refresh(replace_paths=True)
 
-    def refresh(self, replace_paths: bool | None = False):
+        return self
+
+    async def refresh(self, replace_paths: bool | None = False):
+        stream = SESSION_STREAM.get()
+
         # Diff context
         try:
             self.diff_context = get_diff_context(
@@ -186,15 +198,15 @@ class CodeContext:
             if replace_paths and not self.settings.paths:
                 self.settings.paths = self.diff_context.files
         except UserError as e:
-            cprint(str(e), "light_yellow")
-            exit()
+            await stream.send(str(e), color="light_yellow")
+            raise MentatError("Failed to create diff context.")
         # User-specified Files
         self.files = _get_files(
             self.config, self.settings.paths, self.settings.exclude_paths
         )
         # Universal ctags
         self.code_map = (
-            CodeMap(self.config, token_limit=2048)
+            await CodeMap.create(self.config, token_limit=2048)
             if not self.settings.no_code_map
             else None
         )
@@ -204,26 +216,29 @@ class CodeContext:
                 Reason: {self.code_map.ctags_disabled_reason}
             """
             ctags_disabled_message = dedent(ctags_disabled_message)
-            cprint(ctags_disabled_message, color="yellow")
+            await stream.send(ctags_disabled_message, color="yellow")
 
-    def display_context(self):
+    async def display_context(self):
+        stream = SESSION_STREAM.get()
+
         if self.files:
-            cprint("Files included in context:", "green")
+            await stream.send("Files included in context:", color="green")
         else:
-            cprint("No files included in context.\n", "red")
-            cprint("Git project: ", "green", end="")
-        cprint(self.config.git_root.name, "blue")
-        _print_path_tree(
+            await stream.send("No files included in context.\n", color="red")
+            await stream.send("Git project: ", color="green", end="")
+        await stream.send(self.config.git_root.name, color="blue")
+        await _print_path_tree(
             _build_path_tree(list(self.files.values()), self.config.git_root),
             get_paths_with_git_diffs(self.config.git_root),
             self.config.git_root,
         )
-        print()
-        self.diff_context.display_context()
+        await self.diff_context.display_context()
 
-    def get_code_message(
+    async def get_code_message(
         self, model: str, code_file_manager: CodeFileManager, parser: Parser
     ) -> str:
+        stream = SESSION_STREAM.get()
+
         code_message: list[str] = []
         if self.diff_context.files:
             code_message += [
@@ -274,47 +289,57 @@ class CodeContext:
             else:
                 code_map_message_token_limit = self.code_map.token_limit
 
-            code_map_message = self.code_map.get_message(
+            code_map_message = await self.code_map.get_message(
                 token_limit=code_map_message_token_limit
             )
             if code_map_message:
                 match (code_map_message.level):
                     case "signatures":
-                        cprint_message_level = "full syntax tree"
+                        level_message = "full syntax tree"
                     case "no_signatures":
-                        cprint_message_level = "partial syntax tree"
+                        level_message = "partial syntax tree"
                     case "filenames":
-                        cprint_message_level = "filepaths only"
+                        level_message = "filepaths only"
 
-                cprint_message = f"\nIncluding CodeMap ({cprint_message_level})"
-                cprint(cprint_message, color="green")
+                message = f"\nIncluding CodeMap ({level_message})"
+                await stream.send(message, color="green")
                 code_message += [f"\n{code_map_message.content}"]
             else:
-                cprint_message = [
+                message = [
                     "\nExcluding CodeMap from system message.",
                     "Reason: not enough tokens available in model context.",
                 ]
-                cprint_message = "\n".join(cprint_message)
-                cprint(cprint_message, color="yellow")
+                message = "\n".join(message)
+                await stream.send(message, color="yellow")
 
         return "\n".join(code_message)
 
-    def add_file(self, code_file: CodeFile):
+    async def add_file(self, code_file: CodeFile):
+        stream = SESSION_STREAM.get()
+
         if not os.path.exists(code_file.path):
-            cprint(f"File does not exist: {code_file.path}\n", "red")
+            await stream.send(f"File does not exist: {code_file.path}\n", color="red")
             return
         if code_file.path in self.files:
-            cprint(f"File already in context: {code_file.path}\n", "yellow")
+            await stream.send(
+                f"File already in context: {code_file.path}\n", color="yellow"
+            )
             return
         self.files[code_file.path] = code_file
-        cprint(f"File added to context: {code_file.path}\n", "green")
+        await stream.send(f"File added to context: {code_file.path}\n", color="green")
 
-    def remove_file(self, code_file: CodeFile):
+    async def remove_file(self, code_file: CodeFile):
+        stream = SESSION_STREAM.get()
+
         if not os.path.exists(code_file.path):
-            cprint(f"File does not exist: {code_file.path}\n", "red")
+            await stream.send(f"File does not exist: {code_file.path}\n", color="red")
             return
         if code_file.path not in self.files:
-            cprint(f"File not in context: {code_file.path}\n", "yellow")
+            await stream.send(
+                f"File not in context: {code_file.path}\n", color="yellow"
+            )
             return
         del self.files[code_file.path]
-        cprint(f"File removed from context: {code_file.path}\n", "green")
+        await stream.send(
+            f"File removed from context: {code_file.path}\n", color="green"
+        )
