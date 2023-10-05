@@ -16,6 +16,7 @@ def setup_logging():
     logging.getLogger("asyncio").setLevel(logging.CRITICAL)
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
+    # Root logger
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     # Only log warnings and higher to console
@@ -33,6 +34,14 @@ def setup_logging():
     file_handler.setFormatter(formatter)
     file_handler_latest.setFormatter(formatter)
 
+    handlers = [console_handler, file_handler, file_handler_latest]
+
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+    for handler in handlers:
+        root.addHandler(handler)
+
+    # Costs logger
     costs_logger = logging.getLogger("costs")
     costs_formatter = logging.Formatter("%(asctime)s\n%(message)s")
     costs_handler = logging.FileHandler(logs_path / "costs.log")
@@ -41,6 +50,7 @@ def setup_logging():
     costs_logger.setLevel(logging.INFO)
     costs_logger.propagate = False
 
+    # Transcript logger
     transcripts_logger = logging.getLogger("transcript")
     transcripts_formatter = logging.Formatter("%(message)s")
     transcripts_handler = logging.FileHandler(logs_path / f"transcript_{timestamp}.log")
@@ -48,13 +58,3 @@ def setup_logging():
     transcripts_logger.addHandler(transcripts_handler)
     transcripts_logger.setLevel(logging.INFO)
     transcripts_logger.propagate = False
-
-    handlers = [console_handler, file_handler, file_handler_latest]
-    # logging.basicConfig can only be called once, and is sometimes called on import
-    # in other libraries, which means we can't call it in the session/server, and are currently
-    # calling it in the client.
-    # TODO: switch to something other than basicConfig and call this function in the server
-    logging.basicConfig(
-        level=logging.DEBUG,
-        handlers=handlers,
-    )

@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import List, Optional, Union, cast
 from uuid import uuid4
 
+from mentat.logging_config import setup_logging
+
 from .code_context import CodeContext, CodeContextSettings
 from .code_edit_feedback import get_user_feedback_on_edits
 from .code_file_manager import CodeFileManager
@@ -143,6 +145,8 @@ class Session:
         A background asyncio. Task will be created to run the startup sequence and run
         the main loop which runs forever (until a client interrupts it).
         """
+
+        setup_logging()
 
         if self._main_task:
             logging.warning("Job already started")

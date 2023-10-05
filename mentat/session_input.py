@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Any, Coroutine
 
 from .errors import RemoteKeyboardInterrupt
@@ -16,6 +17,8 @@ async def collect_user_input(**kwargs: Any) -> StreamMessage:
 
     message = await stream.send("", channel="input_request", **kwargs)
     response = await stream.recv(f"input_request:{message.id}")
+
+    logging.debug(f"User Input: {response.data}")
 
     return response
 
