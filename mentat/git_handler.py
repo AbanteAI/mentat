@@ -9,7 +9,8 @@ from mentat.errors import UserError
 GIT_ROOT: ContextVar[Path] = ContextVar("mentat:git_root")
 
 
-def get_git_diff_for_path(git_root: Path, path: Path) -> str:
+def get_git_diff_for_path(path: Path) -> str:
+    git_root = GIT_ROOT.get()
     return subprocess.check_output(["git", "diff", path], cwd=git_root).decode("utf-8")
 
 
@@ -30,7 +31,9 @@ def get_non_gitignored_files(path: Path) -> set[Path]:
     )
 
 
-def get_paths_with_git_diffs(git_root: Path) -> set[Path]:
+def get_paths_with_git_diffs() -> set[Path]:
+    git_root = GIT_ROOT.get()
+
     changed = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd=git_root, text=True
     ).split("\n")
@@ -106,8 +109,10 @@ def commit(message: str) -> None:
     subprocess.run(["git", "commit", "-m", message])
 
 
-def get_diff_for_file(git_root: Path, target: str, path: Path) -> str:
+def get_diff_for_file(target: str, path: Path) -> str:
     """Return commit data & diff for target versus active code"""
+    git_root = GIT_ROOT.get()
+
     try:
         diff_content = subprocess.check_output(
             ["git", "diff", "-U0", f"{target}", "--", path], cwd=git_root, text=True
@@ -118,7 +123,9 @@ def get_diff_for_file(git_root: Path, target: str, path: Path) -> str:
         raise UserError()
 
 
-def get_treeish_metadata(git_root: Path, target: str) -> dict[str, str]:
+def get_treeish_metadata(target: str) -> dict[str, str]:
+    git_root = GIT_ROOT.get()
+
     try:
         commit_info = subprocess.check_output(
             ["git", "log", target, "-n", "1", "--pretty=format:%H %s"],
@@ -134,8 +141,10 @@ def get_treeish_metadata(git_root: Path, target: str) -> dict[str, str]:
         raise UserError()
 
 
-def get_files_in_diff(git_root: Path, target: str) -> list[Path]:
+def get_files_in_diff(target: str) -> list[Path]:
     """Return commit data & diff for target versus active code"""
+    git_root = GIT_ROOT.get()
+
     try:
         diff_content = subprocess.check_output(
             ["git", "diff", "--name-only", f"{target}", "--"], cwd=git_root, text=True
@@ -149,7 +158,9 @@ def get_files_in_diff(git_root: Path, target: str) -> list[Path]:
         raise UserError()
 
 
-def check_head_exists(git_root: Path) -> bool:
+def check_head_exists() -> bool:
+    git_root = GIT_ROOT.get()
+
     try:
         subprocess.check_output(["git", "rev-parse", "HEAD", "--"], cwd=git_root)
         return True
@@ -157,7 +168,9 @@ def check_head_exists(git_root: Path) -> bool:
         return False
 
 
-def get_default_branch(git_root: Path) -> str:
+def get_default_branch() -> str:
+    git_root = GIT_ROOT.get()
+
     try:
         # Fetch the symbolic ref of HEAD which points to the default branch
         default_branch = subprocess.check_output(

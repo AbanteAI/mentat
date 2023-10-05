@@ -30,8 +30,13 @@ CONVERSATION: ContextVar[Conversation] = ContextVar("mentat:conversation")
 class Conversation:
     def __init__(self):
         config = CONFIG_MANAGER.get()
+        parser = PARSER.get()
+
         self.model = config.model()
         self.messages = list[dict[str, str]]()
+
+        prompt = parser.get_system_prompt()
+        self.add_system_message(prompt)
 
     async def display_token_count(self):
         stream = SESSION_STREAM.get()
@@ -60,8 +65,6 @@ class Conversation:
                 )
 
         prompt = parser.get_system_prompt()
-        self.add_system_message(prompt)
-
         code_file_manager.read_all_file_lines()
         tokens = count_tokens(
             await code_context.get_code_message(

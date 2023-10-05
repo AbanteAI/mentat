@@ -215,7 +215,7 @@ class CodeContext:
         await stream.send(git_root.name, color="blue")
         await _print_path_tree(
             _build_path_tree(list(self.files.values()), git_root),
-            get_paths_with_git_diffs(git_root),
+            get_paths_with_git_diffs(),
             git_root,
         )
         await self.diff_context.display_context()

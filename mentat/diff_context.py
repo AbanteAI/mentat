@@ -129,21 +129,18 @@ class DiffContext:
                     f"Cannot identify merge base between HEAD and {pr_diff}"
                 )
 
-        meta = get_treeish_metadata(git_root, target)
+        meta = get_treeish_metadata(target)
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
         return cls(target, name)
 
     @property
     def files(self) -> list[Path]:
-        git_root = GIT_ROOT.get()
-
-        if self.target == "HEAD" and not check_head_exists(git_root):
+        if self.target == "HEAD" and not check_head_exists():
             return []  # A new repo without any commits
-        return get_files_in_diff(git_root, self.target)
+        return get_files_in_diff(self.target)
 
     async def display_context(self) -> None:
         stream = SESSION_STREAM.get()
-        git_root = GIT_ROOT.get()
 
         if not self.files:
             return
@@ -152,7 +149,7 @@ class DiffContext:
         num_lines = 0
         # TODO: Only include paths in context
         for file in self.files:
-            diff = get_diff_for_file(git_root, self.target, file)
+            diff = get_diff_for_file(self.target, file)
             diff_lines = diff.splitlines()
             num_lines += len(
                 [line for line in diff_lines if line.startswith(("+ ", "- "))]
@@ -164,11 +161,9 @@ class DiffContext:
     ) -> list[str]:
         """Return file_message annotated with active diff."""
 
-        git_root = GIT_ROOT.get()
-
         if not self.files:
             return file_message
-        diff = get_diff_for_file(git_root, self.target, rel_path)
+        diff = get_diff_for_file(self.target, rel_path)
         annotations = _parse_diff(diff)
         return _annotate_file_message(file_message, annotations)
 
