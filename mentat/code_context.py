@@ -12,7 +12,12 @@ from .config_manager import ConfigManager
 from .diff_context import DiffContext, get_diff_context
 from .errors import MentatError, UserError
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
-from .include_files import build_path_tree, get_include_files, is_file_text_encoded, print_path_tree
+from .include_files import (
+    build_path_tree,
+    get_include_files,
+    is_file_text_encoded,
+    print_path_tree,
+)
 from .llm_api import count_tokens
 from .session_stream import SESSION_STREAM
 from .utils import sha256

@@ -97,6 +97,7 @@ class CodeFileManager:
                     )
                     if not await ask_yes_no(default_yes=False):
                         await stream.send(f"Not applying changes to file {rel_path}")
+                        continue
             else:
                 stored_lines = []
 

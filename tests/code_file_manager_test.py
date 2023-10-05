@@ -1,3 +1,4 @@
+import asyncio
 import os
 from pathlib import Path
 from textwrap import dedent
@@ -7,6 +8,7 @@ import pytest
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.parsers.block_parser import BlockParser
+from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.session import Session
 
 
@@ -115,7 +117,9 @@ async def test_run_from_subdirectory(
         # Hello
         @@end""")])
 
-    session = await Session.create([Path("calculator.py"), Path("../scripts")])
+    session = await Session.create(
+        [Path("calculator.py"), Path("../scripts")], auto_tokens=0
+    )
     await session.start()
     await session.stream.stop()
 
@@ -126,3 +130,48 @@ async def test_run_from_subdirectory(
         echo_output = f.readlines()
     assert calculator_output[0].strip() == "# Hello"
     assert echo_output[0].strip() == "# Hello"
+
+
+@pytest.mark.asyncio
+async def test_changed_file(
+    mocker, temp_testbed, mock_stream, mock_config, mock_collect_user_input
+):
+    dir_name = "dir"
+    file_name = "file.txt"
+    file_path = Path(temp_testbed) / dir_name / file_name
+    os.makedirs(dir_name, exist_ok=True)
+    with open(file_path, "w") as file_file:
+        file_file.write("I am a file")
+    code_file_manager = CodeFileManager(
+        config=mock_config,
+    )
+    code_context = await CodeContext.create(
+        config=mock_config,
+        paths=[file_path],
+        exclude_paths=[],
+    )
+    code_context._set_include_files()
+
+    # Load code_file_manager's file_lines
+    code_file_manager.read_file(file_path)
+
+    # Update the included files
+    with open(file_path, "w") as file_file:
+        file_file.write("I was a file")
+
+    # Try to write_changes
+    file_edit = FileEdit(
+        file_path=file_path,
+        replacements=[Replacement(0, 1, ["I am a file", "with edited lines"])],
+    )
+    assert await file_edit.is_valid(code_file_manager, mock_config)
+
+    # Decline overwrite
+    mock_collect_user_input.set_stream_messages(["n", "q"])
+    await code_file_manager.write_changes_to_files([file_edit], code_context)
+    assert file_path.read_text().splitlines() == ["I was a file"]
+
+    # Accept overwrite
+    mock_collect_user_input.set_stream_messages(["y", "q"])
+    await code_file_manager.write_changes_to_files([file_edit], code_context)
+    assert file_path.read_text().splitlines() == ["I am a file", "with edited lines"]
