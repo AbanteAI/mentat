@@ -43,7 +43,7 @@ def setup_logging():
 
     transcripts_logger = logging.getLogger("transcript")
     transcripts_formatter = logging.Formatter("%(message)s")
-    transcripts_handler = logging.FileHandler(logs_path / "transcripts.log")
+    transcripts_handler = logging.FileHandler(logs_path / f"transcript_{timestamp}.log")
     transcripts_handler.setFormatter(transcripts_formatter)
     transcripts_logger.addHandler(transcripts_handler)
     transcripts_logger.setLevel(logging.INFO)

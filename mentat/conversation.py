@@ -171,10 +171,9 @@ class Conversation:
             time_elapsed,
         )
 
-        if config.log_full_transcript():
-            transcript_logger = logging.getLogger("transcript")
-            messages.append({"role": "assistant", "content": message})
-            transcript_logger.info(json.dumps({"messages": messages}))
+        transcript_logger = logging.getLogger("transcript")
+        messages.append({"role": "assistant", "content": message})
+        transcript_logger.info(json.dumps({"messages": messages}))
 
         self.add_assistant_message(message)
         return file_edits
