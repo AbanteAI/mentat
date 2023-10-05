@@ -246,16 +246,6 @@ def mock_sleep_time(mocker):
     mocker.patch.object(StreamingPrinter, "sleep_time", new=lambda self: 0)
 
 
-# Creating a prompt session in Github Actions on Windows throws an error
-# even though we don't use it, so we always have to mock the prompt session on Windows
-@pytest.fixture(autouse=True)
-def mock_prompt_session(mocker):
-    # Only mock these on Windows
-    if os.name == "nt":
-        mocker.patch("mentat.user_input_manager.PromptSession")
-        mocker.patch("mentat.user_input_manager.MentatPromptSession")
-
-
 @pytest.fixture(autouse=True)
 def mock_get_codemaps(mocker):
     mocker.patch("mentat.code_map.get_code_map", return_value=[])
