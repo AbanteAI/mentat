@@ -13,9 +13,9 @@ from mentat.code_file import CodeMessageLevel
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
 from mentat.errors import UserError
+from mentat.include_files import expand_paths
 from mentat.llm_api import count_tokens
 from mentat.parsers.block_parser import BlockParser
-from mentat.include_files import expand_paths
 
 
 @pytest.mark.asyncio
@@ -263,7 +263,9 @@ async def test_get_code_message_include(temp_testbed, mock_config):
     # If max tokens is less than include_files, return include_files without
     # raising and Exception (that's handled elsewhere)
     code_context.settings.auto_tokens = 0
-    code_message = await code_context.get_code_message("gpt-4", code_file_manager, parser)
+    code_message = await code_context.get_code_message(
+        "gpt-4", code_file_manager, parser
+    )
     expected = [
         "Code Files:",
         "",
@@ -282,7 +284,9 @@ async def test_get_code_message_include(temp_testbed, mock_config):
 
     # Fill-in complete files if there's enough room
     code_context.settings.auto_tokens = 1000 * 0.95  # Sometimes it's imprecise
-    code_message = await code_context.get_code_message("gpt-4", code_file_manager, parser)
+    code_message = await code_context.get_code_message(
+        "gpt-4", code_file_manager, parser
+    )
     print(code_message)
     assert 500 <= count_tokens(code_message, "gpt-4") <= 1000
     messages = code_message.split("\n\n")
@@ -294,6 +298,8 @@ async def test_get_code_message_include(temp_testbed, mock_config):
 
     # Otherwise, fill-in what fits
     code_context.settings.auto_tokens = 400
-    code_message = await code_context.get_code_message("gpt-4", code_file_manager, parser)
+    code_message = await code_context.get_code_message(
+        "gpt-4", code_file_manager, parser
+    )
     print(code_message)
     assert count_tokens(code_message, "gpt-4") <= 800
