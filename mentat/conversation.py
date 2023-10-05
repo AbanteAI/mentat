@@ -1,3 +1,5 @@
+import json
+import logging
 from timeit import default_timer
 
 from openai.error import InvalidRequestError, RateLimitError
@@ -168,6 +170,10 @@ class Conversation:
             self.model,
             time_elapsed,
         )
+
+        transcript_logger = logging.getLogger("transcript")
+        messages.append({"role": "assistant", "content": message})
+        transcript_logger.info(json.dumps({"messages": messages}))
 
         self.add_assistant_message(message)
         return file_edits
