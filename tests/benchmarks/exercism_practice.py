@@ -222,6 +222,8 @@ def test_practice_directory_performance(
         exercises = all_exercises[:max_exercises]
     num_exercises = len(exercises)
 
+    # TODO: aiomultiprocessing would be faster with fewer workers; setup a Manager in a parent process
+    # that controls the children processes so that we don't run into rate limits
     with Pool(processes=max_workers) as pool:
         pbar = tqdm.tqdm(total=num_exercises)
 
