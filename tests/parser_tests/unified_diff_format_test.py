@@ -36,7 +36,7 @@ def test_replacement(mock_call_llm_api, mock_collect_user_input, mock_setup_api_
         -# with
         +# your captain speaking
          # 4 lines
-        @@""")])
+        @@end""")])
 
     run([temp_file_name])
     with open(temp_file_name, "r") as f:
@@ -84,7 +84,7 @@ def test_multiple_replacements(
         -# 8
         +# new line
          # lines
-        @@""")])
+        @@end""")])
 
     run([temp_file_name])
     with open(temp_file_name, "r") as f:
@@ -128,11 +128,11 @@ def test_multiple_replacement_spots(
         +++ {temp_file_name}
         -# is
         +# was
-        @
+        @@
         -# file
          # with
         +# more than
-        @@""")])
+        @@end""")])
 
     run([temp_file_name])
     with open(temp_file_name, "r") as f:
@@ -176,10 +176,10 @@ def test_little_context_addition(
         +++ {temp_file_name}
          # is
         +# New line
-        @
+        @@
         +# New line 2
          # with 
-        @@""")])
+        @@end""")])
 
     run([temp_file_name])
     with open(temp_file_name, "r") as f:
@@ -215,7 +215,7 @@ def test_empty_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_k
         +++ {temp_file_name}
         +# New
         +# line
-        @@""")])
+        @@end""")])
 
     run([temp_file_name])
     with open(temp_file_name, "r") as f:
@@ -237,7 +237,7 @@ def test_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
         --- /dev/null
         +++ {temp_file_name}
         +# New line
-        @@
+        @@end
         """)])
 
     run([temp_file_name])
@@ -272,7 +272,7 @@ def test_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 
         --- {temp_file_name}
         +++ /dev/null
-        @@""")])
+        @@end""")])
 
     run([temp_file_name])
     assert not temp_file_name.exists()

@@ -1,6 +1,17 @@
 from textwrap import dedent
 
+import pytest
+
 from mentat.app import run
+from tests.conftest import ConfigManager
+
+
+@pytest.fixture(autouse=True)
+def block_parser(mocker):
+    mock_method = mocker.MagicMock()
+    mocker.patch.object(ConfigManager, "parser", new=mock_method)
+    mock_method.return_value = "block"
+
 
 temp_file_name = "temp.py"
 template_insert_content = "# I inserted this comment"

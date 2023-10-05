@@ -2,6 +2,15 @@ import os
 from textwrap import dedent
 
 from mentat.app import run
+from tests.conftest import ConfigManager
+from tests.parser_tests.unified_diff_format_test import pytest
+
+
+@pytest.fixture(autouse=True)
+def block_parser(mocker):
+    mock_method = mocker.MagicMock()
+    mocker.patch.object(ConfigManager, "parser", new=mock_method)
+    mock_method.return_value = "block"
 
 
 def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
