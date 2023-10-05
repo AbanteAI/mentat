@@ -11,6 +11,7 @@ import tqdm
 from aiomultiprocess import Pool
 from git import Repo
 
+from mentat.llm_api import call_llm_api, setup_api_key
 from mentat.logging_config import setup_logging
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
@@ -55,6 +56,19 @@ def run_exercise_test(exercise, test_output_file, language):
         results = "Test timed out"
     with open(test_output_file, "w") as f:
         f.write(results)
+
+
+def get_exercise_file(problem_dir, language):
+    problem_file = problem_dir
+    match language:
+        case "python":
+            file_ext = "py"
+            problem_file = problem_dir.replace("-", "_")
+        case "javascript":
+            file_ext = "js"
+
+    exercise_file = f"{problem_file}.{file_ext}"
+    return exercise_file
 
 
 @pytest.fixture
@@ -119,16 +133,8 @@ async def send_message(stream, message):
 
 async def run_exercise(problem_dir, language="python", max_iterations=2):
     try:
-        if language == "python":
-            file_ext = "py"
-        else:
-            file_ext = "js"
-        exercise = f"exercises/practice/{problem_dir}"
-        if language == "python":
-            problem_file = problem_dir.replace("-", "_")
-        else:
-            problem_file = problem_dir
-        exercise_file = f"{exercise}/{problem_file}.{file_ext}"
+        exercise = Path(f"exercises/practice/{problem_dir}")
+        exercise_file = exercise / get_exercise_file(problem_dir, language)
         test_output_file = f"{exercise}/test_output.txt"
         if os.path.exists(test_output_file):
             passed = exercise_passed(test_output_file, language)
@@ -140,10 +146,10 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
 
         session = await Session.create(
             paths=[
-                Path(exercise_file),
-                Path(f"{exercise}/.docs"),
+                exercise_file,
+                exercise / ".docs",
             ],
-            exclude_paths=[Path(f"{exercise}/.docs/hints.md")],
+            exclude_paths=[exercise / ".docs/hints.md"],
             no_code_map=True,
         )
         asyncio.ensure_future(session.start())
@@ -242,3 +248,58 @@ async def test_practice_directory_performance(
                 summarize_results(results) + "| Last Ran: " + result["test"]
             )
         print(f"Results: {results}")
+
+    # Ask GPT about why it failed
+    setup_api_key()
+    prompt = dedent("""\
+        You are a professional code reviewer who helps other coders improve their skills.
+        You recently assigned a coder a small coding test to assess their level, with a pre-written stub template
+        and an automated test suite to determine if they succeeded. 
+        They failed the test; using the instructions for the test, 
+        the code they wrote for the test, and the output of the test suite, 
+        your job is to determine why they failed. Give a terse but informative couple of sentences
+        on why it failed, before giving the reason it failed on the final line in the format
+        reason: <reason_failed>
+        Your response will be parsed programmatically, so you MUST follow the format for the final line!
+        The possible responses for the final line and what they mean are as follows:
+        blank (the coder didn't change the file at all from the stub you provided them)
+        wording (everything was correct, but the test suite expected a different string to be printed/thrown)
+        duplication (the coder had a random duplicated line that caused the code to not be compiled/interpreted)
+        syntax (the coder messed up their syntax, meaning their code couldn't be compiled/interpreted)
+        logic (the coder messed up the logic)
+        other (some other reason caused it to fail)""")
+    model = "gpt-4-0314"
+    for problem_dir in exercises:
+        exercise = Path(f"exercises/practice/{problem_dir}")
+        docs_path = exercise / ".docs"
+        instructions = ""
+        for file_name in os.listdir(docs_path):
+            with open(docs_path / file_name) as f:
+                contents = f.read()
+                instructions += f"{file_name}\n{contents}\n"
+        code = ""
+        exercise_file = get_exercise_file(problem_dir, language)
+        with open(exercise / exercise_file) as f:
+            contents = f.read()
+            code += f"{exercise_file}\n{contents}"
+
+        test_results = ""
+        with open(exercise / "test_output.txt") as f:
+            contents = f.read()
+            test_results = f"test_output.txt\n{contents}"
+
+        final_message = (
+            f"All instructions:\n{instructions}\nCode to review:\n{code}\nTest"
+            f" results:\n{test_results}"
+        )
+        messages = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": final_message},
+        ]
+        response = ""
+        async for chunk in await call_llm_api(messages, model):
+            content = chunk["choices"][0]["delta"].get("content", "")
+            response += content
+
+        print(problem_dir)
+        print(response)
