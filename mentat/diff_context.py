@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from .config_manager import ConfigManager
-from .errors import UserError
+from .errors import MentatError, UserError
 from .git_handler import (
     check_head_exists,
     get_diff_for_file,
@@ -173,6 +173,8 @@ def get_diff_context(
     diff: Optional[str] = None,
     pr_diff: Optional[str] = None,
 ):
+    if config.git_root is None:
+        raise MentatError("Not working inside a git directory")
     if diff and pr_diff:
         raise UserError("Cannot specify more than one type of diff.")
 

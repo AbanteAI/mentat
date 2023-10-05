@@ -5,10 +5,9 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Literal
+from typing import Any, Literal, Set
 
 from .config_manager import ConfigManager
-from .git_handler import get_non_gitignored_files
 from .llm_api import count_tokens
 from .session_stream import SESSION_STREAM
 
@@ -133,7 +132,6 @@ class CodeMapMessage:
 class CodeMap:
     def __init__(self, config: ConfigManager, token_limit: int | None = None):
         self.config = config
-        self.git_root = self.config.git_root
         self.token_limit = token_limit
 
         self.ctags_disabled = True
@@ -246,19 +244,19 @@ class CodeMap:
         return code_map_message
 
     async def get_message(
-        self, token_limit: int | None = None
+        self, file_paths: Set[Path], token_limit: int | None = None
     ) -> CodeMapMessage | None:
-        git_file_paths = get_non_gitignored_files(self.git_root)
-
         if not self.ctags_disabled:
             code_map_message = await self._get_message_from_ctags(
-                self.git_root, git_file_paths, token_limit=token_limit
+                root=self.config.root_dir,
+                file_paths=file_paths,
+                token_limit=token_limit,
             )
             if code_map_message is not None:
                 return code_map_message
 
         file_map_message = self._get_message_from_file_map(
-            git_file_paths, token_limit=token_limit
+            file_paths, token_limit=token_limit
         )
         if file_map_message is not None:
             return file_map_message

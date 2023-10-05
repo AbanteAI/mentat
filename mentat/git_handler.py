@@ -42,7 +42,7 @@ def get_paths_with_git_diffs(git_root: Path) -> set[Path]:
     )
 
 
-def _get_git_root_for_path(path: Path) -> Path:
+def _get_git_root_for_path(path: Path) -> Path | None:
     if os.path.isdir(path):
         dir_path = path
     else:
@@ -69,18 +69,19 @@ def _get_git_root_for_path(path: Path) -> Path:
         # call realpath to resolve symlinks, so all paths match
         return Path(os.path.realpath(git_root))
     except subprocess.CalledProcessError:
-        logging.error(f"File {path} isn't part of a git project.")
-        raise UserError()
+        logging.debug(f"File {path} isn't part of a git project.")
 
 
-def get_shared_git_root_for_paths(paths: list[Path]) -> Path:
+def get_shared_git_root_for_paths(paths: list[Path]) -> Path | None:
     git_roots = set[Path]()
     for path in paths:
         git_root = _get_git_root_for_path(path)
-        git_roots.add(git_root)
+        if git_root is not None:
+            git_roots.add(git_root)
     if not paths:
         git_root = _get_git_root_for_path(Path(os.getcwd()))
-        git_roots.add(git_root)
+        if git_root is not None:
+            git_roots.add(git_root)
 
     if len(git_roots) > 1:
         logging.error(
@@ -89,10 +90,11 @@ def get_shared_git_root_for_paths(paths: list[Path]) -> Path:
         )
         raise UserError()
     elif len(git_roots) == 0:
-        logging.error("No git projects provided.")
-        raise UserError()
+        logging.debug("No git projects provided.")
 
-    return git_roots.pop()
+    git_root = git_roots.pop() if len(git_roots) > 0 else None
+
+    return git_root
 
 
 def commit(message: str) -> None:

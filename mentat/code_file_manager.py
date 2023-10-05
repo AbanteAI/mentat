@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import List
 
 from .code_context import CodeContext
 from .code_file import CodeFile
@@ -18,17 +19,17 @@ class CodeFileManager:
         self.config = config
 
     def read_file(self, path: Path) -> list[str]:
-        abs_path = path if path.is_absolute() else Path(self.config.git_root / path)
+        abs_path = path if path.is_absolute() else Path(self.config.root_dir / path)
         with open(abs_path, "r") as f:
             lines = f.read().split("\n")
         return lines
 
-    def read_all_file_lines(self, files: list[Path]) -> None:
+    def read_all_file_lines(self, file_paths: List[Path]) -> None:
         self.file_lines = dict[Path, list[str]]()
-        for path in files:
+        for file_path in file_paths:
             # self.file_lines is relative to git root
-            rel_path = Path(os.path.relpath(path, self.config.git_root))
-            abs_path = Path(self.config.git_root / rel_path)
+            rel_path = Path(os.path.relpath(file_path, self.config.root_dir))
+            abs_path = self.config.root_dir.joinpath(rel_path)
             self.file_lines[rel_path] = self.read_file(abs_path)
 
     def _add_file(self, abs_path: Path, code_context: CodeContext):

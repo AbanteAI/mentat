@@ -53,6 +53,7 @@ class Session:
     @classmethod
     async def create(
         cls,
+        cwd: Path,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
         no_code_map: bool = False,
@@ -65,7 +66,7 @@ class Session:
 
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
         # TODO: Config should be created in the client (i.e., to get vscode settings) and passed to session
-        config = await ConfigManager.create(git_root)
+        config = await ConfigManager.create(cwd, git_root)
         code_context_settings = CodeContextSettings(
             paths, exclude_paths, diff, pr_diff, no_code_map
         )

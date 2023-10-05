@@ -19,10 +19,12 @@ user_config_path = mentat_dir_path / config_file_name
 class ConfigManager:
     def __init__(
         self,
-        git_root: Path,
+        cwd: Path,
+        git_root: Path | None,
         user_config: Dict[str, str],
         project_config: Dict[str, str],
     ):
+        self.cwd = cwd
         self.git_root = git_root
         self.user_config = user_config
         self.project_config = project_config
@@ -33,8 +35,10 @@ class ConfigManager:
         with default_config_path.open("r") as config_file:
             self.default_config = json.load(config_file)
 
+        self.root_dir = self.git_root or self.cwd
+
     @classmethod
-    async def create(cls, git_root: Path):
+    async def create(cls, cwd: Path, git_root: Path | None):
         stream = SESSION_STREAM.get()
 
         if user_config_path.exists():
@@ -52,7 +56,11 @@ class ConfigManager:
         else:
             user_config = dict[str, str]()
 
-        project_config_path = git_root / config_file_name
+        if git_root is None:
+            project_config_path = cwd.joinpath(config_file_name)
+        else:
+            # NOTE: recursively look in parent dirs for this?
+            project_config_path = git_root.joinpath(config_file_name)
         if project_config_path.exists():
             with open(project_config_path) as config_file:
                 try:
@@ -60,7 +68,7 @@ class ConfigManager:
                 except JSONDecodeError:
                     logging.info("Project config file contains invalid json")
                     await stream.send(
-                        "Warning: Git project .mentat_config.json contains invalid"
+                        f"Warning: {project_config_path} contains invalid"
                         " json; ignoring project configuration file",
                         color="light_yellow",
                     )
@@ -68,7 +76,7 @@ class ConfigManager:
         else:
             project_config = dict[str, str]()
 
-        self = cls(git_root, user_config, project_config)
+        self = cls(cwd, git_root, user_config, project_config)
 
         return self
 

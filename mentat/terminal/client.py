@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import glob
 import logging
+import os
 import signal
 from pathlib import Path
 from typing import Any, Coroutine, List, Set
@@ -23,12 +24,14 @@ from mentat.terminal.prompt_session import MentatPromptSession
 class TerminalClient:
     def __init__(
         self,
+        cwd: Path,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
         no_code_map: bool = False,
         diff: str | None = None,
         pr_diff: str | None = None,
     ):
+        self.cwd = cwd
         self.paths = paths
         self.exclude_paths = exclude_paths
         self.no_code_map = no_code_map
@@ -115,7 +118,12 @@ class TerminalClient:
         logging.debug("Running startup")
 
         self.session = await Session.create(
-            self.paths, self.exclude_paths, self.no_code_map, self.diff, self.pr_diff
+            self.cwd,
+            self.paths,
+            self.exclude_paths,
+            self.no_code_map,
+            self.diff,
+            self.pr_diff,
         )
         self.session.start()
 
@@ -253,16 +261,25 @@ def run_cli():
         default=None,
         help="A git tree-ish to diff against the latest common ancestor of",
     )
+    parser.add_argument(
+        "--cwd", type=Path, default=os.getcwd(), help="The current working directory"
+    )
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
     no_code_map = args.no_code_map
     diff = args.diff
     pr_diff = args.pr_diff
+    cwd = args.cwd
 
     # Expanding paths as soon as possible because some shells such as zsh automatically
     # expand globs and we want to avoid differences in functionality between shells
     terminal_client = TerminalClient(
-        expand_paths(paths), expand_paths(exclude_paths), no_code_map, diff, pr_diff
+        cwd,
+        expand_paths(paths),
+        expand_paths(exclude_paths),
+        no_code_map,
+        diff,
+        pr_diff,
     )
     terminal_client.run()
