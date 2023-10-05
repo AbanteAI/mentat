@@ -76,6 +76,14 @@ def clone_exercism_repo(refresh_repo, language):
 
 
 @pytest.fixture
+def exercises(request):
+    exercises = request.config.getoption("--exercises")
+    if len(exercises) == 1:
+        return exercises[0]
+    return exercises
+
+
+@pytest.fixture
 def max_exercises(request):
     return int(request.config.getoption("--max_exercises"))
 
@@ -203,12 +211,17 @@ def summarize_results(results):
 @pytest.mark.asyncio
 async def test_practice_directory_performance(
     clone_exercism_repo,
+    exercises,
     max_exercises,
     max_iterations,
     max_workers,
     language,
 ):
-    exercises = os.listdir("exercises/practice")[:max_exercises]
+    all_exercises = os.listdir("exercises/practice")
+    if len(exercises) > 0:
+        exercises = set(exercises) & set(all_exercises)
+    else:
+        exercises = all_exercises[:max_exercises]
     num_exercises = len(exercises)
 
     async with Pool(processes=max_workers) as pool:
