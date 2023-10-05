@@ -18,7 +18,7 @@ from .session_stream import SESSION_STREAM
 from .utils import sha256
 
 if TYPE_CHECKING:
-    # This normally will cause a circular import
+    # These normally will cause a circular import
     from mentat.code_file_manager import CodeFileManager
     from mentat.parsers.parser import Parser
 
