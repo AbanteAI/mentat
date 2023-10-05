@@ -3,12 +3,12 @@ import os
 import subprocess
 import sys
 from functools import partial
+from multiprocessing import Pool
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
 import tqdm
-from aiomultiprocess import Pool
 from git import Repo
 
 from mentat.session import Session
@@ -190,6 +190,10 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         }
 
 
+def run_exercise_sync(problem_dir, language="python", max_iterations=2):
+    return asyncio.run(run_exercise(problem_dir, language, max_iterations))
+
+
 def summarize_results(results):
     passed_in_n = {}
     failed = 0
@@ -203,8 +207,7 @@ def summarize_results(results):
     return "Passed: " + str(passed_in_n)[1:-1] + "| Failed: " + str(failed)
 
 
-@pytest.mark.asyncio
-async def test_practice_directory_performance(
+def test_practice_directory_performance(
     clone_exercism_repo,
     exercises,
     max_exercises,
@@ -219,15 +222,17 @@ async def test_practice_directory_performance(
         exercises = all_exercises[:max_exercises]
     num_exercises = len(exercises)
 
-    async with Pool(processes=max_workers) as pool:
+    with Pool(processes=max_workers) as pool:
         pbar = tqdm.tqdm(total=num_exercises)
 
         result_map = pool.map(
-            partial(run_exercise, language=language, max_iterations=max_iterations),
+            partial(
+                run_exercise_sync, language=language, max_iterations=max_iterations
+            ),
             exercises,
         )
         results = []
-        async for result in result_map:
+        for result in result_map:
             results.append(result)
             pbar.update()
             with open("results.txt", "a") as f:
