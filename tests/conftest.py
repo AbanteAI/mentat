@@ -3,15 +3,22 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from datetime import datetime
 from pathlib import Path
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
+import pytest_asyncio
 
-from mentat import config_manager
-from mentat.code_context import CodeContext
-from mentat.config_manager import ConfigManager, config_file_name
+from mentat.config_manager import ConfigManager
+from mentat.session_stream import (
+    SESSION_STREAM,
+    SessionStream,
+    StreamMessage,
+    StreamMessageSource,
+)
 from mentat.streaming_printer import StreamingPrinter
-from mentat.user_input_manager import UserInputManager
 
 pytest_plugins = ("pytest_reportlog",)
 
@@ -75,7 +82,7 @@ def pytest_collection_modifyitems(config, items):
     items[:] = filter_mark(items, "uitest", uitest)
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def mock_call_llm_api(mocker):
     mock = mocker.patch("mentat.conversation.call_llm_api")
 
@@ -88,39 +95,52 @@ def mock_call_llm_api(mocker):
         mock.return_value = async_generator()
 
     mock.set_generator_values = set_generator_values
+
     return mock
 
 
 @pytest.fixture
 def mock_collect_user_input(mocker):
-    mock_method = mocker.MagicMock()
-    mocker.patch.object(UserInputManager, "collect_user_input", new=mock_method)
+    async_mock = AsyncMock()
 
-    return mock_method
+    mocker.patch("mentat.code_edit_feedback.collect_user_input", side_effect=async_mock)
+    mocker.patch("mentat.session_input.collect_user_input", side_effect=async_mock)
+    mocker.patch("mentat.session.collect_user_input", side_effect=async_mock)
+
+    def set_stream_messages(values):
+        async_mock.side_effect = [
+            StreamMessage(
+                id=uuid4(),
+                channel="default",
+                source=StreamMessageSource.CLIENT,
+                data=value,
+                extra=None,
+                created_at=datetime.utcnow(),
+            )
+            for value in values
+        ]
+
+    async_mock.set_stream_messages = set_stream_messages
+    return async_mock
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def mock_setup_api_key(mocker):
-    mocker.patch("mentat.app.setup_api_key")
+    mocker.patch("mentat.session.setup_api_key")
     mocker.patch("mentat.conversation.is_model_available")
     return
 
 
-@pytest.fixture
-def mock_config(temp_testbed):
-    config = ConfigManager(Path(temp_testbed))
+@pytest_asyncio.fixture
+async def mock_config(temp_testbed, mock_stream):
+    config = await ConfigManager.create(Path(temp_testbed))
     config.project_config = {}
     return config
 
 
-@pytest.fixture
-def mock_context(mock_config):
-    return CodeContext(mock_config, [], [])
-
-
-@pytest.fixture
-def mock_user_input_manager(mock_config, mock_context):
-    return UserInputManager(mock_config, mock_context)
+# @pytest.fixture
+# def mock_context(mock_config):
+#     return CodeContext(mock_config, [], [])
 
 
 def add_permissions(func, path, exc_info):
@@ -141,7 +161,27 @@ def add_permissions(func, path, exc_info):
         raise
 
 
-# Auto-used fixtures
+# The contexvar needs to be set in a synchronous fixture due to pytest not propagating
+# async fixture contexts to test contexts.
+# https://github.com/pytest-dev/pytest-asyncio/issues/127
+@pytest.fixture
+def _mock_stream():
+    session_stream = SessionStream()
+    token = SESSION_STREAM.set(session_stream)
+    yield session_stream
+    SESSION_STREAM.reset(token)
+
+
+@pytest_asyncio.fixture()
+async def mock_stream(_mock_stream):
+    await _mock_stream.start()
+    yield _mock_stream
+    await _mock_stream.stop()
+
+
+### Auto-used fixtures
+
+
 def run_git_command(cwd, *args):
     """Helper function to run a git command."""
     subprocess.run(
@@ -185,7 +225,20 @@ def temp_testbed(monkeypatch):
 # it will be unset unless a specific test wants to make a config in the testbed
 @pytest.fixture(autouse=True)
 def mock_user_config(mocker):
+    from mentat import config_manager
+    from mentat.config_manager import config_file_name
+
     config_manager.user_config_path = Path(config_file_name)
+
+
+# # Creating a prompt session in Github Actions on Windows throws an error
+# # even though we don't use it, so we always have to mock the prompt session on Windows
+# @pytest.fixture(autouse=True)
+# def mock_prompt_session(mocker):
+#     # Only mock these on Windows
+#     if os.name == "nt":
+#         mocker.patch("mentat.user_input_manager.PromptSession")
+#         mocker.patch("mentat.user_input_manager.MentatPromptSession")
 
 
 @pytest.fixture(autouse=True)

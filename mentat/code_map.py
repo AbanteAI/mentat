@@ -1,13 +1,14 @@
+import asyncio
 import json
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
 
-from termcolor import cprint
+from .session_stream import SESSION_STREAM
 
 
-def get_code_map(
+async def get_code_map(
     root: Path, file_path: Path, exclude_signatures: bool = False
 ) -> list[str]:
     # Create ctags from executable in a subprocess
@@ -23,8 +24,21 @@ def get_code_map(
     else:
         ctags_cmd_args.append("--fields=+S")
     ctags_cmd = ["ctags", *ctags_cmd_args, str(Path(root).joinpath(file_path))]
-    output = subprocess.check_output(ctags_cmd, stderr=subprocess.PIPE, text=True)
-    output_lines = output.splitlines()
+
+    process = await asyncio.create_subprocess_exec(
+        *ctags_cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        start_new_session=True,
+    )
+    stdout, stderr = await process.communicate()
+
+    if process.returncode == 0:
+        output = stdout.decode("utf-8").strip() if stdout else ""
+        output_lines = output.splitlines()
+    else:
+        error_output = stderr.decode("utf-8").strip() if stderr else ""
+        raise Exception(f"Command failed with error: {error_output}")
 
     # Extract subprocess stdout into python objects
     ctags = set[tuple[Path, ...]]()
@@ -32,8 +46,10 @@ def get_code_map(
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            cprint(f"Error parsing ctags output: {err}", color="yellow")
-            cprint(f"{repr(output_line)}\n", color="yellow")
+            await SESSION_STREAM.get().send(
+                f"Error parsing ctags output: {err}\n{repr(output_line)}",
+                color="yellow",
+            )
             continue
 
         scope = tag.get("scope")
@@ -82,7 +98,7 @@ def get_code_map(
     return output.splitlines()
 
 
-def check_ctags_disabled() -> str | None:
+async def check_ctags_disabled() -> str | None:
     try:
         cmd = ["ctags", "--version"]
         output = subprocess.check_output(cmd, stderr=subprocess.PIPE).decode("utf-8")
@@ -98,7 +114,7 @@ def check_ctags_disabled() -> str | None:
             hello_py = Path(tempdir) / "hello.py"
             with open(hello_py, "w", encoding="utf-8") as f:
                 f.write("def hello():\n    print('Hello, world!')\n")
-            get_code_map(Path(tempdir), hello_py)
+            await get_code_map(Path(tempdir), hello_py)
         return
     except FileNotFoundError:
         return "ctags executable not found"

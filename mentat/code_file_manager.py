@@ -1,15 +1,15 @@
+from __future__ import annotations
+
 import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from termcolor import cprint
-
-from mentat.parsers.file_edit import FileEdit
-
 from .config_manager import ConfigManager
 from .errors import MentatError
-from .user_input_manager import UserInputManager
+from .parsers.file_edit import FileEdit
+from .session_input import ask_yes_no
+from .session_stream import SESSION_STREAM
 from .utils import sha256
 
 if TYPE_CHECKING:
@@ -45,12 +45,13 @@ class CodeFileManager:
         abs_path.unlink()
 
     # Mainly does checks on if file is in context, file exists, file is unchanged, etc.
-    def write_changes_to_files(
+    async def write_changes_to_files(
         self,
-        file_edits: list["FileEdit"],
+        file_edits: list[FileEdit],
         code_context: "CodeContext",
-        user_input_manager: "UserInputManager",
     ):
+        stream = SESSION_STREAM.get()
+
         for file_edit in file_edits:
             rel_path = Path(os.path.relpath(file_edit.file_path, self.config.git_root))
             if file_edit.is_creation:
@@ -66,18 +67,22 @@ class CodeFileManager:
                         f"Attempted to edit non-existent file {file_edit.file_path}"
                     )
                 elif file_edit.file_path not in code_context.include_files:
-                    raise MentatError(
-                        f"Attempted to edit file {file_edit.file_path} not in context"
+                    await stream.send(
+                        f"Attempted to edit file {file_edit.file_path} not in context",
+                        color="yellow",
                     )
+                    continue
 
             if file_edit.is_deletion:
-                cprint(f"Are you sure you want to delete {rel_path}?", "red")
-                if user_input_manager.ask_yes_no(default_yes=False):
-                    cprint(f"Deleting {rel_path}...", "red")
+                await stream.send(
+                    f"Are you sure you want to delete {rel_path}?", color="red"
+                )
+                if await ask_yes_no(default_yes=False):
+                    await stream.send(f"Deleting {rel_path}...", color="red")
                     self._delete_file(file_edit.file_path, code_context)
                     continue
                 else:
-                    cprint(f"Not deleting {rel_path}", "green")
+                    await stream.send(f"Not deleting {rel_path}", color="green")
 
             if not file_edit.is_creation:
                 stored_lines = self.file_lines[rel_path]
@@ -85,13 +90,13 @@ class CodeFileManager:
                     logging.info(
                         f"File '{file_edit.file_path}' changed while generating changes"
                     )
-                    cprint(
+                    await stream.send(
                         f"File '{rel_path}' changed while generating; current"
                         " file changes will be erased. Continue?",
                         color="light_yellow",
                     )
-                    if not user_input_manager.ask_yes_no(default_yes=False):
-                        cprint(f"Not applying changes to file {rel_path}")
+                    if not await ask_yes_no(default_yes=False):
+                        await stream.send(f"Not applying changes to file {rel_path}")
             else:
                 stored_lines = []
 

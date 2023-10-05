@@ -11,3 +11,8 @@ class MentatError(Exception):
 # Used to indicate an issue with the user's usage of Mentat
 class UserError(Exception):
     pass
+
+
+# Used to indicate a KeyboardInterupt thrown by a remote client
+class RemoteKeyboardInterrupt(Exception):
+    pass

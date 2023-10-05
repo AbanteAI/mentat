@@ -6,7 +6,8 @@ import pytest
 from mentat.config_manager import ConfigManager, config_file_name
 
 
-def test_config_priority(temp_testbed):
+@pytest.mark.asyncio
+async def test_config_priority(mock_stream, temp_testbed):
     # First project config should be considered, then user config, then default config, then error
     with open(config_file_name, "w") as project_config_file:
         project_config_file.write(dedent("""\
@@ -16,7 +17,7 @@ def test_config_priority(temp_testbed):
 
     # Since we don't want to actually change user config file or default config file,
     # we have to just mock them
-    config = ConfigManager(Path(temp_testbed))
+    config = await ConfigManager.create(Path(temp_testbed))
     config.user_config = {"project-first": "I will not be used", "user-second": "user"}
     config.default_config = {
         "project-first": "I also am not used",
@@ -33,7 +34,8 @@ def test_config_priority(temp_testbed):
     assert e_info.type == ValueError
 
 
-def test_invalid_config(temp_testbed):
+@pytest.mark.asyncio
+async def test_invalid_config(mock_stream, temp_testbed):
     # If invalid config file is found, it should use next config
     with open(config_file_name, "w") as project_config_file:
         project_config_file.write(dedent("""\
@@ -42,6 +44,6 @@ def test_invalid_config(temp_testbed):
             "invalid-json: []]
         }"""))
 
-    config = ConfigManager(Path(temp_testbed))
+    config = await ConfigManager.create(Path(temp_testbed))
     config.user_config = {"mykey": "user"}
     assert config._get_key("mykey") == "user"

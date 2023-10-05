@@ -2,7 +2,7 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.app import run
+from mentat.session import Session
 from tests.conftest import ConfigManager
 
 
@@ -13,7 +13,8 @@ def replacement_parser(mocker):
     mock_method.return_value = "replacement"
 
 
-def test_invalid_line_numbers(
+@pytest.mark.asyncio
+async def test_invalid_line_numbers(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
     temp_file_name = "temp.py"
@@ -22,11 +23,13 @@ def test_invalid_line_numbers(
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.side_effect = [
-        "",
-        "y",
-        KeyboardInterrupt,
-    ]
+    mock_collect_user_input.set_stream_messages(
+        [
+            "",
+            "y",
+            "q",
+        ]
+    )
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
@@ -40,7 +43,9 @@ def test_invalid_line_numbers(
         # I also will not be used
         @""")])
 
-    run([temp_file_name])
+    session = await Session.create([temp_file_name])
+    await session.start()
+    await session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -50,7 +55,8 @@ def test_invalid_line_numbers(
     assert content == expected_content
 
 
-def test_invalid_special_line(
+@pytest.mark.asyncio
+async def test_invalid_special_line(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
     temp_file_name = "temp.py"
@@ -59,11 +65,13 @@ def test_invalid_special_line(
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.side_effect = [
-        "",
-        "y",
-        KeyboardInterrupt,
-    ]
+    mock_collect_user_input.set_stream_messages(
+        [
+            "",
+            "y",
+            "q",
+        ]
+    )
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
@@ -77,7 +85,9 @@ def test_invalid_special_line(
         # I will not be used
         @""")])
 
-    run([temp_file_name])
+    session = await Session.create([temp_file_name])
+    await session.start()
+    await session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\

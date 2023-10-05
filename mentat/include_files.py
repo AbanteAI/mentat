@@ -2,14 +2,17 @@ import glob
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict
 
 from termcolor import cprint
 
 from mentat.code_file import CodeFile, parse_intervals
-from mentat.config_manager import ConfigManager
 from mentat.errors import UserError
 from mentat.git_handler import get_non_gitignored_files
+from mentat.session_stream import SESSION_STREAM
+
+if TYPE_CHECKING:
+    from mentat.config_manager import ConfigManager
 
 
 # From app.py
@@ -93,7 +96,7 @@ def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
 
 
 def get_include_files(
-    config: ConfigManager, paths: list[Path], exclude_paths: list[Path]
+    config: "ConfigManager", paths: list[Path], exclude_paths: list[Path]
 ) -> Dict[Path, CodeFile]:
     """Returns a complete list of text files in a given set of include/exclude Paths."""
     excluded_files_direct, excluded_files_from_dirs = abs_files_from_list(
@@ -146,18 +149,19 @@ def build_path_tree(files: list[CodeFile], git_root: Path):
     return tree
 
 
-def print_path_tree(
+async def print_path_tree(
     tree: dict[str, Any], changed_files: set[Path], cur_path: Path, prefix: str = ""
 ):
     """Prints a tree of paths, with changed files highlighted."""
+    stream = SESSION_STREAM.get()
     keys = list(tree.keys())
     for i, key in enumerate(sorted(keys)):
         if i < len(keys) - 1:
             new_prefix = prefix + "│   "
-            print(f"{prefix}├── ", end="")
+            await stream.send(f"{prefix}├── ", end="")
         else:
             new_prefix = prefix + "    "
-            print(f"{prefix}└── ", end="")
+            await stream.send(f"{prefix}└── ", end="")
 
         cur = cur_path / key
         star = "* " if cur in changed_files else ""
@@ -167,6 +171,6 @@ def print_path_tree(
             color = "green"
         else:
             color = None
-        cprint(f"{star}{key}", color)
+        await stream.send(f"{star}{key}", color=color)
         if tree[key]:
-            print_path_tree(tree[key], changed_files, cur, new_prefix)
+            await print_path_tree(tree[key], changed_files, cur, new_prefix)

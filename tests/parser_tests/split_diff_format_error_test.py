@@ -2,8 +2,8 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.app import run
 from mentat.config_manager import ConfigManager
+from mentat.session import Session
 
 
 @pytest.fixture(autouse=True)
@@ -13,7 +13,8 @@ def split_diff_parser(mocker):
     mock_method.return_value = "split-diff"
 
 
-def test_no_matching_lines(
+@pytest.mark.asyncio
+async def test_no_matching_lines(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
     temp_file_name = "temp.py"
@@ -24,11 +25,13 @@ def test_no_matching_lines(
             # with
             # 4 lines"""))
 
-    mock_collect_user_input.side_effect = [
-        "",
-        "y",
-        KeyboardInterrupt,
-    ]
+    mock_collect_user_input.set_stream_messages(
+        [
+            "",
+            "y",
+            "q",
+        ]
+    )
     mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation        
         
@@ -52,7 +55,9 @@ def test_no_matching_lines(
         >>>>>>> updated
         {{fence[1]}}""")])
 
-    run([temp_file_name])
+    session = await Session.create([temp_file_name])
+    await session.start()
+    await session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\

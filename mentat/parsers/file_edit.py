@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import attr
-from termcolor import cprint
 
 from mentat.config_manager import ConfigManager
 from mentat.errors import MentatError
@@ -15,7 +14,8 @@ from mentat.parsers.change_display_helper import (
     change_delimiter,
     get_full_change,
 )
-from mentat.user_input_manager import UserInputManager
+from mentat.session_input import ask_yes_no
+from mentat.session_stream import SESSION_STREAM
 
 if TYPE_CHECKING:
     # This normally will cause a circular import
@@ -44,14 +44,14 @@ class Replacement:
         )
 
 
-def _ask_user_change(
-    user_input_manager: UserInputManager,
+async def _ask_user_change(
     display_information: DisplayInformation,
     text: str,
 ) -> bool:
-    print(get_full_change(display_information))
-    cprint(text, "light_blue")
-    return user_input_manager.ask_yes_no(default_yes=True)
+    stream = SESSION_STREAM.get()
+    await stream.send(get_full_change(display_information))
+    await stream.send(text, color="light_blue")
+    return await ask_yes_no(default_yes=True)
 
 
 @attr.define
@@ -69,52 +69,51 @@ class FileEdit:
     # Should be abs path
     rename_file_path: Path | None = attr.field(default=None)
 
-    def is_valid(
+    async def is_valid(
         self, code_file_manager: CodeFileManager, config: ConfigManager
     ) -> bool:
+        stream = SESSION_STREAM.get()
+
         rel_path = Path(os.path.relpath(self.file_path, config.git_root))
         if self.is_creation:
             if self.file_path.exists():
-                cprint(
-                    f"File {rel_path} already exists, canceling creation.", color="red"
+                await stream.send(
+                    f"File {rel_path} already exists, canceling creation."
                 )
                 return False
         else:
             if not self.file_path.exists():
-                cprint(
-                    f"File {rel_path} does not exist, canceling all edits to file.",
-                    color="red",
+                await stream.send(
+                    f"File {rel_path} does not exist, canceling all edits to file."
                 )
                 return False
             elif rel_path not in code_file_manager.file_lines:
-                cprint(f"File {rel_path} not in context, canceling all edits to file.")
+                await stream.send(
+                    f"File {rel_path} not in context, canceling all edits to file."
+                )
                 return False
 
         if self.rename_file_path is not None and self.rename_file_path.exists():
             rel_rename_path = Path(
                 os.path.relpath(self.rename_file_path, config.git_root)
             )
-            cprint(
+            await stream.send(
                 f"File {rel_path} being renamed to existing file {rel_rename_path},"
-                " canceling rename.",
-                color="red",
+                " canceling rename."
             )
             self.rename_file_path = None
         return True
 
-    def filter_replacements(
+    async def filter_replacements(
         self,
         code_file_manager: CodeFileManager,
-        user_input_manager: UserInputManager,
         config: ConfigManager,
     ) -> bool:
         if self.is_creation:
             display_information = DisplayInformation(
                 self.file_path, [], [], [], FileActionType.CreateFile
             )
-            if not _ask_user_change(
-                user_input_manager, display_information, "Create this file?"
-            ):
+            if not await _ask_user_change(display_information, "Create this file?"):
                 return False
             file_lines = []
         else:
@@ -125,9 +124,7 @@ class FileEdit:
             display_information = DisplayInformation(
                 self.file_path, [], [], file_lines, FileActionType.DeleteFile
             )
-            if not _ask_user_change(
-                user_input_manager, display_information, "Delete this file?"
-            ):
+            if not await _ask_user_change(display_information, "Delete this file?"):
                 return False
 
         if self.rename_file_path is not None:
@@ -139,9 +136,7 @@ class FileEdit:
                 FileActionType.RenameFile,
                 new_name=self.rename_file_path,
             )
-            if not _ask_user_change(
-                user_input_manager, display_information, "Rename this file?"
-            ):
+            if not await _ask_user_change(display_information, "Rename this file?"):
                 self.rename_file_path = None
 
         new_replacements = list[Replacement]()
@@ -159,9 +154,7 @@ class FileEdit:
                 replacement.ending_line,
                 self.rename_file_path,
             )
-            if _ask_user_change(
-                user_input_manager, display_information, "Keep this change?"
-            ):
+            if await _ask_user_change(display_information, "Keep this change?"):
                 new_replacements.append(replacement)
         self.replacements = new_replacements
 
@@ -172,15 +165,19 @@ class FileEdit:
             or len(self.replacements) > 0
         )
 
-    def _print_resolution(self, first: Replacement, second: Replacement):
-        print("Change overlap detected, auto-merged back to back changes:\n")
-        print(self.file_path)
-        print(change_delimiter)
-        for line in first.new_lines + second.new_lines:
-            cprint("+ " + line, color="green")
-        print()
+    async def _print_resolution(self, first: Replacement, second: Replacement):
+        stream = SESSION_STREAM.get()
 
-    def resolve_conflicts(self, user_input_manager: UserInputManager):
+        await stream.send(
+            "Change overlap detected, auto-merged back to back changes:\n"
+        )
+        await stream.send(self.file_path)
+        await stream.send(change_delimiter)
+        for line in first.new_lines + second.new_lines:
+            await stream.send("+ " + line, color="green")
+        await stream.send("")
+
+    async def resolve_conflicts(self):
         self.replacements.sort(reverse=True)
         for index, replacement in enumerate(self.replacements):
             for other in self.replacements[index + 1 :]:
@@ -191,7 +188,7 @@ class FileEdit:
                     # Overlap conflict
                     other.ending_line = replacement.starting_line
                     other.starting_line = min(other.starting_line, other.ending_line)
-                    self._print_resolution(other, replacement)
+                    await self._print_resolution(other, replacement)
                 elif (
                     other.ending_line == other.starting_line
                     and replacement.ending_line == replacement.starting_line
@@ -199,7 +196,7 @@ class FileEdit:
                 ):
                     # Insertion conflict
                     # This will be a bit wonky if there are more than 2 insertion conflicts on the same line
-                    self._print_resolution(replacement, other)
+                    await self._print_resolution(replacement, other)
 
     def get_updated_file_lines(self, file_lines: list[str]):
         self.replacements.sort(reverse=True)

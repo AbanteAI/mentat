@@ -1,12 +1,10 @@
+import asyncio
 import os
 from pathlib import Path
 from textwrap import dedent
 from typing import TYPE_CHECKING, Optional
 
 import attr
-from termcolor import cprint
-
-from mentat.llm_api import count_tokens
 
 from .code_file import CodeFile, CodeMessageLevel
 from .code_map import check_ctags_disabled
@@ -15,6 +13,8 @@ from .diff_context import DiffContext, get_diff_context
 from .errors import MentatError, UserError
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from .include_files import build_path_tree, get_include_files, print_path_tree
+from .llm_api import count_tokens
+from .session_stream import SESSION_STREAM
 from .utils import sha256
 
 if TYPE_CHECKING:
@@ -52,12 +52,15 @@ def _shorter_features_already_included(
 
 @attr.define
 class CodeContextSettings:
-    paths: list[Path]
-    exclude_paths: list[Path]
+    paths: list[Path] = []
+    exclude_paths: list[Path] = []
     diff: Optional[str] = None
     pr_diff: Optional[str] = None
     no_code_map: bool = False
     auto_tokens: Optional[int] = None
+
+    def asdict(self):
+        return attr.asdict(self)
 
 
 class CodeContext:
@@ -68,8 +71,13 @@ class CodeContext:
     code_map: bool = True
     features: list[CodeFile] = []
 
-    def __init__(
-        self,
+    def __init__(self, config: ConfigManager, settings: CodeContextSettings):
+        self.config = config
+        self.settings = settings
+
+    @classmethod
+    async def create(
+        cls,
         config: ConfigManager,
         paths: list[Path],
         exclude_paths: list[Path],
@@ -78,8 +86,7 @@ class CodeContext:
         no_code_map: bool = False,
         auto_tokens: Optional[int] = None,
     ):
-        self.config = config
-        self.settings = CodeContextSettings(
+        settings = CodeContextSettings(
             paths=paths,
             exclude_paths=exclude_paths,
             diff=diff,
@@ -87,11 +94,16 @@ class CodeContext:
             no_code_map=no_code_map,
             auto_tokens=auto_tokens,
         )
-        self._set_diff_context(replace_paths=True)
-        self._set_include_files()
-        self._set_code_map()
+        self = cls(config, settings)
 
-    def _set_diff_context(self, replace_paths: bool = False):
+        await self._set_diff_context(replace_paths=True)
+        self._set_include_files()
+        await self._set_code_map()
+
+        return self
+
+    async def _set_diff_context(self, replace_paths: bool = False):
+        stream = SESSION_STREAM.get()
         try:
             self.diff_context = get_diff_context(
                 self.config, self.settings.diff, self.settings.pr_diff
@@ -99,7 +111,7 @@ class CodeContext:
             if replace_paths and not self.settings.paths:
                 self.settings.paths = self.diff_context.files
         except UserError as e:
-            cprint(str(e), "light_yellow")
+            await stream.send(str(e), color="light_yellow")
             exit()
 
     def _set_include_files(self):
@@ -107,35 +119,37 @@ class CodeContext:
             self.config, self.settings.paths, self.settings.exclude_paths
         )
 
-    def _set_code_map(self):
+    async def _set_code_map(self):
         if self.settings.no_code_map:
             self.code_map = False
         else:
-            disabled_reason = check_ctags_disabled()
+            disabled_reason = await check_ctags_disabled()
             if disabled_reason:
                 ctags_disabled_message = f"""
                     There was an error with your universal ctags installation, disabling CodeMap.
                     Reason: {disabled_reason}
                 """
                 ctags_disabled_message = dedent(ctags_disabled_message)
-                cprint(ctags_disabled_message, color="yellow")
+                await SESSION_STREAM.get().send(ctags_disabled_message, color="yellow")
                 self.settings.no_code_map = True
                 self.code_map = False
             else:
                 self.code_map = True
 
-    def display_context(self):
+    async def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
-        cprint("\nCode Context:", "blue")
+        stream = SESSION_STREAM.get()
+
+        await stream.send("\nCode Context:", color="blue")
         prefix = "  "
-        cprint(f"{prefix}Directory: {self.config.git_root}")
+        await stream.send(f"{prefix}Directory: {self.config.git_root}")
         if self.diff_context.name:
-            cprint(f"{prefix}Diff:", end=" ")
-            cprint(self.diff_context.get_display_context(), color="green")
+            await stream.send(f"{prefix}Diff:", end=" ")
+            await stream.send(self.diff_context.get_display_context(), color="green")
         if self.include_files:
-            cprint(f"{prefix}Included files:")
-            cprint(f"{prefix + prefix}{self.config.git_root.name}")
-            print_path_tree(
+            await stream.send(f"{prefix}Included files:")
+            await stream.send(f"{prefix + prefix}{self.config.git_root.name}")
+            await print_path_tree(
                 build_path_tree(
                     list(self.include_files.values()), self.config.git_root
                 ),
@@ -144,21 +158,23 @@ class CodeContext:
                 prefix + prefix,
             )
         else:
-            cprint(f"{prefix}Included files: None", "yellow")
-        cprint(f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}")
+            await stream.send(f"{prefix}Included files: None", color="yellow")
+        await stream.send(
+            f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
+        )
         auto = self.settings.auto_tokens
-        cprint(
+        await stream.send(
             f"{prefix}Auto-tokens: {'Model max (default)' if auto is None else auto}"
         )
 
-    def display_features(self):
+    async def display_features(self):
         """Display a summary of all active features"""
         auto_features = {level: 0 for level in CodeMessageLevel}
         for f in self.features:
             if f.path not in self.include_files:
                 auto_features[f.level] += 1
         if any(auto_features.values()):
-            cprint("Auto-Selected Features:", "blue")
+            await SESSION_STREAM.get().send("Auto-Selected Features:", color="blue")
             for level, count in auto_features.items():
                 if count:
                     print(f"  {count} {level.description}")
@@ -166,7 +182,7 @@ class CodeContext:
     _code_message: str | None = None
     _code_message_checksum: str | None = None
 
-    def _get_code_message_checksum(
+    async def _get_code_message_checksum(
         self, code_file_manager: "CodeFileManager", max_tokens: Optional[int] = None
     ) -> str:
         if not self.features:
@@ -182,29 +198,29 @@ class CodeContext:
         settings_checksum = sha256(str(settings))
         return features_checksum + settings_checksum
 
-    def get_code_message(
+    async def get_code_message(
         self,
         model: str,
         code_file_manager: "CodeFileManager",
         parser: "Parser",
         max_tokens: Optional[int] = None,
     ) -> str:
-        code_message_checksum = self._get_code_message_checksum(
+        code_message_checksum = await self._get_code_message_checksum(
             code_file_manager, max_tokens
         )
         if (
             self._code_message is None
             or code_message_checksum != self._code_message_checksum
         ):
-            self._code_message = self._get_code_message(
+            self._code_message = await self._get_code_message(
                 model, code_file_manager, parser, max_tokens
             )
-            self._code_message_checksum = self._get_code_message_checksum(
+            self._code_message_checksum = await self._get_code_message_checksum(
                 code_file_manager, max_tokens
             )
         return self._code_message
 
-    def _get_code_message(
+    async def _get_code_message(
         self,
         model: str,
         code_file_manager: "CodeFileManager",
@@ -213,9 +229,9 @@ class CodeContext:
     ) -> str:
         code_message = list[str]()
 
-        self._set_diff_context()
+        await self._set_diff_context()
         self._set_include_files()
-        self._set_code_map()
+        await self._set_code_map()
         if self.diff_context.files:
             code_message += [
                 "Diff References:",
@@ -226,10 +242,14 @@ class CodeContext:
         code_message += ["Code Files:\n"]
 
         features = self._get_include_features()
-        include_feature_tokens = sum(
+        include_feature_tokens_task = [
             f.count_tokens(self.config, code_file_manager, parser, model)
             for f in features
-        ) + count_tokens("\n".join(code_message), model)
+        ]
+        results = await asyncio.gather(*include_feature_tokens_task)
+        include_feature_tokens = sum(results) + count_tokens(
+            "\n".join(code_message), model
+        )
         _max_auto = (
             None if max_tokens is None else max(0, max_tokens - include_feature_tokens)
         )
@@ -243,12 +263,14 @@ class CodeContext:
                 auto_tokens = min(_max_auto, _max_user)
             else:
                 auto_tokens = _max_auto or _max_user
-            self.features = self._get_auto_features(
+            self.features = await self._get_auto_features(
                 code_file_manager, parser, model, features, auto_tokens
             )
 
         for f in self.features:
-            code_message += f.get_code_message(self.config, code_file_manager, parser)
+            code_message += await f.get_code_message(
+                self.config, code_file_manager, parser
+            )
         return "\n".join(code_message)
 
     def _get_include_features(self) -> list[CodeFile]:
@@ -268,7 +290,7 @@ class CodeContext:
 
         return sorted(include_features, key=_feature_relative_path)
 
-    def _get_auto_features(
+    async def _get_auto_features(
         self,
         code_file_manager: "CodeFileManager",
         parser: "Parser",
@@ -299,9 +321,11 @@ class CodeContext:
         # Sort candidates by relevance/density.
         tokens_remaining = 1e6 if max_tokens is None else max_tokens
 
-        def _calculate_feature_score(feature: CodeFile) -> float:
+        async def _calculate_feature_score(feature: CodeFile) -> float:
             score = 0.0
-            tokens = feature.count_tokens(self.config, code_file_manager, parser, model)
+            tokens = await feature.count_tokens(
+                self.config, code_file_manager, parser, model
+            )
             if tokens == 0:
                 raise MentatError(f"Feature {feature} has 0 tokens.")
             if feature.diff is not None:
@@ -318,12 +342,16 @@ class CodeContext:
             return score
 
         all_features = include_features.copy()
-        candidates_scored = [
-            (f, _calculate_feature_score(f)) for f in candidate_features
+        candidate_scores_task = [
+            _calculate_feature_score(f) for f in candidate_features
         ]
+        candidate_scores = await asyncio.gather(
+            *candidate_scores_task, return_exceptions=True
+        )
+        candidates_scored = list(zip(candidate_features, candidate_scores))
         candidates_sorted = sorted(candidates_scored, key=lambda x: x[1], reverse=True)
         for feature, _ in candidates_sorted:
-            feature_tokens = feature.count_tokens(
+            feature_tokens = await feature.count_tokens(
                 self.config, code_file_manager, parser, model
             )
             if tokens_remaining - feature_tokens <= 0:
@@ -334,42 +362,54 @@ class CodeContext:
             if to_replace:
                 for f in to_replace:
                     f_index = all_features.index(f)
-                    tokens_remaining += all_features[f_index].count_tokens(
+                    reclaimed_tokens = await all_features[f_index].count_tokens(
                         self.config, code_file_manager, parser, model
                     )
+                    tokens_remaining += reclaimed_tokens
                     all_features = all_features[:f_index] + all_features[f_index + 1 :]
             all_features.append(feature)
-            tokens_remaining -= feature.count_tokens(
+            new_tokens = await feature.count_tokens(
                 self.config, code_file_manager, parser, model
             )
+            tokens_remaining -= new_tokens
 
         def _feature_relative_path(f: CodeFile) -> str:
             return os.path.relpath(f.path, self.config.git_root)
 
         return sorted(all_features, key=_feature_relative_path)
 
-    def include_file(self, code_file: CodeFile):
+    async def include_file(self, code_file: CodeFile):
+        stream = SESSION_STREAM.get()
         if not os.path.exists(code_file.path):
-            cprint(f"File does not exist: {code_file.path}\n", "red")
+            await stream.send(f"File does not exist: {code_file.path}\n", color="red")
             return
         if code_file.path in self.settings.paths:
-            cprint(f"File already in context: {code_file.path}\n", "yellow")
+            await stream.send(
+                f"File already in context: {code_file.path}\n", color="yellow"
+            )
             return
         if code_file.path in self.settings.exclude_paths:
             self.settings.exclude_paths.remove(code_file.path)
         self.settings.paths.append(code_file.path)
         self._set_include_files()
-        cprint(f"File included in context: {code_file.path}\n", "green")
+        await stream.send(
+            f"File included in context: {code_file.path}\n", color="green"
+        )
 
-    def exclude_file(self, code_file: CodeFile):
+    async def exclude_file(self, code_file: CodeFile):
+        stream = SESSION_STREAM.get()
         if not os.path.exists(code_file.path):
-            cprint(f"File does not exist: {code_file.path}\n", "red")
+            await stream.send(f"File does not exist: {code_file.path}\n", color="red")
             return
         if code_file.path not in self.settings.paths:
-            cprint(f"File not in context: {code_file.path}\n", "yellow")
+            await stream.send(
+                f"File not in context: {code_file.path}\n", color="yellow"
+            )
             return
         if code_file.path in self.settings.exclude_paths:
             self.settings.paths.remove(code_file.path)
         self.settings.exclude_paths.append(code_file.path)
         self._set_include_files()
-        cprint(f"File removed from context: {code_file.path}\n", "green")
+        await stream.send(
+            f"File removed from context: {code_file.path}\n", color="green"
+        )
