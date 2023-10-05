@@ -82,8 +82,7 @@ class Session:
         conversation = Conversation()
         CONVERSATION.set(conversation)
 
-        self = Session(stream)
-        return self
+        return cls(stream)
 
     async def _main(self):
         stream = SESSION_STREAM.get()
