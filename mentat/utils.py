@@ -1,7 +1,7 @@
 import asyncio
 
 
-async def run_subprocess(*args: str) -> str:
+async def run_subprocess_async(*args: str) -> str:
     process = await asyncio.create_subprocess_exec(
         *args,
         stdout=asyncio.subprocess.PIPE,

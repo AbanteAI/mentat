@@ -9,7 +9,7 @@ from .config_manager import ConfigManager
 from .git_handler import get_non_gitignored_files
 from .llm_api import count_tokens
 from .session_stream import SESSION_STREAM
-from .utils import run_subprocess
+from .utils import run_subprocess_async
 
 
 async def _get_code_map(
@@ -28,7 +28,7 @@ async def _get_code_map(
         ctags_cmd_args.append("--fields=+S")
     ctags_cmd = ["ctags", *ctags_cmd_args, str(Path(root).joinpath(file_path))]
 
-    output = await run_subprocess(*ctags_cmd)
+    output = await run_subprocess_async(*ctags_cmd)
     output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
@@ -143,7 +143,7 @@ class CodeMap:
     async def _check_ctags_executable(self):
         try:
             cmd = ["ctags", "--version"]
-            output = await run_subprocess(*cmd)
+            output = await run_subprocess_async(*cmd)
             output = output.lower()
 
             cmd = " ".join(cmd)
