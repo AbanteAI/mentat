@@ -109,7 +109,7 @@ class UnifiedDiffParser(Parser):
         file_edit = FileEdit(
             config.git_root / file_name, [], is_creation, is_deletion, new_name
         )
-        # Change delimiter for when it doesn't add anything on a deletion, addition, or rename?
+        # BUG: There is a change delimiter for when it doesn't add anything on a deletion, addition, or rename
         return (display_information, file_edit, True)
 
     @override
