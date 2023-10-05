@@ -1,6 +1,4 @@
-import asyncio
 import json
-import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,6 +9,7 @@ from .config_manager import CONFIG_MANAGER, ConfigManager
 from .git_handler import GIT_ROOT, get_non_gitignored_files
 from .llm_api import count_tokens
 from .session_stream import SESSION_STREAM
+from .utils import run_subprocess_async
 
 
 async def _get_code_map(
@@ -29,20 +28,8 @@ async def _get_code_map(
         ctags_cmd_args.append("--fields=+S")
     ctags_cmd = ["ctags", *ctags_cmd_args, str(Path(root).joinpath(file_path))]
 
-    process = await asyncio.create_subprocess_exec(
-        *ctags_cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        start_new_session=True,
-    )
-    stdout, stderr = await process.communicate()
-
-    if process.returncode == 0:
-        output = stdout.decode("utf-8").strip() if stdout else ""
-        output_lines = output.splitlines()
-    else:
-        error_output = stderr.decode("utf-8").strip() if stderr else ""
-        raise Exception(f"Command failed with error: {error_output}")
+    output = await run_subprocess_async(*ctags_cmd)
+    output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
     ctags = set[tuple[Path, ...]]()
@@ -155,9 +142,7 @@ class CodeMap:
     async def _check_ctags_executable(self):
         try:
             cmd = ["ctags", "--version"]
-            output = subprocess.check_output(cmd, stderr=subprocess.PIPE).decode(
-                "utf-8"
-            )
+            output = await run_subprocess_async(*cmd)
             output = output.lower()
 
             cmd = " ".join(cmd)

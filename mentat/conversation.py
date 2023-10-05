@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import logging
 from contextvars import ContextVar
 from timeit import default_timer
 
@@ -161,6 +163,10 @@ class Conversation:
             self.model,
             time_elapsed,
         )
+
+        transcript_logger = logging.getLogger("transcript")
+        messages.append({"role": "assistant", "content": message})
+        transcript_logger.info(json.dumps({"messages": messages}))
 
         self.add_assistant_message(message)
         return file_edits

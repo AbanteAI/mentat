@@ -11,6 +11,7 @@ import tqdm
 from aiomultiprocess import Pool
 from git import Repo
 
+from mentat.logging_config import setup_logging
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 
@@ -182,6 +183,10 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         }
 
 
+async def setup_logging_async():
+    setup_logging()
+
+
 def summarize_results(results):
     passed_in_n = {}
     failed = 0
@@ -205,11 +210,11 @@ async def test_practice_directory_performance(
 ):
     exercises = os.listdir("exercises/practice")[:max_exercises]
     num_exercises = len(exercises)
-    sys.stdout = open("mentat_output.txt", "w")
 
     async with Pool(processes=max_workers) as pool:
         pbar = tqdm.tqdm(total=num_exercises)
 
+        await pool.apply(setup_logging_async)
         result_map = pool.map(
             partial(run_exercise, language=language, max_iterations=max_iterations),
             exercises,
@@ -223,6 +228,4 @@ async def test_practice_directory_performance(
             pbar.set_description(
                 summarize_results(results) + "| Last Ran: " + result["test"]
             )
-        sys.stdout.close()
-        sys.stdout = sys.__stdout__
         print(f"Results: {results}")
