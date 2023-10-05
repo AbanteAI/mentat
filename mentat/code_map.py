@@ -1,7 +1,7 @@
 import json
+import subprocess
 import tempfile
 from pathlib import Path
-import subprocess
 from typing import Any
 
 from .session_stream import SESSION_STREAM
