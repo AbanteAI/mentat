@@ -146,11 +146,11 @@ class Session:
         the main loop which runs forever (until a client interrupts it).
         """
 
-        setup_logging()
-
         if self._main_task:
             logging.warning("Job already started")
             return self._main_task
+
+        setup_logging()
 
         async def run_main():
             try:
@@ -194,6 +194,7 @@ class Session:
                 return
             try:
                 await self.cost_tracker.display_total_cost()
+                logging.shutdown()
                 self._main_task.cancel()
 
                 # Pyright can't see `self._main_task` being set to `None` in the task

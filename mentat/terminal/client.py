@@ -157,17 +157,15 @@ class TerminalClient:
         while not self._force_exit and not self.session.is_stopped:
             await asyncio.sleep(0.01)
         self.session = None
+        # logging is shutdown by session stop
 
         # Stop all background tasks
         for task in self._tasks:
             task.cancel()
-        logging.debug("Waiting for background tasks to finish. (CTRL+C to force quit)")
         while not self._force_exit:
             if all([task.cancelled() for task in self._tasks]):
                 break
             await asyncio.sleep(0.01)
-
-        logging.debug("Completed shutdown")
 
     async def _main(self):
         assert isinstance(self.session, Session), "TerminalClient is not running"
