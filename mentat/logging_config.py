@@ -46,6 +46,9 @@ def setup_logging():
 
     # Costs logger
     costs_logger = logging.getLogger("costs")
+    for handler in costs_logger.handlers[:]:
+        costs_logger.removeHandler(handler)
+        handler.close()
     costs_formatter = logging.Formatter("%(asctime)s\n%(message)s")
     costs_handler = logging.FileHandler(logs_path / "costs.log")
     costs_handler.setFormatter(costs_formatter)
@@ -55,6 +58,9 @@ def setup_logging():
 
     # Transcript logger
     transcripts_logger = logging.getLogger("transcript")
+    for handler in transcripts_logger.handlers[:]:
+        transcripts_logger.removeHandler(handler)
+        handler.close()
     transcripts_formatter = logging.Formatter("%(message)s")
     transcripts_handler = logging.FileHandler(logs_path / f"transcript_{timestamp}.log")
     transcripts_handler.setFormatter(transcripts_formatter)
