@@ -1,11 +1,11 @@
-import asyncio
 import json
-import subprocess
 import tempfile
 from pathlib import Path
+import subprocess
 from typing import Any
 
 from .session_stream import SESSION_STREAM
+from .utils import run_subprocess_async
 
 
 async def get_code_map(
@@ -25,20 +25,8 @@ async def get_code_map(
         ctags_cmd_args.append("--fields=+S")
     ctags_cmd = ["ctags", *ctags_cmd_args, str(Path(root).joinpath(file_path))]
 
-    process = await asyncio.create_subprocess_exec(
-        *ctags_cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        start_new_session=True,
-    )
-    stdout, stderr = await process.communicate()
-
-    if process.returncode == 0:
-        output = stdout.decode("utf-8").strip() if stdout else ""
-        output_lines = output.splitlines()
-    else:
-        error_output = stderr.decode("utf-8").strip() if stderr else ""
-        raise Exception(f"Command failed with error: {error_output}")
+    output = await run_subprocess_async(*ctags_cmd)
+    output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
     ctags = set[tuple[Path, ...]]()
