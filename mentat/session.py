@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import List, Optional, Union, cast
 from uuid import uuid4
 
+from mentat.logging_config import setup_logging
+
 from .code_context import CodeContext, CodeContextSettings
 from .code_edit_feedback import get_user_feedback_on_edits
 from .code_file_manager import CodeFileManager
@@ -148,6 +150,8 @@ class Session:
             logging.warning("Job already started")
             return self._main_task
 
+        setup_logging()
+
         async def run_main():
             try:
                 await self._main()
@@ -190,6 +194,7 @@ class Session:
                 return
             try:
                 await self.cost_tracker.display_total_cost()
+                logging.shutdown()
                 self._main_task.cancel()
 
                 # Pyright can't see `self._main_task` being set to `None` in the task

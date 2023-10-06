@@ -3,15 +3,14 @@ import os
 import subprocess
 import sys
 from functools import partial
+from multiprocessing import Pool
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
 import tqdm
-from aiomultiprocess import Pool
 from git import Repo
 
-from mentat.logging_config import setup_logging
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 
@@ -197,8 +196,8 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         }
 
 
-async def setup_logging_async():
-    setup_logging()
+def run_exercise_sync(problem_dir, language="python", max_iterations=2):
+    return asyncio.run(run_exercise(problem_dir, language, max_iterations))
 
 
 def summarize_results(results):
@@ -214,8 +213,7 @@ def summarize_results(results):
     return "Passed: " + str(passed_in_n)[1:-1] + "| Failed: " + str(failed)
 
 
-@pytest.mark.asyncio
-async def test_practice_directory_performance(
+def test_practice_directory_performance(
     clone_exercism_repo,
     exercises,
     max_exercises,
@@ -230,16 +228,19 @@ async def test_practice_directory_performance(
         exercises = all_exercises[:max_exercises]
     num_exercises = len(exercises)
 
-    async with Pool(processes=max_workers) as pool:
+    # TODO: aiomultiprocessing would be faster with fewer workers; setup a Manager in a parent process
+    # that controls the children processes so that we don't run into rate limits
+    with Pool(processes=max_workers) as pool:
         pbar = tqdm.tqdm(total=num_exercises)
 
-        await pool.apply(setup_logging_async)
         result_map = pool.map(
-            partial(run_exercise, language=language, max_iterations=max_iterations),
+            partial(
+                run_exercise_sync, language=language, max_iterations=max_iterations
+            ),
             exercises,
         )
         results = []
-        async for result in result_map:
+        for result in result_map:
             results.append(result)
             pbar.update()
             with open("results.txt", "a") as f:
