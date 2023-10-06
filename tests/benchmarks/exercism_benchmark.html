@@ -19,6 +19,7 @@
         const selector = document.getElementById("selector")
         var results_map = {}
         var passed = 0
+        var passedIterations = {}
         var failed = 0
         var reasons = {}
         for(result of results) {
@@ -34,6 +35,10 @@
             if(result["passed"]) {
                 button.className = "success"
                 passed += 1
+                if(!(result["iterations"] in passedIterations)) {
+                    passedIterations[result["iterations"]] = 0
+                }
+                passedIterations[result["iterations"]] += 1
             } else {
                 button.className = "failure"
                 failed += 1
@@ -43,12 +48,22 @@
                 reasons[result["reason"]] += 1
             }
         }
-
-        document.getElementById("passed").innerHTML = `Passed: ${passed}`
+        
+        var passedString = ""
+        for(iterations in passedIterations) {
+            if(iterations == 1) {
+                plural = ""
+            } else {
+                plural = "s"
+            }
+            passedString += `${iterations} iteration${plural}: ${passedIterations[iterations]} `
+        }
+        passedString += `Total: ${passed}`
+        document.getElementById("passed").innerHTML = passedString
         document.getElementById("failed").innerHTML = `Failed: ${failed}`
         var reasonsString = "Reasons: "
         for(reason in reasons) {
-            reasonsString += reason + ": " + reasons[reason].toString() + " "
+            reasonsString += `${reason}: ${reasons[reason]}`
         }
         document.getElementById("reasons").innerHTML = reasonsString
         
@@ -63,19 +78,28 @@
             const instructions = document.createElement("div")
             const code = document.createElement("div")
             const analysis = document.createElement("div")
+            const output = document.createElement("div")
             instructions.innerHTML = "<h1>Instructions:</h1>" + result["instructions"]
             code.innerHTML = "<h1>Code:</h1>" + result["code"]
             if("response" in result) {
                 response = result["response"]
             } else {
-                response = "No response given for passing test"
+                if(result["iterations"] == 1) {
+                    plural = ""
+                } else {
+                    plural = "s"
+                }
+                response = `Passed in ${result["iterations"]} iteration${plural}`
             }
             analysis.innerHTML = "<h1>Analysis:</h1>" + response
+            output.innerHTML = "<h1>Test Output:</h1>" + result["test-output"]
             instructions.className = "content"
             code.className = "content"
             analysis.className = "content"
+            output.className = "content"
             viewer.appendChild(analysis)
             viewer.appendChild(code)
+            viewer.appendChild(output)
             viewer.appendChild(instructions)
         });
     </script>

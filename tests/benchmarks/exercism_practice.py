@@ -11,6 +11,7 @@ from textwrap import dedent
 import pytest
 import tqdm
 from git import Repo
+from openai import InvalidRequestError
 
 from mentat.llm_api import call_llm_api, setup_api_key
 from mentat.session import Session
@@ -194,14 +195,17 @@ async def failure_analysis(problem_dir, language):
         {"role": "user", "content": final_message},
     ]
     response = ""
-    async for chunk in await call_llm_api(messages, model):
-        content = chunk["choices"][0]["delta"].get("content", "")
-        response += content
+    try:
+        async for chunk in await call_llm_api(messages, model):
+            content = chunk["choices"][0]["delta"].get("content", "")
+            response += content
+    except InvalidRequestError:
+        response = "Unable to analyze test case\nreason: too many tokens to analyze"
 
     try:
         reason = response.strip().split("\n")[-1].split()[1]
     except IndexError:
-        reason = "error"
+        reason = "response error"
     return response, reason
 
 
@@ -283,10 +287,10 @@ def run_exercise_sync(problem_dir, language="python", max_iterations=2):
             "response": str(e),
             "reason": "error",
         }
-    result["instructions"] = read_instructions(
-        Path(f"exercises/practice/{problem_dir}")
-    )
+    exercise = Path(f"exercises/practice/{problem_dir}")
+    result["instructions"] = read_instructions(exercise)
     result["code"] = read_code(problem_dir, language)
+    result["test-output"] = read_test_results(exercise)
     return result
 
 
@@ -338,6 +342,7 @@ def test_practice_directory_performance(
             pbar.set_description(
                 summarize_results(results) + "| Last Ran: " + result["test"]
             )
+        results.sort(key=lambda result: result["test"])
 
         # Update the html file
         results_json = list(map(json.dumps, results))
