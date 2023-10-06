@@ -133,7 +133,9 @@ def mock_setup_api_key(mocker):
 
 @pytest_asyncio.fixture
 async def mock_config(temp_testbed):
-    config = await ConfigManager.create(Path(temp_testbed))
+    config = await ConfigManager.create(
+        cwd=Path(temp_testbed), git_root=Path(temp_testbed)
+    )
     config.project_config = {}
     return config
 

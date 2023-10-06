@@ -18,13 +18,17 @@ async def test_replacement(
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # this IS
             # A TEMPORARY file
             # This is
             # a temporary file
             # with
-            # 6 lines"""))
+            # 6 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -33,7 +37,10 @@ async def test_replacement(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         {{fence[0]}} {temp_file_name}
@@ -44,20 +51,25 @@ async def test_replacement(
         # I am 
         # a comment
         >>>>>>> updated
-        {{fence[1]}}""")])
+        {{fence[1]}}"""
+            )
+        ]
+    )
 
-    session = await Session.create([temp_file_name])
+    session = await Session.create(cwd=Path("."), paths=[Path(temp_file_name)])
     await session.start()
     await session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # this IS
             # A TEMPORARY file
             # I am 
             # a comment
             # with
-            # 6 lines""")
+            # 6 lines"""
+        )
     assert content == expected_content
 
 
@@ -67,11 +79,15 @@ async def test_replacement_case_not_matching(
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is
             # a temporary file
             # with
-            # 4 lines"""))
+            # 4 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -80,7 +96,10 @@ async def test_replacement_case_not_matching(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         {{fence[0]}} {temp_file_name}
@@ -91,18 +110,23 @@ async def test_replacement_case_not_matching(
         # I am 
         # a comment
         >>>>>>> updated
-        {{fence[1]}}""")])
+        {{fence[1]}}"""
+            )
+        ]
+    )
 
-    session = await Session.create([temp_file_name])
+    session = await Session.create(cwd=Path("."), paths=[Path(temp_file_name)])
     await session.start()
     await session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # I am 
             # a comment
             # with
-            # 4 lines""")
+            # 4 lines"""
+        )
     assert content == expected_content
 
 
@@ -112,11 +136,15 @@ async def test_replacement_whitespace_not_matching(
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is
             # a temporary file
             # with
-            # 4 lines"""))
+            # 4 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -125,7 +153,10 @@ async def test_replacement_whitespace_not_matching(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         {{fence[0]}} {temp_file_name}
@@ -136,18 +167,23 @@ async def test_replacement_whitespace_not_matching(
         # I am 
         # a comment
         >>>>>>> updated
-        {{fence[1]}}""")])
+        {{fence[1]}}"""
+            )
+        ]
+    )
 
-    session = await Session.create([temp_file_name])
+    session = await Session.create(cwd=Path("."), paths=[Path(temp_file_name)])
     await session.start()
     await session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # I am 
             # a comment
             # with
-            # 4 lines""")
+            # 4 lines"""
+        )
     assert content == expected_content
 
 
@@ -163,12 +199,18 @@ async def test_file_creation(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
-        {{fence[0]}} {temp_file_name} +""")])
+        {{fence[0]}} {temp_file_name} +"""
+            )
+        ]
+    )
 
-    session = await Session.create([temp_file_name])
+    session = await Session.create(cwd=Path("."), paths=[Path(temp_file_name)])
     await session.start()
     await session.stream.stop()
     assert Path(temp_file_name).exists()
@@ -180,11 +222,15 @@ async def test_file_deletion(
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is
             # a temporary file
             # with
-            # 4 lines"""))
+            # 4 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -194,12 +240,18 @@ async def test_file_deletion(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
-        {{fence[0]}} {temp_file_name} -""")])
+        {{fence[0]}} {temp_file_name} -"""
+            )
+        ]
+    )
 
-    session = await Session.create([temp_file_name])
+    session = await Session.create(cwd=Path("."), paths=[Path(temp_file_name)])
     await session.start()
     await session.stream.stop()
     assert not Path(temp_file_name).exists()
@@ -212,11 +264,15 @@ async def test_file_rename(
     temp_file_name = "temp.py"
     temp_file_name_2 = "temp2.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is
             # a temporary file
             # with
-            # 4 lines"""))
+            # 4 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -225,20 +281,28 @@ async def test_file_rename(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
-        {{fence[0]}} {temp_file_name} -> {temp_file_name_2}""")])
+        {{fence[0]}} {temp_file_name} -> {temp_file_name_2}"""
+            )
+        ]
+    )
 
-    session = await Session.create([temp_file_name])
+    session = await Session.create(cwd=Path("."), paths=[Path(temp_file_name)])
     await session.start()
     await session.stream.stop()
     with open(temp_file_name_2, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is
             # a temporary file
             # with
-            # 4 lines""")
+            # 4 lines"""
+        )
     assert not Path(temp_file_name).exists()
     assert content == expected_content

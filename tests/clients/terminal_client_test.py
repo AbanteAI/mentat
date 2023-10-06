@@ -1,5 +1,6 @@
 import os
 import subprocess
+from pathlib import Path
 from textwrap import dedent
 from unittest.mock import AsyncMock
 
@@ -34,7 +35,10 @@ def test_editing_file(
         "q",
     ]
 
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -46,9 +50,12 @@ def test_editing_file(
         }}
         @@code
         # Line 2
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
-    terminal_client = TerminalClient(["."])
+    terminal_client = TerminalClient(cwd=Path("."), paths=[Path(".")])
     terminal_client.run()
     with open(file_name, "r") as f:
         content = f.read()
@@ -67,7 +74,10 @@ def test_request_and_command(
         "q",
     ]
 
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         I will create a new file called temp.py
 
         Steps: 1. Create a new file called temp.py
@@ -79,9 +89,12 @@ def test_request_and_command(
         }}
         @@code
         # I created this file
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
-    terminal_client = TerminalClient(["."])
+    terminal_client = TerminalClient(cwd=Path("."), paths=[Path(".")])
     terminal_client.run()
 
     with open(file_name, "r") as f:

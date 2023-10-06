@@ -16,7 +16,7 @@ def test_no_paths_given(temp_testbed):
 
 def test_paths_given(temp_testbed):
     # Get temp_testbed when given directory in temp_testbed
-    git_root = get_shared_git_root_for_paths(["scripts"])
+    git_root = get_shared_git_root_for_paths([Path("scripts")])
     assert git_root == Path(temp_testbed)
 
 
@@ -26,5 +26,5 @@ def test_two_git_roots_given():
         os.makedirs("git_testing_dir")
         subprocess.run(["git", "init"], cwd="git_testing_dir")
 
-        _ = get_shared_git_root_for_paths(["./", "git_testing_dir"])
+        _ = get_shared_git_root_for_paths([Path("./"), Path("git_testing_dir")])
     assert e_info.type == UserError

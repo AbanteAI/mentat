@@ -25,7 +25,10 @@ async def test_system(mock_call_llm_api, mock_setup_api_key, mock_collect_user_i
         ]
     )
 
-    mock_call_llm_api.set_generator_values([dedent("""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                """\
         I will add a print statement.
 
         Steps:
@@ -40,9 +43,14 @@ async def test_system(mock_call_llm_api, mock_setup_api_key, mock_collect_user_i
         }}
         @@code
         print("Hello, world!")
-        @@end""".format(file_name=temp_file_name))])
+        @@end""".format(
+                    file_name=temp_file_name
+                )
+            )
+        ]
+    )
 
-    session = await Session.create([temp_file_name])
+    session = await Session.create(cwd=Path("."), paths=[temp_file_name])
     await session.start()
     await session.stream.stop()
 
@@ -73,7 +81,10 @@ async def test_interactive_change_selection(
         ]
     )
 
-    mock_call_llm_api.set_generator_values([dedent("""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                """\
         I will make three changes to the file.
 
         Steps:
@@ -110,9 +121,14 @@ async def test_interactive_change_selection(
         }}
         @@code
         print("Change 3")
-        @@end""".format(file_name=temp_file_name))])
+        @@end""".format(
+                    file_name=temp_file_name
+                )
+            )
+        ]
+    )
 
-    session = await Session.create([temp_file_name])
+    session = await Session.create(cwd=Path("."), paths=[temp_file_name])
     await session.start()
     await session.stream.stop()
 
@@ -142,7 +158,10 @@ async def test_without_os_join(
 
     # Use / here since that should always be what the model outputs
     fake_file_path = temp_dir + "/" + temp_file_name
-    mock_call_llm_api.set_generator_values([dedent("""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                """\
         I will add a print statement.
         Steps:
         1. Add a print statement after the last line
@@ -155,8 +174,13 @@ async def test_without_os_join(
         }}
         @@code
         print("Hello, world!")
-        @@end""".format(file_name=fake_file_path))])
-    session = await Session.create([temp_file_path])
+        @@end""".format(
+                    file_name=fake_file_path
+                )
+            )
+        ]
+    )
+    session = await Session.create(cwd=Path("."), paths=[temp_file_path])
     await session.start()
     await session.stream.stop()
     mock_collect_user_input.reset_mock()
