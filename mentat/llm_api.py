@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import logging
 import os
 import sys
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Optional, cast
 
@@ -43,10 +46,11 @@ def setup_api_key():
 
 def is_test_environment():
     """Returns True if in pytest and not benchmarks"""
+    benchmarks_running = os.getenv("MENTAT_BENCHMARKS_RUNNING")
     return (
         "PYTEST_CURRENT_TEST" in os.environ
         and "--benchmark" not in sys.argv
-        and os.getenv("MENTAT_BENCHMARKS_RUNNING") == "false"
+        and (not bool(benchmarks_running) or benchmarks_running == "false")
     )
 
 
@@ -154,6 +158,9 @@ async def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> 
                 color="yellow",
             )
     return prompt_token_count
+
+
+COST_TRACKER: ContextVar[CostTracker] = ContextVar("mentat:cost_tracker")
 
 
 @dataclass

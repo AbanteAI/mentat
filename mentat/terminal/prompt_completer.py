@@ -14,8 +14,8 @@ from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
 from pygments.util import ClassNotFound
 
+from mentat.code_context import CODE_CONTEXT
 from mentat.commands import Command
-from mentat.session import Session
 
 
 @dataclass
@@ -25,9 +25,7 @@ class SyntaxCompletion:
 
 
 class MentatCompleter(Completer):
-    def __init__(self, session: Session):
-        self.session = session
-
+    def __init__(self):
         self.syntax_completions: Dict[Path, SyntaxCompletion] = dict()
         self.file_name_completions: DefaultDict[str, Set[Path]] = defaultdict(set)
         self.command_completer = WordCompleter(
@@ -67,7 +65,9 @@ class MentatCompleter(Completer):
         self.syntax_completions[file_path] = SyntaxCompletion(words=filtered_tokens)
 
     async def refresh_completions(self):
-        file_paths = list(self.session.code_context.include_files.keys())
+        code_context = CODE_CONTEXT.get()
+
+        file_paths = list(code_context.include_files.keys())
 
         # Remove syntax completions for files not in the context
         for file_path in set(self.syntax_completions.keys()):

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List
 
 from mentat.session_stream import SESSION_STREAM
 
-from .code_context import CodeContext
+from .code_context import CODE_CONTEXT
 from .code_file import CodeFile
 from .errors import MentatError
 from .git_handler import commit
@@ -20,21 +20,12 @@ class Command(ABC):
             Command._registered_commands[command_name] = cls
 
     @classmethod
-    def create_command(
-        cls, command_name: str, code_context: Optional[CodeContext] = None
-    ) -> Command:
+    def create_command(cls, command_name: str) -> Command:
         if command_name not in cls._registered_commands:
             return InvalidCommand(command_name)
 
         command_cls = cls._registered_commands[command_name]
-        if command_cls in [IncludeCommand, ExcludeCommand]:
-            if code_context is None:
-                raise MentatError(
-                    f"Code context must be provided for {command_cls.__name__}"
-                )
-            return command_cls(code_context)
-        else:
-            return command_cls()
+        return command_cls()
 
     @classmethod
     def get_command_completions(cls) -> List[str]:
@@ -132,18 +123,16 @@ class CommitCommand(Command, command_name="commit"):
 
 
 class IncludeCommand(Command, command_name="include"):
-    def __init__(self, code_context: CodeContext):
-        self.code_context = code_context
-
     async def apply(self, *args: str) -> None:
         stream = SESSION_STREAM.get()
+        code_context = CODE_CONTEXT.get()
 
         if len(args) == 0:
             await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
             code_file = CodeFile(file_path)
-            await self.code_context.include_file(code_file)
+            await code_context.include_file(code_file)
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -155,17 +144,16 @@ class IncludeCommand(Command, command_name="include"):
 
 
 class ExcludeCommand(Command, command_name="exclude"):
-    def __init__(self, code_context: CodeContext):
-        self.code_context = code_context
-
     async def apply(self, *args: str) -> None:
         stream = SESSION_STREAM.get()
+        code_context = CODE_CONTEXT.get()
+
         if len(args) == 0:
             await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
             code_file = CodeFile(file_path)
-            await self.code_context.exclude_file(code_file)
+            await code_context.exclude_file(code_file)
 
     @classmethod
     def argument_names(cls) -> list[str]:

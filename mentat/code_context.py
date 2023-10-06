@@ -1,17 +1,20 @@
+from __future__ import annotations
+
 import asyncio
 import os
+from contextvars import ContextVar
 from pathlib import Path
 from textwrap import dedent
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import attr
 
 from .code_file import CodeFile, CodeMessageLevel
+from .code_file_manager import CODE_FILE_MANAGER
 from .code_map import check_ctags_disabled
-from .config_manager import ConfigManager
-from .diff_context import DiffContext, get_diff_context
+from .diff_context import DiffContext
 from .errors import MentatError, UserError
-from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
+from .git_handler import GIT_ROOT, get_non_gitignored_files, get_paths_with_git_diffs
 from .include_files import (
     build_path_tree,
     get_include_files,
@@ -21,11 +24,6 @@ from .include_files import (
 from .llm_api import count_tokens
 from .session_stream import SESSION_STREAM
 from .utils import sha256
-
-if TYPE_CHECKING:
-    # These normally will cause a circular import
-    from mentat.code_file_manager import CodeFileManager
-    from mentat.parsers.parser import Parser
 
 
 def _longer_feature_already_included(
@@ -64,42 +62,23 @@ class CodeContextSettings:
     no_code_map: bool = False
     auto_tokens: Optional[int] = None
 
-    def asdict(self):
-        return attr.asdict(self)
+
+CODE_CONTEXT: ContextVar[CodeContext] = ContextVar("mentat:code_context")
 
 
 class CodeContext:
-    config: ConfigManager
     settings: CodeContextSettings
     include_files: dict[Path, CodeFile]
     diff_context: DiffContext
     code_map: bool = True
     features: list[CodeFile] = []
 
-    def __init__(self, config: ConfigManager, settings: CodeContextSettings):
-        self.config = config
+    def __init__(self, settings: CodeContextSettings):
         self.settings = settings
 
     @classmethod
-    async def create(
-        cls,
-        config: ConfigManager,
-        paths: list[Path],
-        exclude_paths: list[Path],
-        diff: Optional[str] = None,
-        pr_diff: Optional[str] = None,
-        no_code_map: bool = False,
-        auto_tokens: Optional[int] = None,
-    ):
-        settings = CodeContextSettings(
-            paths=paths,
-            exclude_paths=exclude_paths,
-            diff=diff,
-            pr_diff=pr_diff,
-            no_code_map=no_code_map,
-            auto_tokens=auto_tokens,
-        )
-        self = cls(config, settings)
+    async def create(cls, settings: CodeContextSettings):
+        self = cls(settings)
 
         await self._set_diff_context(replace_paths=True)
         self._set_include_files()
@@ -108,20 +87,19 @@ class CodeContext:
         return self
 
     async def _set_diff_context(self, replace_paths: bool = False):
-        stream = SESSION_STREAM.get()
         try:
-            self.diff_context = get_diff_context(
-                self.config, self.settings.diff, self.settings.pr_diff
+            self.diff_context = DiffContext.create(
+                self.settings.diff, self.settings.pr_diff
             )
             if replace_paths and not self.settings.paths:
                 self.settings.paths = self.diff_context.files
         except UserError as e:
-            await stream.send(str(e), color="light_yellow")
+            await SESSION_STREAM.get().send(str(e), color="light_yellow")
             exit()
 
     def _set_include_files(self):
         self.include_files = get_include_files(
-            self.config, self.settings.paths, self.settings.exclude_paths
+            self.settings.paths, self.settings.exclude_paths
         )
 
     async def _set_code_map(self):
@@ -144,22 +122,21 @@ class CodeContext:
     async def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
         stream = SESSION_STREAM.get()
+        git_root = GIT_ROOT.get()
 
         await stream.send("\nCode Context:", color="blue")
         prefix = "  "
-        await stream.send(f"{prefix}Directory: {self.config.git_root}")
+        await stream.send(f"{prefix}Directory: {git_root}")
         if self.diff_context.name:
             await stream.send(f"{prefix}Diff:", end=" ")
             await stream.send(self.diff_context.get_display_context(), color="green")
         if self.include_files:
             await stream.send(f"{prefix}Included files:")
-            await stream.send(f"{prefix + prefix}{self.config.git_root.name}")
+            await stream.send(f"{prefix + prefix}{git_root.name}")
             await print_path_tree(
-                build_path_tree(
-                    list(self.include_files.values()), self.config.git_root
-                ),
-                get_paths_with_git_diffs(self.config.git_root),
-                self.config.git_root,
+                build_path_tree(list(self.include_files.values()), git_root),
+                get_paths_with_git_diffs(),
+                git_root,
                 prefix + prefix,
             )
         else:
@@ -179,21 +156,22 @@ class CodeContext:
             if f.path not in self.include_files:
                 auto_features[f.level] += 1
         if any(auto_features.values()):
-            await SESSION_STREAM.get().send("Auto-Selected Features:", color="blue")
+            stream = SESSION_STREAM.get()
+            await stream.send("Auto-Selected Features:", color="blue")
             for level, count in auto_features.items():
                 if count:
-                    print(f"  {count} {level.description}")
+                    await stream.send(f"  {count} {level.description}")
 
     _code_message: str | None = None
     _code_message_checksum: str | None = None
 
-    async def _get_code_message_checksum(
-        self, code_file_manager: "CodeFileManager", max_tokens: Optional[int] = None
-    ) -> str:
+    async def _get_code_message_checksum(self, max_tokens: Optional[int] = None) -> str:
         if not self.features:
             features_checksum = ""
         else:
-            feature_files = {Path(self.config.git_root / f.path) for f in self.features}
+            git_root = GIT_ROOT.get()
+            code_file_manager = CODE_FILE_MANAGER.get()
+            feature_files = {Path(git_root / f.path) for f in self.features}
             feature_file_checksums = [
                 code_file_manager.get_file_checksum(f) for f in feature_files
             ]
@@ -206,30 +184,22 @@ class CodeContext:
     async def get_code_message(
         self,
         model: str,
-        code_file_manager: "CodeFileManager",
-        parser: "Parser",
         max_tokens: int,
     ) -> str:
-        code_message_checksum = await self._get_code_message_checksum(
-            code_file_manager, max_tokens
-        )
+        code_message_checksum = await self._get_code_message_checksum(max_tokens)
         if (
             self._code_message is None
             or code_message_checksum != self._code_message_checksum
         ):
-            self._code_message = await self._get_code_message(
-                model, code_file_manager, parser, max_tokens
-            )
+            self._code_message = await self._get_code_message(model, max_tokens)
             self._code_message_checksum = await self._get_code_message_checksum(
-                code_file_manager, max_tokens
+                max_tokens
             )
         return self._code_message
 
     async def _get_code_message(
         self,
         model: str,
-        code_file_manager: "CodeFileManager",
-        parser: "Parser",
         max_tokens: int,
     ) -> str:
         code_message = list[str]()
@@ -247,10 +217,7 @@ class CodeContext:
         code_message += ["Code Files:\n"]
 
         features = self._get_include_features()
-        include_feature_tokens_task = [
-            f.count_tokens(self.config, code_file_manager, parser, model)
-            for f in features
-        ]
+        include_feature_tokens_task = [f.count_tokens(model) for f in features]
         results = await asyncio.gather(*include_feature_tokens_task)
         include_feature_tokens = sum(results) + count_tokens(
             "\n".join(code_message), model
@@ -261,17 +228,14 @@ class CodeContext:
             self.features = features
         else:
             auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
-            self.features = await self._get_auto_features(
-                code_file_manager, parser, model, features, auto_tokens
-            )
+            self.features = await self._get_auto_features(model, features, auto_tokens)
 
         for f in self.features:
-            code_message += await f.get_code_message(
-                self.config, code_file_manager, parser
-            )
+            code_message += await f.get_code_message()
         return "\n".join(code_message)
 
     def _get_include_features(self) -> list[CodeFile]:
+        git_root = GIT_ROOT.get()
         include_features = list[CodeFile]()
         for path, feature in self.include_files.items():
             if feature.level == CodeMessageLevel.INTERVAL:
@@ -284,21 +248,20 @@ class CodeContext:
             include_features.append(feature)
 
         def _feature_relative_path(f: CodeFile) -> str:
-            return os.path.relpath(f.path, self.config.git_root)
+            return os.path.relpath(f.path, git_root)
 
         return sorted(include_features, key=_feature_relative_path)
 
     async def _get_auto_features(
         self,
-        code_file_manager: "CodeFileManager",
-        parser: "Parser",
         model: str,
         include_features: list[CodeFile],
         max_tokens: int,
     ) -> list[CodeFile]:
+        git_root = GIT_ROOT.get()
         # Generate all possible permutations for all files in the project.
         candidate_features = list[CodeFile]()
-        for path in get_non_gitignored_files(self.config.git_root):
+        for path in get_non_gitignored_files(git_root):
             if not path.is_dir() and not is_file_text_encoded(path):
                 continue
             permutations: list[tuple[CodeMessageLevel, str | None]] = [
@@ -325,9 +288,7 @@ class CodeContext:
         async def _calculate_feature_score(feature: CodeFile) -> float:
             score = 0.0
             async with sem:
-                tokens = await feature.count_tokens(
-                    self.config, code_file_manager, parser, model
-                )
+                tokens = await feature.count_tokens(model)
             if tokens == 0:
                 raise MentatError(f"Feature {feature} has 0 tokens.")
             if feature.diff is not None:
@@ -353,9 +314,7 @@ class CodeContext:
         candidates_scored = list(zip(candidate_features, candidate_scores))
         candidates_sorted = sorted(candidates_scored, key=lambda x: x[1], reverse=True)
         for feature, _ in candidates_sorted:
-            feature_tokens = await feature.count_tokens(
-                self.config, code_file_manager, parser, model
-            )
+            feature_tokens = await feature.count_tokens(model)
             if tokens_remaining - feature_tokens <= 0:
                 continue
             if _longer_feature_already_included(feature, all_features):
@@ -364,19 +323,15 @@ class CodeContext:
             if to_replace:
                 for f in to_replace:
                     f_index = all_features.index(f)
-                    reclaimed_tokens = await all_features[f_index].count_tokens(
-                        self.config, code_file_manager, parser, model
-                    )
+                    reclaimed_tokens = await all_features[f_index].count_tokens(model)
                     tokens_remaining += reclaimed_tokens
                     all_features = all_features[:f_index] + all_features[f_index + 1 :]
             all_features.append(feature)
-            new_tokens = await feature.count_tokens(
-                self.config, code_file_manager, parser, model
-            )
+            new_tokens = await feature.count_tokens(model)
             tokens_remaining -= new_tokens
 
         def _feature_relative_path(f: CodeFile) -> str:
-            return os.path.relpath(f.path, self.config.git_root)
+            return os.path.relpath(f.path, git_root)
 
         return sorted(all_features, key=_feature_relative_path)
 

@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 
-from mentat.code_context import CodeContext
 from mentat.commands import (
     Command,
     ExcludeCommand,
@@ -36,26 +35,16 @@ async def test_commit_command(mock_stream, temp_testbed):
 
 
 @pytest.mark.asyncio
-async def test_include_command(mock_stream, mock_config):
-    code_context = await CodeContext.create(
-        config=mock_config,
-        paths=[],
-        exclude_paths=[],
-    )
-    command = Command.create_command("include", code_context=code_context)
+async def test_include_command(mock_stream, mock_config, mock_code_context):
+    command = Command.create_command("include")
     assert isinstance(command, IncludeCommand)
     await command.apply("__init__.py")
-    assert Path("__init__.py").resolve() in code_context.include_files
+    assert Path("__init__.py").resolve() in mock_code_context.include_files
 
 
 @pytest.mark.asyncio
-async def test_exclude_command(mock_stream, mock_config):
-    code_context = await CodeContext.create(
-        config=mock_config,
-        paths=[Path("__init__.py")],
-        exclude_paths=[],
-    )
-    command = Command.create_command("exclude", code_context=code_context)
+async def test_exclude_command(mock_stream, mock_config, mock_code_context):
+    command = Command.create_command("exclude")
     assert isinstance(command, ExcludeCommand)
     await command.apply("__init__.py")
-    assert Path("__init__.py").resolve() not in code_context.include_files
+    assert Path("__init__.py").resolve() not in mock_code_context.include_files

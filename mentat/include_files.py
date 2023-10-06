@@ -2,17 +2,15 @@ import glob
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict
+from typing import Any, Dict
 
 from termcolor import cprint
 
 from mentat.code_file import CodeFile, parse_intervals
+from mentat.config_manager import CONFIG_MANAGER
 from mentat.errors import UserError
-from mentat.git_handler import get_non_gitignored_files
+from mentat.git_handler import GIT_ROOT, get_non_gitignored_files
 from mentat.session_stream import SESSION_STREAM
-
-if TYPE_CHECKING:
-    from mentat.config_manager import ConfigManager
 
 
 def expand_paths(paths: list[str]) -> list[Path]:
@@ -94,9 +92,11 @@ def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
 
 
 def get_include_files(
-    config: "ConfigManager", paths: list[Path], exclude_paths: list[Path]
+    paths: list[Path], exclude_paths: list[Path]
 ) -> Dict[Path, CodeFile]:
     """Returns a complete list of text files in a given set of include/exclude Paths."""
+    git_root = GIT_ROOT.get()
+    config = CONFIG_MANAGER.get()
     excluded_files_direct, excluded_files_from_dirs = abs_files_from_list(
         exclude_paths, check_for_text=False
     )
@@ -105,12 +105,12 @@ def get_include_files(
     ), set(map(lambda f: f.path, excluded_files_from_dirs))
 
     glob_excluded_files = set(
-        os.path.join(config.git_root, file)
+        os.path.join(git_root, file)
         for glob_path in config.file_exclude_glob_list()
         # If the user puts a / at the beginning, it will try to look in root directory
         for file in glob.glob(
             pathname=glob_path,
-            root_dir=config.git_root,
+            root_dir=git_root,
             recursive=True,
         )
     )

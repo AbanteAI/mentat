@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import logging
 import os
+from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .config_manager import ConfigManager
+from mentat.git_handler import GIT_ROOT
+
+# from .code_context import CODE_CONTEXT
 from .errors import MentatError
-from .parsers.file_edit import FileEdit
 from .session_input import ask_yes_no
 from .session_stream import SESSION_STREAM
 from .utils import sha256
@@ -15,22 +17,26 @@ from .utils import sha256
 if TYPE_CHECKING:
     # This normally will cause a circular import
     from .code_context import CodeContext
+    from .parsers.file_edit import FileEdit
+
+CODE_FILE_MANAGER: ContextVar[CodeFileManager] = ContextVar("mentat:code_file_manager")
 
 
 class CodeFileManager:
-    def __init__(self, config: ConfigManager):
-        self.config = config
+    def __init__(self):
         self.file_lines = dict[Path, list[str]]()
 
     def read_file(self, path: Path) -> list[str]:
-        abs_path = path if path.is_absolute() else Path(self.config.git_root / path)
-        rel_path = Path(os.path.relpath(abs_path, self.config.git_root))
+        git_root = GIT_ROOT.get()
+
+        abs_path = path if path.is_absolute() else Path(git_root / path)
+        rel_path = Path(os.path.relpath(abs_path, git_root))
         with open(abs_path, "r") as f:
             lines = f.read().split("\n")
         self.file_lines[rel_path] = lines
         return lines
 
-    def _create_file(self, abs_path: Path, code_context: "CodeContext"):
+    def _create_file(self, code_context: "CodeContext", abs_path: Path):
         logging.info(f"Creating new file {abs_path}")
         code_context.settings.paths.append(abs_path)
         # create any missing directories in the path
@@ -38,7 +44,7 @@ class CodeFileManager:
         with open(abs_path, "w") as f:
             f.write("")
 
-    def _delete_file(self, abs_path: Path, code_context: "CodeContext"):
+    def _delete_file(self, code_context: "CodeContext", abs_path: Path):
         logging.info(f"Deleting file {abs_path}")
         if abs_path in code_context.include_files:
             del code_context.include_files[abs_path]
@@ -47,20 +53,21 @@ class CodeFileManager:
     # Mainly does checks on if file is in context, file exists, file is unchanged, etc.
     async def write_changes_to_files(
         self,
-        file_edits: list[FileEdit],
+        file_edits: list["FileEdit"],
         code_context: "CodeContext",
     ):
         stream = SESSION_STREAM.get()
+        git_root = GIT_ROOT.get()
 
         for file_edit in file_edits:
-            rel_path = Path(os.path.relpath(file_edit.file_path, self.config.git_root))
+            rel_path = Path(os.path.relpath(file_edit.file_path, git_root))
             if file_edit.is_creation:
                 if file_edit.file_path.exists():
                     raise MentatError(
                         f"Model attempted to create file {file_edit.file_path} which"
                         " already exists"
                     )
-                self._create_file(file_edit.file_path, code_context)
+                self._create_file(code_context, file_edit.file_path)
             else:
                 if not file_edit.file_path.exists():
                     raise MentatError(
@@ -79,7 +86,7 @@ class CodeFileManager:
                 )
                 if await ask_yes_no(default_yes=False):
                     await stream.send(f"Deleting {rel_path}...", color="red")
-                    self._delete_file(file_edit.file_path, code_context)
+                    self._delete_file(code_context, file_edit.file_path)
                     continue
                 else:
                     await stream.send(f"Not deleting {rel_path}", color="green")
@@ -107,8 +114,8 @@ class CodeFileManager:
                         f"Attempted to rename file {file_edit.file_path} to existing"
                         f" file {file_edit.rename_file_path}"
                     )
-                self._create_file(file_edit.rename_file_path, code_context)
-                self._delete_file(file_edit.file_path, code_context)
+                self._create_file(code_context, file_edit.rename_file_path)
+                self._delete_file(code_context, file_edit.file_path)
                 file_edit.file_path = file_edit.rename_file_path
 
             new_lines = file_edit.get_updated_file_lines(stored_lines)

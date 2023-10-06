@@ -2,17 +2,13 @@ import math
 import os
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+from .code_file_manager import CODE_FILE_MANAGER
 from .code_map import get_code_map
-from .config_manager import ConfigManager
 from .diff_context import annotate_file_message, parse_diff
-from .git_handler import get_diff_for_file
+from .git_handler import GIT_ROOT, get_diff_for_file
 from .llm_api import count_tokens
-
-if TYPE_CHECKING:
-    from .code_file_manager import CodeFileManager
-    from .parsers.parser import Parser
+from .parsers.parser import PARSER
 
 
 class Interval:
@@ -98,17 +94,16 @@ class CodeFile:
     def contains_line(self, line_number: int):
         return any([interval.contains(line_number) for interval in self.intervals])
 
-    async def _get_code_message(
-        self,
-        config: ConfigManager,
-        code_file_manager: "CodeFileManager",
-        parser: "Parser",
-    ) -> list[str]:
+    async def _get_code_message(self) -> list[str]:
+        git_root = GIT_ROOT.get()
+        code_file_manager = CODE_FILE_MANAGER.get()
+        parser = PARSER.get()
+
         file_message: list[str] = []
 
         # We always want to give GPT posix paths
-        abs_path = Path(config.git_root / self.path)
-        rel_path = Path(os.path.relpath(abs_path, config.git_root))
+        abs_path = Path(git_root / self.path)
+        rel_path = Path(os.path.relpath(abs_path, git_root))
         posix_rel_path = Path(rel_path).as_posix()
         file_message.append(posix_rel_path)
 
@@ -121,17 +116,15 @@ class CodeFile:
                     else:
                         file_message.append(f"{line}")
         elif self.level == CodeMessageLevel.CMAP_FULL:
-            cmap = await get_code_map(config.git_root, self.path)
+            cmap = await get_code_map(git_root, self.path)
             file_message += cmap
         elif self.level == CodeMessageLevel.CMAP:
-            cmap = await get_code_map(
-                config.git_root, self.path, exclude_signatures=True
-            )
+            cmap = await get_code_map(git_root, self.path, exclude_signatures=True)
             file_message += cmap
         file_message.append("")
 
         if self.diff is not None:
-            diff: str = get_diff_for_file(config.git_root, self.diff, rel_path)
+            diff: str = get_diff_for_file(self.diff, rel_path)
             diff_annotations = parse_diff(diff)
             if self.level == CodeMessageLevel.CODE:
                 file_message = annotate_file_message(file_message, diff_annotations)
@@ -143,27 +136,16 @@ class CodeFile:
     _file_checksum: str | None = None
     _code_message: list[str] | None = None
 
-    async def get_code_message(
-        self,
-        config: ConfigManager,
-        code_file_manager: "CodeFileManager",
-        parser: "Parser",
-    ) -> list[str]:
-        abs_path = config.git_root / self.path
+    async def get_code_message(self) -> list[str]:
+        git_root = GIT_ROOT.get()
+        code_file_manager = CODE_FILE_MANAGER.get()
+        abs_path = git_root / self.path
         file_checksum = code_file_manager.get_file_checksum(Path(abs_path))
         if file_checksum != self._file_checksum or self._code_message is None:
             self._file_checksum = file_checksum
-            self._code_message = await self._get_code_message(
-                config, code_file_manager, parser
-            )
+            self._code_message = await self._get_code_message()
         return self._code_message
 
-    async def count_tokens(
-        self,
-        config: ConfigManager,
-        code_file_manager: "CodeFileManager",
-        parser: "Parser",
-        model: str,
-    ) -> int:
-        code_message = await self.get_code_message(config, code_file_manager, parser)
+    async def count_tokens(self, model: str) -> int:
+        code_message = await self.get_code_message()
         return count_tokens("\n".join(code_message), model)

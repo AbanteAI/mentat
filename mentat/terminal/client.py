@@ -9,8 +9,8 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.styles import Style
 
+from mentat.config_manager import CONFIG_MANAGER
 from mentat.include_files import expand_paths
-from mentat.logging_config import setup_logging
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.output import print_stream_message
@@ -112,8 +112,6 @@ class TerminalClient:
     async def _startup(self):
         assert self.session is None, "TerminalClient already running"
 
-        logging.debug("Running startup")
-
         self.session = await Session.create(
             self.paths,
             self.exclude_paths,
@@ -123,11 +121,11 @@ class TerminalClient:
             self.auto_tokens,
         )
         self.session.start()
+        # Logging is setup in session.start()
+        logging.debug("Running startup")
 
-        mentat_completer = MentatCompleter(self.session)
-        self._prompt_session = MentatPromptSession(
-            self.session, completer=mentat_completer
-        )
+        mentat_completer = MentatCompleter()
+        self._prompt_session = MentatPromptSession(completer=mentat_completer)
 
         plain_bindings = KeyBindings()
 
@@ -141,7 +139,7 @@ class TerminalClient:
 
         self._plain_session = PromptSession[str](
             message=[("class:prompt", ">>> ")],
-            style=Style(self.session.config.input_style()),
+            style=Style(CONFIG_MANAGER.get().input_style()),
             completer=None,
             key_bindings=plain_bindings,
         )
@@ -162,17 +160,15 @@ class TerminalClient:
         while not self._force_exit and not self.session.is_stopped:
             await asyncio.sleep(0.01)
         self.session = None
+        # logging is shutdown by session stop
 
         # Stop all background tasks
         for task in self._tasks:
             task.cancel()
-        logging.debug("Waiting for background tasks to finish. (CTRL+C to force quit)")
         while not self._force_exit:
             if all([task.cancelled() for task in self._tasks]):
                 break
             await asyncio.sleep(0.01)
-
-        logging.debug("Completed shutdown")
 
     async def _main(self):
         assert isinstance(self.session, Session), "TerminalClient is not running"
@@ -192,11 +188,6 @@ class TerminalClient:
 
 
 def run_cli():
-    # While it would be better to setup the logging in the session/server, other libraries can call logging.basicSetup
-    # on import, and only the first call to basicSetup applies, so we must call this as soon as possible.
-    # TODO: Don't use logging.basicSetup and call this in the server.
-    setup_logging()
-
     parser = argparse.ArgumentParser(
         description="Run conversation with command line args"
     )

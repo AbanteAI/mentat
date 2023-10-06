@@ -6,6 +6,7 @@ import pytest
 
 from mentat.code_context import (
     CodeContext,
+    CodeContextSettings,
     _longer_feature_already_included,
     _shorter_features_already_included,
 )
@@ -19,7 +20,9 @@ from mentat.parsers.block_parser import BlockParser
 
 
 @pytest.mark.asyncio
-async def test_path_gitignoring(mock_stream, temp_testbed, mock_config):
+async def test_path_gitignoring(
+    temp_testbed, mock_stream, mock_config, mock_code_context
+):
     gitignore_path = ".gitignore"
     testing_dir_path = "git_testing_dir"
     os.makedirs(testing_dir_path)
@@ -38,9 +41,8 @@ async def test_path_gitignoring(mock_stream, temp_testbed, mock_config):
 
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
     paths = [Path(testing_dir_path), Path(ignored_file_path_2)]
-    code_context = await CodeContext.create(
-        config=mock_config, paths=paths, exclude_paths=[]
-    )
+    mock_code_context.settings.paths = paths
+    mock_code_context._set_include_files()
 
     expected_file_paths = [
         os.path.join(temp_testbed, ignored_file_path_2),
@@ -48,12 +50,16 @@ async def test_path_gitignoring(mock_stream, temp_testbed, mock_config):
     ]
 
     case = TestCase()
-    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
+    file_paths = [
+        str(file_path.resolve()) for file_path in mock_code_context.include_files
+    ]
     case.assertListEqual(sorted(expected_file_paths), sorted(file_paths))
 
 
 @pytest.mark.asyncio
-async def test_config_glob_exclude(mock_stream, mocker, temp_testbed, mock_config):
+async def test_config_glob_exclude(
+    mocker, temp_testbed, mock_stream, mock_config, mock_code_context
+):
     # Makes sure glob exclude config works
     mock_glob_exclude = mocker.MagicMock()
     mocker.patch.object(ConfigManager, "file_exclude_glob_list", new=mock_glob_exclude)
@@ -76,19 +82,19 @@ async def test_config_glob_exclude(mock_stream, mocker, temp_testbed, mock_confi
             "Config excludes me but I'm included if added directly"
         )
 
-    code_context = await CodeContext.create(
-        config=mock_config,
-        paths=[Path("."), directly_added_glob_excluded_path],
-        exclude_paths=[],
-    )
-    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
+    mock_code_context.settings.paths = [Path("."), directly_added_glob_excluded_path]
+    mock_code_context._set_include_files()
+
+    file_paths = [
+        str(file_path.resolve()) for file_path in mock_code_context.include_files
+    ]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
     assert os.path.join(temp_testbed, glob_include_path) in file_paths
     assert os.path.join(temp_testbed, directly_added_glob_excluded_path) in file_paths
 
 
 @pytest.mark.asyncio
-async def test_glob_include(mock_stream, temp_testbed, mock_config):
+async def test_glob_include(temp_testbed, mock_stream, mock_config, mock_code_context):
     # Make sure glob include works
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.py")
     glob_include_path2 = os.path.join("glob_test", "bagel", "apple", "include_me2.py")
@@ -105,19 +111,21 @@ async def test_glob_include(mock_stream, temp_testbed, mock_config):
         glob_exclude_file.write("I am not included")
 
     file_paths = expand_paths(["**/*.py"])
-    code_context = await CodeContext.create(
-        config=mock_config,
-        paths=file_paths,
-        exclude_paths=[],
-    )
-    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
+    mock_code_context.settings.paths = file_paths
+    mock_code_context._set_include_files()
+
+    file_paths = [
+        str(file_path.resolve()) for file_path in mock_code_context.include_files
+    ]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
     assert os.path.join(temp_testbed, glob_include_path) in file_paths
     assert os.path.join(temp_testbed, glob_include_path2) in file_paths
 
 
 @pytest.mark.asyncio
-async def test_cli_glob_exclude(mock_stream, temp_testbed, mock_config):
+async def test_cli_glob_exclude(
+    temp_testbed, mock_stream, mock_config, mock_code_context
+):
     # Make sure cli glob exclude works and overrides regular include
     glob_include_then_exclude_path = os.path.join(
         "glob_test", "bagel", "apple", "include_then_exclude_me.py"
@@ -133,32 +141,28 @@ async def test_cli_glob_exclude(mock_stream, temp_testbed, mock_config):
 
     file_paths = expand_paths(["**/*.py"])
     exclude_paths = expand_paths(["**/*.py", "**/*.ts"])
-    code_context = await CodeContext.create(
-        config=mock_config,
-        paths=file_paths,
-        exclude_paths=exclude_paths,
-    )
+    mock_code_context.settings.paths = file_paths
+    mock_code_context.settings.exclude_paths = exclude_paths
+    mock_code_context._set_include_files()
 
-    file_paths = [file_path for file_path in code_context.include_files]
+    file_paths = [file_path for file_path in mock_code_context.include_files]
     assert os.path.join(temp_testbed, glob_include_then_exclude_path) not in file_paths
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
 
 
 @pytest.mark.asyncio
-async def test_text_encoding_checking(mock_stream, temp_testbed, mock_config):
+async def test_text_encoding_checking(
+    temp_testbed, mock_stream, mock_config, mock_code_context
+):
     # Makes sure we don't include non text encoded files, and we quit if user gives us one
     nontext_path = "iamnottext.py"
     with open(nontext_path, "wb") as f:
         # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
         f.write(bytearray([0x81]))
 
-    paths = [Path("./")]
-    code_context = await CodeContext.create(
-        config=mock_config,
-        paths=paths,
-        exclude_paths=[],
-    )
-    file_paths = [file_path for file_path in code_context.include_files]
+    mock_code_context.settings.paths = [Path("./")]
+    mock_code_context._set_include_files()
+    file_paths = [file_path for file_path in mock_code_context.include_files]
     assert os.path.join(temp_testbed, nontext_path) not in file_paths
 
     with pytest.raises(UserError) as e_info:
@@ -168,11 +172,8 @@ async def test_text_encoding_checking(mock_stream, temp_testbed, mock_config):
             f.write(bytearray([0x81]))
 
         paths = [Path(nontext_path_requested)]
-        _ = await CodeContext.create(
-            config=mock_config,
-            paths=paths,
-            exclude_paths=[],
-        )
+        mock_code_context.settings.paths = paths
+        mock_code_context._set_include_files()
     assert e_info.type == UserError
 
 
@@ -212,15 +213,21 @@ def test_shorter_features_already_included(features):
 
 
 @pytest.mark.asyncio
-async def test_get_code_message_cache(mocker, temp_testbed, mock_config, mock_stream):
-    code_file_manager = CodeFileManager(mock_config)
-    parser = BlockParser()
-    code_context = await CodeContext.create(
-        config=mock_config,
+async def test_get_code_message_cache(
+    mocker,
+    temp_testbed,
+    mock_config,
+    mock_stream,
+    mock_parser,
+    mock_git_root,
+    mock_code_file_manager,
+):
+    code_context_settings = CodeContextSettings(
         paths=["multifile_calculator"],
         exclude_paths=["multifile_calculator/calculator.py"],
         auto_tokens=10,
     )
+    code_context = await CodeContext.create(code_context_settings)
     file = Path("multifile_calculator/operations.py")
     feature = mocker.MagicMock()
     feature.path = file
@@ -231,20 +238,14 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_config, mock_st
         "mentat.code_context.CodeContext._get_code_message"
     )
     mock_get_code_message.return_value = "test1"
-    value1 = await code_context.get_code_message(
-        "gpt-4", code_file_manager, parser, 1e6
-    )
+    value1 = await code_context.get_code_message("gpt-4", 1e6)
     mock_get_code_message.return_value = "test2"
-    value2 = await code_context.get_code_message(
-        "gpt-4", code_file_manager, parser, 1e6
-    )
+    value2 = await code_context.get_code_message("gpt-4", 1e6)
     assert value1 == value2
 
     # Regenerate if settings change
     code_context.settings.auto_tokens = 11
-    value3 = await code_context.get_code_message(
-        "gpt-4", code_file_manager, parser, 1e6
-    )
+    value3 = await code_context.get_code_message("gpt-4", 1e6)
     assert value1 != value3
 
     # Regenerate if feature files change
@@ -252,28 +253,24 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_config, mock_st
     lines = file.read_text().splitlines()
     lines[0] = "something different"
     file.write_text("\n".join(lines))
-    value4 = await code_context.get_code_message(
-        "gpt-4", code_file_manager, parser, 1e6
-    )
+    value4 = await code_context.get_code_message("gpt-4", 1e6)
     assert value3 != value4
 
 
 @pytest.mark.asyncio
-async def test_get_code_message_include(temp_testbed, mock_config):
-    code_file_manager = CodeFileManager(mock_config)
-    parser = BlockParser()
-    code_context = await CodeContext.create(
-        config=mock_config,
+async def test_get_code_message_include(
+    temp_testbed, mock_config, mock_parser, mock_git_root, mock_code_file_manager
+):
+    code_context_settings = CodeContextSettings(
         paths=["multifile_calculator"],
         exclude_paths=["multifile_calculator/calculator.py"],
     )
+    code_context = await CodeContext.create(code_context_settings)
 
     # If max tokens is less than include_files, return include_files without
     # raising and Exception (that's handled elsewhere)
     code_context.settings.auto_tokens = 0
-    code_message = await code_context.get_code_message(
-        "gpt-4", code_file_manager, parser, 1e6
-    )
+    code_message = await code_context.get_code_message("gpt-4", 1e6)
     expected = [
         "Code Files:",
         "",
@@ -292,9 +289,7 @@ async def test_get_code_message_include(temp_testbed, mock_config):
 
     # Fill-in complete files if there's enough room
     code_context.settings.auto_tokens = 1000 * 0.95  # Sometimes it's imprecise
-    code_message = await code_context.get_code_message(
-        "gpt-4", code_file_manager, parser, 1e6
-    )
+    code_message = await code_context.get_code_message("gpt-4", 1e6)
     print(code_message)
     assert 500 <= count_tokens(code_message, "gpt-4") <= 1000
     messages = code_message.split("\n\n")
@@ -306,8 +301,6 @@ async def test_get_code_message_include(temp_testbed, mock_config):
 
     # Otherwise, fill-in what fits
     code_context.settings.auto_tokens = 400
-    code_message = await code_context.get_code_message(
-        "gpt-4", code_file_manager, parser, 1e6
-    )
+    code_message = await code_context.get_code_message("gpt-4", 1e6)
     print(code_message)
     assert count_tokens(code_message, "gpt-4") <= 800

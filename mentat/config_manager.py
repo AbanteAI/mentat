@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import json
 import logging
+from contextvars import ContextVar
 from importlib import resources
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Dict, Optional, cast
 
+from mentat.git_handler import GIT_ROOT
 from mentat.session_stream import SESSION_STREAM
 
 mentat_dir_path = Path.home() / ".mentat"
@@ -15,15 +19,15 @@ default_config_file_name = "default_config.json"
 config_file_name = ".mentat_config.json"
 user_config_path = mentat_dir_path / config_file_name
 
+CONFIG_MANAGER: ContextVar[ConfigManager] = ContextVar("mentat:config_manager")
+
 
 class ConfigManager:
     def __init__(
         self,
-        git_root: Path,
         user_config: Dict[str, str],
         project_config: Dict[str, str],
     ):
-        self.git_root = git_root
         self.user_config = user_config
         self.project_config = project_config
 
@@ -34,7 +38,7 @@ class ConfigManager:
             self.default_config = json.load(config_file)
 
     @classmethod
-    async def create(cls, git_root: Path):
+    async def create(cls):
         stream = SESSION_STREAM.get()
 
         if user_config_path.exists():
@@ -52,7 +56,7 @@ class ConfigManager:
         else:
             user_config = dict[str, str]()
 
-        project_config_path = git_root / config_file_name
+        project_config_path = GIT_ROOT.get() / config_file_name
         if project_config_path.exists():
             with open(project_config_path) as config_file:
                 try:
@@ -68,7 +72,7 @@ class ConfigManager:
         else:
             project_config = dict[str, str]()
 
-        self = cls(git_root, user_config, project_config)
+        self = cls(user_config, project_config)
 
         return self
 
