@@ -57,13 +57,14 @@ class CodeMessageLevel(Enum):
 
 class CodeFile:
     """
-    Represents a file along with the lines that should be in the prompt context. Can be
-    iniitialized with a Path object or a string path with optional line information
-    such as "path/to/file.py:1-5,7,12-40".
+    Represents a section of the code_message which is included with the prompt.
+    Includes a section of code and an annotation method.
 
     Attributes:
         path: The absolute path to the file.
-        intervals: The lines in context.
+        intervals: The lines in the file.
+        level: The level of information to include.
+        diff: The diff annotations to include.
     """
 
     def __init__(
@@ -97,7 +98,7 @@ class CodeFile:
     def contains_line(self, line_number: int):
         return any([interval.contains(line_number) for interval in self.intervals])
 
-    async def _get_file_message(
+    async def _get_code_message(
         self,
         config: ConfigManager,
         code_file_manager: "CodeFileManager",
@@ -127,8 +128,6 @@ class CodeFile:
                 config.git_root, self.path, exclude_signatures=True
             )
             file_message += cmap
-        elif not CodeMessageLevel.FILE_NAME:
-            raise ValueError(f"Invalid code message level: {self.level}")
         file_message.append("")
 
         if self.diff is not None:
@@ -142,7 +141,7 @@ class CodeFile:
         return file_message
 
     _file_checksum: str | None = None
-    _file_message: list[str] | None = None
+    _code_message: list[str] | None = None
 
     async def get_code_message(
         self,
@@ -152,12 +151,12 @@ class CodeFile:
     ) -> list[str]:
         abs_path = config.git_root / self.path
         file_checksum = code_file_manager.get_file_checksum(Path(abs_path))
-        if file_checksum != self._file_checksum or self._file_message is None:
+        if file_checksum != self._file_checksum or self._code_message is None:
             self._file_checksum = file_checksum
-            self._file_message = await self._get_file_message(
+            self._code_message = await self._get_code_message(
                 config, code_file_manager, parser
             )
-        return self._file_message
+        return self._code_message
 
     async def count_tokens(
         self,

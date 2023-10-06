@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from mentat.config_manager import ConfigManager
 
 
-# From app.py
 def expand_paths(paths: list[str]) -> list[Path]:
     """Expand user-input paths/globs into a list of absolute paths.
 
@@ -50,7 +49,6 @@ def expand_paths(paths: list[str]) -> list[Path]:
     return [Path(path) for path in globbed_paths]
 
 
-# From code_context.py
 def is_file_text_encoded(file_path: Path):
     """Checks if a file is text encoded."""
     try:

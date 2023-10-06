@@ -231,14 +231,20 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_config, mock_st
         "mentat.code_context.CodeContext._get_code_message"
     )
     mock_get_code_message.return_value = "test1"
-    value1 = await code_context.get_code_message("gpt-4", code_file_manager, parser)
+    value1 = await code_context.get_code_message(
+        "gpt-4", code_file_manager, parser, 1e6
+    )
     mock_get_code_message.return_value = "test2"
-    value2 = await code_context.get_code_message("gpt-4", code_file_manager, parser)
+    value2 = await code_context.get_code_message(
+        "gpt-4", code_file_manager, parser, 1e6
+    )
     assert value1 == value2
 
     # Regenerate if settings change
     code_context.settings.auto_tokens = 11
-    value3 = await code_context.get_code_message("gpt-4", code_file_manager, parser)
+    value3 = await code_context.get_code_message(
+        "gpt-4", code_file_manager, parser, 1e6
+    )
     assert value1 != value3
 
     # Regenerate if feature files change
@@ -246,7 +252,9 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_config, mock_st
     lines = file.read_text().splitlines()
     lines[0] = "something different"
     file.write_text("\n".join(lines))
-    value4 = await code_context.get_code_message("gpt-4", code_file_manager, parser)
+    value4 = await code_context.get_code_message(
+        "gpt-4", code_file_manager, parser, 1e6
+    )
     assert value3 != value4
 
 
@@ -264,7 +272,7 @@ async def test_get_code_message_include(temp_testbed, mock_config):
     # raising and Exception (that's handled elsewhere)
     code_context.settings.auto_tokens = 0
     code_message = await code_context.get_code_message(
-        "gpt-4", code_file_manager, parser
+        "gpt-4", code_file_manager, parser, 1e6
     )
     expected = [
         "Code Files:",
@@ -285,7 +293,7 @@ async def test_get_code_message_include(temp_testbed, mock_config):
     # Fill-in complete files if there's enough room
     code_context.settings.auto_tokens = 1000 * 0.95  # Sometimes it's imprecise
     code_message = await code_context.get_code_message(
-        "gpt-4", code_file_manager, parser
+        "gpt-4", code_file_manager, parser, 1e6
     )
     print(code_message)
     assert 500 <= count_tokens(code_message, "gpt-4") <= 1000
@@ -299,7 +307,7 @@ async def test_get_code_message_include(temp_testbed, mock_config):
     # Otherwise, fill-in what fits
     code_context.settings.auto_tokens = 400
     code_message = await code_context.get_code_message(
-        "gpt-4", code_file_manager, parser
+        "gpt-4", code_file_manager, parser, 1e6
     )
     print(code_message)
     assert count_tokens(code_message, "gpt-4") <= 800

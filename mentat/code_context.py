@@ -208,7 +208,7 @@ class CodeContext:
         model: str,
         code_file_manager: "CodeFileManager",
         parser: "Parser",
-        max_tokens: Optional[int] = None,
+        max_tokens: int,
     ) -> str:
         code_message_checksum = await self._get_code_message_checksum(
             code_file_manager, max_tokens
@@ -230,7 +230,7 @@ class CodeContext:
         model: str,
         code_file_manager: "CodeFileManager",
         parser: "Parser",
-        max_tokens: Optional[int] = None,
+        max_tokens: int,
     ) -> str:
         code_message = list[str]()
 
@@ -255,19 +255,12 @@ class CodeContext:
         include_feature_tokens = sum(results) + count_tokens(
             "\n".join(code_message), model
         )
-        _max_auto = (
-            None if max_tokens is None else max(0, max_tokens - include_feature_tokens)
-        )
+        _max_auto = max(0, max_tokens - include_feature_tokens)
         _max_user = self.settings.auto_tokens
         if _max_auto == 0 or _max_user == 0:
             self.features = features
         else:
-            if _max_auto is None and _max_user is None:
-                auto_tokens = None
-            elif _max_auto and _max_user:
-                auto_tokens = min(_max_auto, _max_user)
-            else:
-                auto_tokens = _max_auto or _max_user
+            auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
             self.features = await self._get_auto_features(
                 code_file_manager, parser, model, features, auto_tokens
             )
@@ -301,7 +294,7 @@ class CodeContext:
         parser: "Parser",
         model: str,
         include_features: list[CodeFile],
-        max_tokens: Optional[int] = None,
+        max_tokens: int,
     ) -> list[CodeFile]:
         # Generate all possible permutations for all files in the project.
         candidate_features = list[CodeFile]()
@@ -326,13 +319,15 @@ class CodeContext:
                 candidate_features.append(feature)
 
         # Sort candidates by relevance/density.
-        tokens_remaining = 1e6 if max_tokens is None else max_tokens
+        tokens_remaining = max_tokens
+        sem = asyncio.Semaphore(10)
 
         async def _calculate_feature_score(feature: CodeFile) -> float:
             score = 0.0
-            tokens = await feature.count_tokens(
-                self.config, code_file_manager, parser, model
-            )
+            async with sem:
+                tokens = await feature.count_tokens(
+                    self.config, code_file_manager, parser, model
+                )
             if tokens == 0:
                 raise MentatError(f"Feature {feature} has 0 tokens.")
             if feature.diff is not None:

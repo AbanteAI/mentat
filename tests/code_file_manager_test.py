@@ -30,7 +30,7 @@ async def test_posix_paths(mock_stream, mock_config):
     )
     parser = BlockParser()
     code_message = await code_context.get_code_message(
-        mock_config.model(), code_file_manager, parser
+        mock_config.model(), code_file_manager, parser, 1e6
     )
     assert dir_name + "/" + file_name in code_message.split("\n")
 
@@ -62,7 +62,7 @@ async def test_partial_files(mock_stream, mock_config):
     )
     parser = BlockParser()
     code_message = await code_context.get_code_message(
-        mock_config.model(), code_file_manager, parser
+        mock_config.model(), code_file_manager, parser, 1e6
     )
     assert code_message == dedent("""\
             Code Files:
