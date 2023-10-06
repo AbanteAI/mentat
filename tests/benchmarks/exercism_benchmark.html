@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+    <head></head>
+    <body>
+        <div id="container">
+            <div id="selector"></div>
+            <div id="viewer"></div>
+        </div>
+    </body>
+    <script>
+        window.location.hash = ""
+
+        const results = {{ results }}
+        const selector = document.getElementById("selector")
+        var results_map = {}
+        for(result of results) {
+            const button = document.createElement("button")
+            const test = result.test
+            button.innerHTML = test
+            button.onclick = (event) => {
+                window.location.hash = test
+            }
+            selector.appendChild(button)
+
+            results_map[test] = result
+        }
+        
+        addEventListener("hashchange", (event) => {
+            const viewer = document.getElementById("viewer")
+            viewer.replaceChildren()
+            const test = window.location.hash.substring(1)
+            if(!(test in results_map)) {
+                return
+            }
+            const result = results_map[test]
+            const instructions = document.createElement("div")
+            const code = document.createElement("div")
+            const analysis = document.createElement("div")
+            instructions.innerHTML = "<h1>Instructions:</h1>" + result["instructions"]
+            code.innerHTML = "<h1>Code:</h1>" + result["code"]
+            if("response" in result) {
+                response = result["response"]
+            } else {
+                response = "No response given for passing test"
+            }
+            analysis.innerHTML = "<h1>Analysis:</h1>" + response
+            instructions.className = "content"
+            code.className = "content"
+            analysis.className = "content"
+            viewer.appendChild(analysis)
+            viewer.appendChild(code)
+            viewer.appendChild(instructions)
+        });
+    </script>
+    <style>
+        html {
+            height: 100%;
+        }
+
+        body {
+            height: 100%; 
+            padding: 0; 
+            margin: 0;
+        }
+
+        #container {
+            display: flex; 
+            flex-direction: row; 
+            height: 100%;
+        }
+
+        #selector {
+            display: flex;
+            flex-shrink: 0;
+            flex-direction: column;
+            border: 1px solid black; 
+            padding: 8px; gap: 8px;
+        }
+
+        #viewer {
+            display: flex;
+            flex-direction: column;
+            background-color: rgb(233, 250, 255);
+            flex-grow: 1; 
+            border: 1px solid black;
+            font-size: 20px;
+        }
+
+        button {
+            font-size: 18px;
+            padding: 6px;
+            margin: 6px;
+        }
+
+        .content {
+            border: 1px solid black;
+            padding: 8px;
+            white-space: pre;
+            overflow-y: scroll;
+            min-height: 200px;
+        }
+
+        h1 {
+            margin: 2px;
+        }
+    </style>
+</html>

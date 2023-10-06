@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import shutil
 import subprocess
 from functools import partial
 from multiprocessing import Pool
@@ -72,6 +73,34 @@ def get_exercise_file(problem_dir, language):
     return exercise_file
 
 
+# This will include hint.md
+def read_instructions(exercise):
+    docs_path = exercise / ".docs"
+    instructions = ""
+    for file_name in os.listdir(docs_path):
+        with open(docs_path / file_name) as f:
+            contents = f.read()
+            instructions += f"{file_name}\n{contents}\n"
+    return instructions
+
+
+def read_code(problem_dir, language):
+    exercise = Path(f"exercises/practice/{problem_dir}")
+    code = ""
+    exercise_file = get_exercise_file(problem_dir, language)
+    with open(exercise / exercise_file) as f:
+        contents = f.read()
+        code += f"{exercise_file}\n{contents}"
+    return code
+
+
+def read_test_results(exercise):
+    with open(exercise / "test_output.txt") as f:
+        contents = f.read()
+        test_results = f"test_output.txt\n{contents}"
+    return test_results
+
+
 @pytest.fixture
 def clone_exercism_repo(refresh_repo, language):
     exercism_url = f"https://github.com/exercism/{language}.git"
@@ -85,6 +114,11 @@ def clone_exercism_repo(refresh_repo, language):
             repo.remotes.origin.pull()
     else:
         repo = Repo.clone_from(exercism_url, local_dir)
+    shutil.copyfile(
+        f"{os.path.dirname(__file__)}/exercism_benchmark.html",
+        f"{local_dir}/results.html",
+    )
+
     os.chdir(local_dir)
     if language == "javascript":
         subprocess.run(["npm", "install"], stdout=subprocess.PIPE)
@@ -147,28 +181,10 @@ async def failure_analysis(problem_dir, language):
     setup_api_key()
     exercise = Path(f"exercises/practice/{problem_dir}")
 
-    # Get instructions
-    docs_path = exercise / ".docs"
-    instructions = ""
-    for file_name in os.listdir(docs_path):
-        with open(docs_path / file_name) as f:
-            contents = f.read()
-            instructions += f"{file_name}\n{contents}\n"
+    instructions = read_instructions(exercise)
+    code = read_code(problem_dir, language)
+    test_results = read_test_results(exercise)
 
-    # Get code
-    code = ""
-    exercise_file = get_exercise_file(problem_dir, language)
-    with open(exercise / exercise_file) as f:
-        contents = f.read()
-        code += f"{exercise_file}\n{contents}"
-
-    # Get test results
-    test_results = ""
-    with open(exercise / "test_output.txt") as f:
-        contents = f.read()
-        test_results = f"test_output.txt\n{contents}"
-
-    # Ask GPT
     final_message = (
         f"All instructions:\n{instructions}\nCode to review:\n{code}\nTest"
         f" results:\n{test_results}"
@@ -187,17 +203,6 @@ async def failure_analysis(problem_dir, language):
     except IndexError:
         reason = "error"
     return response, reason
-
-
-async def record_results(problem_dir, language, result):
-    if not result["passed"]:
-        response, reason = await failure_analysis(problem_dir, language)
-        result["response"] = response
-        result["reason"] = reason
-    results_dir = Path("results")
-    os.makedirs(results_dir, exist_ok=True)
-    with open(results_dir / (problem_dir + ".json"), "w") as f:
-        json.dump(result, f)
 
 
 async def send_message(session, message, input_request_message):
@@ -258,7 +263,12 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         "passed": passed,
         "test": problem_dir,
     }
-    await record_results(problem_dir, language, result)
+    if not result["passed"]:
+        response, reason = await failure_analysis(problem_dir, language)
+        result["response"] = response
+        result["reason"] = reason
+    result["instructions"] = read_instructions(exercise)
+    result["code"] = read_code(problem_dir, language)
     return result
 
 
@@ -323,4 +333,12 @@ def test_practice_directory_performance(
             pbar.set_description(
                 summarize_results(results) + "| Last Ran: " + result["test"]
             )
-        print(f"Results: {results}")
+
+        # Update the html file
+        results_json = list(map(json.dumps, results))
+        results_str = "[" + ",".join(results_json) + "]"
+        with open("results.html", "r") as f:
+            html = f.read()
+        html = html.replace("{{ results }}", results_str)
+        with open("results.html", "w") as f:
+            f.write(html)
