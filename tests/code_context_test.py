@@ -257,7 +257,12 @@ async def test_get_code_message_cache(
 
 @pytest.mark.asyncio
 async def test_get_code_message_include(
-    temp_testbed, mock_config, mock_parser, mock_git_root, mock_code_file_manager, mock_stream
+    temp_testbed,
+    mock_config,
+    mock_parser,
+    mock_git_root,
+    mock_code_file_manager,
+    mock_stream,
 ):
     code_context_settings = CodeContextSettings(
         paths=["multifile_calculator"],
