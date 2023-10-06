@@ -3,25 +3,21 @@ from __future__ import annotations
 import glob
 import logging
 import os
+from contextvars import ContextVar
 from pathlib import Path
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 
 import attr
 
 from .code_file import CodeFile
 from .code_map import CodeMap
-from .config_manager import ConfigManager
-from .diff_context import get_diff_context
+from .config_manager import CONFIG_MANAGER, ConfigManager
+from .diff_context import DiffContext
 from .errors import MentatError, UserError
-from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
+from .git_handler import GIT_ROOT, get_non_gitignored_files, get_paths_with_git_diffs
 from .llm_api import count_tokens, model_context_size
 from .session_stream import SESSION_STREAM
-
-if TYPE_CHECKING:
-    # This normally will cause a circular import
-    from mentat.code_file_manager import CodeFileManager
-    from mentat.parsers.parser import Parser
 
 
 def _is_file_text_encoded(file_path: Path):
@@ -67,7 +63,7 @@ def _abs_files_from_list(paths: list[Path], check_for_text: bool = True):
 
 
 def _get_files(
-    config: ConfigManager, paths: list[Path], exclude_paths: list[Path]
+    config: ConfigManager, git_root: Path, paths: list[Path], exclude_paths: list[Path]
 ) -> Dict[Path, CodeFile]:
     excluded_files_direct, excluded_files_from_dirs = _abs_files_from_list(
         exclude_paths, check_for_text=False
@@ -77,12 +73,12 @@ def _get_files(
     ), set(map(lambda f: f.path, excluded_files_from_dirs))
 
     glob_excluded_files = set(
-        os.path.join(config.git_root, file)
+        os.path.join(git_root, file)
         for glob_path in config.file_exclude_glob_list()
         # If the user puts a / at the beginning, it will try to look in root directory
         for file in glob.glob(
             pathname=glob_path,
-            root_dir=config.git_root,
+            root_dir=git_root,
             recursive=True,
         )
     )
@@ -156,44 +152,33 @@ class CodeContextSettings:
         return attr.asdict(self)
 
 
+CODE_CONTEXT: ContextVar[CodeContext] = ContextVar("mentat:code_context")
+
+
 class CodeContext:
     settings: CodeContextSettings
     files: dict[Path, CodeFile]  # included path -> CodeFile
     file_lines: dict[Path, list[str]]  # included path -> cached lines
 
-    def __init__(self, config: ConfigManager, settings: CodeContextSettings):
-        self.config = config
+    def __init__(self, settings: CodeContextSettings):
         self.settings = settings
 
     @classmethod
-    async def create(
-        cls,
-        config: ConfigManager,
-        paths: list[Path],
-        exclude_paths: list[Path],
-        diff: Optional[str] = None,
-        pr_diff: Optional[str] = None,
-        no_code_map: bool = False,
-    ):
-        settings = CodeContextSettings(
-            paths=paths,
-            exclude_paths=exclude_paths,
-            diff=diff,
-            pr_diff=pr_diff,
-            no_code_map=no_code_map,
-        )
-        self = CodeContext(config, settings)
+    async def create(cls, settings: CodeContextSettings):
+        self = cls(settings)
         await self.refresh(replace_paths=True)
 
         return self
 
-    async def refresh(self, replace_paths: bool | None = False):
+    async def refresh(self, replace_paths: bool = False):
         stream = SESSION_STREAM.get()
+        config = CONFIG_MANAGER.get()
+        git_root = GIT_ROOT.get()
 
         # Diff context
         try:
-            self.diff_context = get_diff_context(
-                self.config, self.settings.diff, self.settings.pr_diff
+            self.diff_context = DiffContext.create(
+                self.settings.diff, self.settings.pr_diff
             )
             if replace_paths and not self.settings.paths:
                 self.settings.paths = self.diff_context.files
@@ -202,11 +187,11 @@ class CodeContext:
             raise MentatError("Failed to create diff context.")
         # User-specified Files
         self.files = _get_files(
-            self.config, self.settings.paths, self.settings.exclude_paths
+            config, git_root, self.settings.paths, self.settings.exclude_paths
         )
         # Universal ctags
         self.code_map = (
-            await CodeMap.create(self.config, token_limit=2048)
+            await CodeMap.create(token_limit=2048)
             if not self.settings.no_code_map
             else None
         )
@@ -220,24 +205,29 @@ class CodeContext:
 
     async def display_context(self):
         stream = SESSION_STREAM.get()
+        git_root = GIT_ROOT.get()
 
         if self.files:
             await stream.send("Files included in context:", color="green")
         else:
             await stream.send("No files included in context.\n", color="red")
             await stream.send("Git project: ", color="green", end="")
-        await stream.send(self.config.git_root.name, color="blue")
+        await stream.send(git_root.name, color="blue")
         await _print_path_tree(
-            _build_path_tree(list(self.files.values()), self.config.git_root),
-            get_paths_with_git_diffs(self.config.git_root),
-            self.config.git_root,
+            _build_path_tree(list(self.files.values()), git_root),
+            get_paths_with_git_diffs(),
+            git_root,
         )
         await self.diff_context.display_context()
 
     async def get_code_message(
-        self, model: str, code_file_manager: CodeFileManager, parser: Parser
+        self,
+        all_file_lines: dict[Path, list[str]],
+        model: str,
+        provide_line_numbers: bool,
     ) -> str:
         stream = SESSION_STREAM.get()
+        git_root = GIT_ROOT.get()
 
         code_message: list[str] = []
         if self.diff_context.files:
@@ -248,21 +238,20 @@ class CodeContext:
                 "",
             ]
 
-        code_file_manager.read_all_file_lines(list(self.files.keys()))
         code_message += ["Code Files:\n"]
         for file in self.files.values():
             file_message: list[str] = []
             abs_path = file.path
-            rel_path = Path(os.path.relpath(abs_path, self.config.git_root))
+            rel_path = Path(os.path.relpath(abs_path, git_root))
 
             # We always want to give GPT posix paths
             posix_rel_path = Path(rel_path).as_posix()
             file_message.append(posix_rel_path)
 
-            file_lines = code_file_manager.file_lines[rel_path]
+            file_lines = all_file_lines[rel_path]
             for i, line in enumerate(file_lines, start=1):
                 if file.contains_line(i):
-                    if parser.provide_line_numbers():
+                    if provide_line_numbers:
                         file_message.append(f"{i}:{line}")
                     else:
                         file_message.append(f"{line}")

@@ -6,17 +6,19 @@ from pathlib import Path
 from typing import List, Optional, Union, cast
 from uuid import uuid4
 
-from .code_context import CodeContext, CodeContextSettings
+from mentat.logging_config import setup_logging
+
+from .code_context import CODE_CONTEXT, CodeContext, CodeContextSettings
 from .code_edit_feedback import get_user_feedback_on_edits
-from .code_file_manager import CodeFileManager
+from .code_file_manager import CODE_FILE_MANAGER, CodeFileManager
 from .commands import Command
-from .config_manager import ConfigManager
-from .conversation import Conversation
+from .config_manager import CONFIG_MANAGER, ConfigManager
+from .conversation import CONVERSATION, Conversation
 from .errors import MentatError
-from .git_handler import get_shared_git_root_for_paths
-from .llm_api import CostTracker, setup_api_key
+from .git_handler import GIT_ROOT, get_shared_git_root_for_paths
+from .llm_api import COST_TRACKER, CostTracker, setup_api_key
 from .parsers.block_parser import BlockParser
-from .parsers.parser import Parser
+from .parsers.parser import PARSER, Parser
 from .parsers.replacement_parser import ReplacementParser
 from .parsers.split_diff_parser import SplitDiffParser
 from .parsers.unified_diff_parser import UnifiedDiffParser
@@ -35,18 +37,10 @@ class Session:
     def __init__(
         self,
         stream: SessionStream,
-        config: ConfigManager,
-        parser: Parser,
-        code_context_settings: Optional[CodeContextSettings] = None,
     ):
         self.stream = stream
-        self.config = config
-        self.parser = parser
-        self.code_context_settings = code_context_settings or CodeContextSettings()
 
         self.id = uuid4()
-        self.code_file_manager = CodeFileManager(self.config)
-        self.cost_tracker = CostTracker()
         setup_api_key()
 
         self._main_task: asyncio.Task[None] | None = None
@@ -61,44 +55,53 @@ class Session:
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
     ):
+        # Set contextvars here
         stream = SessionStream()
         await stream.start()
         SESSION_STREAM.set(stream)
 
+        cost_tracker = CostTracker()
+        COST_TRACKER.set(cost_tracker)
+
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
+        GIT_ROOT.set(git_root)
+
         # TODO: Config should be created in the client (i.e., to get vscode settings) and passed to session
-        config = await ConfigManager.create(git_root)
+        config = await ConfigManager.create()
+        CONFIG_MANAGER.set(config)
+
+        parser = parser_map[config.parser()]
+        PARSER.set(parser)
+
         code_context_settings = CodeContextSettings(
             paths, exclude_paths, diff, pr_diff, no_code_map
         )
-        parser = parser_map[config.parser()]
+        code_context = await CodeContext.create(code_context_settings)
+        CODE_CONTEXT.set(code_context)
 
-        self = Session(stream, config, parser, code_context_settings)
+        # NOTE: Should codefilemanager, codecontext, and conversation be contextvars/singletons or regular instances?
+        code_file_manager = CodeFileManager()
+        CODE_FILE_MANAGER.set(code_file_manager)
 
-        return self
+        conversation = Conversation()
+        CONVERSATION.set(conversation)
+
+        return cls(stream)
 
     async def _main(self):
-        try:
-            self.code_context = await CodeContext.create(
-                self.config, **self.code_context_settings.asdict()
-            )
-            await self.code_context.display_context()
+        stream = SESSION_STREAM.get()
+        code_context = CODE_CONTEXT.get()
+        conversation = CONVERSATION.get()
 
-            conv = await Conversation.create(
-                parser=self.parser,
-                config=self.config,
-                cost_tracker=self.cost_tracker,
-                code_context=self.code_context,
-                code_file_manager=self.code_file_manager,
-            )
+        try:
+            await code_context.display_context()
+            await conversation.display_token_count()
         except MentatError as e:
-            await self.stream.send(str(e), color="red")
+            await stream.send(str(e), color="red")
             return
 
-        await self.stream.send(
-            "Type 'q' or use Ctrl-C to quit at any time.", color="cyan"
-        )
-        await self.stream.send("What can I do for you?", color="light_blue")
+        await stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
+        await stream.send("What can I do for you?", color="light_blue")
         need_user_request = True
         while True:
             if need_user_request:
@@ -107,29 +110,21 @@ class Session:
                 # Intercept and run command
                 if isinstance(message.data, str) and message.data.startswith("/"):
                     arguments = shlex.split(message.data[1:])
-                    command = Command.create_command(arguments[0], self.code_context)
+                    command = Command.create_command(arguments[0])
                     await command.apply(*arguments[1:])
                     continue
 
                 if message.data == "q":
                     break
 
-                conv.add_user_message(message.data)
+                conversation.add_user_message(message.data)
 
-            file_edits = await conv.get_model_response(self.parser, self.config)
+            file_edits = await conversation.get_model_response()
             file_edits = [
-                file_edit
-                for file_edit in file_edits
-                if await file_edit.is_valid(self.code_file_manager, self.config)
+                file_edit for file_edit in file_edits if await file_edit.is_valid()
             ]
             if file_edits:
-                need_user_request = await get_user_feedback_on_edits(
-                    config=self.config,
-                    conv=conv,
-                    code_file_manager=self.code_file_manager,
-                    code_context=self.code_context,
-                    file_edits=file_edits,
-                )
+                need_user_request = await get_user_feedback_on_edits(file_edits)
             else:
                 need_user_request = True
 
@@ -149,6 +144,8 @@ class Session:
         if self._main_task:
             logging.warning("Job already started")
             return self._main_task
+
+        setup_logging()
 
         async def run_main():
             try:
@@ -188,10 +185,13 @@ class Session:
             return
 
         async def run_stop():
+            cost_tracker = COST_TRACKER.get()
+
             if self._main_task is None:
                 return
             try:
-                await self.cost_tracker.display_total_cost()
+                await cost_tracker.display_total_cost()
+                logging.shutdown()
                 self._main_task.cancel()
 
                 # Pyright can't see `self._main_task` being set to `None` in the task

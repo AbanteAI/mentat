@@ -4,38 +4,35 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.code_context import CodeContext
-from mentat.code_file_manager import CodeFileManager
-from mentat.parsers.block_parser import BlockParser
 from mentat.session import Session
 
 
 # Make sure we always give posix paths to GPT
 @pytest.mark.asyncio
-async def test_posix_paths(mock_stream, mock_config):
+async def test_posix_paths(
+    mock_stream, mock_config, mock_code_file_manager, mock_code_context
+):
     dir_name = "dir"
     file_name = "file.txt"
     file_path = Path(os.path.join(dir_name, file_name))
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
         file_file.write("I am a file")
-    code_file_manager = CodeFileManager(
-        config=mock_config,
-    )
-    code_context = await CodeContext.create(
-        config=mock_config,
-        paths=[file_path],
-        exclude_paths=[],
-    )
-    parser = BlockParser()
-    code_message = await code_context.get_code_message(
-        mock_config.model(), code_file_manager, parser
+
+    mock_code_context.settings.paths = [file_path]
+    await mock_code_context.refresh(True)
+
+    mock_code_file_manager.read_all_file_lines()
+    code_message = await mock_code_context.get_code_message(
+        mock_code_file_manager.file_lines, mock_config.model(), True
     )
     assert dir_name + "/" + file_name in code_message.split("\n")
 
 
 @pytest.mark.asyncio
-async def test_partial_files(mock_stream, mock_config):
+async def test_partial_files(
+    mock_stream, mock_config, mock_code_file_manager, mock_code_context
+):
     dir_name = "dir"
     file_name = "file.txt"
     file_path = os.path.join(dir_name, file_name)
@@ -47,20 +44,15 @@ async def test_partial_files(mock_stream, mock_config):
              third
              fourth
              fifth"""))
-    file_path_partial = file_path + ":1,3-5"
 
-    code_file_manager = CodeFileManager(
-        config=mock_config,
-    )
-    code_context = await CodeContext.create(
-        config=mock_config,
-        paths=[Path(file_path_partial)],
-        exclude_paths=[],
-        no_code_map=True,
-    )
-    parser = BlockParser()
-    code_message = await code_context.get_code_message(
-        mock_config.model(), code_file_manager, parser
+    file_path_partial = file_path + ":1,3-5"
+    mock_code_context.settings.paths = [Path(file_path_partial)]
+    await mock_code_context.refresh(True)
+    mock_code_context.code_map = None
+
+    mock_code_file_manager.read_all_file_lines()
+    code_message = await mock_code_context.get_code_message(
+        mock_code_file_manager.file_lines, mock_config.model(), True
     )
     assert code_message == dedent("""\
             Code Files:

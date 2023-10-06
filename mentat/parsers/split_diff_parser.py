@@ -5,7 +5,6 @@ from termcolor import colored
 from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
-from mentat.config_manager import ConfigManager
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
@@ -83,7 +82,7 @@ class SplitDiffParser(Parser):
     def _special_block(
         self,
         code_file_manager: CodeFileManager,
-        config: ConfigManager,
+        git_root: Path,
         rename_map: dict[Path, Path],
         special_block: str,
     ) -> tuple[DisplayInformation, FileEdit, bool]:
@@ -112,7 +111,7 @@ class SplitDiffParser(Parser):
             new_name=new_name,
         )
         file_edit = FileEdit(
-            config.git_root / file_name, [], is_creation, is_deletion, new_name
+            git_root / file_name, [], is_creation, is_deletion, new_name
         )
         return (
             display_information,

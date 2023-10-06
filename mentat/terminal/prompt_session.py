@@ -12,8 +12,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.styles import Style
 
-from mentat.config_manager import mentat_dir_path
-from mentat.session import Session
+from mentat.config_manager import CONFIG_MANAGER, mentat_dir_path
 
 
 class FilteredFileHistory(FileHistory):
@@ -44,11 +43,11 @@ class FilteredHistorySuggestions(AutoSuggestFromHistory):
 
 
 class MentatPromptSession(PromptSession[str]):
-    def __init__(self, session: Session, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, **kwargs: Any):
         self._setup_bindings()
         super().__init__(
             message=[("class:prompt", ">>> ")],
-            style=Style(session.config.input_style()),
+            style=Style(CONFIG_MANAGER.get().input_style()),
             history=FilteredFileHistory(str(mentat_dir_path.joinpath("history"))),
             auto_suggest=FilteredHistorySuggestions(),
             multiline=True,

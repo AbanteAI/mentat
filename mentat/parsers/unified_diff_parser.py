@@ -5,7 +5,6 @@ from termcolor import colored
 from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
-from mentat.config_manager import ConfigManager
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     change_delimiter,
@@ -85,7 +84,7 @@ class UnifiedDiffParser(Parser):
     def _special_block(
         self,
         code_file_manager: CodeFileManager,
-        config: ConfigManager,
+        git_root: Path,
         rename_map: dict[Path, Path],
         special_block: str,
     ) -> tuple[DisplayInformation, FileEdit, bool]:
@@ -107,7 +106,7 @@ class UnifiedDiffParser(Parser):
             file_name, file_lines, [], [], file_action_type, -1, -1, new_name
         )
         file_edit = FileEdit(
-            config.git_root / file_name, [], is_creation, is_deletion, new_name
+            git_root / file_name, [], is_creation, is_deletion, new_name
         )
         # BUG: There is a change delimiter for when it doesn't add anything on a deletion, addition, or rename
         return (display_information, file_edit, True)

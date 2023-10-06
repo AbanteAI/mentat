@@ -1,16 +1,19 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 from abc import ABC, abstractmethod
 from asyncio import Event
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
 from termcolor import colored
 
-from mentat.code_file_manager import CodeFileManager
-from mentat.config_manager import ConfigManager
+from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
 from mentat.errors import ModelError
+from mentat.git_handler import GIT_ROOT
 from mentat.llm_api import chunk_to_lines
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
@@ -24,6 +27,8 @@ from mentat.parsers.change_display_helper import (
 from mentat.parsers.file_edit import FileEdit
 from mentat.session_stream import SESSION_STREAM
 from mentat.streaming_printer import StreamingPrinter
+
+PARSER: ContextVar[Parser] = ContextVar("mentat:parser")
 
 
 class Parser(ABC):
@@ -58,8 +63,6 @@ class Parser(ABC):
     async def stream_and_parse_llm_response(
         self,
         response: AsyncGenerator[Any, None],
-        code_file_manager: CodeFileManager,
-        config: ConfigManager,
     ) -> tuple[str, list[FileEdit]]:
         """
         This general parsing structure relies on the assumption that all formats require three types of lines:
@@ -70,6 +73,9 @@ class Parser(ABC):
         """
 
         stream = SESSION_STREAM.get()
+        code_file_manager = CODE_FILE_MANAGER.get()
+        git_root = GIT_ROOT.get()
+
         printer = StreamingPrinter()
         printer_task = asyncio.create_task(printer.print_lines())
         message = ""
@@ -172,7 +178,7 @@ class Parser(ABC):
                                 file_edit,
                                 in_code_lines,
                             ) = self._special_block(
-                                code_file_manager, config, rename_map, cur_block
+                                code_file_manager, git_root, rename_map, cur_block
                             )
                         except ModelError as e:
                             printer.add_string(str(e), color="red")
@@ -197,8 +203,7 @@ class Parser(ABC):
                             )
                         if display_information.file_name in rename_map:
                             file_edit.file_path = (
-                                config.git_root
-                                / rename_map[display_information.file_name]
+                                git_root / rename_map[display_information.file_name]
                             )
 
                         # New file_edit creation and merging
@@ -359,7 +364,7 @@ class Parser(ABC):
     def _special_block(
         self,
         code_file_manager: CodeFileManager,
-        config: ConfigManager,
+        git_root: Path,
         rename_map: dict[Path, Path],
         special_block: str,
     ) -> tuple[DisplayInformation, FileEdit, bool]:
