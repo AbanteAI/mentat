@@ -4,7 +4,6 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.code_context import CodeContext
 from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.session import Session
