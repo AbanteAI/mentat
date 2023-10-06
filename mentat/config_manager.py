@@ -59,7 +59,6 @@ class ConfigManager:
         if git_root is None:
             project_config_path = cwd.joinpath(config_file_name)
         else:
-            # NOTE: recursively look in parent dirs for this?
             project_config_path = git_root.joinpath(config_file_name)
         if project_config_path.exists():
             with open(project_config_path) as config_file:
