@@ -13,7 +13,7 @@ import tqdm
 from git import Repo
 from openai import InvalidRequestError
 
-from mentat.llm_api import call_llm_api, setup_api_key
+from mentat.llm_api import COST_TRACKER, call_llm_api, setup_api_key
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 
@@ -271,6 +271,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         response, reason = await failure_analysis(problem_dir, language)
         result["response"] = response
         result["reason"] = reason
+    result["tokens"] = COST_TRACKER.get().total_tokens
     return result
 
 
@@ -281,11 +282,12 @@ def run_exercise_sync(problem_dir, language="python", max_iterations=2):
         print(f"\nError running {problem_dir}")
         print(str(e), flush=True)
         result = {
-            "iterations": None,
+            "iterations": 0,
             "passed": False,
             "test": problem_dir,
             "response": str(e),
             "reason": "error",
+            "tokens": 0,
         }
     exercise = Path(f"exercises/practice/{problem_dir}")
     result["instructions"] = read_instructions(exercise)
