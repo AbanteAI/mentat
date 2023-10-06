@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest import TestCase
 
 import pytest
+from ipdb import set_trace
 
 from mentat.code_context import CodeContext
 from mentat.config_manager import ConfigManager
@@ -45,6 +46,14 @@ async def test_path_gitignoring(mock_stream, temp_testbed, mock_config):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "temp_testbed, mock_config",
+    [
+        # (False, False),
+        (True, True)
+    ],
+    indirect=True,
+)
 async def test_config_glob_exclude(mock_stream, mocker, temp_testbed, mock_config):
     # Makes sure glob exclude config works
     mock_glob_exclude = mocker.MagicMock()
@@ -67,6 +76,8 @@ async def test_config_glob_exclude(mock_stream, mocker, temp_testbed, mock_confi
         directly_added_glob_excluded_file.write(
             "Config excludes me but I'm included if added directly"
         )
+
+    # set_trace()
 
     code_context = await CodeContext.create(
         config=mock_config,

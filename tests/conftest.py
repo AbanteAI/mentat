@@ -10,6 +10,7 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+from ipdb import set_trace
 
 from mentat.config_manager import ConfigManager
 from mentat.session_stream import (
@@ -132,9 +133,13 @@ def mock_setup_api_key(mocker):
 
 
 @pytest_asyncio.fixture
-async def mock_config(temp_testbed):
+async def mock_config(request, temp_testbed):
+    use_git = request.param if hasattr(request, "param") else True
+
+    # set_trace()
+
     config = await ConfigManager.create(
-        cwd=Path(temp_testbed), git_root=Path(temp_testbed)
+        cwd=Path(temp_testbed), git_root=Path(temp_testbed) if use_git else None
     )
     config.project_config = {}
     return config
@@ -195,7 +200,9 @@ def run_git_command(cwd, *args):
 
 
 @pytest.fixture(autouse=True)
-def temp_testbed(monkeypatch):
+def temp_testbed(request, monkeypatch):
+    use_git = request.param if hasattr(request, "param") else True
+
     # create temporary copy of testbed, complete with git repo
     # realpath() resolves symlinks, required for paths to match on macOS
     temp_dir = os.path.realpath(tempfile.mkdtemp())
@@ -203,17 +210,18 @@ def temp_testbed(monkeypatch):
     shutil.copytree("testbed", temp_testbed)
     shutil.copy(".gitignore", temp_testbed)
 
-    # Initialize git repo
-    run_git_command(temp_testbed, "init")
+    if use_git == True:
+        # Initialize git repo
+        run_git_command(temp_testbed, "init")
 
-    # Set local config for user.name and user.email. Set automatically on
-    # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
-    run_git_command(temp_testbed, "config", "user.email", "test@example.com")
-    run_git_command(temp_testbed, "config", "user.name", "Test User")
+        # Set local config for user.name and user.email. Set automatically on
+        # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
+        run_git_command(temp_testbed, "config", "user.email", "test@example.com")
+        run_git_command(temp_testbed, "config", "user.name", "Test User")
 
-    # Add all files and commit
-    run_git_command(temp_testbed, "add", ".")
-    run_git_command(temp_testbed, "commit", "-m", "add testbed")
+        # Add all files and commit
+        run_git_command(temp_testbed, "add", ".")
+        run_git_command(temp_testbed, "commit", "-m", "add testbed")
 
     # necessary to undo chdir before calling rmtree, or it fails on windows
     with monkeypatch.context() as m:

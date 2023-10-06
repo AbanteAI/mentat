@@ -8,6 +8,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import attr
+from ipdb import set_trace
 
 from .code_file import CodeFile
 from .code_map import CodeMap
@@ -34,31 +35,47 @@ def _is_file_text_encoded(file_path: Path):
         return False
 
 
-def _abs_files_from_list(paths: list[Path], check_for_text: bool = True):
+def _abs_files_from_list(
+    config: ConfigManager, paths: list[Path], check_for_text: bool = True
+):
+    """
+    Gets CodeFiles with absolute paths.
+
+    Any valid glob patterns can be used specified in `paths`.
+
+    Paths ending in "." will be converted to "*" in glob search.
+    """
     files_direct = set[CodeFile]()
     file_paths_from_dirs = set[Path]()
     for path in paths:
-        file = CodeFile(os.path.realpath(path))
-        path = Path(file.path)
-        if path.is_file():
-            if check_for_text and not _is_file_text_encoded(path):
-                logging.info(f"File path {path} is not text encoded.")
-                raise UserError(f"File path {path} is not text encoded.")
-            files_direct.add(file)
-        elif path.is_dir():
-            nonignored_files = set(
-                map(
-                    lambda f: Path(os.path.realpath(path / f)),
-                    get_non_gitignored_files(path),
-                )
-            )
+        abs_path = path if path.is_absolute() else config.cwd.joinpath(path)
 
-            file_paths_from_dirs.update(
-                filter(
-                    lambda f: (not check_for_text) or _is_file_text_encoded(f),
-                    nonignored_files,
-                )
-            )
+        if abs_path.is_file():
+            if check_for_text and not _is_file_text_encoded(abs_path):
+                logging.info(f"File path {abs_path} is not text encoded.")
+                raise UserError(f"File path {abs_path} is not text encoded.")
+            file = CodeFile(os.path.realpath(abs_path))
+            files_direct.add(file)
+
+        elif abs_path.is_dir():
+            if config.git_root:
+                # TODO: add config option to include hidden directories/files automatically?
+                # NOTE: `get_non_gitignored_files` recursively globs "."
+                dir_file_paths = get_non_gitignored_files(abs_path)
+            else:
+                # set_trace()
+
+                rel_path = abs_path.relative_to(config.cwd)
+                if str(rel_path).endswith("."):
+                    rel_path = Path(str(rel_path)[:-1] + "*")
+
+                glob_paths = config.cwd.glob(str(rel_path))
+                dir_file_paths = set(p for p in glob_paths if p.is_file())
+
+            for dir_file_path in dir_file_paths:
+                file_path = Path(os.path.realpath(abs_path.joinpath(dir_file_path)))
+                if not check_for_text or _is_file_text_encoded(file_path):
+                    file_paths_from_dirs.add(file_path)
 
     files_from_dirs = [
         CodeFile(os.path.realpath(path)) for path in file_paths_from_dirs
@@ -70,7 +87,7 @@ def _get_files(
     config: ConfigManager, paths: list[Path], exclude_paths: list[Path]
 ) -> Dict[Path, CodeFile]:
     excluded_files_direct, excluded_files_from_dirs = _abs_files_from_list(
-        exclude_paths, check_for_text=False
+        config, exclude_paths, check_for_text=False
     )
     excluded_files, excluded_files_from_dir = set(
         map(lambda f: f.path, excluded_files_direct)
@@ -85,7 +102,10 @@ def _get_files(
             recursive=True,
         )
     )
-    files_direct, files_from_dirs = _abs_files_from_list(paths, check_for_text=True)
+
+    files_direct, files_from_dirs = _abs_files_from_list(
+        config, paths, check_for_text=True
+    )
 
     # config glob excluded files only apply to files added from directories
     files_from_dirs = [
