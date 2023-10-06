@@ -12,6 +12,7 @@ from prompt_toolkit.styles import Style
 from termcolor import cprint
 
 from mentat.code_file import parse_intervals
+from mentat.config_manager import CONFIG_MANAGER
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.output import print_stream_message
@@ -115,14 +116,11 @@ class TerminalClient:
             self.paths, self.exclude_paths, self.no_code_map, self.diff, self.pr_diff
         )
         self.session.start()
-
         # Logging is setup in session.start()
         logging.debug("Running startup")
 
-        mentat_completer = MentatCompleter(self.session)
-        self._prompt_session = MentatPromptSession(
-            self.session, completer=mentat_completer
-        )
+        mentat_completer = MentatCompleter()
+        self._prompt_session = MentatPromptSession(completer=mentat_completer)
 
         plain_bindings = KeyBindings()
 
@@ -136,7 +134,7 @@ class TerminalClient:
 
         self._plain_session = PromptSession[str](
             message=[("class:prompt", ">>> ")],
-            style=Style(self.session.config.input_style()),
+            style=Style(CONFIG_MANAGER.get().input_style()),
             completer=None,
             key_bindings=plain_bindings,
         )

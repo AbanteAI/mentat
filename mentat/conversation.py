@@ -1,18 +1,21 @@
+from __future__ import annotations
+
 import json
 import logging
+from contextvars import ContextVar
 from timeit import default_timer
 
 from openai.error import InvalidRequestError, RateLimitError
 
 from mentat.parsers.file_edit import FileEdit
-from mentat.parsers.parser import Parser
+from mentat.parsers.parser import PARSER, Parser
+from tests.conftest import CODE_FILE_MANAGER, SessionStream
 
-from .code_context import CodeContext
-from .code_file_manager import CodeFileManager
-from .config_manager import ConfigManager, user_config_path
+from .code_context import CODE_CONTEXT
+from .config_manager import CONFIG_MANAGER, user_config_path
 from .errors import MentatError, UserError
 from .llm_api import (
-    CostTracker,
+    COST_TRACKER,
     call_llm_api,
     count_tokens,
     get_prompt_token_count,
@@ -21,34 +24,26 @@ from .llm_api import (
 )
 from .session_stream import SESSION_STREAM
 
+CONVERSATION: ContextVar[Conversation] = ContextVar("mentat:conversation")
+
 
 class Conversation:
-    def __init__(
-        self,
-        config: ConfigManager,
-        cost_tracker: CostTracker,
-        code_context: CodeContext,
-        code_file_manager: CodeFileManager,
-    ):
-        self.cost_tracker = cost_tracker
-        self.code_context = code_context
-        self.code_file_manager = code_file_manager
-        self.model = config.model()
+    def __init__(self):
+        config = CONFIG_MANAGER.get()
+        parser = PARSER.get()
 
+        self.model = config.model()
         self.messages = list[dict[str, str]]()
 
-    @classmethod
-    async def create(
-        cls,
-        parser: Parser,
-        config: ConfigManager,
-        cost_tracker: CostTracker,
-        code_context: CodeContext,
-        code_file_manager: CodeFileManager,
-    ):
-        stream = SESSION_STREAM.get()
+        prompt = parser.get_system_prompt()
+        self.add_system_message(prompt)
 
-        self = Conversation(config, cost_tracker, code_context, code_file_manager)
+    async def display_token_count(self):
+        stream = SESSION_STREAM.get()
+        parser = PARSER.get()
+        code_context = CODE_CONTEXT.get()
+        config = CONFIG_MANAGER.get()
+        code_file_manager = CODE_FILE_MANAGER.get()
 
         if not is_model_available(self.model):
             raise MentatError(
@@ -70,11 +65,10 @@ class Conversation:
                 )
 
         prompt = parser.get_system_prompt()
-        self.add_system_message(prompt)
-
+        code_file_manager.read_all_file_lines()
         tokens = count_tokens(
             await code_context.get_code_message(
-                self.model, self.code_file_manager, parser
+                code_file_manager.file_lines, self.model, parser.provide_line_numbers()
             ),
             self.model,
         ) + count_tokens(prompt, self.model)
@@ -110,8 +104,6 @@ class Conversation:
                 color="cyan",
             )
 
-        return self
-
     def add_system_message(self, message: str):
         self.messages.append({"role": "system", "content": message})
 
@@ -123,12 +115,10 @@ class Conversation:
 
     async def _stream_model_response(
         self,
+        stream: SessionStream,
         parser: Parser,
-        config: ConfigManager,
         messages: list[dict[str, str]],
     ):
-        stream = SESSION_STREAM.get()
-
         start_time = default_timer()
         try:
             response = await call_llm_api(messages, self.model)
@@ -137,7 +127,7 @@ class Conversation:
             )
             async with parser.interrupt_catcher():
                 message, file_edits = await parser.stream_and_parse_llm_response(
-                    response, self.code_file_manager, config
+                    response
                 )
         except InvalidRequestError as e:
             raise MentatError(
@@ -151,20 +141,26 @@ class Conversation:
         time_elapsed = default_timer() - start_time
         return (message, file_edits, time_elapsed)
 
-    async def get_model_response(
-        self, parser: Parser, config: ConfigManager
-    ) -> list[FileEdit]:
+    async def get_model_response(self) -> list[FileEdit]:
+        stream = SESSION_STREAM.get()
+        code_context = CODE_CONTEXT.get()
+        cost_tracker = COST_TRACKER.get()
+        code_file_manager = CODE_FILE_MANAGER.get()
+        parser = PARSER.get()
+
         messages = self.messages.copy()
-        code_message = await self.code_context.get_code_message(
-            self.model, self.code_file_manager, parser
+
+        code_file_manager.read_all_file_lines()
+        code_message = await code_context.get_code_message(
+            code_file_manager.file_lines, self.model, parser.provide_line_numbers()
         )
         messages.append({"role": "system", "content": code_message})
 
         num_prompt_tokens = await get_prompt_token_count(messages, self.model)
         message, file_edits, time_elapsed = await self._stream_model_response(
-            parser, config, messages
+            stream, parser, messages
         )
-        await self.cost_tracker.display_api_call_stats(
+        await cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             count_tokens(message, self.model),
             self.model,

@@ -5,8 +5,8 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any, Literal
 
-from .config_manager import ConfigManager
-from .git_handler import get_non_gitignored_files
+from .config_manager import CONFIG_MANAGER, ConfigManager
+from .git_handler import GIT_ROOT, get_non_gitignored_files
 from .llm_api import count_tokens
 from .session_stream import SESSION_STREAM
 from .utils import run_subprocess_async
@@ -118,17 +118,16 @@ class CodeMapMessage:
 
 
 class CodeMap:
-    def __init__(self, config: ConfigManager, token_limit: int | None = None):
-        self.config = config
-        self.git_root = self.config.git_root
+    def __init__(self, token_limit: int | None = None):
         self.token_limit = token_limit
-
         self.ctags_disabled = True
         self.ctags_disabled_reason = ""
 
     @classmethod
-    async def create(cls, config: ConfigManager, token_limit: int | None = None):
-        self = cls(config, token_limit)
+    async def create(cls, token_limit: int | None = None):
+        stream = SESSION_STREAM.get()
+
+        self = cls(token_limit)
         await self._check_ctags_executable()
         if self.ctags_disabled:
             ctags_disabled_message = f"""
@@ -136,7 +135,7 @@ class CodeMap:
                 Reason: {self.ctags_disabled_reason}
             """
             ctags_disabled_message = dedent(ctags_disabled_message)
-            await SESSION_STREAM.get().send(ctags_disabled_message, color="yellow")
+            await stream.send(ctags_disabled_message, color="yellow")
 
         return self
 
@@ -172,26 +171,30 @@ class CodeMap:
 
     async def _get_message_from_ctags(
         self,
+        config: ConfigManager,
         root: Path,
         file_paths: set[Path],
         exclude_signatures: bool = False,
         token_limit: int | None = None,
     ) -> CodeMapMessage | None:
         token_limit = token_limit or self.token_limit
-
         code_maps = list[str]()
         code_maps_token_count = 0
         for file_path in file_paths:
             code_map = await _get_code_map(
                 root, file_path, exclude_signatures=exclude_signatures
             )
-            code_map_token_count = count_tokens(code_map, self.config.model())
+            code_map_token_count = count_tokens(code_map, config.model())
 
             if token_limit is not None and code_maps_token_count > token_limit:
                 if exclude_signatures is True:
                     return
                 return await self._get_message_from_ctags(
-                    root, file_paths, exclude_signatures=True, token_limit=token_limit
+                    config,
+                    root,
+                    file_paths,
+                    exclude_signatures=True,
+                    token_limit=token_limit,
                 )
 
             code_maps.append(code_map)
@@ -199,12 +202,12 @@ class CodeMap:
 
         message = "Code Map:" + "\n\n" + "\n".join(code_maps)
 
-        message_token_count = count_tokens(message, self.config.model())
+        message_token_count = count_tokens(message, config.model())
         if token_limit is not None and message_token_count > token_limit:
             if exclude_signatures is True:
                 return
             return await self._get_message_from_ctags(
-                root, file_paths, exclude_signatures=True
+                config, root, file_paths, exclude_signatures=True
             )
 
         code_map_message = CodeMapMessage(
@@ -215,13 +218,15 @@ class CodeMap:
         return code_map_message
 
     def _get_message_from_file_map(
-        self, file_paths: set[Path], token_limit: int | None = None
+        self,
+        config: ConfigManager,
+        file_paths: set[Path],
+        token_limit: int | None = None,
     ) -> CodeMapMessage | None:
         file_map_tree = _get_file_map(file_paths)
-
         message = "Code Map:" + "\n\n" + file_map_tree
 
-        message_token_count = count_tokens(message, self.config.model())
+        message_token_count = count_tokens(message, config.model())
         token_limit = token_limit or self.token_limit
         if token_limit is not None and message_token_count > token_limit:
             return
@@ -233,17 +238,20 @@ class CodeMap:
     async def get_message(
         self, token_limit: int | None = None
     ) -> CodeMapMessage | None:
-        git_file_paths = get_non_gitignored_files(self.git_root)
+        config = CONFIG_MANAGER.get()
+        git_root = GIT_ROOT.get()
+
+        git_file_paths = get_non_gitignored_files(git_root)
 
         if not self.ctags_disabled:
             code_map_message = await self._get_message_from_ctags(
-                self.git_root, git_file_paths, token_limit=token_limit
+                config, git_root, git_file_paths, token_limit=token_limit
             )
             if code_map_message is not None:
                 return code_map_message
 
         file_map_message = self._get_message_from_file_map(
-            git_file_paths, token_limit=token_limit
+            config, git_file_paths, token_limit=token_limit
         )
         if file_map_message is not None:
             return file_map_message
