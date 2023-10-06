@@ -267,22 +267,27 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         response, reason = await failure_analysis(problem_dir, language)
         result["response"] = response
         result["reason"] = reason
-    result["instructions"] = read_instructions(exercise)
-    result["code"] = read_code(problem_dir, language)
     return result
 
 
 def run_exercise_sync(problem_dir, language="python", max_iterations=2):
     try:
-        return asyncio.run(run_exercise(problem_dir, language, max_iterations))
+        result = asyncio.run(run_exercise(problem_dir, language, max_iterations))
     except Exception as e:
         print(f"\nError running {problem_dir}")
         print(str(e), flush=True)
-        return {
+        result = {
             "iterations": None,
             "passed": False,
             "test": problem_dir,
+            "response": str(e),
+            "reason": "error",
         }
+    result["instructions"] = read_instructions(
+        Path(f"exercises/practice/{problem_dir}")
+    )
+    result["code"] = read_code(problem_dir, language)
+    return result
 
 
 def summarize_results(results):
@@ -318,7 +323,7 @@ def test_practice_directory_performance(
     with Pool(processes=max_workers) as pool:
         pbar = tqdm.tqdm(total=num_exercises)
 
-        result_map = pool.map(
+        result_map = pool.imap(
             partial(
                 run_exercise_sync, language=language, max_iterations=max_iterations
             ),
