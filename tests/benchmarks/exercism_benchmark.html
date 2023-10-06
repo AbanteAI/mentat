@@ -2,6 +2,11 @@
 <html>
     <head></head>
     <body>
+        <div id="header">
+            <p id="passed"></p>
+            <p id="failed"></p>
+            <p id="reasons"></p>
+        </div>
         <div id="container">
             <div id="selector"></div>
             <div id="viewer"></div>
@@ -13,6 +18,9 @@
         const results = {{ results }}
         const selector = document.getElementById("selector")
         var results_map = {}
+        var passed = 0
+        var failed = 0
+        var reasons = {}
         for(result of results) {
             const button = document.createElement("button")
             const test = result.test
@@ -23,7 +31,26 @@
             selector.appendChild(button)
 
             results_map[test] = result
+            if(result["passed"]) {
+                button.className = "success"
+                passed += 1
+            } else {
+                button.className = "failure"
+                failed += 1
+                if(!(result["reason"] in reasons)) {
+                    reasons[result["reason"]] = 0
+                }
+                reasons[result["reason"]] += 1
+            }
         }
+
+        document.getElementById("passed").innerHTML = `Passed: ${passed}`
+        document.getElementById("failed").innerHTML = `Failed: ${failed}`
+        var reasonsString = "Reasons: "
+        for(reason in reasons) {
+            reasonsString += reason + ": " + reasons[reason].toString() + " "
+        }
+        document.getElementById("reasons").innerHTML = reasonsString
         
         addEventListener("hashchange", (event) => {
             const viewer = document.getElementById("viewer")
@@ -61,12 +88,24 @@
             height: 100%; 
             padding: 0; 
             margin: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #header {
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            font-size: 18px;
+            padding: 4px;
+            margin: 0;
         }
 
         #container {
             display: flex; 
-            flex-direction: row; 
-            height: 100%;
+            flex-direction: row;
+            flex-grow: 1;
+            min-height: 0;
         }
 
         #selector {
@@ -75,6 +114,7 @@
             flex-direction: column;
             border: 1px solid black; 
             padding: 8px; gap: 8px;
+            overflow-y: scroll;
         }
 
         #viewer {
@@ -84,6 +124,7 @@
             flex-grow: 1; 
             border: 1px solid black;
             font-size: 20px;
+            min-width: 0;
         }
 
         button {
@@ -102,6 +143,18 @@
 
         h1 {
             margin: 2px;
+        }
+
+        p {
+            margin: 2px;
+        }
+
+        .success {
+            background-color: rgb(205, 255, 205);
+        }
+
+        .failure {
+            background-color: rgb(255, 184, 184);
         }
     </style>
 </html>
