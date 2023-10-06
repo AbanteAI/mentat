@@ -69,6 +69,13 @@ def pytest_addoption(parser):
         default=False,
         help="When set local changes will be discarded.",
     )
+    parser.addoption(
+        "--exercises",
+        action="append",
+        nargs="*",
+        default=[],
+        help="Which exercism exercises to run. max_exercises ignored when set.",
+    )
 
 
 def pytest_configure(config):

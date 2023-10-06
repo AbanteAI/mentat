@@ -46,10 +46,11 @@ def setup_api_key():
 
 def is_test_environment():
     """Returns True if in pytest and not benchmarks"""
+    benchmarks_running = os.getenv("MENTAT_BENCHMARKS_RUNNING")
     return (
         "PYTEST_CURRENT_TEST" in os.environ
         and "--benchmark" not in sys.argv
-        and os.getenv("MENTAT_BENCHMARKS_RUNNING") == "false"
+        and (not bool(benchmarks_running) or benchmarks_running == "false")
     )
 
 
