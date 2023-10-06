@@ -2,33 +2,47 @@ from __future__ import annotations
 
 import logging
 import os
+from contextvars import ContextVar
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from .code_context import CodeContext
+from mentat.git_handler import GIT_ROOT
+
+from .code_context import CODE_CONTEXT, CodeContext
 from .code_file import CodeFile
-from .config_manager import ConfigManager
 from .errors import MentatError
-from .parsers.file_edit import FileEdit
 from .session_input import ask_yes_no
 from .session_stream import SESSION_STREAM
 
+if TYPE_CHECKING:
+    # This normally will cause a circular import
+    from .parsers.file_edit import FileEdit
+
+CODE_FILE_MANAGER: ContextVar[CodeFileManager] = ContextVar("mentat:code_file_manager")
+
 
 class CodeFileManager:
-    def __init__(self, config: ConfigManager):
-        self.config = config
+    def __init__(self):
+        pass
 
     def read_file(self, path: Path) -> list[str]:
-        abs_path = path if path.is_absolute() else Path(self.config.git_root / path)
+        git_root = GIT_ROOT.get()
+
+        abs_path = path if path.is_absolute() else Path(git_root / path)
         with open(abs_path, "r") as f:
             lines = f.read().split("\n")
         return lines
 
-    def read_all_file_lines(self, files: list[Path]) -> None:
+    def read_all_file_lines(self) -> None:
+        git_root = GIT_ROOT.get()
+        code_context = CODE_CONTEXT.get()
+
+        files = list(code_context.files.keys())
         self.file_lines = dict[Path, list[str]]()
         for path in files:
             # self.file_lines is relative to git root
-            rel_path = Path(os.path.relpath(path, self.config.git_root))
-            abs_path = Path(self.config.git_root / rel_path)
+            rel_path = Path(os.path.relpath(path, git_root))
+            abs_path = Path(git_root / rel_path)
             self.file_lines[rel_path] = self.read_file(abs_path)
 
     def _add_file(self, abs_path: Path, code_context: CodeContext):
@@ -49,12 +63,13 @@ class CodeFileManager:
     async def write_changes_to_files(
         self,
         file_edits: list[FileEdit],
-        code_context: CodeContext,
     ):
         stream = SESSION_STREAM.get()
+        git_root = GIT_ROOT.get()
+        code_context = CODE_CONTEXT.get()
 
         for file_edit in file_edits:
-            rel_path = Path(os.path.relpath(file_edit.file_path, self.config.git_root))
+            rel_path = Path(os.path.relpath(file_edit.file_path, git_root))
             if file_edit.is_creation:
                 if file_edit.file_path.exists():
                     raise MentatError(

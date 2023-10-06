@@ -3,16 +3,15 @@ import os
 import subprocess
 import sys
 from functools import partial
+from multiprocessing import Pool
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
 import tqdm
-from aiomultiprocess import Pool
 from git import Repo
 
 from mentat.llm_api import call_llm_api, setup_api_key
-from mentat.logging_config import setup_logging
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 
@@ -122,15 +121,6 @@ def language(request):
     return request.config.getoption("--language")
 
 
-async def send_message(stream, message):
-    input_request_message = await stream.recv("input_request")
-    await stream.send(
-        message,
-        source=StreamMessageSource.CLIENT,
-        channel=f"input_request:{input_request_message.id}",
-    )
-
-
 async def run_exercise(problem_dir, language="python", max_iterations=2):
     try:
         exercise = Path(f"exercises/practice/{problem_dir}")
@@ -154,29 +144,44 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         )
         asyncio.ensure_future(session.start())
 
-        await send_message(
-            session.stream,
+        input_request_message = await session.stream.recv("input_request")
+        await session.stream.send(
             dedent(
                 f"""\
                     Use the instructions in exercises/practice/{problem_dir} to modify \
                     {exercise_file}. Keep and implement the existing function or class stubs, they will be \
                     called from unit tests. Only use standard libraries, don't suggest installing any packages."""
             ),
+            source=StreamMessageSource.CLIENT,
+            channel=f"input_request:{input_request_message.id}",
         )
-        await send_message(session.stream, "y")
+        input_request_message = await session.stream.recv("input_request")
+        await session.stream.send(
+            "y",
+            source=StreamMessageSource.CLIENT,
+            channel=f"input_request:{input_request_message.id}",
+        )
+        input_request_message = await session.stream.recv("input_request")
         iterations = 1
         run_exercise_test(exercise, test_output_file, language)
         while iterations < max_iterations:
             if exercise_passed(test_output_file, language):
                 break
-            await send_message(
-                session.stream,
+            await session.stream.send(
                 get_error_message(test_output_file) + dedent(f"""
                         See the testing errors above.
                         The tests are correct.
                         Fix the code in {exercise_file} to resolve the errors."""),
+                source=StreamMessageSource.CLIENT,
+                channel=f"input_request:{input_request_message.id}",
             )
-            await send_message(session.stream, "y")
+            input_request_message = await session.stream.recv("input_request")
+            await session.stream.send(
+                "y",
+                source=StreamMessageSource.CLIENT,
+                channel=f"input_request:{input_request_message.id}",
+            )
+            input_request_message = await session.stream.recv("input_request")
             run_exercise_test(exercise, test_output_file, language)
             iterations += 1
 
@@ -197,8 +202,8 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         }
 
 
-async def setup_logging_async():
-    setup_logging()
+def run_exercise_sync(problem_dir, language="python", max_iterations=2):
+    return asyncio.run(run_exercise(problem_dir, language, max_iterations))
 
 
 def summarize_results(results):
@@ -214,8 +219,7 @@ def summarize_results(results):
     return "Passed: " + str(passed_in_n)[1:-1] + "| Failed: " + str(failed)
 
 
-@pytest.mark.asyncio
-async def test_practice_directory_performance(
+def test_practice_directory_performance(
     clone_exercism_repo,
     exercises,
     max_exercises,
@@ -230,16 +234,19 @@ async def test_practice_directory_performance(
         exercises = all_exercises[:max_exercises]
     num_exercises = len(exercises)
 
-    async with Pool(processes=max_workers) as pool:
+    # TODO: aiomultiprocessing would be faster with fewer workers; setup a Manager in a parent process
+    # that controls the children processes so that we don't run into rate limits
+    with Pool(processes=max_workers) as pool:
         pbar = tqdm.tqdm(total=num_exercises)
 
-        await pool.apply(setup_logging_async)
         result_map = pool.map(
-            partial(run_exercise, language=language, max_iterations=max_iterations),
+            partial(
+                run_exercise_sync, language=language, max_iterations=max_iterations
+            ),
             exercises,
         )
         results = []
-        async for result in result_map:
+        for result in result_map:
             results.append(result)
             pbar.update()
             with open("results.txt", "a") as f:

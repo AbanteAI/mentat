@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 
-from mentat.code_context import CodeContext
 from mentat.commands import (
     AddCommand,
     Command,
@@ -36,26 +35,17 @@ async def test_commit_command(mock_stream, temp_testbed):
 
 
 @pytest.mark.asyncio
-async def test_add_command(mock_stream, mock_config):
-    code_context = await CodeContext.create(
-        config=mock_config,
-        paths=[],
-        exclude_paths=[],
-    )
-    command = Command.create_command("add", code_context=code_context)
+async def test_add_command(mock_stream, mock_config, mock_code_context):
+    command = Command.create_command("add")
     assert isinstance(command, AddCommand)
     await command.apply("__init__.py")
-    assert Path("__init__.py") in code_context.files
+    assert Path("__init__.py") in mock_code_context.files
 
 
 @pytest.mark.asyncio
-async def test_remove_command(mock_stream, mock_config):
-    code_context = await CodeContext.create(
-        config=mock_config,
-        paths=[Path("__init__.py")],
-        exclude_paths=[],
-    )
-    command = Command.create_command("remove", code_context=code_context)
+async def test_remove_command(mock_stream, mock_config, mock_code_context):
+    mock_code_context.settings.paths = [Path("__init__.py")]
+    command = Command.create_command("remove")
     assert isinstance(command, RemoveCommand)
     await command.apply("__init__.py")
-    assert Path("__init__.py") not in code_context.files
+    assert Path("__init__.py") not in mock_code_context.files

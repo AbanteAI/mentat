@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mentat.diff_context import DiffContext, get_diff_context
+from mentat.diff_context import DiffContext
 from mentat.errors import UserError
 
 rel_path = Path("multifile_calculator/operations.py")
@@ -55,10 +55,11 @@ def _get_file_message(temp_testbed):
     return file_message
 
 
-def test_diff_context_default(mock_stream, mock_config, temp_testbed, git_history):
+def test_diff_context_default(
+    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
+):
     # DiffContext.__init__() (default): active code vs last commit
-    diff_context = DiffContext(mock_config)
-    assert diff_context.config
+    diff_context = DiffContext()
     assert diff_context.target == "HEAD"
     assert diff_context.name == "HEAD (last commit)"
     assert diff_context.files == []
@@ -77,12 +78,14 @@ def test_diff_context_default(mock_stream, mock_config, temp_testbed, git_histor
     assert annotated_message == expected
 
 
-def test_diff_context_commit(mock_stream, mock_config, temp_testbed, git_history):
+def test_diff_context_commit(
+    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
+):
     # Get the hash of 2-commits-ago
     last_commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD~2"], cwd=temp_testbed, text=True
     ).strip()
-    diff_context = get_diff_context(mock_config, diff=last_commit)
+    diff_context = DiffContext.create(diff=last_commit)
     assert diff_context.target == last_commit
     assert diff_context.name == f"{last_commit[:8]}: add testbed"
     assert diff_context.files == [rel_path]
@@ -96,8 +99,10 @@ def test_diff_context_commit(mock_stream, mock_config, temp_testbed, git_history
     assert annotated_message == expected
 
 
-def test_diff_context_branch(mock_stream, mock_config, temp_testbed, git_history):
-    diff_context = get_diff_context(mock_config, diff="test_branch")
+def test_diff_context_branch(
+    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
+):
+    diff_context = DiffContext.create(diff="test_branch")
     assert diff_context.target == "test_branch"
     assert diff_context.name.startswith("Branch test_branch:")
     assert diff_context.name.endswith(": commit4")
@@ -112,8 +117,10 @@ def test_diff_context_branch(mock_stream, mock_config, temp_testbed, git_history
     assert annotated_message == expected
 
 
-def test_diff_context_relative(mock_stream, mock_config, temp_testbed, git_history):
-    diff_context = get_diff_context(mock_config, diff="HEAD~2")
+def test_diff_context_relative(
+    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
+):
+    diff_context = DiffContext.create(diff="HEAD~2")
     assert diff_context.target == "HEAD~2"
     assert diff_context.name.startswith("HEAD~2: ")
     assert diff_context.name.endswith(": add testbed")
@@ -128,21 +135,25 @@ def test_diff_context_relative(mock_stream, mock_config, temp_testbed, git_histo
     assert annotated_message == expected
 
 
-def test_diff_context_errors(mock_stream, mock_config, temp_testbed, git_history):
+def test_diff_context_errors(
+    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
+):
     # Can't use both diff and pr_diff
     with pytest.raises(UserError) as e:
-        get_diff_context(mock_config, diff="HEAD", pr_diff="master")
+        DiffContext.create(diff="HEAD", pr_diff="master")
     assert str(e.value) == "Cannot specify more than one type of diff."
 
     # Invalid treeish
     with pytest.raises(UserError) as e:
-        get_diff_context(mock_config, diff="invalid")
+        DiffContext.create(diff="invalid")
     assert str(e.value) == "Invalid treeish: invalid"
 
 
-def test_diff_context_pr(mock_stream, mock_config, temp_testbed, git_history):
+def test_diff_context_pr(
+    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
+):
     subprocess.run(["git", "checkout", "test_branch"], cwd=temp_testbed)
-    diff_context = get_diff_context(mock_config, pr_diff="master")
+    diff_context = DiffContext.create(pr_diff="master")
 
     commit2 = subprocess.check_output(
         ["git", "rev-parse", "HEAD~1"], cwd=temp_testbed, text=True

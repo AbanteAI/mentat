@@ -7,7 +7,6 @@ from typing import Any
 from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
-from mentat.config_manager import ConfigManager
 from mentat.errors import ModelError
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
 from mentat.parsers.file_edit import FileEdit, Replacement
@@ -94,7 +93,7 @@ class BlockParser(Parser):
     def _special_block(
         self,
         code_file_manager: CodeFileManager,
-        config: ConfigManager,
+        git_root: Path,
         rename_map: dict[Path, Path],
         special_block: str,
     ) -> tuple[DisplayInformation, FileEdit, bool]:
@@ -166,7 +165,7 @@ class BlockParser(Parser):
         if deserialized_json.action == _BlockParserAction.Delete:
             replacements.append(Replacement(starting_line, ending_line, []))
         file_edit = FileEdit(
-            config.git_root / deserialized_json.file,
+            git_root / deserialized_json.file,
             replacements,
             is_creation=file_action == FileActionType.CreateFile,
             is_deletion=file_action == FileActionType.DeleteFile,

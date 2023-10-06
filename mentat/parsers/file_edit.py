@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import attr
 
-from mentat.config_manager import ConfigManager
+from mentat.code_file_manager import CODE_FILE_MANAGER
 from mentat.errors import MentatError
+from mentat.git_handler import GIT_ROOT
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
@@ -16,10 +16,6 @@ from mentat.parsers.change_display_helper import (
 )
 from mentat.session_input import ask_yes_no
 from mentat.session_stream import SESSION_STREAM
-
-if TYPE_CHECKING:
-    # This normally will cause a circular import
-    from mentat.code_file_manager import CodeFileManager
 
 
 # TODO: Add 'owner' to Replacement so that interactive mode can accept/reject multiple replacements at once
@@ -69,12 +65,12 @@ class FileEdit:
     # Should be abs path
     rename_file_path: Path | None = attr.field(default=None)
 
-    async def is_valid(
-        self, code_file_manager: CodeFileManager, config: ConfigManager
-    ) -> bool:
+    async def is_valid(self) -> bool:
         stream = SESSION_STREAM.get()
+        code_file_manager = CODE_FILE_MANAGER.get()
+        git_root = GIT_ROOT.get()
 
-        rel_path = Path(os.path.relpath(self.file_path, config.git_root))
+        rel_path = Path(os.path.relpath(self.file_path, git_root))
         if self.is_creation:
             if self.file_path.exists():
                 await stream.send(
@@ -94,9 +90,7 @@ class FileEdit:
                 return False
 
         if self.rename_file_path is not None and self.rename_file_path.exists():
-            rel_rename_path = Path(
-                os.path.relpath(self.rename_file_path, config.git_root)
-            )
+            rel_rename_path = Path(os.path.relpath(self.rename_file_path, git_root))
             await stream.send(
                 f"File {rel_path} being renamed to existing file {rel_rename_path},"
                 " canceling rename."
@@ -106,9 +100,10 @@ class FileEdit:
 
     async def filter_replacements(
         self,
-        code_file_manager: CodeFileManager,
-        config: ConfigManager,
     ) -> bool:
+        code_file_manager = CODE_FILE_MANAGER.get()
+        git_root = GIT_ROOT.get()
+
         if self.is_creation:
             display_information = DisplayInformation(
                 self.file_path, [], [], [], FileActionType.CreateFile
@@ -117,7 +112,7 @@ class FileEdit:
                 return False
             file_lines = []
         else:
-            rel_path = Path(os.path.relpath(self.file_path, config.git_root))
+            rel_path = Path(os.path.relpath(self.file_path, git_root))
             file_lines = code_file_manager.file_lines[rel_path]
 
         if self.is_deletion:
