@@ -159,7 +159,6 @@ class DiffContext:
         self, rel_path: Path, file_message: list[str]
     ) -> list[str]:
         """Return file_message annotated with active diff."""
-
         if not self.files:
             return file_message
 
