@@ -75,7 +75,8 @@ class BlockParser(Parser):
     @override
     def _could_be_special(self, cur_line: str) -> bool:
         return any(
-            to_match.value.startswith(cur_line) for to_match in _BlockParserIndicator
+            to_match.value.startswith(cur_line.strip())
+            for to_match in _BlockParserIndicator
         )
 
     @override

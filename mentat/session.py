@@ -21,6 +21,7 @@ from .parsers.block_parser import BlockParser
 from .parsers.parser import PARSER, Parser
 from .parsers.replacement_parser import ReplacementParser
 from .parsers.split_diff_parser import SplitDiffParser
+from .parsers.unified_diff_parser import UnifiedDiffParser
 from .session_input import collect_user_input
 from .session_stream import SESSION_STREAM, SessionStream
 
@@ -28,6 +29,7 @@ parser_map: dict[str, Parser] = {
     "block": BlockParser(),
     "replacement": ReplacementParser(),
     "split-diff": SplitDiffParser(),
+    "unified-diff": UnifiedDiffParser(),
 }
 
 
