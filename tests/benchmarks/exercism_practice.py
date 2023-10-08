@@ -4,7 +4,6 @@ import sys
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
-from textwrap import dedent
 
 import pytest
 import tqdm
