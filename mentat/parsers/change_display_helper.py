@@ -34,6 +34,18 @@ class FileActionType(Enum):
     UpdateFile = "update"
 
 
+def get_file_action_type(is_creation: bool, is_deletion: bool, new_name: Path | None):
+    if is_creation:
+        file_action_type = FileActionType.CreateFile
+    elif is_deletion:
+        file_action_type = FileActionType.DeleteFile
+    elif new_name is not None:
+        file_action_type = FileActionType.RenameFile
+    else:
+        file_action_type = FileActionType.UpdateFile
+    return file_action_type
+
+
 @attr.define(slots=False)
 class DisplayInformation:
     file_name: Path = attr.field()
@@ -162,6 +174,11 @@ def get_removed_lines(
     )
 
 
+def highlight_text(display_information: DisplayInformation, text: str) -> str:
+    # pygments doesn't have type hints on TerminalFormatter
+    return highlight(text, display_information.lexer, TerminalFormatter(bg="dark"))  # type: ignore
+
+
 def get_previous_lines(
     display_information: DisplayInformation,
     num: int = 2,
@@ -189,9 +206,7 @@ def get_previous_lines(
     ]
 
     prev = "\n".join(numbered)
-    # pygments doesn't have type hints on TerminalFormatter
-    h_prev: str = highlight(prev, display_information.lexer, TerminalFormatter(bg="dark"))  # type: ignore
-    return h_prev
+    return highlight_text(display_information, prev)
 
 
 def get_later_lines(
@@ -221,6 +236,4 @@ def get_later_lines(
     ]
 
     later = "\n".join(numbered)
-    # pygments doesn't have type hints on TerminalFormatter
-    h_later: str = highlight(later, display_information.lexer, TerminalFormatter(bg="dark"))  # type: ignore
-    return h_later
+    return highlight_text(display_information, later)

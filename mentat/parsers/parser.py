@@ -111,7 +111,7 @@ class Parser(ABC):
                 # Print if not in special lines and line is confirmed not special
                 if not in_special_lines:
                     if not line_printed:
-                        if not self._could_be_special(cur_line.strip()):
+                        if not self._could_be_special(cur_line):
                             line_printed = True
                             to_print = (
                                 cur_line
@@ -119,14 +119,18 @@ class Parser(ABC):
                                 else self._code_line_beginning(
                                     display_information, cur_block
                                 )
-                                + self._code_line_content(cur_line, cur_block)
+                                + self._code_line_content(
+                                    display_information, cur_line, cur_line, cur_block
+                                )
                             )
                             printer.add_string(to_print, end="")
                     else:
                         to_print = (
                             content
-                            if not in_code_lines
-                            else self._code_line_content(content, cur_block)
+                            if not in_code_lines or display_information is None
+                            else self._code_line_content(
+                                display_information, content, cur_line, cur_block
+                            )
                         )
                         printer.add_string(to_print, end="")
 
@@ -137,15 +141,22 @@ class Parser(ABC):
 
                 # New line handling
                 if "\n" in cur_line:
-                    # Always print whitespace lines (even though they 'match' could_be_special)
-                    if not cur_line.strip() and not line_printed:
+                    # Now that full line is in, give _could_be_special full line (including newline)
+                    # and see if it should be printed or not
+                    if (
+                        not in_special_lines
+                        and not line_printed
+                        and not self._could_be_special(cur_line)
+                    ):
                         to_print = (
                             cur_line
                             if not in_code_lines or display_information is None
                             else self._code_line_beginning(
                                 display_information, cur_block
                             )
-                            + self._code_line_content(cur_line, cur_block)
+                            + self._code_line_content(
+                                display_information, cur_line, cur_line, cur_block
+                            )
                         )
                         printer.add_string(to_print, end="")
                         line_printed = True
@@ -315,7 +326,13 @@ class Parser(ABC):
             "+" + " " * (display_information.line_number_buffer - 1), color="green"
         )
 
-    def _code_line_content(self, content: str, cur_block: str) -> str:
+    def _code_line_content(
+        self,
+        display_information: DisplayInformation,
+        content: str,
+        cur_line: str,
+        cur_block: str,
+    ) -> str:
         """
         Part of a code line; normally this means printing in green
         """
@@ -324,7 +341,8 @@ class Parser(ABC):
     @abstractmethod
     def _could_be_special(self, cur_line: str) -> bool:
         """
-        Returns if this current line could be a special line and therefore shouldn't be printed yet
+        Returns if this current line could be a special line and therefore shouldn't be printed yet.
+        Once line is completed, will include a newline character.
         """
         pass
 
