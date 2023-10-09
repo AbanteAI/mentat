@@ -201,7 +201,7 @@ class CostTracker:
         )
 
 
-# Adapyed from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
+# Adapted from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
 async def num_tokens_from_messages(
     messages: list[dict[str, str]], model: str = "gpt-4"
 ) -> int:
