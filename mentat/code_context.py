@@ -247,11 +247,10 @@ class CodeContext:
         )
         max_auto_tokens = max_tokens - include_features_tokens
         all_features = include_features.copy()
-        for level in [
-            CodeMessageLevel.CMAP_FULL,
-            CodeMessageLevel.CMAP,
-            CodeMessageLevel.FILE_NAME,
-        ]:
+        levels = [CodeMessageLevel.FILE_NAME]
+        if not self.settings.no_code_map:
+            levels = [CodeMessageLevel.CMAP_FULL, CodeMessageLevel.CMAP] + levels
+        for level in levels:
             _features = list[CodeFile]()
             for path in get_non_gitignored_files(git_root):
                 if (
