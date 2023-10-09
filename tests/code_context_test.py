@@ -4,12 +4,7 @@ from unittest import TestCase
 
 import pytest
 
-from mentat.code_context import (
-    CodeContext,
-    CodeContextSettings,
-    _longer_feature_already_included,
-    _shorter_features_already_included,
-)
+from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_file import CodeMessageLevel
 from mentat.config_manager import ConfigManager
 from mentat.errors import UserError
@@ -194,22 +189,6 @@ def features(mocker):
     return features
 
 
-def test_longer_feature_already_included(features):
-    higher_level = _longer_feature_already_included(features[1], [features[0]])
-    assert higher_level is True
-    lower_diff = _longer_feature_already_included(features[1], [features[2]])
-    assert lower_diff is False
-    higher_diff = _longer_feature_already_included(features[2], [features[1]])
-    assert higher_diff is True
-
-
-def test_shorter_features_already_included(features):
-    lower_level = _shorter_features_already_included(
-        features[1], [features[0]] + features[2:]
-    )
-    assert set(lower_level) == set(features[2:4])
-
-
 @pytest.mark.asyncio
 async def test_get_code_message_cache(
     mocker,
@@ -290,18 +269,14 @@ async def test_get_code_message_include(
     ]
     assert code_message.splitlines() == expected
 
-    # Fill-in complete files if there's enough room
-    code_context.settings.auto_tokens = 1000 * 0.95  # Sometimes it's imprecise
-    code_message = await code_context.get_code_message("gpt-4", 1e6)
-    assert 500 <= count_tokens(code_message, "gpt-4") <= 1000
-    messages = code_message.split("\n\n")
-    assert messages[0] == "Code Files:"
-    for message in messages[1:]:
-        message_lines = message.splitlines()
-        if message_lines:
-            assert Path(message_lines[0]).exists()
+    async def _count_auto_tokens_where(limit: int) -> int:
+        code_context.settings.auto_tokens = limit
+        code_message = await code_context.get_code_message("gpt-4", 1e6)
+        return count_tokens(code_message, "gpt-4")
 
-    # Otherwise, fill-in what fits
-    code_context.settings.auto_tokens = 400
-    code_message = await code_context.get_code_message("gpt-4", 1e6)
-    assert count_tokens(code_message, "gpt-4") <= 800
+    # If max_tokens is None, include the full auto-context
+    assert await _count_auto_tokens_where(None) == 288  # Cmap w/ signatures
+    assert await _count_auto_tokens_where(250) == 220  # Cmap
+    assert await _count_auto_tokens_where(200) == 153  # fnames
+    # Always return include_files, regardless of max
+    assert await _count_auto_tokens_where(0) == 102  # Include_files only

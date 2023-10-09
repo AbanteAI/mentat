@@ -210,7 +210,9 @@ async def num_tokens_from_messages(
     try:
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
-        await stream.send("Warning: model not found. Using cl100k_base encoding.", color="yellow")
+        await stream.send(
+            "Warning: model not found. Using cl100k_base encoding.", color="yellow"
+        )
         encoding = tiktoken.get_encoding("cl100k_base")
     if model in {
         "gpt-3.5-turbo-0613",
@@ -230,13 +232,15 @@ async def num_tokens_from_messages(
     elif "gpt-3.5-turbo" in model:
         await stream.send(
             "Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming"
-            " gpt-3.5-turbo-0613.", color="yellow"
+            " gpt-3.5-turbo-0613.",
+            color="yellow",
         )
         return await num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
     elif "gpt-4" in model:
         await stream.send(
             "Warning: gpt-4 may update over time. Returning num tokens assuming"
-            " gpt-4-0613.", color="yellow"
+            " gpt-4-0613.",
+            color="yellow",
         )
         return await num_tokens_from_messages(messages, model="gpt-4-0613")
     else:

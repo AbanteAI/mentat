@@ -13,7 +13,7 @@ from .code_file import CodeFile, CodeMessageLevel
 from .code_file_manager import CODE_FILE_MANAGER
 from .code_map import check_ctags_disabled
 from .diff_context import DiffContext
-from .errors import MentatError, UserError
+from .errors import UserError
 from .git_handler import GIT_ROOT, get_non_gitignored_files, get_paths_with_git_diffs
 from .include_files import (
     build_path_tree,
@@ -26,31 +26,16 @@ from .session_stream import SESSION_STREAM
 from .utils import sha256
 
 
-def _longer_feature_already_included(
-    feature: CodeFile, features: list[CodeFile]
-) -> bool:
-    for f in features:
-        if f.path != feature.path:
-            continue
-        elif f.diff and not feature.diff:
-            return True
-        elif f.level.rank < feature.level.rank:
-            return True
-    return False
+async def _count_tokens_in_features(features: list[CodeFile], model: str) -> int:
+    sem = asyncio.Semaphore(10)
 
+    async def _count_tokens(feature: CodeFile) -> int:
+        async with sem:
+            return await feature.count_tokens(model)
 
-def _shorter_features_already_included(
-    feature: CodeFile, features: list[CodeFile]
-) -> list[CodeFile]:
-    to_replace = list[CodeFile]()
-    for f in features:
-        if f.path != feature.path:
-            continue
-        elif feature.diff and not f.diff:
-            to_replace.append(f)
-        elif f.level.rank > feature.level.rank:
-            to_replace.append(f)
-    return to_replace
+    tasks = [_count_tokens(f) for f in features]
+    results = await asyncio.gather(*tasks)
+    return sum(results)
 
 
 @attr.define
@@ -192,9 +177,7 @@ class CodeContext:
             or code_message_checksum != self._code_message_checksum
         ):
             self._code_message = await self._get_code_message(model, max_tokens)
-            self._code_message_checksum = self._get_code_message_checksum(
-                max_tokens
-            )
+            self._code_message_checksum = self._get_code_message_checksum(max_tokens)
         return self._code_message
 
     async def _get_code_message(
@@ -217,11 +200,9 @@ class CodeContext:
         code_message += ["Code Files:\n"]
 
         features = self._get_include_features()
-        include_feature_tokens_task = [f.count_tokens(model) for f in features]
-        results = await asyncio.gather(*include_feature_tokens_task)
-        include_feature_tokens = sum(results) + count_tokens(
-            "\n".join(code_message), model
-        )
+        include_feature_tokens = await _count_tokens_in_features(
+            features, model
+        ) - count_tokens("\n".join(code_message), model)
         _max_auto = max(0, max_tokens - include_feature_tokens)
         _max_user = self.settings.auto_tokens
         if _max_auto == 0 or _max_user == 0:
@@ -259,76 +240,37 @@ class CodeContext:
         max_tokens: int,
     ) -> list[CodeFile]:
         git_root = GIT_ROOT.get()
-        # Generate all possible permutations for all files in the project.
-        candidate_features = list[CodeFile]()
-        for path in get_non_gitignored_files(git_root):
-            if not path.is_dir() and not is_file_text_encoded(path):
-                continue
-            permutations: list[tuple[CodeMessageLevel, str | None]] = [
-                (CodeMessageLevel.CODE, None),
-                (CodeMessageLevel.FILE_NAME, None),
-            ]
-            if not self.settings.no_code_map:
-                permutations += [
-                    (CodeMessageLevel.CMAP_FULL, None),
-                    (CodeMessageLevel.CMAP, None),
-                ]
-            if self.diff_context.target and path in self.diff_context.files:
-                permutations += [
-                    (level, self.diff_context.target) for level, _ in permutations
-                ]
-            for level, diff in permutations:
-                feature = CodeFile(path, level=level, diff=diff)
-                candidate_features.append(feature)
 
-        # Sort candidates by relevance/density.
-        tokens_remaining = max_tokens
-        sem = asyncio.Semaphore(10)
-
-        async def _calculate_feature_score(feature: CodeFile) -> float:
-            score = 0.0
-            async with sem:
-                tokens = await feature.count_tokens(model)
-            if tokens == 0:
-                raise MentatError(f"Feature {feature} has 0 tokens.")
-            if feature.diff is not None:
-                score += 1
-            if feature.level == CodeMessageLevel.FILE_NAME:
-                score += 0.1
-            if feature.level == CodeMessageLevel.CMAP:
-                score += 0.25
-            elif feature.level == CodeMessageLevel.CMAP_FULL:
-                score += 0.5
-            elif feature.level == CodeMessageLevel.CODE:
-                score += 0.75
-            score /= tokens
-            return score
-
-        all_features = include_features.copy()
-        candidate_scores_task = [
-            _calculate_feature_score(f) for f in candidate_features
-        ]
-        candidate_scores = await asyncio.gather(
-            *candidate_scores_task, return_exceptions=True
+        # Find the first (longest) level that fits
+        include_features_tokens = await _count_tokens_in_features(
+            include_features, model
         )
-        candidates_scored = list(zip(candidate_features, candidate_scores))
-        candidates_sorted = sorted(candidates_scored, key=lambda x: x[1], reverse=True)
-        for feature, _ in candidates_sorted:
-            feature_tokens = await feature.count_tokens(model)
-            if tokens_remaining - feature_tokens <= 0:
-                continue
-            if _longer_feature_already_included(feature, all_features):
-                continue
-            to_replace = _shorter_features_already_included(feature, all_features)
-            if to_replace:
-                for f in to_replace:
-                    f_index = all_features.index(f)
-                    reclaimed_tokens = await all_features[f_index].count_tokens(model)
-                    tokens_remaining += reclaimed_tokens
-                    all_features = all_features[:f_index] + all_features[f_index + 1 :]
-            all_features.append(feature)
-            new_tokens = await feature.count_tokens(model)
-            tokens_remaining -= new_tokens
+        max_auto_tokens = max_tokens - include_features_tokens
+        all_features = include_features.copy()
+        for level in [
+            CodeMessageLevel.CMAP_FULL,
+            CodeMessageLevel.CMAP,
+            CodeMessageLevel.FILE_NAME,
+        ]:
+            _features = list[CodeFile]()
+            for path in get_non_gitignored_files(git_root):
+                if (
+                    path in self.include_files
+                    or path.is_dir()
+                    or not is_file_text_encoded(path)
+                ):
+                    continue
+                diff_target = (
+                    self.diff_context.target
+                    if path in self.diff_context.files
+                    else None
+                )
+                feature = CodeFile(path, level=level, diff=diff_target)
+                _features.append(feature)
+            level_length = await _count_tokens_in_features(_features, model)
+            if level_length < max_auto_tokens:
+                all_features += _features
+                break
 
         def _feature_relative_path(f: CodeFile) -> str:
             return os.path.relpath(f.path, git_root)
