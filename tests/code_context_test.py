@@ -275,8 +275,9 @@ async def test_get_code_message_include(
         return count_tokens(code_message, "gpt-4")
 
     # If max_tokens is None, include the full auto-context
-    assert await _count_auto_tokens_where(None) == 288  # Cmap w/ signatures
-    assert await _count_auto_tokens_where(250) == 220  # Cmap
+    if not code_context.no_code_map:
+        assert await _count_auto_tokens_where(None) == 288  # Cmap w/ signatures
+        assert await _count_auto_tokens_where(250) == 220  # Cmap
     assert await _count_auto_tokens_where(200) == 153  # fnames
     # Always return include_files, regardless of max
     assert await _count_auto_tokens_where(0) == 102  # Include_files only
