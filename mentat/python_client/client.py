@@ -27,11 +27,11 @@ class PythonClient:
         self.acc_task: asyncio.Task[None] | None = None
         self._started = False
         self._accumulated_message = ""
-        self._input_request_message = None
 
     async def call_mentat(self, message: str):
         if not self._started:
             await self._startup()
+        assert isinstance(self.session, Session), "Client is not running"
         await self.session.stream.send(
             message,
             source=StreamMessageSource.CLIENT,
@@ -63,7 +63,7 @@ class PythonClient:
 
     async def stop(self):
         if self.session is not None:
-            await self.session.stop()
+            self.session.stop()
             self.session = None
         if self.acc_task is not None:
             self.acc_task.cancel()
