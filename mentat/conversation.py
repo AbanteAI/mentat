@@ -150,7 +150,7 @@ class Conversation:
         messages = self.messages.copy()
 
         # Rebuild code context with active code and available tokens
-        tokens = num_tokens_from_messages(messages, self.model)
+        tokens = await num_tokens_from_messages(messages, self.model)
         response_buffer = 1000
         code_message = await code_context.get_code_message(
             self.model,

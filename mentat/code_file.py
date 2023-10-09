@@ -68,6 +68,7 @@ class CodeFile:
         path: str | Path,
         level: CodeMessageLevel = CodeMessageLevel.CODE,
         diff: str | None = None,
+        user_included: bool = False,
     ):
         if Path(path).exists():
             self.path = Path(path)
@@ -84,6 +85,7 @@ class CodeFile:
                 level = CodeMessageLevel.INTERVAL
         self.level = level
         self.diff = diff
+        self.user_included = user_included
 
     def __repr__(self):
         return (
@@ -99,39 +101,43 @@ class CodeFile:
         code_file_manager = CODE_FILE_MANAGER.get()
         parser = PARSER.get()
 
-        file_message: list[str] = []
+        code_message: list[str] = []
 
         # We always want to give GPT posix paths
         abs_path = Path(git_root / self.path)
         rel_path = Path(os.path.relpath(abs_path, git_root))
         posix_rel_path = Path(rel_path).as_posix()
-        file_message.append(posix_rel_path)
+        if self.user_included:
+            filename = f"USER INCLUDED: {posix_rel_path}"
+        else:
+            filename = f"{posix_rel_path}"
+        code_message.append(filename)
 
         if self.level in {CodeMessageLevel.CODE, CodeMessageLevel.INTERVAL}:
             file_lines = code_file_manager.read_file(abs_path)
             for i, line in enumerate(file_lines, start=1):
                 if self.contains_line(i):
                     if parser.provide_line_numbers():
-                        file_message.append(f"{i}:{line}")
+                        code_message.append(f"{i}:{line}")
                     else:
-                        file_message.append(f"{line}")
+                        code_message.append(f"{line}")
         elif self.level == CodeMessageLevel.CMAP_FULL:
             cmap = await get_code_map(git_root, self.path)
-            file_message += cmap
+            code_message += cmap
         elif self.level == CodeMessageLevel.CMAP:
             cmap = await get_code_map(git_root, self.path, exclude_signatures=True)
-            file_message += cmap
-        file_message.append("")
+            code_message += cmap
+        code_message.append("")
 
         if self.diff is not None:
             diff: str = get_diff_for_file(self.diff, rel_path)
             diff_annotations = parse_diff(diff)
             if self.level == CodeMessageLevel.CODE:
-                file_message = annotate_file_message(file_message, diff_annotations)
+                code_message = annotate_file_message(code_message, diff_annotations)
             else:
                 for section in diff_annotations:
-                    file_message += section.message
-        return file_message
+                    code_message += section.message
+        return code_message
 
     _file_checksum: str | None = None
     _code_message: list[str] | None = None

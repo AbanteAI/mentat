@@ -201,15 +201,16 @@ class CostTracker:
         )
 
 
-# Copied from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
-def num_tokens_from_messages(
+# Adapyed from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
+async def num_tokens_from_messages(
     messages: list[dict[str, str]], model: str = "gpt-4"
 ) -> int:
     """Return the number of tokens used by a list of messages."""
+    stream = SESSION_STREAM.get()
     try:
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
-        print("Warning: model not found. Using cl100k_base encoding.")
+        await stream.send("Warning: model not found. Using cl100k_base encoding.", color="yellow")
         encoding = tiktoken.get_encoding("cl100k_base")
     if model in {
         "gpt-3.5-turbo-0613",
@@ -227,17 +228,17 @@ def num_tokens_from_messages(
         )
         tokens_per_name = -1  # if there's a name, the role is omitted
     elif "gpt-3.5-turbo" in model:
-        print(
+        await stream.send(
             "Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming"
-            " gpt-3.5-turbo-0613."
+            " gpt-3.5-turbo-0613.", color="yellow"
         )
-        return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
+        return await num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
     elif "gpt-4" in model:
-        print(
+        await stream.send(
             "Warning: gpt-4 may update over time. Returning num tokens assuming"
-            " gpt-4-0613."
+            " gpt-4-0613.", color="yellow"
         )
-        return num_tokens_from_messages(messages, model="gpt-4-0613")
+        return await num_tokens_from_messages(messages, model="gpt-4-0613")
     else:
         raise NotImplementedError(
             f"num_tokens_from_messages() is not implemented for model {model}. See"

@@ -165,7 +165,7 @@ class CodeContext:
     _code_message: str | None = None
     _code_message_checksum: str | None = None
 
-    async def _get_code_message_checksum(self, max_tokens: Optional[int] = None) -> str:
+    def _get_code_message_checksum(self, max_tokens: Optional[int] = None) -> str:
         if not self.features:
             features_checksum = ""
         else:
@@ -186,13 +186,13 @@ class CodeContext:
         model: str,
         max_tokens: int,
     ) -> str:
-        code_message_checksum = await self._get_code_message_checksum(max_tokens)
+        code_message_checksum = self._get_code_message_checksum(max_tokens)
         if (
             self._code_message is None
             or code_message_checksum != self._code_message_checksum
         ):
             self._code_message = await self._get_code_message(model, max_tokens)
-            self._code_message_checksum = await self._get_code_message_checksum(
+            self._code_message_checksum = self._get_code_message_checksum(
                 max_tokens
             )
         return self._code_message
