@@ -170,7 +170,7 @@ def test_practice_directory_performance(
     with Pool(processes=max_workers) as pool:
         pbar = tqdm.tqdm(total=num_exercises)
 
-        result_map = pool.map(
+        result_map = pool.imap(
             partial(
                 run_exercise_sync, language=language, max_iterations=max_iterations
             ),
@@ -178,12 +178,10 @@ def test_practice_directory_performance(
         )
         results = []
         for result in result_map:
+            pbar.update()
             if result.get("skipped") or result.get("error"):
-                print(result)
-                pbar.update()
                 continue
             results.append(result)
-            pbar.update()
             with open("results.txt", "a") as f:
                 f.write(f"{result}\n")
             pbar.set_description(
