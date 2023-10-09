@@ -1,8 +1,8 @@
 import asyncio
 import json
 import os
-import shutil
 import subprocess
+import webbrowser
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
@@ -115,10 +115,6 @@ def clone_exercism_repo(refresh_repo, language):
             repo.remotes.origin.pull()
     else:
         repo = Repo.clone_from(exercism_url, local_dir)
-    shutil.copyfile(
-        f"{os.path.dirname(__file__)}/exercism_benchmark.html",
-        f"{local_dir}/results.html",
-    )
 
     os.chdir(local_dir)
     if language == "javascript":
@@ -349,8 +345,9 @@ def test_practice_directory_performance(
         # Update the html file
         results_json = list(map(json.dumps, results))
         results_str = "[" + ",".join(results_json) + "]"
-        with open("results.html", "r") as f:
+        with open(f"{os.path.dirname(__file__)}/exercism_benchmark.html", "r") as f:
             html = f.read()
         html = html.replace("{{ results }}", results_str)
         with open("results.html", "w") as f:
             f.write(html)
+        webbrowser.open("file://" + os.path.realpath("results.html"))

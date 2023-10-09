@@ -55,7 +55,7 @@
             }
         }
 
-        var avgTokens = tokens / totalIterations
+        var avgTokens = Math.floor(tokens / totalIterations)
         document.getElementById("tokens").innerHTML = `Average tokens per iteration for passed tests: ${avgTokens}`
         var passedString = ""
         for(iterations in passedIterations) {
@@ -131,9 +131,7 @@
         #header {
             display: flex;
             flex-direction: row;
-            gap: 8px;
             font-size: 18px;
-            padding: 4px;
             margin: 0;
         }
 
@@ -182,8 +180,10 @@
         }
 
         p {
-            margin: 2px;
+            margin: 0px;
+            padding: 14px;
             border-right: 1px solid black;
+
         }
 
         .success {
