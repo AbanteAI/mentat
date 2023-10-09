@@ -11,8 +11,7 @@ import pytest
 import tqdm
 from git import Repo
 
-from mentat.session import Session
-from mentat.session_stream import StreamMessageSource
+from mentat.python_client.client import PythonClient
 
 pytestmark = pytest.mark.benchmark
 
@@ -128,7 +127,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
                 "test": problem_dir,
             }
 
-        session = await Session.create(
+        client = PythonClient(
             paths=[
                 Path(exercise_file),
                 Path(f"{exercise}/.docs"),
@@ -136,50 +135,30 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
             exclude_paths=[Path(f"{exercise}/.docs/hints.md")],
             no_code_map=True,
         )
-        asyncio.ensure_future(session.start())
 
-        input_request_message = await session.stream.recv("input_request")
-        await session.stream.send(
+        await client.call_mentat_auto_accept(
             dedent(
                 f"""\
                     Use the instructions in exercises/practice/{problem_dir} to modify \
                     {exercise_file}. Keep and implement the existing function or class stubs, they will be \
                     called from unit tests. Only use standard libraries, don't suggest installing any packages."""
-            ),
-            source=StreamMessageSource.CLIENT,
-            channel=f"input_request:{input_request_message.id}",
+            )
         )
-        input_request_message = await session.stream.recv("input_request")
-        await session.stream.send(
-            "y",
-            source=StreamMessageSource.CLIENT,
-            channel=f"input_request:{input_request_message.id}",
-        )
-        input_request_message = await session.stream.recv("input_request")
         iterations = 1
         run_exercise_test(exercise, test_output_file, language)
         while iterations < max_iterations:
             if exercise_passed(test_output_file, language):
                 break
-            await session.stream.send(
+            await client.call_mentat_auto_accept(
                 get_error_message(test_output_file) + dedent(f"""
                         See the testing errors above.
                         The tests are correct.
-                        Fix the code in {exercise_file} to resolve the errors."""),
-                source=StreamMessageSource.CLIENT,
-                channel=f"input_request:{input_request_message.id}",
+                        Fix the code in {exercise_file} to resolve the errors.""")
             )
-            input_request_message = await session.stream.recv("input_request")
-            await session.stream.send(
-                "y",
-                source=StreamMessageSource.CLIENT,
-                channel=f"input_request:{input_request_message.id}",
-            )
-            input_request_message = await session.stream.recv("input_request")
             run_exercise_test(exercise, test_output_file, language)
             iterations += 1
 
-        await session.stop()
+        await client.stop()
         passed = exercise_passed(test_output_file, language)
         return {
             "iterations": iterations,
