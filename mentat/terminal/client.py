@@ -3,6 +3,7 @@ import asyncio
 import logging
 import signal
 from pathlib import Path
+from types import FrameType
 from typing import Any, Coroutine, List, Set
 
 from prompt_toolkit import PromptSession
@@ -88,7 +89,10 @@ class TerminalClient:
             "", source=StreamMessageSource.CLIENT, channel="interrupt"
         )
 
-    def _handle_exit(self):
+    # Be careful editing this function; since we use signal.signal instead of asyncio's
+    # add signal handler (which isn't available on Windows), this function can interrupt
+    # asyncio coroutines, potentially causing race conditions.
+    def _handle_exit(self, sig: int, frame: FrameType | None):
         assert isinstance(self.session, Session), "TerminalClient is not running"
         if (
             self.session.is_stopped
@@ -106,8 +110,7 @@ class TerminalClient:
             self._create_task(self._send_session_stream_interrupt())
 
     def _init_signal_handlers(self):
-        loop = asyncio.get_event_loop()
-        loop.add_signal_handler(signal.SIGINT, self._handle_exit)
+        signal.signal(signal.SIGINT, self._handle_exit)
 
     async def _startup(self):
         assert self.session is None, "TerminalClient already running"

@@ -8,15 +8,18 @@ from prompt_toolkit import PromptSession
 
 from mentat.terminal.client import TerminalClient
 
-# Unfortunately these tests just can't be run on Windows
-pytestmark = pytest.mark.skipif(
-    os.name == "nt",
-    reason="PromptSession throws an error on Github Actions Windows runner",
-)
+
+def mock_init(self, *args, **kwargs):
+    return None
 
 
 @pytest.fixture
 def mock_prompt_session_prompt(mocker):
+    # On Github Actions Windows runners (not on actual Windows!) just instantiating a PromptToolkit instance
+    # causes a crash, so we have to completely mock the PromptSession
+    if os.name == "nt":
+        mocker.patch.object(PromptSession, "__init__", new=mock_init)
+
     mock_method = AsyncMock()
     mocker.patch.object(PromptSession, "prompt_async", new=mock_method)
     return mock_method
