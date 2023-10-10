@@ -71,7 +71,7 @@
         document.getElementById("failed").innerHTML = `Failed: ${failed}`
         var reasonsString = "Reasons: "
         for(reason in reasons) {
-            reasonsString += `${reason}: ${reasons[reason]}`
+            reasonsString += `${reason}: ${reasons[reason]} `
         }
         document.getElementById("reasons").innerHTML = reasonsString
         

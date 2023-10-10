@@ -119,7 +119,7 @@ async def failure_analysis(exercise_runner, language):
         response = "Unable to analyze test case\nreason: too many tokens to analyze"
 
     try:
-        reason = response.strip().split("\n")[-1].split()[1]
+        reason = response.strip().split("\n")[-1][8:]
     except IndexError:
         reason = "response error"
     return response, reason
