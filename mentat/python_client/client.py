@@ -59,9 +59,8 @@ class PythonClient:
             self.paths, self.exclude_paths, self.no_code_map, self.diff, self.pr_diff
         )
         asyncio.ensure_future(self.session.start())
-        self._input_request_message = await self.session.stream.recv("input_request")
-
         self.acc_task = asyncio.create_task(self._accumulate_messages())
+        self._input_request_message = await self.session.stream.recv("input_request")
         self._started = True
 
     async def stop(self):
