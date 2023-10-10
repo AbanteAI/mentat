@@ -91,6 +91,9 @@ def chunk_to_lines(chunk: Any) -> list[str]:
     return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)
 
 
+# NOTE: We may be calculating the length of Conversation messages incorrectly,
+# but the difference should be negligible (<5 tokens per message):
+# https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
 def count_tokens(message: str, model: str) -> int:
     try:
         return len(

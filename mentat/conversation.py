@@ -9,7 +9,7 @@ from openai.error import InvalidRequestError, RateLimitError
 
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import PARSER, Parser
-from tests.conftest import CODE_FILE_MANAGER, SessionStream
+from tests.conftest import SessionStream
 
 from .code_context import CODE_CONTEXT
 from .config_manager import CONFIG_MANAGER, user_config_path
@@ -28,6 +28,8 @@ CONVERSATION: ContextVar[Conversation] = ContextVar("mentat:conversation")
 
 
 class Conversation:
+    max_tokens: int
+
     def __init__(self):
         config = CONFIG_MANAGER.get()
         parser = PARSER.get()
@@ -43,7 +45,6 @@ class Conversation:
         parser = PARSER.get()
         code_context = CODE_CONTEXT.get()
         config = CONFIG_MANAGER.get()
-        code_file_manager = CODE_FILE_MANAGER.get()
 
         if not is_model_available(self.model):
             raise MentatError(
@@ -63,15 +64,7 @@ class Conversation:
                     " size for this model.",
                     color="yellow",
                 )
-
         prompt = parser.get_system_prompt()
-        code_file_manager.read_all_file_lines()
-        tokens = count_tokens(
-            await code_context.get_code_message(
-                code_file_manager.file_lines, self.model, parser.provide_line_numbers()
-            ),
-            self.model,
-        ) + count_tokens(prompt, self.model)
         context_size = model_context_size(self.model)
         maximum_context = config.maximum_context()
         if maximum_context:
@@ -79,12 +72,18 @@ class Conversation:
                 context_size = min(context_size, maximum_context)
             else:
                 context_size = maximum_context
+        tokens = count_tokens(
+            await code_context.get_code_message(self.model, max_tokens=0),
+            self.model,
+        ) + count_tokens(prompt, self.model)
 
         if not context_size:
             raise MentatError(
                 f"Context size for {self.model} is not known. Please set"
                 f" maximum-context in {user_config_path}."
             )
+        else:
+            self.max_tokens = context_size
         if context_size and tokens > context_size:
             raise MentatError(
                 f"Included files already exceed token limit ({tokens} /"
@@ -100,7 +99,7 @@ class Conversation:
             )
         else:
             await stream.send(
-                f"File and prompt token count: {tokens} / {context_size}",
+                f"Prompt and included files token count: {tokens} / {context_size}",
                 color="cyan",
             )
 
@@ -145,17 +144,22 @@ class Conversation:
         stream = SESSION_STREAM.get()
         code_context = CODE_CONTEXT.get()
         cost_tracker = COST_TRACKER.get()
-        code_file_manager = CODE_FILE_MANAGER.get()
         parser = PARSER.get()
 
         messages = self.messages.copy()
 
-        code_file_manager.read_all_file_lines()
+        # Rebuild code context with active code and available tokens
+        conversation_history = "\n".join([m["content"] for m in messages])
+        tokens = count_tokens(conversation_history, self.model)
+        response_buffer = 1000
         code_message = await code_context.get_code_message(
-            code_file_manager.file_lines, self.model, parser.provide_line_numbers()
+            self.model,
+            self.max_tokens - tokens - response_buffer,
         )
         messages.append({"role": "system", "content": code_message})
 
+        print()
+        await code_context.display_features()
         num_prompt_tokens = await get_prompt_token_count(messages, self.model)
         message, file_edits, time_elapsed = await self._stream_model_response(
             stream, parser, messages

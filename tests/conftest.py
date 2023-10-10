@@ -15,6 +15,8 @@ from mentat.code_context import CODE_CONTEXT, CodeContext, CodeContextSettings
 from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
 from mentat.config_manager import CONFIG_MANAGER, ConfigManager
 from mentat.git_handler import GIT_ROOT
+from mentat.parsers.block_parser import BlockParser
+from mentat.parsers.parser import PARSER
 from mentat.session_stream import (
     SESSION_STREAM,
     SessionStream,
@@ -219,7 +221,6 @@ def _mock_code_context(_mock_git_root, _mock_config):
 
 @pytest_asyncio.fixture()
 async def mock_code_context(_mock_code_context):
-    await _mock_code_context.refresh(replace_paths=True)
     yield _mock_code_context
 
 
@@ -235,6 +236,20 @@ def _mock_code_file_manager():
 @pytest_asyncio.fixture()
 async def mock_code_file_manager(_mock_code_file_manager):
     yield _mock_code_file_manager
+
+
+# Parser
+@pytest.fixture
+def _mock_parser():
+    parser = BlockParser()
+    token = PARSER.set(parser)
+    yield parser
+    PARSER.reset(token)
+
+
+@pytest_asyncio.fixture()
+async def mock_parser(_mock_parser):
+    yield _mock_parser
 
 
 ### Auto-used fixtures
@@ -292,3 +307,8 @@ def mock_user_config(mocker):
 @pytest.fixture(autouse=True)
 def mock_sleep_time(mocker):
     mocker.patch.object(StreamingPrinter, "sleep_time", new=lambda self: 0)
+
+
+@pytest.fixture(autouse=True)
+def mock_get_codemaps(mocker):
+    mocker.patch("mentat.code_map.get_code_map", return_value=[])

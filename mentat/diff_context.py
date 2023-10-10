@@ -11,7 +11,6 @@ from .git_handler import (
     get_files_in_diff,
     get_treeish_metadata,
 )
-from .session_stream import SESSION_STREAM
 
 
 @dataclass
@@ -24,7 +23,7 @@ class DiffAnnotation:
         return sum(bool(line.startswith("+")) for line in self.message)
 
 
-def _parse_diff(diff: str) -> list[DiffAnnotation]:
+def parse_diff(diff: str) -> list[DiffAnnotation]:
     """Parse diff into a list of annotations."""
     annotations: list[DiffAnnotation] = []
     active_annotation: Optional[DiffAnnotation] = None
@@ -51,7 +50,7 @@ def _parse_diff(diff: str) -> list[DiffAnnotation]:
     return annotations
 
 
-def _annotate_file_message(
+def annotate_file_message(
     code_message: list[str], annotations: list[DiffAnnotation]
 ) -> list[str]:
     """Return the code_message with annotations inserted."""
@@ -99,6 +98,16 @@ class DiffContext:
             self.target = target
             self.name = name
 
+    _files_cache: list[Path] | None = None
+
+    @property
+    def files(self) -> list[Path]:
+        if self._files_cache is None:
+            if self.target == "HEAD" and not check_head_exists():
+                return []  # A new repo without any commits
+            self._files_cache = get_files_in_diff(self.target)
+        return self._files_cache
+
     @classmethod
     def create(
         cls,
@@ -133,39 +142,29 @@ class DiffContext:
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
         return cls(target, name)
 
-    @property
-    def files(self) -> list[Path]:
-        if self.target == "HEAD" and not check_head_exists():
-            return []  # A new repo without any commits
-        return get_files_in_diff(self.target)
-
-    async def display_context(self) -> None:
-        stream = SESSION_STREAM.get()
-
+    def get_display_context(self) -> str:
         if not self.files:
-            return
-        await stream.send("Diff annotations:", color="green")
+            return ""
         num_files = len(self.files)
         num_lines = 0
-        # TODO: Only include paths in context
         for file in self.files:
             diff = get_diff_for_file(self.target, file)
             diff_lines = diff.splitlines()
             num_lines += len(
                 [line for line in diff_lines if line.startswith(("+ ", "- "))]
             )
-        await stream.send(f" ─•─ {self.name} | {num_files} files | {num_lines} lines\n")
+        return f" {self.name} | {num_files} files | {num_lines} lines"
 
     def annotate_file_message(
         self, rel_path: Path, file_message: list[str]
     ) -> list[str]:
         """Return file_message annotated with active diff."""
-
         if not self.files:
             return file_message
+
         diff = get_diff_for_file(self.target, rel_path)
-        annotations = _parse_diff(diff)
-        return _annotate_file_message(file_message, annotations)
+        annotations = parse_diff(diff)
+        return annotate_file_message(file_message, annotations)
 
 
 TreeishType = Literal["commit", "branch", "relative"]
