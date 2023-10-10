@@ -1,14 +1,16 @@
 import asyncio
+import json
 import os
-import sys
+import webbrowser
 from functools import partial
 from multiprocessing import Pool
-from pathlib import Path
 
 import pytest
 import tqdm
 from git import Repo
+from openai import InvalidRequestError
 
+from mentat.llm_api import COST_TRACKER, call_llm_api, setup_api_key
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 
@@ -30,6 +32,7 @@ def clone_exercism_repo(refresh_repo, language):
             repo.remotes.origin.pull()
     else:
         repo = Repo.clone_from(exercism_url, local_dir)
+
     os.chdir(local_dir)
 
 
@@ -66,75 +69,146 @@ def language(request):
     return request.config.getoption("--language")
 
 
-async def run_exercise(problem_dir, language="python", max_iterations=2):
+prompt = (
+    "You are a professional code reviewer who helps other coders improve their skills."
+    " You recently assigned a coder a small coding test to assess their level, with a"
+    " pre-written stub template and an automated test suite to determine if they"
+    " succeeded. They failed the test; using the instructions for the test, the code"
+    " they wrote for the test, and the output of the test suite, your job is to"
+    " determine why they failed. Give a terse but informative couple of sentences on"
+    " why they failed, before giving the reason it failed on the final line in the"
+    " format:\n"
+    + "reason: <reason_failed>\n"
+    + "Your response will be parsed programmatically, so you MUST follow the format for"
+    " the final line! The possible responses for the final line and what they mean"
+    " are as follows:\n"
+    + "blank (the coder didn't change the file at all from the stub you provided"
+    " them)\n"
+    + "wording (everything was correct, but the coder messed up the wording or spacing"
+    " which caused it to be rejected)\n"
+    + "duplication (the coder had a random duplicated line that caused the code to not"
+    " be compiled/interpreted)\n"
+    + "syntax (the coder messed up their syntax, meaning their code couldn't be"
+    " compiled/interpreted)\n"
+    + "logic (the coder messed up the logic)\n"
+    + "other (some other reason caused it to fail)\n"
+)
+model = "gpt-4-0314"
+
+
+async def failure_analysis(exercise_runner, language):
+    setup_api_key()
+
+    instructions = exercise_runner.read_instructions()
+    code = exercise_runner.read_code(language)
+    test_results = exercise_runner.read_test_results()
+
+    final_message = (
+        f"All instructions:\n{instructions}\nCode to review:\n{code}\nTest"
+        f" results:\n{test_results}"
+    )
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": final_message},
+    ]
+    response = ""
     try:
-        exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
-        if exercise_runner.already_ran():
-            return {"skipped": True, "test": problem_dir}
+        async for chunk in await call_llm_api(messages, model):
+            content = chunk["choices"][0]["delta"].get("content", "")
+            response += content
+    except InvalidRequestError:
+        response = "Unable to analyze test case\nreason: too many tokens to analyze"
 
-        session = await Session.create(
-            paths=[
-                Path(exercise_runner.exercise_file),
-                Path(f"{exercise_runner.exercise_dir}/.docs"),
-            ],
-            exclude_paths=[Path(f"{exercise_runner.exercise_dir}/.docs/hints.md")],
-            no_code_map=True,
-        )
-        asyncio.ensure_future(session.start())
+    try:
+        reason = response.strip().split("\n")[-1].split()[1]
+    except IndexError:
+        reason = "response error"
+    return response, reason
 
-        input_request_message = await session.stream.recv("input_request")
-        await session.stream.send(
-            f"Use the instructions in {exercise_runner.exercise_dir}/.docs to modify"
-            f" {exercise_runner.exercise_file}. Keep and implement the existing"
-            " function or class stubs, they will be called from unit tests. Only use"
-            f" standard {language} libraries, don't suggest installing any packages.",
-            source=StreamMessageSource.CLIENT,
-            channel=f"input_request:{input_request_message.id}",
+
+async def send_message(session, message, input_request_message):
+    await session.stream.send(
+        message,
+        source=StreamMessageSource.CLIENT,
+        channel=f"input_request:{input_request_message.id}",
+    )
+
+
+async def run_exercise(problem_dir, language="python", max_iterations=2):
+    exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
+    old_result = exercise_runner.get_result_from_txt()
+    if old_result:
+        return old_result
+    session = await Session.create(
+        paths=exercise_runner.include_files(),
+        exclude_paths=exercise_runner.exclude_files(),
+        no_code_map=True,
+    )
+    asyncio.ensure_future(session.start())
+    input_request_message = await session.stream.recv("input_request")
+
+    prompt_1 = (
+        f"Use the instructions in {exercise_runner.docs()} to modify"
+        + f" {exercise_runner.file}. Keep and implement the existing"
+        + " function or class stubs, they will be called from unit tests. Only use"
+        + f" standard {language} libraries, don't suggest installing any packages."
+    )
+    prompt_2 = (
+        "\nSee the testing errors above. The tests are correct. Fix the code"
+        + f" in {exercise_runner.file} to resolve the errors."
+    )
+
+    iterations = 0
+    while iterations < max_iterations:
+        if exercise_runner.passed():
+            break
+        message = (
+            prompt_1
+            if iterations == 0
+            else exercise_runner.get_error_message() + prompt_2
         )
+        await send_message(session, message, input_request_message)
         input_request_message = await session.stream.recv("input_request")
-        await session.stream.send(
-            "y",
-            source=StreamMessageSource.CLIENT,
-            channel=f"input_request:{input_request_message.id}",
-        )
+        await send_message(session, "y", input_request_message)
         input_request_message = await session.stream.recv("input_request")
-        iterations = 1
+
         exercise_runner.run_test()
-        while iterations < max_iterations:
-            if exercise_runner.exercise_passed():
-                break
-            await session.stream.send(
-                exercise_runner.get_error_message()
-                + "\nSee the testing errors above. The tests are correct. Fix the code"
-                f" in {exercise_runner.exercise_file} to resolve the errors.",
-                source=StreamMessageSource.CLIENT,
-                channel=f"input_request:{input_request_message.id}",
-            )
-            input_request_message = await session.stream.recv("input_request")
-            await session.stream.send(
-                "y",
-                source=StreamMessageSource.CLIENT,
-                channel=f"input_request:{input_request_message.id}",
-            )
-            input_request_message = await session.stream.recv("input_request")
-            exercise_runner.run_test()
-            iterations += 1
+        iterations += 1
 
-        await session.stop()
-        passed = exercise_runner.exercise_passed()
-        return {
-            "iterations": iterations,
-            "passed": passed,
-            "test": problem_dir,
-        }
-    except Exception as e:
-        sys.__stdout__.write(f"\nError running {exercise_runner.exercise}")
-        sys.__stdout__.write(str(e))
-        return {"error": True, "test": problem_dir}
+    await session.stop()
+    passed = exercise_runner.passed()
+    result = {
+        "iterations": iterations,
+        "passed": passed,
+        "test": exercise_runner.name,
+    }
+    if not result["passed"]:
+        response, reason = await failure_analysis(exercise_runner, language)
+        result["response"] = response
+        result["reason"] = reason
+    result["tokens"] = COST_TRACKER.get().total_tokens
+    return result
 
 
 def run_exercise_sync(problem_dir, language="python", max_iterations=2):
-    return asyncio.run(run_exercise(problem_dir, language, max_iterations))
+    exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
+    try:
+        result = asyncio.run(run_exercise(problem_dir, language, max_iterations))
+    except Exception as e:
+        print(f"\nError running {problem_dir}")
+        print(str(e), flush=True)
+        result = {
+            "iterations": 0,
+            "passed": False,
+            "test": problem_dir,
+            "response": str(e),
+            "reason": "error",
+            "tokens": 0,
+        }
+    result["instructions"] = exercise_runner.read_instructions()
+    result["code"] = exercise_runner.read_code(language)
+    result["test-output"] = exercise_runner.read_test_results()
+    return result
 
 
 def summarize_results(results):
@@ -179,12 +253,21 @@ def test_practice_directory_performance(
         results = []
         for result in result_map:
             pbar.update()
-            if result.get("skipped") or result.get("error"):
-                continue
             results.append(result)
             with open("results.txt", "a") as f:
-                f.write(f"{result}\n")
+                json.dump(result, f)
+                f.write("\n")
             pbar.set_description(
                 summarize_results(results) + "| Last Ran: " + result["test"]
             )
-        print(f"Results: {results}")
+        results.sort(key=lambda result: result["test"])
+
+        # Update the html file
+        results_json = list(map(json.dumps, results))
+        results_str = "[" + ",".join(results_json) + "]"
+        with open(f"{os.path.dirname(__file__)}/exercism_benchmark.html", "r") as f:
+            html = f.read()
+        html = html.replace("{{ results }}", results_str)
+        with open("results.html", "w") as f:
+            f.write(html)
+        webbrowser.open("file://" + os.path.realpath("results.html"))
