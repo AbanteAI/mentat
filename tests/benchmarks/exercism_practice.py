@@ -11,8 +11,7 @@ from git import Repo
 from openai import InvalidRequestError
 
 from mentat.llm_api import COST_TRACKER, call_llm_api, setup_api_key
-from mentat.session import Session
-from mentat.session_stream import StreamMessageSource
+from mentat.python_client.client import PythonClient
 
 from .exercise_runners.exercise_runner_factory import ExerciseRunnerFactory
 
@@ -126,26 +125,16 @@ async def failure_analysis(exercise_runner, language):
     return response, reason
 
 
-async def send_message(session, message, input_request_message):
-    await session.stream.send(
-        message,
-        source=StreamMessageSource.CLIENT,
-        channel=f"input_request:{input_request_message.id}",
-    )
-
-
 async def run_exercise(problem_dir, language="python", max_iterations=2):
     exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
     old_result = exercise_runner.get_result_from_txt()
     if old_result:
         return old_result
-    session = await Session.create(
+    client = PythonClient(
         paths=exercise_runner.include_files(),
         exclude_paths=exercise_runner.exclude_files(),
         no_code_map=True,
     )
-    asyncio.ensure_future(session.start())
-    input_request_message = await session.stream.recv("input_request")
 
     prompt_1 = (
         f"Use the instructions in {exercise_runner.docs()} to modify"
@@ -167,15 +156,12 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
             if iterations == 0
             else exercise_runner.get_error_message() + prompt_2
         )
-        await send_message(session, message, input_request_message)
-        input_request_message = await session.stream.recv("input_request")
-        await send_message(session, "y", input_request_message)
-        input_request_message = await session.stream.recv("input_request")
+        await client.call_mentat_auto_accept(message)
 
         exercise_runner.run_test()
         iterations += 1
 
-    await session.stop()
+    await client.stop()
     passed = exercise_runner.passed()
     result = {
         "iterations": iterations,
