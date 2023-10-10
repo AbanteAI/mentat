@@ -49,7 +49,10 @@ class PythonClient:
     async def _accumulate_messages(self):
         assert isinstance(self.session, Session), "Client is not running"
         async for message in self.session.stream.listen():
-            self._accumulated_message += message.data
+            end = "\n"
+            if message.extra and isinstance(message.extra.get("end"), str):
+                end = message.extra["end"]
+            self._accumulated_message += message.data + end
 
     async def _startup(self):
         self.session = await Session.create(
