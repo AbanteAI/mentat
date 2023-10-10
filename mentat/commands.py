@@ -122,7 +122,7 @@ class CommitCommand(Command, command_name="commit"):
         return "Commits all of your unstaged and staged changes to git"
 
 
-class AddCommand(Command, command_name="add"):
+class IncludeCommand(Command, command_name="include"):
     async def apply(self, *args: str) -> None:
         stream = SESSION_STREAM.get()
         code_context = CODE_CONTEXT.get()
@@ -132,7 +132,7 @@ class AddCommand(Command, command_name="add"):
             return
         for file_path in args:
             code_file = CodeFile(file_path)
-            await code_context.add_file(code_file)
+            await code_context.include_file(code_file)
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -143,7 +143,7 @@ class AddCommand(Command, command_name="add"):
         return "Add files to the code context"
 
 
-class RemoveCommand(Command, command_name="remove"):
+class ExcludeCommand(Command, command_name="exclude"):
     async def apply(self, *args: str) -> None:
         stream = SESSION_STREAM.get()
         code_context = CODE_CONTEXT.get()
@@ -153,7 +153,7 @@ class RemoveCommand(Command, command_name="remove"):
             return
         for file_path in args:
             code_file = CodeFile(file_path)
-            await code_context.remove_file(code_file)
+            await code_context.exclude_file(code_file)
 
     @classmethod
     def argument_names(cls) -> list[str]:

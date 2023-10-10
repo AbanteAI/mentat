@@ -4,11 +4,11 @@ from pathlib import Path
 import pytest
 
 from mentat.commands import (
-    AddCommand,
     Command,
+    ExcludeCommand,
     HelpCommand,
+    IncludeCommand,
     InvalidCommand,
-    RemoveCommand,
 )
 
 
@@ -35,17 +35,16 @@ async def test_commit_command(mock_stream, temp_testbed):
 
 
 @pytest.mark.asyncio
-async def test_add_command(mock_stream, mock_config, mock_code_context):
-    command = Command.create_command("add")
-    assert isinstance(command, AddCommand)
+async def test_include_command(mock_stream, mock_config, mock_code_context):
+    command = Command.create_command("include")
+    assert isinstance(command, IncludeCommand)
     await command.apply("__init__.py")
-    assert Path("__init__.py") in mock_code_context.files
+    assert Path("__init__.py").resolve() in mock_code_context.include_files
 
 
 @pytest.mark.asyncio
-async def test_remove_command(mock_stream, mock_config, mock_code_context):
-    mock_code_context.settings.paths = [Path("__init__.py")]
-    command = Command.create_command("remove")
-    assert isinstance(command, RemoveCommand)
+async def test_exclude_command(mock_stream, mock_config, mock_code_context):
+    command = Command.create_command("exclude")
+    assert isinstance(command, ExcludeCommand)
     await command.apply("__init__.py")
-    assert Path("__init__.py") not in mock_code_context.files
+    assert Path("__init__.py").resolve() not in mock_code_context.include_files

@@ -67,7 +67,7 @@ class MentatCompleter(Completer):
     async def refresh_completions(self):
         code_context = CODE_CONTEXT.get()
 
-        file_paths = list(code_context.files.keys())
+        file_paths = list(code_context.include_files.keys())
 
         # Remove syntax completions for files not in the context
         for file_path in set(self.syntax_completions.keys()):

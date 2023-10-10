@@ -91,6 +91,9 @@ def chunk_to_lines(chunk: Any) -> list[str]:
     return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)
 
 
+# NOTE: We may be calculating the length of Conversation messages incorrectly,
+# but the difference should be negligible (<5 tokens per message):
+# https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
 def count_tokens(message: str, model: str) -> int:
     try:
         return len(
@@ -165,6 +168,7 @@ COST_TRACKER: ContextVar[CostTracker] = ContextVar("mentat:cost_tracker")
 
 @dataclass
 class CostTracker:
+    total_tokens: int = 0
     total_cost: float = 0
 
     async def display_api_call_stats(
@@ -176,6 +180,7 @@ class CostTracker:
     ) -> None:
         stream = SESSION_STREAM.get()
 
+        self.total_tokens += num_prompt_tokens + num_sampled_tokens
         tokens_per_second = num_sampled_tokens / call_time
         cost = model_price_per_1000_tokens(model)
         if cost:

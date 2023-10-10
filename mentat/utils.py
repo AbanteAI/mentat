@@ -1,4 +1,9 @@
 import asyncio
+import hashlib
+
+
+def sha256(data: str) -> str:
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
 async def run_subprocess_async(*args: str) -> str:

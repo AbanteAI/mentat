@@ -54,6 +54,7 @@ class Session:
         no_code_map: bool = False,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
+        auto_tokens: Optional[int] = None,
     ):
         # Set contextvars here
         stream = SessionStream()
@@ -74,7 +75,7 @@ class Session:
         PARSER.set(parser)
 
         code_context_settings = CodeContextSettings(
-            paths, exclude_paths, diff, pr_diff, no_code_map
+            paths, exclude_paths, diff, pr_diff, no_code_map, auto_tokens
         )
         code_context = await CodeContext.create(code_context_settings)
         CODE_CONTEXT.set(code_context)

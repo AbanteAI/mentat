@@ -66,6 +66,7 @@ def test_diff_context_default(
 
     # DiffContext.files (property): return git-tracked files with active changes
     _update_ops(temp_testbed, "commit5")
+    diff_context._files_cache = None  # This is usually cached
     assert diff_context.files == [rel_path]
 
     # DiffContext.annotate_file_message(): modify file_message with diff
