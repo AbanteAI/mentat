@@ -89,6 +89,9 @@ class TerminalClient:
             "", source=StreamMessageSource.CLIENT, channel="interrupt"
         )
 
+    # Be careful editing this function; since we use signal.signal instead of asyncio's
+    # add signal handler (which isn't available on Windows), this function can interrupt
+    # asyncio coroutines, potentially causing race conditions.
     def _handle_exit(self, sig: int, frame: FrameType | None):
         assert isinstance(self.session, Session), "TerminalClient is not running"
         if (
