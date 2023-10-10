@@ -11,9 +11,10 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
+from mentat import config_manager
 from mentat.code_context import CODE_CONTEXT, CodeContext, CodeContextSettings
 from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
-from mentat.config_manager import CONFIG_MANAGER, ConfigManager
+from mentat.config_manager import CONFIG_MANAGER, ConfigManager, config_file_name
 from mentat.git_handler import GIT_ROOT
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.parser import PARSER
@@ -298,9 +299,6 @@ def temp_testbed(monkeypatch):
 # it will be unset unless a specific test wants to make a config in the testbed
 @pytest.fixture(autouse=True)
 def mock_user_config(mocker):
-    from mentat import config_manager
-    from mentat.config_manager import config_file_name
-
     config_manager.user_config_path = Path(config_file_name)
 
 

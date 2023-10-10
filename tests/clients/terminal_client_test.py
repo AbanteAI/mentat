@@ -1,4 +1,3 @@
-import os
 import subprocess
 from textwrap import dedent
 from unittest.mock import AsyncMock
@@ -7,12 +6,6 @@ import pytest
 from prompt_toolkit import PromptSession
 
 from mentat.terminal.client import TerminalClient
-
-# Unfortunately these tests just can't be run on Windows
-pytestmark = pytest.mark.skipif(
-    os.name == "nt",
-    reason="PromptSession throws an error on Github Actions Windows runner",
-)
 
 
 @pytest.fixture
