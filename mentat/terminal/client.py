@@ -88,7 +88,7 @@ class TerminalClient:
             "", source=StreamMessageSource.CLIENT, channel="interrupt"
         )
 
-    def _handle_exit(self):
+    def _handle_exit(self, sig, frame):
         assert isinstance(self.session, Session), "TerminalClient is not running"
         if (
             self.session.is_stopped
@@ -106,8 +106,7 @@ class TerminalClient:
             self._create_task(self._send_session_stream_interrupt())
 
     def _init_signal_handlers(self):
-        loop = asyncio.get_event_loop()
-        loop.add_signal_handler(signal.SIGINT, self._handle_exit)
+        signal.signal(signal.SIGINT, self._handle_exit)
 
     async def _startup(self):
         assert self.session is None, "TerminalClient already running"
