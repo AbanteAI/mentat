@@ -4,6 +4,14 @@ from textwrap import dedent
 import pytest
 
 from mentat.session import Session
+from tests.conftest import ConfigManager
+
+
+@pytest.fixture(autouse=True)
+def block_parser(mocker):
+    mock_method = mocker.MagicMock()
+    mocker.patch.object(ConfigManager, "parser", new=mock_method)
+    mock_method.return_value = "block"
 
 
 @pytest.mark.asyncio
