@@ -12,10 +12,14 @@ class AbstractExerciseRunner:
         self.full_path = Path(f"{self.dir}/{self.file}")
         self.test_output_file = Path(f"{self.dir}/test_output.txt")
 
-    def _run_test_command(self, command):
+    def _run_test_command(self, command, cwd="."):
         try:
             proc = subprocess.run(
-                command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=5
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=5,
+                cwd=cwd,
             )
             results = proc.stdout.decode("utf-8")
         except subprocess.TimeoutExpired:
