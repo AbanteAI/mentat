@@ -19,33 +19,6 @@ from .exercise_runners.exercise_runner_factory import ExerciseRunnerFactory
 pytestmark = pytest.mark.benchmark
 
 
-# This will include hint.md
-def read_instructions(exercise_runner):
-    instructions = ""
-    for file_name in os.listdir(exercise_runner.docs()):
-        with open(exercise_runner.docs() / file_name) as f:
-            contents = f.read()
-            instructions += f"{file_name}\n{contents}\n"
-    return instructions
-
-
-def read_code(exercise_runner, language):
-    code = ""
-    with open(exercise_runner.full_path) as f:
-        contents = f.read()
-        code += f"{exercise_runner.file}\n{contents}"
-    return code
-
-
-def read_test_results(exercise_runner):
-    if not exercise_runner.test_output_file.exists():
-        return ""
-    with open(exercise_runner.test_output_file) as f:
-        contents = f.read()
-        test_results = f"test_output.txt\n{contents}"
-    return test_results
-
-
 @pytest.fixture
 def clone_exercism_repo(refresh_repo, language):
     exercism_url = f"https://github.com/exercism/{language}.git"
@@ -98,28 +71,27 @@ def language(request):
 
 prompt = (
     "You are a professional code reviewer who helps other coders improve their skills."
-    + "You recently assigned a coder a small coding test to assess their level, with a"
-    " pre-written stub template"
-    + "and an automated test suite to determine if they succeeded."
-    + "They failed the test; using the instructions for the test,"
-    + "the code they wrote for the test, and the output of the test suite,"
-    + "your job is to determine why they failed. Give a terse but informative couple of"
-    " sentences"
-    + "on why it failed, before giving the reason it failed on the final line in the"
-    " format"
-    + "reason: <reason_failed>"
+    " You recently assigned a coder a small coding test to assess their level, with a"
+    " pre-written stub template and an automated test suite to determine if they"
+    " succeeded. They failed the test; using the instructions for the test, the code"
+    " they wrote for the test, and the output of the test suite, your job is to"
+    " determine why they failed. Give a terse but informative couple of sentences on"
+    " why they failed, before giving the reason it failed on the final line in the"
+    " format:\n"
+    + "reason: <reason_failed>\n"
     + "Your response will be parsed programmatically, so you MUST follow the format for"
-    " the final line!"
-    + "The possible responses for the final line and what they mean are as follows:"
-    + "blank (the coder didn't change the file at all from the stub you provided them)"
+    " the final line! The possible responses for the final line and what they mean"
+    " are as follows:\n"
+    + "blank (the coder didn't change the file at all from the stub you provided"
+    " them)\n"
     + "wording (everything was correct, but the coder messed up the wording or spacing"
-    " which caused it to be rejected)"
+    " which caused it to be rejected)\n"
     + "duplication (the coder had a random duplicated line that caused the code to not"
-    " be compiled/interpreted)"
+    " be compiled/interpreted)\n"
     + "syntax (the coder messed up their syntax, meaning their code couldn't be"
-    " compiled/interpreted)"
-    + "logic (the coder messed up the logic)"
-    + "other (some other reason caused it to fail)"
+    " compiled/interpreted)\n"
+    + "logic (the coder messed up the logic)\n"
+    + "other (some other reason caused it to fail)\n"
 )
 model = "gpt-4-0314"
 
@@ -127,9 +99,9 @@ model = "gpt-4-0314"
 async def failure_analysis(exercise_runner, language):
     setup_api_key()
 
-    instructions = read_instructions(exercise_runner)
-    code = read_code(exercise_runner, language)
-    test_results = read_test_results(exercise_runner)
+    instructions = exercise_runner.read_instructions()
+    code = exercise_runner.read_code(language)
+    test_results = exercise_runner.read_test_results()
 
     final_message = (
         f"All instructions:\n{instructions}\nCode to review:\n{code}\nTest"
@@ -233,9 +205,9 @@ def run_exercise_sync(problem_dir, language="python", max_iterations=2):
             "reason": "error",
             "tokens": 0,
         }
-    result["instructions"] = read_instructions(exercise_runner)
-    result["code"] = read_code(exercise_runner, language)
-    result["test-output"] = read_test_results(exercise_runner)
+    result["instructions"] = exercise_runner.read_instructions()
+    result["code"] = exercise_runner.read_code(language)
+    result["test-output"] = exercise_runner.read_test_results()
     return result
 
 

@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -44,3 +45,27 @@ class AbstractExerciseRunner:
             lines = f.readlines()
             lines = lines[:50]
             return "\n".join(lines)
+
+    # This will include hint.md
+    def read_instructions(self):
+        instructions = ""
+        for file_name in os.listdir(self.docs()):
+            with open(self.docs() / file_name) as f:
+                contents = f.read()
+                instructions += f"{file_name}\n{contents}\n"
+        return instructions
+
+    def read_code(self, language):
+        code = ""
+        with open(self.full_path) as f:
+            contents = f.read()
+            code += f"{self.file}\n{contents}"
+        return code
+
+    def read_test_results(self):
+        if not self.test_output_file.exists():
+            return ""
+        with open(self.test_output_file) as f:
+            contents = f.read()
+            test_results = f"test_output.txt\n{contents}"
+        return test_results
