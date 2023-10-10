@@ -3,6 +3,7 @@ import asyncio
 import logging
 import signal
 from pathlib import Path
+from types import FrameType
 from typing import Any, Coroutine, List, Set
 
 from prompt_toolkit import PromptSession
@@ -88,7 +89,7 @@ class TerminalClient:
             "", source=StreamMessageSource.CLIENT, channel="interrupt"
         )
 
-    def _handle_exit(self, sig, frame):
+    def _handle_exit(self, sig: int, frame: FrameType | None):
         assert isinstance(self.session, Session), "TerminalClient is not running"
         if (
             self.session.is_stopped
