@@ -4,7 +4,6 @@ import os
 import webbrowser
 from functools import partial
 from multiprocessing import Pool
-from pathlib import Path
 
 import pytest
 import tqdm
@@ -22,10 +21,9 @@ pytestmark = pytest.mark.benchmark
 
 # This will include hint.md
 def read_instructions(exercise_runner):
-    docs_path = Path(f"{exercise_runner.exercise_dir}/.docs")
     instructions = ""
-    for file_name in os.listdir(docs_path):
-        with open(docs_path / file_name) as f:
+    for file_name in os.listdir(exercise_runner.docs()):
+        with open(exercise_runner.docs() / file_name) as f:
             contents = f.read()
             instructions += f"{file_name}\n{contents}\n"
     return instructions
@@ -33,14 +31,14 @@ def read_instructions(exercise_runner):
 
 def read_code(exercise_runner, language):
     code = ""
-    with open(exercise_runner.exercise_full_path) as f:
+    with open(exercise_runner.full_path) as f:
         contents = f.read()
-        code += f"{exercise_runner.exercise_file}\n{contents}"
+        code += f"{exercise_runner.file}\n{contents}"
     return code
 
 
 def read_test_results(exercise_runner):
-    if not os.path.exists(exercise_runner.test_output_file):
+    if not exercise_runner.test_output_file.exists():
         return ""
     with open(exercise_runner.test_output_file) as f:
         contents = f.read()
@@ -166,35 +164,31 @@ async def send_message(session, message, input_request_message):
 
 async def run_exercise(problem_dir, language="python", max_iterations=2):
     exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
-    if exercise_runner.already_ran():
-        old_result = get_result_from_txt(exercise_runner)
-        if old_result:
-            return old_result
+    old_result = exercise_runner.get_result_from_txt()
+    if old_result:
+        return old_result
     session = await Session.create(
-        paths=[
-            Path(exercise_runner.exercise_full_path),
-            Path(f"{exercise_runner.exercise_dir}/.docs"),
-        ],
-        exclude_paths=[Path(f"{exercise_runner.exercise_dir}/.docs/hints.md")],
+        paths=exercise_runner.include_files(),
+        exclude_paths=exercise_runner.exclude_files(),
         no_code_map=True,
     )
     asyncio.ensure_future(session.start())
     input_request_message = await session.stream.recv("input_request")
 
     prompt_1 = (
-        f"Use the instructions in {exercise_runner.exercise_dir}/.docs to modify"
-        + f" {exercise_runner.exercise_file}. Keep and implement the existing"
+        f"Use the instructions in {exercise_runner.docs()} to modify"
+        + f" {exercise_runner.file}. Keep and implement the existing"
         + " function or class stubs, they will be called from unit tests. Only use"
         + f" standard {language} libraries, don't suggest installing any packages."
     )
     prompt_2 = (
         "\nSee the testing errors above. The tests are correct. Fix the code"
-        + f" in {exercise_runner.exercise_file} to resolve the errors."
+        + f" in {exercise_runner.file} to resolve the errors."
     )
 
     iterations = 0
     while iterations < max_iterations:
-        if exercise_runner.exercise_passed():
+        if exercise_runner.passed():
             break
         message = (
             prompt_1
@@ -210,11 +204,11 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         iterations += 1
 
     await session.stop()
-    passed = exercise_runner.exercise_passed()
+    passed = exercise_runner.passed()
     result = {
         "iterations": iterations,
         "passed": passed,
-        "test": problem_dir,
+        "test": exercise_runner.name,
     }
     if not result["passed"]:
         response, reason = await failure_analysis(exercise_runner, language)
@@ -256,13 +250,6 @@ def summarize_results(results):
         else:
             failed += 1
     return "Passed: " + str(passed_in_n)[1:-1] + "| Failed: " + str(failed)
-
-
-def get_result_from_txt(problem_dir):
-    with open("results.txt", "r") as f:
-        for line in f.readlines():
-            if f'"{problem_dir}"' in line:
-                return json.loads(line)
 
 
 def test_practice_directory_performance(

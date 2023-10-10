@@ -1,16 +1,18 @@
+from pathlib import Path
+
 from .abstract_exercise_runner import AbstractExerciseRunner
 
 
 class PythonExerciseRunner(AbstractExerciseRunner):
     def __init__(self, exercise):
         super().__init__(exercise, "py")
-        self.exercise_file = self.exercise_file.replace("-", "_")
-        self.exercise_full_path = f"{self.exercise_dir}/{self.exercise_file}"
+        self.file = Path(str(self.file).replace("-", "_"))
+        self.full_path = self.dir / self.file
 
     def run_test(self):
-        self._run_test_command(["pytest", self.exercise_dir])
+        self._run_test_command(["pytest", self.dir])
 
-    def exercise_passed(self):
+    def passed(self):
         try:
             with open(self.test_output_file, "r") as f:
                 lines = f.readlines()

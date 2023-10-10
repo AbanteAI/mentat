@@ -11,9 +11,9 @@ class JavascriptExerciseRunner(AbstractExerciseRunner):
             subprocess.run(["npm", "install"], stdout=subprocess.PIPE)
 
     def run_test(self):
-        self._run_test_command(["./node_modules/jest/bin/jest.js", self.exercise_dir])
+        self._run_test_command(["./node_modules/jest/bin/jest.js", self.dir])
 
-    def exercise_passed(self):
+    def passed(self):
         try:
             with open(self.test_output_file, "r") as f:
                 lines = f.readlines()
