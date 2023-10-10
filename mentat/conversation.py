@@ -21,7 +21,6 @@ from .llm_api import (
     get_prompt_token_count,
     is_model_available,
     model_context_size,
-    num_tokens_from_messages,
 )
 from .session_stream import SESSION_STREAM
 
@@ -150,7 +149,8 @@ class Conversation:
         messages = self.messages.copy()
 
         # Rebuild code context with active code and available tokens
-        tokens = await num_tokens_from_messages(messages, self.model)
+        conversation_history = "\n".join([m["content"] for m in messages])
+        tokens = count_tokens(conversation_history, self.model)
         response_buffer = 1000
         code_message = await code_context.get_code_message(
             self.model,
