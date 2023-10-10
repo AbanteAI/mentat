@@ -85,7 +85,7 @@ class ConfigManager:
     def maximum_context(self) -> Optional[int]:
         maximum_context = self._get_key("maximum-context")
         if maximum_context:
-            return cast(int, maximum_context)
+            return int(maximum_context)
         return None
 
     def file_exclude_glob_list(self) -> list[str]:
