@@ -11,43 +11,25 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:mentat.helloWorld"
+  ],
   "main": "./build/extension.js",
   "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "mentat",
-          "title": "Mentat",
-          "icon": "resources/icon.svg"
-        }
-      ]
-    },
-    "views": {
-      "mentat": [
-        {
-          "id": "chat",
-          "name": ""
-        }
-      ]
-    },
     "commands": [
       {
-        "command": "extension.helloWorld",
+        "command": "mentat.helloWorld",
         "title": "Hello World"
-      },
-      {
-        "command": "extension.startChat",
-        "title": "Staring Chat session"
       }
     ]
   },
   "scripts": {
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
-    "compile": "tsc",
-    "watch": "tsc -watch",
-    "code": "code --extensionDevelopmentPath=$PWD .",
-    "vscode:prepublish": "npm run compile"
+    "clean": "node ./scripts/clean.js",
+    "build-base": "npm run clean && esbuild ./src/extension.ts --bundle --outfile=build/extension.js --external:vscode --format=cjs --platform=node",
+    "build": "npm run build-base -- --sourcemap",
+    "watch": "npm run build-base -- --sourcemap --watch",
+    "vscode": "code --extensionDevelopmentPath=$PWD .",
+    "vscode:prepublish": "npm run build-base -- --minify"
   },
   "devDependencies": {
     "@types/jest": "29.5.5",
@@ -57,6 +39,7 @@
     "@types/vscode": "1.83.0",
     "@typescript-eslint/eslint-plugin": "6.7.4",
     "@typescript-eslint/parser": "6.7.4",
+    "esbuild": "0.19.4",
     "eslint": "8.51.0",
     "eslint-plugin-react": "7.33.2",
     "react": "18.2.0",

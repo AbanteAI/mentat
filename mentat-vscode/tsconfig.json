@@ -1,22 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
     "module": "commonjs",
+    "target": "ES2020",
     "jsx": "react-jsx",
-    "outDir": "./build",
-    "rootDir": "./src",
-    "strict": true,
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "skipLibCheck": true,
+    "outDir": "build",
+    "rootDir": "src",
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "types": ["node", "jest"],
     "lib": ["dom", "dom.iterable", "ES2020"],
-    "typeRoots": ["./node_modules/@types", "./src/types"],
-    "sourceMap": true
+    "sourceMap": true,
+    "strict": true /* enable all strict type-checking options */,
+    "noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
+    "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
+    "noUnusedParameters": true /* Report errors on unused parameters. */
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "**/__tests__/*"]
+  "exclude": ["node_modules"]
 }

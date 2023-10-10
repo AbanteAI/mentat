@@ -12,6 +12,7 @@ function getNonce() {
 class WebviewProvider implements vscode.WebviewViewProvider {
   public name: string;
   private extensionUri: vscode.Uri;
+  private _view?: vscode.WebviewView;
   private view?: vscode.WebviewView;
   private doc?: vscode.TextDocument;
 
@@ -21,8 +22,10 @@ class WebviewProvider implements vscode.WebviewViewProvider {
   }
 
   private getHtmlForWebview(webview: vscode.Webview) {
+    console.log("GETTING HTML");
+
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "out", `${this.name}.js`)
+      vscode.Uri.joinPath(this.extensionUri, "build/webviews", `${this.name}.js`)
     );
 
     // Use a nonce to only allow specific scripts to be run
@@ -41,8 +44,6 @@ class WebviewProvider implements vscode.WebviewViewProvider {
                   <meta name="viewport" content="width=device-width, initial-scale=1.0">
           </head>
           <body>
-              <p>Meow meow</p>
-              <img src="https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif" width="300" />
           </body>
           <script nonce="${nonce}" src="${scriptUri}"></script>
       </html>
@@ -56,6 +57,10 @@ class WebviewProvider implements vscode.WebviewViewProvider {
     context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
   ) {
+    this.view = webviewView;
+    this._view = webviewView;
+    console.log("RESOLVING WEBVIEW");
+
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [this.extensionUri],
