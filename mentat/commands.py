@@ -138,7 +138,8 @@ class IncludeCommand(Command, command_name="include"):
                     f"File path {invalid_path} is not text encoded, and was skipped.",
                     color="light_yellow",
                 )
-            await stream.send(f"{file_path}\n added to context", color="green")
+            if file_path not in invalid_paths:
+                await stream.send(f"{file_path} added to context", color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -159,7 +160,7 @@ class ExcludeCommand(Command, command_name="exclude"):
             return
         for file_path in args:
             code_context.exclude_file(Path(file_path).absolute())
-            await stream.send(f"{file_path}\n removed from context", color="green")
+            await stream.send(f"{file_path} removed from context", color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:
