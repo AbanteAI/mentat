@@ -86,6 +86,20 @@ async def call_llm_api(
     return _add_newline(response)
 
 
+def call_embedding_api(
+    input: list[str], model: str = "text-embedding-ada-002"
+) -> list[list[float]]:
+    if is_test_environment():
+        logging.critical("OpenAI call attempted in non benchmark test environment!")
+        raise MentatError("OpenAI call attempted in non benchmark test environment!")
+    
+    response: openai.OpenAIObject = openai.Embedding.create(  # type: ignore
+        input=input,
+        model=model,
+    ),
+    return [i["embedding"] for i in response[0]["data"]]  # type: ignore
+    
+
 # Ensures that each chunk will have at most one newline character
 def chunk_to_lines(chunk: Any) -> list[str]:
     return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)

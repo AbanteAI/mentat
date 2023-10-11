@@ -13,6 +13,7 @@ from .code_file import CodeFile, CodeMessageLevel
 from .code_file_manager import CODE_FILE_MANAGER
 from .code_map import check_ctags_disabled
 from .diff_context import DiffContext
+from .embeddings import get_feature_similarity_scores
 from .errors import UserError
 from .git_handler import GIT_ROOT, get_non_gitignored_files, get_paths_with_git_diffs
 from .include_files import (
@@ -168,6 +169,7 @@ class CodeContext:
 
     async def get_code_message(
         self,
+        prompt: str,
         model: str,
         max_tokens: int,
     ) -> str:
@@ -176,12 +178,13 @@ class CodeContext:
             self._code_message is None
             or code_message_checksum != self._code_message_checksum
         ):
-            self._code_message = await self._get_code_message(model, max_tokens)
+            self._code_message = await self._get_code_message(prompt, model, max_tokens)
             self._code_message_checksum = self._get_code_message_checksum(max_tokens)
         return self._code_message
 
     async def _get_code_message(
         self,
+        prompt: str,
         model: str,
         max_tokens: int,
     ) -> str:
@@ -209,7 +212,7 @@ class CodeContext:
             self.features = features
         else:
             auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
-            self.features = await self._get_auto_features(model, features, auto_tokens)
+            self.features = await self._get_auto_features(model, prompt, features, auto_tokens)
 
         for f in self.features:
             code_message += await f.get_code_message()
@@ -235,6 +238,7 @@ class CodeContext:
 
     async def _get_auto_features(
         self,
+        prompt: str,
         model: str,
         include_features: list[CodeFile],
         max_tokens: int,
@@ -273,6 +277,11 @@ class CodeContext:
 
         def _feature_relative_path(f: CodeFile) -> str:
             return os.path.relpath(f.path, git_root)
+        
+        # Get similarity scores
+        sim_scores = await get_feature_similarity_scores(prompt, all_features)
+        file_scores = {(f.path.name, f.level.key): s for f, s in zip(all_features, sim_scores)}
+        print(file_scores)
 
         return sorted(all_features, key=_feature_relative_path)
 

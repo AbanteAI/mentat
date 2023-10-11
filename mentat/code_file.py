@@ -139,14 +139,18 @@ class CodeFile:
                     code_message += section.message
         return code_message
 
+
+    def get_checksum(self) -> str:
+        git_root = GIT_ROOT.get()
+        code_file_manager = CODE_FILE_MANAGER.get()
+        abs_path = git_root / self.path
+        return code_file_manager.get_file_checksum(Path(abs_path))
+
     _file_checksum: str | None = None
     _code_message: list[str] | None = None
 
     async def get_code_message(self) -> list[str]:
-        git_root = GIT_ROOT.get()
-        code_file_manager = CODE_FILE_MANAGER.get()
-        abs_path = git_root / self.path
-        file_checksum = code_file_manager.get_file_checksum(Path(abs_path))
+        file_checksum = self.get_checksum()
         if file_checksum != self._file_checksum or self._code_message is None:
             self._file_checksum = file_checksum
             self._code_message = await self._get_code_message()
