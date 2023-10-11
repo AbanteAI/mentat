@@ -184,6 +184,7 @@ class CodeContext:
     ) -> str:
         code_message = list[str]()
 
+        self.diff_context.clear_cache
         await self._set_code_map()
         if self.diff_context.files:
             code_message += [

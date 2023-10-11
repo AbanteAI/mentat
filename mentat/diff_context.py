@@ -178,6 +178,9 @@ class DiffContext:
         annotations = parse_diff(diff)
         return annotate_file_message(file_message, annotations)
 
+    def clear_cache(self):
+        self._files_cache = None
+
 
 TreeishType = Literal["commit", "branch", "relative"]
 
