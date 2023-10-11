@@ -7,7 +7,6 @@ import pytest
 from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_file import CodeMessageLevel
 from mentat.config_manager import ConfigManager
-from mentat.errors import UserError
 from mentat.include_files import expand_paths
 from mentat.llm_api import count_tokens
 
@@ -151,15 +150,14 @@ async def test_text_encoding_checking(
     file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, nontext_path) not in file_paths
 
-    with pytest.raises(UserError) as e_info:
-        nontext_path_requested = "iamalsonottext.py"
-        with open(nontext_path_requested, "wb") as f:
-            # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
-            f.write(bytearray([0x81]))
-        code_context = await CodeContext.create(
-            [Path(nontext_path_requested)], [], code_context_settings
-        )
-    assert e_info.type == UserError
+    nontext_path_requested = "iamalsonottext.py"
+    with open(nontext_path_requested, "wb") as f:
+        # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
+        f.write(bytearray([0x81]))
+    code_context = await CodeContext.create(
+        [Path(nontext_path_requested)], [], code_context_settings
+    )
+    assert not code_context.include_files
 
 
 @pytest.fixture

@@ -21,7 +21,7 @@ async def test_posix_paths(
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
         file_file.write("I am a file")
-    mock_code_context.include_files = get_include_files([file_path], [])
+    mock_code_context.include_files, _ = get_include_files([file_path], [])
 
     code_message = await mock_code_context.get_code_message(mock_config.model(), 1e6)
     assert dir_name + "/" + file_name in code_message.split("\n")
@@ -44,7 +44,7 @@ async def test_partial_files(
              fifth"""))
 
     file_path_partial = file_path + ":1,3-5"
-    mock_code_context.include_files = get_include_files([file_path_partial], [])
+    mock_code_context.include_files, _ = get_include_files([file_path_partial], [])
     mock_code_context.settings.auto_tokens = 0
     mock_code_context.code_map = False
 
@@ -134,7 +134,7 @@ async def test_changed_file(
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
         file_file.write("I am a file")
-    mock_code_context.include_files = get_include_files([file_path], [])
+    mock_code_context.include_files, _ = get_include_files([file_path], [])
 
     # Load code_file_manager's file_lines
     code_file_manager = CodeFileManager()

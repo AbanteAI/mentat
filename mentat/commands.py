@@ -132,7 +132,12 @@ class IncludeCommand(Command, command_name="include"):
             await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
-            code_context.include_file(Path(file_path).absolute())
+            invalid_paths = code_context.include_file(Path(file_path).absolute())
+            for invalid_path in invalid_paths:
+                await stream.send(
+                    f"File path {invalid_path} is not text encoded, and was skipped.",
+                    color="light_yellow",
+                )
             await stream.send(f"{file_path}\n added to context", color="green")
 
     @classmethod

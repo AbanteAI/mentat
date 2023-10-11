@@ -65,12 +65,19 @@ class CodeContext:
     async def create(
         cls, paths: list[Path], exclude_paths: list[Path], settings: CodeContextSettings
     ):
+        stream = SESSION_STREAM.get()
+
         self = cls(settings)
 
         self.diff_context = await DiffContext.create(
             self.settings.diff, self.settings.pr_diff
         )
-        self.include_files = get_include_files(paths, exclude_paths)
+        self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
+        for invalid_path in invalid_paths:
+            await stream.send(
+                f"File path {invalid_path} is not text encoded, and was skipped.",
+                color="light_yellow",
+            )
         await self._set_code_map()
 
         return self
@@ -177,10 +184,6 @@ class CodeContext:
     ) -> str:
         code_message = list[str]()
 
-        # Reset the diff context since it could have changed since last code message
-        self.diff_context = await DiffContext.create(
-            self.settings.diff, self.settings.pr_diff
-        )
         await self._set_code_map()
         if self.diff_context.files:
             code_message += [
@@ -268,12 +271,15 @@ class CodeContext:
 
         return sorted(all_features, key=_feature_relative_path)
 
-    def include_file(self, abs_path: Path):
-        for new_path, new_file in get_include_files([abs_path], []).items():
+    def include_file(self, path: Path):
+        paths, invalid_paths = get_include_files([path], [])
+        for new_path, new_file in paths.items():
             if new_path not in self.include_files:
                 self.include_files[new_path] = new_file
+        return invalid_paths
 
-    def exclude_file(self, abs_path: Path):
-        for new_path in get_include_files([abs_path], []).keys():
+    def exclude_file(self, path: Path):
+        paths, _ = get_include_files([path], [])
+        for new_path in paths.keys():
             if new_path in self.include_files:
                 del self.include_files[new_path]

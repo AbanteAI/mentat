@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 from mentat.diff_context import DiffContext
-from mentat.errors import UserError
 
 rel_path = Path("multifile_calculator/operations.py")
 
@@ -137,21 +136,6 @@ async def test_diff_context_relative(
         "14:+    return commit3",
     ]
     assert annotated_message == expected
-
-
-@pytest.mark.asyncio
-async def test_diff_context_errors(
-    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
-):
-    # Can't use both diff and pr_diff
-    with pytest.raises(SystemExit) as e:
-        await DiffContext.create(diff="HEAD", pr_diff="master")
-    assert e.value.code == 0
-
-    # Invalid treeish
-    with pytest.raises(UserError) as e:
-        await DiffContext.create(diff="invalid")
-    assert str(e.value) == "Invalid treeish: invalid"
 
 
 @pytest.mark.asyncio

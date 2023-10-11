@@ -256,6 +256,8 @@ def run_cli():
     terminal_client.run()
 
 
+# This needs to stay in the terminal client since it's done on start and uses print/exit,
+# which is why we have an almost identical version in include_files
 def expand_paths(paths: list[str]) -> list[Path]:
     """Expand user-input paths/globs into a list of absolute paths.
 
@@ -287,4 +289,4 @@ def expand_paths(paths: list[str]) -> list[Path]:
         )
         print("\n".join(invalid_paths))
         exit()
-    return [Path(path) for path in globbed_paths]
+    return [Path(path).resolve() for path in globbed_paths]
