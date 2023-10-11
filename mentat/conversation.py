@@ -7,10 +7,6 @@ from timeit import default_timer
 
 from openai.error import InvalidRequestError, RateLimitError
 
-from mentat.parsers.file_edit import FileEdit
-from mentat.parsers.parser import PARSER, Parser
-from tests.conftest import SessionStream
-
 from .code_context import CODE_CONTEXT
 from .config_manager import CONFIG_MANAGER, user_config_path
 from .errors import MentatError, UserError
@@ -22,7 +18,9 @@ from .llm_api import (
     is_model_available,
     model_context_size,
 )
-from .session_stream import SESSION_STREAM
+from .parsers.file_edit import FileEdit
+from .parsers.parser import PARSER, Parser
+from .session_stream import SESSION_STREAM, SessionStream
 
 CONVERSATION: ContextVar[Conversation] = ContextVar("mentat:conversation")
 
