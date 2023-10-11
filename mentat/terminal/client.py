@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import glob
 import logging
 import signal
 from pathlib import Path
@@ -9,9 +10,10 @@ from typing import Any, Coroutine, List, Set
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.styles import Style
+from termcolor import cprint
 
+from mentat.code_file import parse_intervals
 from mentat.config_manager import CONFIG_MANAGER
-from mentat.include_files import expand_paths
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.output import print_stream_message
@@ -252,3 +254,37 @@ def run_cli():
         auto_tokens,
     )
     terminal_client.run()
+
+
+def expand_paths(paths: list[str]) -> list[Path]:
+    """Expand user-input paths/globs into a list of absolute paths.
+
+    Should be done as soon as possible because some shells such as zsh automatically
+    expand globs and we want to avoid differences in functionality between shells
+    """
+    globbed_paths = set[str]()
+    invalid_paths = list[str]()
+    for path in paths:
+        new_paths = glob.glob(pathname=path, recursive=True)
+        if new_paths:
+            globbed_paths.update(new_paths)
+        else:
+            split = path.rsplit(":", 1)
+            p = split[0]
+            if len(split) > 1:
+                # Parse additional syntax, e.g. "path/to/file.py:1-5,7,12-40"
+                intervals = parse_intervals(split[1])
+            else:
+                intervals = None
+            if Path(p).exists() and intervals:
+                globbed_paths.add(path)
+            else:
+                invalid_paths.append(path)
+    if invalid_paths:
+        cprint(
+            "The following paths do not exist:",
+            "light_yellow",
+        )
+        print("\n".join(invalid_paths))
+        exit()
+    return [Path(path) for path in globbed_paths]

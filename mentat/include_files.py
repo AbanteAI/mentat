@@ -4,48 +4,11 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-from termcolor import cprint
-
-from mentat.code_file import CodeFile, parse_intervals
+from mentat.code_file import CodeFile
 from mentat.config_manager import CONFIG_MANAGER
 from mentat.errors import UserError
 from mentat.git_handler import GIT_ROOT, get_non_gitignored_files
 from mentat.session_stream import SESSION_STREAM
-
-
-def expand_paths(paths: list[str]) -> list[Path]:
-    """Expand user-input paths/globs into a list of absolute paths.
-
-    Should be done as soon as possible because some shells such as zsh automatically
-    expand globs and we want to avoid differences in functionality between shells
-    """
-    globbed_paths = set[str]()
-    invalid_paths = list[str]()
-    for path in paths:
-        new_paths = glob.glob(pathname=path, recursive=True)
-        if new_paths:
-            globbed_paths.update(new_paths)
-        else:
-            split = path.rsplit(":", 1)
-            p = split[0]
-            if len(split) > 1:
-                # Parse additional syntax, e.g. "path/to/file.py:1-5,7,12-40"
-                intervals = parse_intervals(split[1])
-            else:
-                intervals = None
-            if Path(p).exists() and intervals:
-                globbed_paths.add(path)
-            else:
-                invalid_paths.append(path)
-    if invalid_paths:
-        # TODO: Get rid of print/cprint and exit
-        cprint(
-            "The following paths do not exist:",
-            "light_yellow",
-        )
-        print("\n".join(invalid_paths))
-        exit()
-    return [Path(path) for path in globbed_paths]
 
 
 def is_file_text_encoded(file_path: Path):

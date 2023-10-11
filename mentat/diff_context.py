@@ -121,10 +121,12 @@ class DiffContext:
 
         if diff and pr_diff:
             await stream.send(
-                "Cannot specify more than one type of diff.", color="light_yellow"
+                "Cannot specify more than one type of diff. Disabling diff and"
+                " pr-diff.",
+                color="light_yellow",
             )
-            # TODO: Remove exit
-            exit(0)
+            diff = None
+            pr_diff = None
 
         target = diff or pr_diff
         if not target:
@@ -142,11 +144,11 @@ class DiffContext:
             target = _git_command(git_root, "merge-base", "HEAD", pr_diff)
             if not target:
                 await stream.send(
-                    f"Cannot identify merge base between HEAD and {pr_diff}",
+                    f"Cannot identify merge base between HEAD and {pr_diff}. Disabling"
+                    " pr-diff.",
                     color="light_yellow",
                 )
-                # TODO: Remove exit
-                exit(0)
+                return cls()
 
         meta = get_treeish_metadata(target)
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
