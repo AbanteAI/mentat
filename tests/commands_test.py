@@ -69,13 +69,12 @@ async def test_exclude_command(
 ):
     mock_collect_user_input.set_stream_messages(
         [
-            "/exclude scripts/calculator.py",
+            "/exclude scripts",
             "q",
         ]
     )
 
-    # TODO: Once we fix CodeContext, make this test normal (and use a directory)
-    session = await Session.create([Path("scripts/calculator.py").absolute()])
+    session = await Session.create(["scripts"])
     await session.start()
     await session.stream.stop()
 

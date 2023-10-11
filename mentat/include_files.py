@@ -38,6 +38,7 @@ def expand_paths(paths: list[str]) -> list[Path]:
             else:
                 invalid_paths.append(path)
     if invalid_paths:
+        # TODO: Get rid of print/cprint and exit
         cprint(
             "The following paths do not exist:",
             "light_yellow",
@@ -58,6 +59,7 @@ def is_file_text_encoded(file_path: Path):
         return False
 
 
+# TODO: Add glob expand here, since user can now add files from within mentat
 def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
     """Returns a set of CodeFiles from a list of paths."""
     files_direct = set[CodeFile]()
@@ -68,6 +70,7 @@ def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
         if path.is_file():
             if check_for_text and not is_file_text_encoded(path):
                 logging.info(f"File path {path} is not text encoded.")
+                # TODO: Since the user can include files from within mentat now, don't quit (just send error somehow)
                 raise UserError(f"File path {path} is not text encoded.")
             files_direct.add(file)
         elif path.is_dir():
@@ -85,9 +88,7 @@ def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
                 )
             )
 
-    files_from_dirs = [
-        CodeFile(os.path.realpath(path)) for path in file_paths_from_dirs
-    ]
+    files_from_dirs = set(CodeFile(path.resolve()) for path in file_paths_from_dirs)
     return files_direct, files_from_dirs
 
 
@@ -97,15 +98,16 @@ def get_include_files(
     """Returns a complete list of text files in a given set of include/exclude Paths."""
     git_root = GIT_ROOT.get()
     config = CONFIG_MANAGER.get()
+
     excluded_files_direct, excluded_files_from_dirs = abs_files_from_list(
         exclude_paths, check_for_text=False
     )
-    excluded_files, excluded_files_from_dir = set(
-        map(lambda f: f.path, excluded_files_direct)
-    ), set(map(lambda f: f.path, excluded_files_from_dirs))
+    excluded_files = set(
+        map(lambda f: f.path, excluded_files_direct | excluded_files_from_dirs)
+    )
 
     glob_excluded_files = set(
-        os.path.join(git_root, file)
+        Path(os.path.join(git_root, file))
         for glob_path in config.file_exclude_glob_list()
         # If the user puts a / at the beginning, it will try to look in root directory
         for file in glob.glob(
@@ -120,15 +122,14 @@ def get_include_files(
     files_from_dirs = [
         file
         for file in files_from_dirs
-        if str(file.path.resolve()) not in glob_excluded_files
+        if file.path.resolve() not in glob_excluded_files
     ]
-
     files_direct.update(files_from_dirs)
 
     files = dict[Path, CodeFile]()
     for file in files_direct:
-        if file.path not in excluded_files | excluded_files_from_dir:
-            files[Path(os.path.realpath(file.path))] = file
+        if file.path not in excluded_files:
+            files[file.path.resolve()] = file
 
     return files
 

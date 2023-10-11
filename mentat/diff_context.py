@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
+from mentat.session_stream import SESSION_STREAM
+
 from .errors import UserError
 from .git_handler import (
     GIT_ROOT,
@@ -109,15 +111,20 @@ class DiffContext:
         return self._files_cache
 
     @classmethod
-    def create(
+    async def create(
         cls,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
     ):
+        stream = SESSION_STREAM.get()
         git_root = GIT_ROOT.get()
 
         if diff and pr_diff:
-            raise UserError("Cannot specify more than one type of diff.")
+            await stream.send(
+                "Cannot specify more than one type of diff.", color="light_yellow"
+            )
+            # TODO: Remove exit
+            exit(0)
 
         target = diff or pr_diff
         if not target:
@@ -134,9 +141,12 @@ class DiffContext:
             name = f"Merge-base {name}"
             target = _git_command(git_root, "merge-base", "HEAD", pr_diff)
             if not target:
-                raise UserError(
-                    f"Cannot identify merge base between HEAD and {pr_diff}"
+                await stream.send(
+                    f"Cannot identify merge base between HEAD and {pr_diff}",
+                    color="light_yellow",
                 )
+                # TODO: Remove exit
+                exit(0)
 
         meta = get_treeish_metadata(target)
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'

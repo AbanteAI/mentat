@@ -13,7 +13,6 @@ from .code_file import CodeFile, CodeMessageLevel
 from .code_file_manager import CODE_FILE_MANAGER
 from .code_map import check_ctags_disabled
 from .diff_context import DiffContext
-from .errors import UserError
 from .git_handler import GIT_ROOT, get_non_gitignored_files, get_paths_with_git_diffs
 from .include_files import (
     build_path_tree,
@@ -40,8 +39,6 @@ async def _count_tokens_in_features(features: list[CodeFile], model: str) -> int
 
 @attr.define
 class CodeContextSettings:
-    paths: list[Path] = []
-    exclude_paths: list[Path] = []
     diff: Optional[str] = None
     pr_diff: Optional[str] = None
     no_code_map: bool = False
@@ -58,36 +55,29 @@ class CodeContext:
     code_map: bool = True
     features: list[CodeFile] = []
 
-    def __init__(self, settings: CodeContextSettings):
+    def __init__(
+        self,
+        settings: CodeContextSettings,
+    ):
         self.settings = settings
 
     @classmethod
-    async def create(cls, settings: CodeContextSettings):
+    async def create(
+        cls, paths: list[Path], exclude_paths: list[Path], settings: CodeContextSettings
+    ):
         self = cls(settings)
 
-        await self._set_diff_context(replace_paths=True)
-        self._set_include_files()
+        self.diff_context = await DiffContext.create(
+            self.settings.diff, self.settings.pr_diff
+        )
+        self.include_files = get_include_files(paths, exclude_paths)
         await self._set_code_map()
 
         return self
 
-    async def _set_diff_context(self, replace_paths: bool = False):
-        try:
-            self.diff_context = DiffContext.create(
-                self.settings.diff, self.settings.pr_diff
-            )
-            if replace_paths and not self.settings.paths:
-                self.settings.paths = self.diff_context.files
-        except UserError as e:
-            await SESSION_STREAM.get().send(str(e), color="light_yellow")
-            exit()
-
-    def _set_include_files(self):
-        self.include_files = get_include_files(
-            self.settings.paths, self.settings.exclude_paths
-        )
-
     async def _set_code_map(self):
+        stream = SESSION_STREAM.get()
+
         if self.settings.no_code_map:
             self.code_map = False
         else:
@@ -98,7 +88,7 @@ class CodeContext:
                     Reason: {disabled_reason}
                 """
                 ctags_disabled_message = dedent(ctags_disabled_message)
-                await SESSION_STREAM.get().send(ctags_disabled_message, color="yellow")
+                await stream.send(ctags_disabled_message, color="yellow")
                 self.settings.no_code_map = True
                 self.code_map = False
             else:
@@ -187,8 +177,10 @@ class CodeContext:
     ) -> str:
         code_message = list[str]()
 
-        await self._set_diff_context()
-        self._set_include_files()
+        # Reset the diff context since it could have changed since last code message
+        self.diff_context = await DiffContext.create(
+            self.settings.diff, self.settings.pr_diff
+        )
         await self._set_code_map()
         if self.diff_context.files:
             code_message += [
@@ -276,34 +268,12 @@ class CodeContext:
 
         return sorted(all_features, key=_feature_relative_path)
 
-    # TODO: Neither of these functions works because of the use of self.settings.paths;
-    # we need to fix these functions and part of this class
-    async def include_file(self, abs_path: Path):
-        stream = SESSION_STREAM.get()
+    def include_file(self, abs_path: Path):
+        for new_path, new_file in get_include_files([abs_path], []).items():
+            if new_path not in self.include_files:
+                self.include_files[new_path] = new_file
 
-        if not os.path.exists(abs_path):
-            await stream.send(f"File does not exist: {abs_path}\n", color="red")
-            return
-        if abs_path in self.settings.paths:
-            await stream.send(f"File already in context: {abs_path}\n", color="yellow")
-            return
-        if abs_path in self.settings.exclude_paths:
-            self.settings.exclude_paths.remove(abs_path)
-        self.settings.paths.append(abs_path)
-        self._set_include_files()
-        await stream.send(f"File included in context: {abs_path}\n", color="green")
-
-    async def exclude_file(self, abs_path: Path):
-        stream = SESSION_STREAM.get()
-
-        if not os.path.exists(abs_path):
-            await stream.send(f"File does not exist: {abs_path}\n", color="red")
-            return
-        if abs_path not in self.settings.paths:
-            await stream.send(f"File not in context: {abs_path}\n", color="yellow")
-            return
-        if abs_path in self.settings.paths:
-            self.settings.paths.remove(abs_path)
-        self.settings.exclude_paths.append(abs_path)
-        self._set_include_files()
-        await stream.send(f"File removed from context: {abs_path}\n", color="green")
+    def exclude_file(self, abs_path: Path):
+        for new_path in get_include_files([abs_path], []).keys():
+            if new_path in self.include_files:
+                del self.include_files[new_path]

@@ -132,7 +132,8 @@ class IncludeCommand(Command, command_name="include"):
             await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
-            await code_context.include_file(Path(file_path).absolute())
+            code_context.include_file(Path(file_path).absolute())
+            await stream.send(f"{file_path}\n added to context", color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -152,7 +153,8 @@ class ExcludeCommand(Command, command_name="exclude"):
             await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
-            await code_context.exclude_file(Path(file_path).absolute())
+            code_context.exclude_file(Path(file_path).absolute())
+            await stream.send(f"{file_path}\n removed from context", color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:

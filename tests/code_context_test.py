@@ -13,9 +13,7 @@ from mentat.llm_api import count_tokens
 
 
 @pytest.mark.asyncio
-async def test_path_gitignoring(
-    temp_testbed, mock_stream, mock_config, mock_code_context
-):
+async def test_path_gitignoring(temp_testbed, mock_git_root, mock_stream, mock_config):
     gitignore_path = ".gitignore"
     testing_dir_path = "git_testing_dir"
     os.makedirs(testing_dir_path)
@@ -34,8 +32,8 @@ async def test_path_gitignoring(
 
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
     paths = [Path(testing_dir_path), Path(ignored_file_path_2)]
-    mock_code_context.settings.paths = paths
-    mock_code_context._set_include_files()
+    code_context_settings = CodeContextSettings()
+    code_context = await CodeContext.create(paths, [], code_context_settings)
 
     expected_file_paths = [
         os.path.join(temp_testbed, ignored_file_path_2),
@@ -43,15 +41,13 @@ async def test_path_gitignoring(
     ]
 
     case = TestCase()
-    file_paths = [
-        str(file_path.resolve()) for file_path in mock_code_context.include_files
-    ]
+    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     case.assertListEqual(sorted(expected_file_paths), sorted(file_paths))
 
 
 @pytest.mark.asyncio
 async def test_config_glob_exclude(
-    mocker, temp_testbed, mock_stream, mock_config, mock_code_context
+    mocker, temp_testbed, mock_git_root, mock_stream, mock_config
 ):
     # Makes sure glob exclude config works
     mock_glob_exclude = mocker.MagicMock()
@@ -75,19 +71,19 @@ async def test_config_glob_exclude(
             "Config excludes me but I'm included if added directly"
         )
 
-    mock_code_context.settings.paths = [Path("."), directly_added_glob_excluded_path]
-    mock_code_context._set_include_files()
+    code_context_settings = CodeContextSettings()
+    code_context = await CodeContext.create(
+        [Path("."), directly_added_glob_excluded_path], [], code_context_settings
+    )
 
-    file_paths = [
-        str(file_path.resolve()) for file_path in mock_code_context.include_files
-    ]
+    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
     assert os.path.join(temp_testbed, glob_include_path) in file_paths
     assert os.path.join(temp_testbed, directly_added_glob_excluded_path) in file_paths
 
 
 @pytest.mark.asyncio
-async def test_glob_include(temp_testbed, mock_stream, mock_config, mock_code_context):
+async def test_glob_include(temp_testbed, mock_git_root, mock_stream, mock_config):
     # Make sure glob include works
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.py")
     glob_include_path2 = os.path.join("glob_test", "bagel", "apple", "include_me2.py")
@@ -104,21 +100,17 @@ async def test_glob_include(temp_testbed, mock_stream, mock_config, mock_code_co
         glob_exclude_file.write("I am not included")
 
     file_paths = expand_paths(["**/*.py"])
-    mock_code_context.settings.paths = file_paths
-    mock_code_context._set_include_files()
+    code_context_settings = CodeContextSettings()
+    code_context = await CodeContext.create(file_paths, [], code_context_settings)
 
-    file_paths = [
-        str(file_path.resolve()) for file_path in mock_code_context.include_files
-    ]
+    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
     assert os.path.join(temp_testbed, glob_include_path) in file_paths
     assert os.path.join(temp_testbed, glob_include_path2) in file_paths
 
 
 @pytest.mark.asyncio
-async def test_cli_glob_exclude(
-    temp_testbed, mock_stream, mock_config, mock_code_context
-):
+async def test_cli_glob_exclude(temp_testbed, mock_git_root, mock_stream, mock_config):
     # Make sure cli glob exclude works and overrides regular include
     glob_include_then_exclude_path = os.path.join(
         "glob_test", "bagel", "apple", "include_then_exclude_me.py"
@@ -134,18 +126,19 @@ async def test_cli_glob_exclude(
 
     file_paths = expand_paths(["**/*.py"])
     exclude_paths = expand_paths(["**/*.py", "**/*.ts"])
-    mock_code_context.settings.paths = file_paths
-    mock_code_context.settings.exclude_paths = exclude_paths
-    mock_code_context._set_include_files()
+    code_context_settings = CodeContextSettings()
+    code_context = await CodeContext.create(
+        file_paths, exclude_paths, code_context_settings
+    )
 
-    file_paths = [file_path for file_path in mock_code_context.include_files]
+    file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_include_then_exclude_path) not in file_paths
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
 
 
 @pytest.mark.asyncio
 async def test_text_encoding_checking(
-    temp_testbed, mock_stream, mock_config, mock_code_context
+    temp_testbed, mock_git_root, mock_stream, mock_config
 ):
     # Makes sure we don't include non text encoded files, and we quit if user gives us one
     nontext_path = "iamnottext.py"
@@ -153,9 +146,9 @@ async def test_text_encoding_checking(
         # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
         f.write(bytearray([0x81]))
 
-    mock_code_context.settings.paths = [Path("./")]
-    mock_code_context._set_include_files()
-    file_paths = [file_path for file_path in mock_code_context.include_files]
+    code_context_settings = CodeContextSettings()
+    code_context = await CodeContext.create(["./"], [], code_context_settings)
+    file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, nontext_path) not in file_paths
 
     with pytest.raises(UserError) as e_info:
@@ -163,10 +156,9 @@ async def test_text_encoding_checking(
         with open(nontext_path_requested, "wb") as f:
             # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
             f.write(bytearray([0x81]))
-
-        paths = [Path(nontext_path_requested)]
-        mock_code_context.settings.paths = paths
-        mock_code_context._set_include_files()
+        code_context = await CodeContext.create(
+            [Path(nontext_path_requested)], [], code_context_settings
+        )
     assert e_info.type == UserError
 
 
@@ -199,12 +191,12 @@ async def test_get_code_message_cache(
     mock_git_root,
     mock_code_file_manager,
 ):
-    code_context_settings = CodeContextSettings(
-        paths=["multifile_calculator"],
-        exclude_paths=["multifile_calculator/calculator.py"],
-        auto_tokens=10,
+    code_context_settings = CodeContextSettings(auto_tokens=10)
+    code_context = await CodeContext.create(
+        ["multifile_calculator"],
+        ["multifile_calculator/calculator.py"],
+        code_context_settings,
     )
-    code_context = await CodeContext.create(code_context_settings)
     file = Path("multifile_calculator/operations.py")
     feature = mocker.MagicMock()
     feature.path = file
@@ -243,11 +235,12 @@ async def test_get_code_message_include(
     mock_code_file_manager,
     mock_stream,
 ):
-    code_context_settings = CodeContextSettings(
-        paths=["multifile_calculator"],
-        exclude_paths=["multifile_calculator/calculator.py"],
+    code_context_settings = CodeContextSettings()
+    code_context = await CodeContext.create(
+        ["multifile_calculator"],
+        ["multifile_calculator/calculator.py"],
+        code_context_settings,
     )
-    code_context = await CodeContext.create(code_context_settings)
 
     # If max tokens is less than include_files, return include_files without
     # raising and Exception (that's handled elsewhere)

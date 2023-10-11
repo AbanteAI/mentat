@@ -43,30 +43,26 @@ class CodeFileManager:
         self.file_lines[rel_path] = lines
         return lines
 
-    async def _create_file(self, code_context: CodeContext, abs_path: Path):
+    def _create_file(self, code_context: CodeContext, abs_path: Path):
         logging.info(f"Creating new file {abs_path}")
-        await code_context.include_file(abs_path)
+        code_context.include_file(abs_path)
         # Create any missing directories in the path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         with open(abs_path, "w") as f:
             f.write("")
 
-    async def _delete_file(self, code_context: CodeContext, abs_path: Path):
+    def _delete_file(self, code_context: CodeContext, abs_path: Path):
         logging.info(f"Deleting file {abs_path}")
-        await code_context.exclude_file(abs_path)
+        code_context.exclude_file(abs_path)
         abs_path.unlink()
 
-    async def _rename_file(
+    def _rename_file(
         self, code_context: CodeContext, abs_path: Path, new_abs_path: Path
     ):
         logging.info(f"Renaming file {abs_path} to {new_abs_path}")
-        with open(abs_path, "r") as f:
-            file_lines = f.read()
-        with open(new_abs_path, "w") as f:
-            f.write(file_lines)
-        await code_context.include_file(new_abs_path)
-        await code_context.exclude_file(abs_path)
-        abs_path.unlink()
+        os.rename(abs_path, new_abs_path)
+        code_context.include_file(new_abs_path)
+        code_context.exclude_file(abs_path)
 
     # Mainly does checks on if file is in context, file exists, file is unchanged, etc.
     async def write_changes_to_files(
@@ -86,7 +82,7 @@ class CodeFileManager:
                         " already exists"
                     )
                 self.history.add_action(CreationAction(file_edit.file_path))
-                await self._create_file(code_context, file_edit.file_path)
+                self._create_file(code_context, file_edit.file_path)
             else:
                 if not file_edit.file_path.exists():
                     raise MentatError(
@@ -111,7 +107,7 @@ class CodeFileManager:
                             file_edit.file_path, self.read_file(file_edit.file_path)
                         )
                     )
-                    await self._delete_file(code_context, file_edit.file_path)
+                    self._delete_file(code_context, file_edit.file_path)
                     continue
                 else:
                     await stream.send(f"Not deleting {rel_path}", color="green")
@@ -142,7 +138,7 @@ class CodeFileManager:
                 self.history.add_action(
                     RenameAction(file_edit.file_path, file_edit.rename_file_path)
                 )
-                await self._rename_file(
+                self._rename_file(
                     code_context, file_edit.file_path, file_edit.rename_file_path
                 )
                 file_edit.file_path = file_edit.rename_file_path

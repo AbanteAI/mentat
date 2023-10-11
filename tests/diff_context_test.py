@@ -79,14 +79,15 @@ def test_diff_context_default(
     assert annotated_message == expected
 
 
-def test_diff_context_commit(
+@pytest.mark.asyncio
+async def test_diff_context_commit(
     mock_stream, mock_config, temp_testbed, git_history, mock_git_root
 ):
     # Get the hash of 2-commits-ago
     last_commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD~2"], cwd=temp_testbed, text=True
     ).strip()
-    diff_context = DiffContext.create(diff=last_commit)
+    diff_context = await DiffContext.create(diff=last_commit)
     assert diff_context.target == last_commit
     assert diff_context.name == f"{last_commit[:8]}: add testbed"
     assert diff_context.files == [rel_path]
@@ -100,10 +101,11 @@ def test_diff_context_commit(
     assert annotated_message == expected
 
 
-def test_diff_context_branch(
+@pytest.mark.asyncio
+async def test_diff_context_branch(
     mock_stream, mock_config, temp_testbed, git_history, mock_git_root
 ):
-    diff_context = DiffContext.create(diff="test_branch")
+    diff_context = await DiffContext.create(diff="test_branch")
     assert diff_context.target == "test_branch"
     assert diff_context.name.startswith("Branch test_branch:")
     assert diff_context.name.endswith(": commit4")
@@ -118,10 +120,11 @@ def test_diff_context_branch(
     assert annotated_message == expected
 
 
-def test_diff_context_relative(
+@pytest.mark.asyncio
+async def test_diff_context_relative(
     mock_stream, mock_config, temp_testbed, git_history, mock_git_root
 ):
-    diff_context = DiffContext.create(diff="HEAD~2")
+    diff_context = await DiffContext.create(diff="HEAD~2")
     assert diff_context.target == "HEAD~2"
     assert diff_context.name.startswith("HEAD~2: ")
     assert diff_context.name.endswith(": add testbed")
@@ -136,25 +139,27 @@ def test_diff_context_relative(
     assert annotated_message == expected
 
 
-def test_diff_context_errors(
+@pytest.mark.asyncio
+async def test_diff_context_errors(
     mock_stream, mock_config, temp_testbed, git_history, mock_git_root
 ):
     # Can't use both diff and pr_diff
-    with pytest.raises(UserError) as e:
-        DiffContext.create(diff="HEAD", pr_diff="master")
-    assert str(e.value) == "Cannot specify more than one type of diff."
+    with pytest.raises(SystemExit) as e:
+        await DiffContext.create(diff="HEAD", pr_diff="master")
+    assert e.value.code == 0
 
     # Invalid treeish
     with pytest.raises(UserError) as e:
-        DiffContext.create(diff="invalid")
+        await DiffContext.create(diff="invalid")
     assert str(e.value) == "Invalid treeish: invalid"
 
 
-def test_diff_context_pr(
+@pytest.mark.asyncio
+async def test_diff_context_pr(
     mock_stream, mock_config, temp_testbed, git_history, mock_git_root
 ):
     subprocess.run(["git", "checkout", "test_branch"], cwd=temp_testbed)
-    diff_context = DiffContext.create(pr_diff="master")
+    diff_context = await DiffContext.create(pr_diff="master")
 
     commit2 = subprocess.check_output(
         ["git", "rev-parse", "HEAD~1"], cwd=temp_testbed, text=True
