@@ -47,4 +47,5 @@ async def test_exclude_command(mock_stream, mock_config, mock_code_context):
     command = Command.create_command("exclude")
     assert isinstance(command, ExcludeCommand)
     await command.apply("__init__.py")
+    mock_code_context._set_include_files()
     assert Path("__init__.py").resolve() not in mock_code_context.include_files

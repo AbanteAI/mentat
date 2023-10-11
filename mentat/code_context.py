@@ -276,38 +276,31 @@ class CodeContext:
 
         return sorted(all_features, key=_feature_relative_path)
 
-    async def include_file(self, code_file: CodeFile):
+    async def include_file(self, abs_path: Path):
         stream = SESSION_STREAM.get()
-        if not os.path.exists(code_file.path):
-            await stream.send(f"File does not exist: {code_file.path}\n", color="red")
-            return
-        if code_file.path in self.settings.paths:
-            await stream.send(
-                f"File already in context: {code_file.path}\n", color="yellow"
-            )
-            return
-        if code_file.path in self.settings.exclude_paths:
-            self.settings.exclude_paths.remove(code_file.path)
-        self.settings.paths.append(code_file.path)
-        self._set_include_files()
-        await stream.send(
-            f"File included in context: {code_file.path}\n", color="green"
-        )
 
-    async def exclude_file(self, code_file: CodeFile):
-        stream = SESSION_STREAM.get()
-        if not os.path.exists(code_file.path):
-            await stream.send(f"File does not exist: {code_file.path}\n", color="red")
+        if not os.path.exists(abs_path):
+            await stream.send(f"File does not exist: {abs_path}\n", color="red")
             return
-        if code_file.path not in self.settings.paths:
-            await stream.send(
-                f"File not in context: {code_file.path}\n", color="yellow"
-            )
+        if abs_path in self.settings.paths:
+            await stream.send(f"File already in context: {abs_path}\n", color="yellow")
             return
-        if code_file.path in self.settings.exclude_paths:
-            self.settings.paths.remove(code_file.path)
-        self.settings.exclude_paths.append(code_file.path)
+        if abs_path in self.settings.exclude_paths:
+            self.settings.exclude_paths.remove(abs_path)
+        self.settings.paths.append(abs_path)
         self._set_include_files()
-        await stream.send(
-            f"File removed from context: {code_file.path}\n", color="green"
-        )
+        await stream.send(f"File included in context: {abs_path}\n", color="green")
+
+    async def exclude_file(self, abs_path: Path):
+        stream = SESSION_STREAM.get()
+        if not os.path.exists(abs_path):
+            await stream.send(f"File does not exist: {abs_path}\n", color="red")
+            return
+        if abs_path not in self.settings.paths:
+            await stream.send(f"File not in context: {abs_path}\n", color="yellow")
+            return
+        if abs_path in self.settings.exclude_paths:
+            self.settings.paths.remove(abs_path)
+        self.settings.exclude_paths.append(abs_path)
+        self._set_include_files()
+        await stream.send(f"File removed from context: {abs_path}\n", color="green")

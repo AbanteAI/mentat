@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import List
 
 from mentat.code_file_manager import CODE_FILE_MANAGER
 from mentat.session_stream import SESSION_STREAM
 
 from .code_context import CODE_CONTEXT
-from .code_file import CodeFile
 from .errors import MentatError
 from .git_handler import commit
 
@@ -132,8 +132,7 @@ class IncludeCommand(Command, command_name="include"):
             await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
-            code_file = CodeFile(file_path)
-            await code_context.include_file(code_file)
+            await code_context.include_file(Path(file_path).absolute())
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -153,8 +152,7 @@ class ExcludeCommand(Command, command_name="exclude"):
             await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
-            code_file = CodeFile(file_path)
-            await code_context.exclude_file(code_file)
+            await code_context.exclude_file(Path(file_path).absolute())
 
     @classmethod
     def argument_names(cls) -> list[str]:
