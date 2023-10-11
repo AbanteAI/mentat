@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List
 
+from mentat.code_file_manager import CODE_FILE_MANAGER
 from mentat.session_stream import SESSION_STREAM
 
 from .code_context import CODE_CONTEXT
@@ -162,3 +163,37 @@ class ExcludeCommand(Command, command_name="exclude"):
     @classmethod
     def help_message(cls) -> str:
         return "Remove files from the code context"
+
+
+class UndoCommand(Command, command_name="undo"):
+    async def apply(self, *args: str) -> None:
+        stream = SESSION_STREAM.get()
+        code_file_manager = CODE_FILE_MANAGER.get()
+        errors = code_file_manager.history.undo()
+        message = "\nUndo complete"
+        await stream.send(errors + message)
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return []
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Undo the last change made by Mentat"
+
+
+class ResetCommand(Command, command_name="reset"):
+    async def apply(self, *args: str) -> None:
+        stream = SESSION_STREAM.get()
+        code_file_manager = CODE_FILE_MANAGER.get()
+        errors = code_file_manager.history.reset()
+        message = "\nReset complete"
+        await stream.send(errors + message)
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return []
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Undo all changes made by Mentat"

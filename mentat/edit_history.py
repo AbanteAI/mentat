@@ -87,6 +87,9 @@ class EditHistory:
 
     # TODO: Add redo
     def undo(self) -> str:
+        if not self.edits:
+            return colored("No edits available to undo", color="light_red")
+
         # Make sure to go top down
         cur_edit = self.edits.pop()
         errors = list[str]()
@@ -98,6 +101,9 @@ class EditHistory:
         return "\n".join(errors)
 
     def reset(self) -> str:
+        if not self.edits:
+            return colored("No edits available to undo", color="light_red")
+
         errors = list[str]()
         while self.edits:
             error = self.undo()
