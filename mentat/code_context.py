@@ -160,6 +160,7 @@ class CodeContext:
             features_checksum = sha256("".join(feature_file_checksums))
         settings = attr.asdict(self.settings)
         settings["max_tokens"] = max_tokens
+        settings["include_files"] = self.include_files
         settings_checksum = sha256(str(settings))
         return features_checksum + settings_checksum
 
