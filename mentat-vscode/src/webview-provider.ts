@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { Uri, Webview } from "vscode";
 
 /**
  * A helper function that returns a unique alphanumeric identifier called a nonce.
@@ -17,6 +18,10 @@ function getNonce() {
   return text;
 }
 
+function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
+  return webview.asWebviewUri(Uri.joinPath(extensionUri, ...pathList));
+}
+
 class WebviewProvider implements vscode.WebviewViewProvider {
   private extensionUri: vscode.Uri;
   private view?: vscode.WebviewView;
@@ -29,9 +34,16 @@ class WebviewProvider implements vscode.WebviewViewProvider {
   private getHtmlForWebview(webview: vscode.Webview) {
     console.log("GETTING HTML");
 
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "build/webview/index.js")
-    );
+    // const scriptUri = webview.asWebviewUri(
+    //   vscode.Uri.joinPath(this.extensionUri, "build/webview/index.js")
+    // );
+    const scriptUri = getUri(webview, this.extensionUri, [
+      "build",
+      "webview",
+      "index.js",
+    ]);
+    // const scriptUri =
+    //   "/Users/waydegg/ghq/github.com/AbanteAI/mentat/mentat-vscode/build/webview/index.js";
 
     // Use a nonce to only allow specific scripts to be run
     const nonce = getNonce();
@@ -60,17 +72,21 @@ class WebviewProvider implements vscode.WebviewViewProvider {
     //   </html>
     // `;
 
+    console.log(`script uri: ${scriptUri}`);
+
     const html = `
       <!DOCTYPE html>
       <html lang="en">
         <head>
           <meta charset="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; font-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
           <title>Mentat</title>
         </head>
         <body>
+          <h1>Welcome</h1>
           <div id="root"></div>
-          <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
+          <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>
       </html>
     `;
@@ -91,12 +107,6 @@ class WebviewProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [this.extensionUri],
     };
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
-
-    // this.view.webview.options = {
-    //   enableScripts: true,
-    //   localResourceRoots: [this.extensionUri],
-    // };
-    // this.view.webview.html = this.getHtmlForWebview(this.view.webview);
 
     console.log("RESOLVED WEBVIEW");
   }

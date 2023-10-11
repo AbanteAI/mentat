@@ -1,11 +1,10 @@
-import React from "react";
-import ReactDOM from "react-dom";
+import { createRoot } from "react-dom/client";
 
 import { Chat } from "./chat";
 
-ReactDOM.render(
-  <React.StrictMode>
-    <Chat />
-  </React.StrictMode>,
-  document.getElementById("root")
-);
+const domNode = document.getElementById("root");
+if (domNode === null) {
+  throw Error("'root' element not found");
+}
+const root = createRoot(domNode);
+root.render(<Chat />);

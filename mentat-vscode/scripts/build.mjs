@@ -2,13 +2,18 @@ import * as esbuild from "esbuild";
 
 const args = process.argv.slice(2);
 
-// Webview
-
-const webviewOnEndPlugin = {
-  name: "onEnd",
+const esbuildProblemMatcherPlugin = {
+  name: "esbuild-problem-matcher",
   setup(build) {
+    build.onStart(() => {
+      console.log("[watch] build started");
+    });
     build.onEnd((result) => {
-      console.log(`webview build ended with ${result.errors.length} errors`);
+      result.errors.forEach(({ text, file, line, column }) => {
+        console.error(`✘ [ERROR] ${text}`);
+        console.error(`    ${location.file}:${location.line}:${location.column}`);
+      });
+      console.log("[watch] build finished");
     });
   },
 };
@@ -17,20 +22,9 @@ const webviewOptions = {
   entryPoints: ["src/webview/index.tsx"],
   bundle: true,
   outfile: "build/webview/index.js",
-  sourcemap: args.includes("--sourcemap"),
+  sourcemap: args.includes("--sourcemap") ? "inline" : false,
   minify: args.includes("--minify"),
-  plugins: [webviewOnEndPlugin],
-};
-
-// Extension
-
-const extensionOnEndPlugin = {
-  name: "onEnd",
-  setup(build) {
-    build.onEnd((result) => {
-      console.log(`extension build ended with ${result.errors.length} errors`);
-    });
-  },
+  plugins: [esbuildProblemMatcherPlugin],
 };
 
 const extensionOptions = {
@@ -42,13 +36,12 @@ const extensionOptions = {
   platform: "node",
   sourcemap: args.includes("--sourcemap"),
   minify: args.includes("--minify"),
-  plugins: [extensionOnEndPlugin],
+  plugins: [esbuildProblemMatcherPlugin],
 };
 
 if (args.includes("--watch")) {
   const webviewContext = await esbuild.context(webviewOptions);
   const extensionContext = await esbuild.context(extensionOptions);
-
   await webviewContext.watch();
   await extensionContext.watch();
 } else {
