@@ -276,6 +276,8 @@ class CodeContext:
 
         return sorted(all_features, key=_feature_relative_path)
 
+    # TODO: Neither of these functions works because of the use of self.settings.paths;
+    # we need to fix these functions and part of this class
     async def include_file(self, abs_path: Path):
         stream = SESSION_STREAM.get()
 
@@ -293,13 +295,14 @@ class CodeContext:
 
     async def exclude_file(self, abs_path: Path):
         stream = SESSION_STREAM.get()
+
         if not os.path.exists(abs_path):
             await stream.send(f"File does not exist: {abs_path}\n", color="red")
             return
         if abs_path not in self.settings.paths:
             await stream.send(f"File not in context: {abs_path}\n", color="yellow")
             return
-        if abs_path in self.settings.exclude_paths:
+        if abs_path in self.settings.paths:
             self.settings.paths.remove(abs_path)
         self.settings.exclude_paths.append(abs_path)
         self._set_include_files()
