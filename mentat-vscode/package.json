@@ -12,10 +12,29 @@
     "Other"
   ],
   "activationEvents": [
+    "onView",
     "onCommand:mentat.helloWorld"
   ],
   "main": "./build/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "Mentat",
+          "title": "Mentat Dashboard",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "Mentat": [
+        {
+          "type": "webview",
+          "id": "MentatChat",
+          "name": "Chat"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "mentat.helloWorld",
@@ -24,15 +43,14 @@
     ]
   },
   "scripts": {
-    "clean": "node ./scripts/clean.js",
-    "build-base": "npm run clean && esbuild ./src/extension.ts --bundle --outfile=build/extension.js --external:vscode --format=cjs --platform=node",
+    "clean": "node ./scripts/clean.mjs",
+    "build-base": "npm run clean && node ./scripts/build.mjs",
     "build": "npm run build-base -- --sourcemap",
     "watch": "npm run build-base -- --sourcemap --watch",
     "vscode": "code --extensionDevelopmentPath=$PWD .",
     "vscode:prepublish": "npm run build-base -- --minify"
   },
   "devDependencies": {
-    "@types/jest": "29.5.5",
     "@types/node": "20.8.3",
     "@types/react": "18.2.25",
     "@types/react-dom": "18.2.11",
