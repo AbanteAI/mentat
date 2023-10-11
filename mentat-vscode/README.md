@@ -5,7 +5,7 @@
 These instructions will run through the workflow of running the project locally and
 using the VSCode debugger for the extension and the webviews.
 
-**Prerequisites:**
+**Prerequisites**
 
 - VSCode
 - Node v18.16.0
