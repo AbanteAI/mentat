@@ -32,47 +32,13 @@ class WebviewProvider implements vscode.WebviewViewProvider {
   }
 
   private getHtmlForWebview(webview: vscode.Webview) {
-    console.log("GETTING HTML");
-
-    // const scriptUri = webview.asWebviewUri(
-    //   vscode.Uri.joinPath(this.extensionUri, "build/webview/index.js")
-    // );
     const scriptUri = getUri(webview, this.extensionUri, [
       "build",
       "webview",
       "index.js",
     ]);
-    // const scriptUri =
-    //   "/Users/waydegg/ghq/github.com/AbanteAI/mentat/mentat-vscode/build/webview/index.js";
 
-    // Use a nonce to only allow specific scripts to be run
     const nonce = getNonce();
-
-    // const temp = `
-    //   <!DOCTYPE html>
-    //   <html lang="en">
-    //     <head>
-    //       <meta charset="UTF-8" />
-    //       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    //       <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; font-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
-    //       <link rel="stylesheet" type="text/css" href="${stylesUri}">
-    //       <title>Component Gallery (React)</title>
-    //       <style nonce="${nonce}">
-    //         @font-face {
-    //           font-family: "codicon";
-    //           font-display: block;
-    //           src: url("${codiconFontUri}") format("truetype");
-    //         }
-    //       </style>
-    //     </head>
-    //     <body>
-    //       <div id="root"></div>
-    //       <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
-    //     </body>
-    //   </html>
-    // `;
-
-    console.log(`script uri: ${scriptUri}`);
 
     const html = `
       <!DOCTYPE html>
@@ -100,15 +66,12 @@ class WebviewProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken
   ) {
     this.view = webviewView;
-    console.log("RESOLVING WEBVIEW");
 
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [this.extensionUri],
     };
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
-
-    console.log("RESOLVED WEBVIEW");
   }
 }
 

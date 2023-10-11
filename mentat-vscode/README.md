@@ -52,3 +52,12 @@ P" for macos) and type "Developer: Open Webview Developer Tools".
 With the Webview Developer Tools panel active, Typescript files used in the webview can
 be opened with the file browser menu ("\<cmd\> + P" for macos) and breakpoints can be
 set as if you were setting breakpoints in a browser.
+
+## Code structure
+
+The Mentat VSCode Extension code is broken up into 2 main sections:
+
+- The exension. This is all the code need to mount/unstop the extension, interact with
+  VSCode resources, and run any background processes managed by VSCode.
+- The webview. This is all all the React code thats rendered and injected into VSCode
+  "webviews".
