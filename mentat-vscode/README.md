@@ -2,7 +2,13 @@
 
 ## Local development setup
 
-Make sure you're running Node v18.16.0
+These instructions will run through the workflow of running the project locally and
+using the VSCode debugger for the extension and the webviews.
+
+Prerequisites:
+
+- VSCode
+- Node v18.16.0
 
 1. Install the project
 
@@ -16,7 +22,7 @@ npm install
 vscode .
 ```
 
-3. Install all of the extensions in `./.vscode/extensions.json`
+3. Install all of the extensions in `.vscode/extensions.json`
 
 The VSCode debugger will use these for reading and handling errors from esbuild and
 eslint.
