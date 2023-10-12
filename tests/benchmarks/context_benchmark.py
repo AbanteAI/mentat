@@ -28,13 +28,13 @@ a lot higher.
 """
 import os
 
+import pytest
+
 from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_file import CodeFile
 from mentat.git_handler import GIT_ROOT, get_non_gitignored_files
 from mentat.llm_api import setup_api_key
-from .utils import clone_repo
-
-import pytest
+from mentat.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
@@ -42,11 +42,12 @@ tests = [
     {
         "codebase_url": "http://github.com/AbanteAI/mentat",
         "codebase_name": "mentat",
-        "prompt": 
-            "I want to update all the files in git_handler to use the 'Repo' class from "
-            "GitPython instead of calling subprocess. Update each function in "
-            "mentat/git_handler.py that calls subprocess to use Repo instead. If "
-            "git is run with subprocess anywhere in the code, update those as well.",
+        "prompt": (
+            "I want to update all the files in git_handler to use the 'Repo' class from"
+            " GitPython instead of calling subprocess. Update each function in"
+            " mentat/git_handler.py that calls subprocess to use Repo instead. If git"
+            " is run with subprocess anywhere in the code, update those as well."
+        ),
         "expected": [
             "mentat/git_handler.py",
             "mentat/diff_context.py:173-179",
@@ -55,31 +56,37 @@ tests = [
             "tests/conftest.py:259-266",
             "tests/diff_context_test.py",
             "tests/git_handler_test.py:23-30",
-            "tests/clients/terminal_client_test.py:62-93"
-        ]
+            "tests/clients/terminal_client_test.py:62-93",
+        ],
     },
 ]
 
-@pytest.mark.asyncio
-async def test_code_context_performance(mock_stream, mock_config, mock_code_file_manager, mock_parser):
 
+@pytest.mark.asyncio
+async def test_code_context_performance(
+    mock_stream, mock_config, mock_code_file_manager, mock_parser
+):
     setup_api_key()
 
     for test in tests:
         print(f"\n\n{test['codebase_name']}/ \t '{test['prompt'][:50]}...'")
-        
+
         code_dir = clone_repo(test["codebase_url"], test["codebase_name"])
         os.chdir(code_dir)
         GIT_ROOT.set(code_dir)
 
         # Create a context and run get_code_message to set the features
-        settings = CodeContextSettings(paths=['mentat/__init__.py'], auto_tokens=8192)
+        settings = CodeContextSettings(paths=["mentat/__init__.py"], auto_tokens=8192)
         code_context = await CodeContext.create(settings)
-        code_message = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)
+        code_message = await code_context.get_code_message(
+            test["prompt"], "gpt-4", 7000
+        )
 
         # Calculate y_pred and y_true
         actual = {f.path for f in code_context.features}
-        expected = {CodeFile(f).path for f in test["expected"]}  # Ignore line numbers for now
+        expected = {
+            CodeFile(f).path for f in test["expected"]
+        }  # Ignore line numbers for now
         y_pred = [f in actual for f in get_non_gitignored_files(code_dir)]
         y_true = [f in expected for f in get_non_gitignored_files(code_dir)]
 
@@ -87,14 +94,14 @@ async def test_code_context_performance(mock_stream, mock_config, mock_code_file
         _TN = sum([1 for p, t in zip(y_pred, y_true) if not p and not t])
         _FP = sum([1 for p, t in zip(y_pred, y_true) if p and not t])
         _FN = sum([1 for p, t in zip(y_pred, y_true) if not p and t])
-        print(f'True Positive:\t{_TP:.3f}')
-        print(f'True Negative:\t{_TN:.3f}')
-        print(f'False Positive:\t{_FP:.3f}')
-        print(f'False Negative:\t{_FN:.3f}')
+        print(f"True Positive:\t{_TP:.3f}")
+        print(f"True Negative:\t{_TN:.3f}")
+        print(f"False Positive:\t{_FP:.3f}")
+        print(f"False Negative:\t{_FN:.3f}")
 
         precision = _TP / (_TP + _FP)
         recall = _TP / (_TP + _FN)
         f1 = 2 * precision * recall / (precision + recall)
-        print(f'Precision:\t{precision:.3f}\t| How many relevant features are selected?')
-        print(f'Recall:\t\t{recall:.3f}\t| How many selected features are relevant?')
-        print(f'F1:\t\t{f1:.3f}\t| Weighted average of precision and recall')
+        print(f"Precision:\t{precision:.3f}\t| How many relevant features selected?")
+        print(f"Recall:\t\t{recall:.3f}\t| How many selected features are relevant?")
+        print(f"F1:\t\t{f1:.3f}\t| Weighted average of precision and recall")

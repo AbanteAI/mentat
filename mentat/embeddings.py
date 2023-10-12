@@ -1,9 +1,8 @@
 import numpy as np
 
-from .llm_api import count_tokens, call_embedding_api
 from .code_file import CodeFile
+from .llm_api import call_embedding_api, count_tokens
 from .utils import sha256
-
 
 EMBEDDING_MODEL = "text-embedding-ada-002"
 EMBEDDING_MAX_TOKENS = 8192
@@ -37,10 +36,12 @@ def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
     return dot_product / (norm_v1 * norm_v2)
 
 
-async def get_feature_similarity_scores(prompt: str, features: list[CodeFile]) -> list[float]:
+async def get_feature_similarity_scores(
+    prompt: str, features: list[CodeFile]
+) -> list[float]:
     """Return the similarity scores for a given prompt and list of features."""
     global database
-    
+
     # Get a list of checksum/content to fetch embeddings for
     embed_items = dict[str, str]()  # {checksum: content}
     prompt_checksum = sha256(prompt)
@@ -63,7 +64,9 @@ async def get_feature_similarity_scores(prompt: str, features: list[CodeFile]) -
 
     # Calculate similarity score for each feature
     prompt_embedding = database[prompt_checksum]
-    feature_embeddings = {k: database[k] for k in embed_items.keys() if k != prompt_checksum}
+    feature_embeddings = {
+        k: database[k] for k in embed_items.keys() if k != prompt_checksum
+    }
     similarity_scores = dict[str, float]()
     for k, v in feature_embeddings.items():
         similarity_scores[k] = _cosine_similarity(prompt_embedding, v)

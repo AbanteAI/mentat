@@ -139,7 +139,6 @@ class CodeFile:
                     code_message += section.message
         return code_message
 
-
     def get_checksum(self) -> str:
         git_root = GIT_ROOT.get()
         code_file_manager = CODE_FILE_MANAGER.get()

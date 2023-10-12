@@ -92,13 +92,10 @@ def call_embedding_api(
     if is_test_environment():
         logging.critical("OpenAI call attempted in non benchmark test environment!")
         raise MentatError("OpenAI call attempted in non benchmark test environment!")
-    
-    response: openai.OpenAIObject = openai.Embedding.create(  # type: ignore
-        input=input,
-        model=model,
-    ),
+
+    response = openai.Embedding.create(input=input, model=model)  # type: ignore
     return [i["embedding"] for i in response[0]["data"]]  # type: ignore
-    
+
 
 # Ensures that each chunk will have at most one newline character
 def chunk_to_lines(chunk: Any) -> list[str]:
