@@ -3,7 +3,7 @@
 ## Local development setup
 
 These instructions will run through the workflow of running the project locally and
-using the VSCode debugger for the extension and the webviews.
+(optionally) using the VSCode debugger for the extension and the webviews.
 
 **Prerequisites**
 
@@ -20,16 +20,23 @@ npm install
 
 2. Open VSCode
 
+If you want to just open VSCode with the extension running, use:
+
 ```
-vscode .
+npm run vscode
 ```
 
-3. Install all of the extensions in `.vscode/extensions.json`
+At this point the extension is running and you don't have to follow the rest of the
+setup instructions.
 
-The VSCode debugger will use these for reading and handling errors from esbuild and
-eslint.
+If you want to open VSCode with the javascript debugger active and debug the running
+extension, use:
 
-4. Start the "Run Extension" launch configuration.
+```
+code .
+```
+
+3. Start the "Run Extension" launch configuration.
 
 Press "f5" or navigate to the "Run and Debug" menu on the sidebar click the green arrow
 at the top of the menu. The "Run Extension" launch configuration should be selected.
@@ -41,7 +48,7 @@ If everything runs correctly you should see:
 - two "[watch] build finished" log messages in the terminal (one for the extension and
   one for the webview)
 
-5. Click on the Mentat extension menu on the sidebar
+4. Click on the Mentat extension menu on the sidebar
 
 The extension will be built correctly if the sidebar is populated with the extension UI.
 
@@ -52,6 +59,10 @@ P" for macos) and type "Developer: Open Webview Developer Tools".
 With the Webview Developer Tools panel active, Typescript files used in the webview can
 be opened with the file browser menu ("\<cmd\> + P" for macos) and breakpoints can be
 set as if you were setting breakpoints in a browser.
+
+The extension and webviews will be rebuilt automatically on save, however to see your
+changes you need to refresh the VSCode window running the extension manually ("\<cmd\> +
+R" for macos).
 
 ## Code structure
 
