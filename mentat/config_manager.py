@@ -9,10 +9,7 @@ from typing import Any, Dict, Optional, cast
 
 from mentat.git_handler import GIT_ROOT
 from mentat.session_stream import SESSION_STREAM
-from mentat.utils import fetch_resource
-
-mentat_dir_path = Path.home() / ".mentat"
-
+from mentat.utils import fetch_resource, mentat_dir_path
 
 default_config_file_name = Path("default_config.json")
 config_file_name = Path(".mentat_config.json")

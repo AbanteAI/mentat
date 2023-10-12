@@ -4,6 +4,8 @@ from importlib import resources
 from importlib.resources.abc import Traversable
 from pathlib import Path
 
+mentat_dir_path = Path.home() / ".mentat"
+
 # package_name should always be "mentat" - but this will work if package name is changed
 package_name = __name__.split(".")[0]
 resources_path = Path("resources")
