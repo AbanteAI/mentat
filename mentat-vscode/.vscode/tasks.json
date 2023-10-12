@@ -26,8 +26,8 @@
         ],
         "background": {
           "activeOnStart": true,
-          "beginsPattern": "\\[watch\\] build started",
-          "endsPattern": "\\[watch\\] build finished"
+          "beginsPattern": "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2} \\[watch\\] build started",
+          "endsPattern": "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2} \\[watch\\] build finished"
         }
       },
       "isBackground": true,

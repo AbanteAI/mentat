@@ -2,18 +2,30 @@ import * as esbuild from "esbuild";
 
 const args = process.argv.slice(2);
 
+function getFormattedDateString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = (now.getMonth() + 1).toString().padStart(2, "0");
+  const day = now.getDate().toString().padStart(2, "0");
+  const hours = now.getHours().toString().padStart(2, "0");
+  const minutes = now.getMinutes().toString().padStart(2, "0");
+  const seconds = now.getSeconds().toString().padStart(2, "0");
+  const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  return formattedDate;
+}
+
 const esbuildProblemMatcherPlugin = {
   name: "esbuild-problem-matcher",
   setup(build) {
     build.onStart(() => {
-      console.log("[watch] build started");
+      console.log(`${getFormattedDateString()} [watch] build started`);
     });
     build.onEnd((result) => {
       result.errors.forEach(({ text, file, line, column }) => {
         console.error(`✘ [ERROR] ${text}`);
         console.error(`    ${location.file}:${location.line}:${location.column}`);
       });
-      console.log("[watch] build finished");
+      console.log(`${getFormattedDateString()} [watch] build finished`);
     });
   },
 };
