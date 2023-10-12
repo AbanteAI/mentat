@@ -10,7 +10,7 @@ with open(readme_path, "r", encoding="utf-8") as f:
 
 setup(
     name="mentat",
-    version="0.1.16",
+    version="0.1.17",
     python_requires=">=3.10",
     packages=find_packages(),
     install_requires=[
@@ -19,9 +19,6 @@ setup(
             open(os.path.join(os.path.dirname(__file__), "requirements.txt"))
         )
     ],
-    package_data={
-        "mentat": ["default_config.json", "prompts/*.txt"],
-    },
     entry_points={
         "console_scripts": [
             "mentat=mentat.terminal.client:run_cli",
@@ -31,6 +28,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     license="Apache-2.0",
+    include_package_data=True,
     extras_require={
         "dev": [
             str(r)
