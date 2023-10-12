@@ -5,6 +5,7 @@
     "jsx": "react-jsx",
     "outDir": "build",
     "rootDir": "src",
+    "baseurl": "./src",
     "lib": ["dom", "dom.iterable", "ES2020"],
     "sourceMap": true,
     "strict": true,

@@ -38,6 +38,12 @@ class WebviewProvider implements vscode.WebviewViewProvider {
       "index.js",
     ]);
 
+    const styleUri = getUri(webview, this.extensionUri, [
+      "build",
+      "webview",
+      "main.css",
+    ]);
+
     const nonce = getNonce();
 
     const html = `
@@ -47,10 +53,10 @@ class WebviewProvider implements vscode.WebviewViewProvider {
           <meta charset="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; font-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+          <link nonce="${nonce}" rel="stylesheet" type="text/css" href="${styleUri}">
           <title>Mentat</title>
         </head>
         <body>
-          <h1>Welcome</h1>
           <div id="root"></div>
           <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>
