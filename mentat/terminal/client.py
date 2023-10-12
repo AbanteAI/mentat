@@ -1,6 +1,5 @@
 import argparse
 import asyncio
-import glob
 import logging
 import signal
 from pathlib import Path
@@ -10,9 +9,7 @@ from typing import Any, Coroutine, List, Set
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.styles import Style
-from termcolor import cprint
 
-from mentat.code_file import parse_intervals
 from mentat.config_manager import CONFIG_MANAGER
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
@@ -24,15 +21,15 @@ from mentat.terminal.prompt_session import MentatPromptSession
 class TerminalClient:
     def __init__(
         self,
-        paths: List[Path] = [],
-        exclude_paths: List[Path] = [],
+        paths: List[str] = [],
+        exclude_paths: List[str] = [],
         no_code_map: bool = False,
         diff: str | None = None,
         pr_diff: str | None = None,
         auto_tokens: int | None = None,
     ):
-        self.paths = paths
-        self.exclude_paths = exclude_paths
+        self.paths = [Path(path) for path in paths]
+        self.exclude_paths = [Path(path) for path in exclude_paths]
         self.no_code_map = no_code_map
         self.diff = diff
         self.pr_diff = pr_diff
@@ -247,50 +244,12 @@ def run_cli():
     pr_diff = args.pr_diff
     auto_tokens = args.auto_tokens
 
-    # Expanding paths as soon as possible because some shells such as zsh automatically
-    # expand globs and we want to avoid differences in functionality between shells
     terminal_client = TerminalClient(
-        expand_paths(paths),
-        expand_paths(exclude_paths),
+        paths,
+        exclude_paths,
         no_code_map,
         diff,
         pr_diff,
         auto_tokens,
     )
     terminal_client.run()
-
-
-# This needs to stay in the terminal client since it's done on start and uses print/exit,
-# which is why we have an almost identical version in include_files
-def expand_paths(paths: list[str]) -> list[Path]:
-    """Expand user-input paths/globs into a list of absolute paths.
-
-    Should be done as soon as possible because some shells such as zsh automatically
-    expand globs and we want to avoid differences in functionality between shells
-    """
-    globbed_paths = set[str]()
-    invalid_paths = list[str]()
-    for path in paths:
-        new_paths = glob.glob(pathname=path, recursive=True)
-        if new_paths:
-            globbed_paths.update(new_paths)
-        else:
-            split = path.rsplit(":", 1)
-            p = split[0]
-            if len(split) > 1:
-                # Parse additional syntax, e.g. "path/to/file.py:1-5,7,12-40"
-                intervals = parse_intervals(split[1])
-            else:
-                intervals = None
-            if Path(p).exists() and intervals:
-                globbed_paths.add(path)
-            else:
-                invalid_paths.append(path)
-    if invalid_paths:
-        cprint(
-            "The following paths do not exist:",
-            "light_yellow",
-        )
-        print("\n".join(invalid_paths))
-        exit()
-    return [Path(path).resolve() for path in globbed_paths]

@@ -7,7 +7,6 @@ import pytest
 from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_file import CodeMessageLevel
 from mentat.config_manager import ConfigManager
-from mentat.include_files import expand_paths
 from mentat.llm_api import count_tokens
 
 
@@ -98,7 +97,7 @@ async def test_glob_include(temp_testbed, mock_git_root, mock_stream, mock_confi
     with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am not included")
 
-    file_paths = expand_paths(["**/*.py"])
+    file_paths = ["**/*.py"]
     code_context_settings = CodeContextSettings()
     code_context = await CodeContext.create(file_paths, [], code_context_settings)
 
@@ -123,8 +122,8 @@ async def test_cli_glob_exclude(temp_testbed, mock_git_root, mock_stream, mock_c
     with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am excluded")
 
-    file_paths = expand_paths(["**/*.py"])
-    exclude_paths = expand_paths(["**/*.py", "**/*.ts"])
+    file_paths = ["**/*.py"]
+    exclude_paths = ["**/*.py", "**/*.ts"]
     code_context_settings = CodeContextSettings()
     code_context = await CodeContext.create(
         file_paths, exclude_paths, code_context_settings
