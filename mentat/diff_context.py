@@ -120,6 +120,8 @@ class DiffContext:
         git_root = GIT_ROOT.get()
 
         if diff and pr_diff:
+            # TODO: Once broadcast queue's unread messages and/or config is moved to client,
+            # determine if this should quit or not
             await stream.send(
                 "Cannot specify more than one type of diff. Disabling diff and"
                 " pr-diff.",
@@ -143,6 +145,7 @@ class DiffContext:
             name = f"Merge-base {name}"
             target = _git_command(git_root, "merge-base", "HEAD", pr_diff)
             if not target:
+                # TODO: Same as above todo
                 await stream.send(
                     f"Cannot identify merge base between HEAD and {pr_diff}. Disabling"
                     " pr-diff.",
