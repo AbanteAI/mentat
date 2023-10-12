@@ -156,7 +156,6 @@ class Conversation:
         )
         messages.append({"role": "system", "content": code_message})
 
-        print()
         await code_context.display_features()
         num_prompt_tokens = await get_prompt_token_count(messages, self.model)
         message, file_edits, time_elapsed = await self._stream_model_response(

@@ -1,5 +1,12 @@
 import asyncio
 import hashlib
+from importlib import resources
+from importlib.resources.abc import Traversable
+from pathlib import Path
+
+# package_name should always be "mentat" - but this will work if package name is changed
+package_name = __name__.split(".")[0]
+resources_path = Path("resources")
 
 
 def sha256(data: str) -> str:
@@ -22,3 +29,10 @@ async def run_subprocess_async(*args: str) -> str:
     output = stdout.decode("utf-8").strip() if stdout else ""
 
     return output
+
+
+def fetch_resource(resource_path: Path) -> Traversable:
+    resource = resources.files(package_name).joinpath(
+        str(resources_path / resource_path)
+    )
+    return resource
