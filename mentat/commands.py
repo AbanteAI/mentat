@@ -188,12 +188,12 @@ class UndoCommand(Command, command_name="undo"):
         return "Undo the last change made by Mentat"
 
 
-class ResetCommand(Command, command_name="reset"):
+class UndoAllCommand(Command, command_name="undo-all"):
     async def apply(self, *args: str) -> None:
         stream = SESSION_STREAM.get()
         code_file_manager = CODE_FILE_MANAGER.get()
-        errors = code_file_manager.history.reset()
-        message = "\nReset complete"
+        errors = code_file_manager.history.undo_all()
+        message = "\nUndos complete"
         await stream.send(errors + message)
 
     @classmethod

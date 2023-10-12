@@ -100,7 +100,7 @@ class EditHistory:
                 errors.append(error)
         return "\n".join(errors)
 
-    def reset(self) -> str:
+    def undo_all(self) -> str:
         if not self.edits:
             return colored("No edits available to undo", color="light_red")
 

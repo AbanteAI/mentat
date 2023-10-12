@@ -129,7 +129,7 @@ async def test_undo_command(
 
 
 @pytest.mark.asyncio
-async def test_reset_command(
+async def test_undo_all_command(
     temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
 ):
     temp_file_name = "temp.py"
@@ -142,7 +142,7 @@ async def test_reset_command(
         [
             "",
             "y",
-            "/reset",
+            "/undo-all",
             "q",
         ]
     )
