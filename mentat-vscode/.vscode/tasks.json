@@ -5,7 +5,31 @@
       "type": "npm",
       "script": "watch",
       "group": "build",
-      "problemMatcher": "$esbuild-watch",
+      "problemMatcher": {
+        "label": "esbuild --watch problem matcher",
+        "severity": "error",
+        "applyTo": "closedDocuments",
+        "source": "esbuild",
+        "fileLocation": "relative",
+        "pattern": [
+          {
+            "regexp": "^[✘▲] \\[([A-Z]+)\\] (.+)",
+            "severity": 1,
+            "message": 2
+          },
+          {
+            "regexp": "^(?:\\t| {4})(?!\\s)([^:]+)(?::([0-9]+))?(?::([0-9]+))?:$",
+            "file": 1,
+            "line": 2,
+            "column": 3
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "\\[watch\\] build started",
+          "endsPattern": "\\[watch\\] build finished"
+        }
+      },
       "isBackground": true,
       "label": "npm: watch"
     },
@@ -13,7 +37,26 @@
       "type": "npm",
       "script": "build",
       "group": "build",
-      "problemMatcher": "$esbuild",
+      "problemMatcher": {
+        "label": "esbuild problem matcher",
+        "severity": "error",
+        "applyTo": "closedDocuments",
+        "source": "esbuild",
+        "fileLocation": "relative",
+        "pattern": [
+          {
+            "regexp": "^[✘▲] \\[([A-Z]+)\\] (.+)",
+            "severity": 1,
+            "message": 2
+          },
+          {
+            "regexp": "^(?:\\t| {4})(?!\\s)([^:]+)(?::([0-9]+))?(?::([0-9]+))?:$",
+            "file": 1,
+            "line": 2,
+            "column": 3
+          }
+        ]
+      },
       "label": "npm: build"
     }
   ]
