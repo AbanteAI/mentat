@@ -3,13 +3,17 @@
     <head></head>
     <body>
         <div class="container">
-            <div class="left-viewer viewer"></div>
-            <div class="right-viewer viewer"></div>
+            <div class="left-viewer viewer">
+                <h1 class="history-title">Conversation History</h1>
+            </div>
+            <div class="right-viewer viewer">
+                <h1 class="viewpoint-title">Model's Viewpoint</h1>
+            </div>
         </div>
     </body>
     <script>
         const messages = {{ messages }}
-               
+
         const leftViewer = document.getElementsByClassName("left-viewer")[0]
         for(message of messages) {
             const messageDiv = document.createElement("div")
@@ -21,18 +25,25 @@
                 messageDiv.classList.add("assistant")
                 messageDiv.classList.add("clickable")
                 const modelMessages = message[1]
-                messageDiv.onclick = (event) => {openModelMessage(modelMessages)}
+                messageDiv.onclick = (event) => {
+                    for(selected of document.getElementsByClassName("selected")) {
+                        selected.classList.remove("selected")
+                    }
+                    messageDiv.classList.add("selected")
+                    openModelMessage(modelMessages)
+                }
             }
             leftViewer.appendChild(messageDiv)
         }
-        
+
         function openModelMessage(modelMessages) {
             const rightViewer = document.getElementsByClassName("right-viewer")[0]
-            rightViewer.replaceChildren()
+            document.querySelectorAll('.viewpoint-message').forEach(element => element.remove());
             for(message of modelMessages) {
                 const messageDiv = document.createElement("div")
                 messageDiv.innerHTML = message["content"]
                 messageDiv.classList.add("message")
+                messageDiv.classList.add("viewpoint-message")
                 messageDiv.classList.add(message["role"])
                 rightViewer.appendChild(messageDiv)
             }
@@ -41,16 +52,20 @@
     <style>
         html {
             height: 100%;
-            font-size: 20px;
+            font-size: 24px;
         }
 
         body {
-            height: 100%; 
-            padding: 0; 
+            height: 100%;
+            padding: 0;
             margin: 0;
             display: flex;
         }
-        
+
+        h1 {
+            margin: 10 0px;
+        }
+
         .container {
             display: flex;
             flex-direction: row;
@@ -60,21 +75,23 @@
         .viewer {
             border: 1px solid black;
             overflow-y: auto;
+            text-align: center;
         }
 
         .left-viewer {
-            background-color: rgb(240, 255, 228);
-            flex: 1 0 0;
+            background-color: rgb(228, 254, 255);
+            flex: 1 0 20%;
         }
 
         .right-viewer {
-            background-color: rgb(255, 235, 251);
-            flex: 1 0 0;
+            background-color: rgb(220, 220, 220);
+            flex: 1 0 80%;
         }
 
         .message {
             padding: 8px;
-            width: 65%;
+            max-width: 65%;
+            width: fit-content;
             border: 1px solid black;
             border-radius: 16px;
             margin: 32px 24px;
@@ -82,6 +99,14 @@
             overflow-y: auto;
             overflow-x: auto;
             max-height: 500px;
+            text-align: left;
+        }
+
+        .system {
+            background-color: rgb(203, 203, 203);
+            width: 40%;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .user {
@@ -95,18 +120,18 @@
             margin-right: auto;
         }
 
-        .system {
-            background-color: rgb(203, 203, 203);
-            margin-left: auto;
-            margin-right: auto;
-        }
-        
         .clickable {
             user-select: none;
         }
 
+        .selected,
         .clickable:hover {
-            background-color: rgb(170, 205, 170);
+            background-color: rgb(245, 245, 245);
+        }
+
+        .selected,
+        .selected:hover {
+            background-color: rgb(255, 255, 255);
         }
     </style>
 </html>
