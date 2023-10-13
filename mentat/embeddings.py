@@ -1,16 +1,49 @@
 import asyncio
+import gzip
+import json
+import os
+from pathlib import Path
 
 import numpy as np
 
 from .code_file import CodeFile
+from .config_manager import mentat_dir_path
 from .llm_api import call_embedding_api, count_tokens
+from .session_stream import SESSION_STREAM
 from .utils import sha256
 
 EMBEDDING_MODEL = "text-embedding-ada-002"
 EMBEDDING_MAX_TOKENS = 8192
 
 
-database = dict[str, list[float]]()
+class EmbeddingsDatabase:
+    # { sha256 : [ 1536 floats ] }
+    _dict: dict[str, list[float]] = dict[str, list[float]]()
+
+    def __init__(self, output_dir: Path | None = None):
+        if output_dir is None:
+            output_dir = mentat_dir_path
+        os.makedirs(output_dir, exist_ok=True)
+        self.path = Path(output_dir) / "embeddings.json.gz"
+        if self.path.exists():
+            with gzip.open(self.path, "rt") as f:
+                self._dict = json.load(f)
+
+    def save(self):
+        with gzip.open(self.path, "wt") as f:
+            json.dump(self._dict, f)
+
+    def __getitem__(self, key: str) -> list[float]:
+        return self._dict[key]
+
+    def __setitem__(self, key: str, value: list[float]):
+        self._dict[key] = value
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._dict
+
+
+database = EmbeddingsDatabase()
 
 
 def _batch_ffd(data: dict[str, int], batch_size: int) -> list[list[str]]:
@@ -57,6 +90,7 @@ async def get_feature_similarity_scores(
     """Return the similarity scores for a given prompt and list of features."""
     assert all([isinstance(f, CodeFile) for f in features]), "Invalid feature list"
     global database
+    stream = SESSION_STREAM.get()
 
     # Keep things in the same order
     checksums: list[str] = [f.get_checksum() for f in features]
@@ -81,13 +115,14 @@ async def get_feature_similarity_scores(
 
     # Fetch embeddings in batches
     batches = _batch_ffd(items_to_embed_tokens, EMBEDDING_MAX_TOKENS)
-    for batch in batches:
-        if len(batch) == 1:
-            continue
+    for i, batch in enumerate(batches):
         batch_content = [items_to_embed[k] for k in batch]
+        await stream.send(f"Embedding batch {i}/{len(batches)}...")
         response = call_embedding_api(batch_content, EMBEDDING_MODEL)
         for k, v in zip(batch, response):
             database[k] = v
+    if len(batches) > 0:
+        database.save()
 
     # Calculate similarity score for each feature
     prompt_embedding = database[prompt_checksum]
@@ -95,6 +130,8 @@ async def get_feature_similarity_scores(
     for i, checksum in enumerate(checksums):
         if skip[i]:
             continue
+        if checksum not in database:
+            raise Exception(f"Feature {checksum} not in database")
         feature_embedding = database[checksum]
         scores[i] = _cosine_similarity(prompt_embedding, feature_embedding)
 

@@ -31,7 +31,7 @@ import os
 import pytest
 
 from mentat.code_context import CodeContext, CodeContextSettings
-from mentat.code_file import CodeFile
+from mentat.code_file import CodeFile, CodeMessageLevel
 from mentat.git_handler import GIT_ROOT, get_non_gitignored_files
 from mentat.llm_api import setup_api_key
 
@@ -82,14 +82,16 @@ async def test_code_context_performance(
         GIT_ROOT.set(code_dir)
 
         # Create a context and run get_code_message to set the features
-        settings = CodeContextSettings(paths=["mentat/__init__.py"], auto_tokens=8192)
+        settings = CodeContextSettings(paths=["mentat/__init__.py"], no_embedding=False)
         code_context = await CodeContext.create(settings)
         code_message = await code_context.get_code_message(
-            test["prompt"], "gpt-4", 7000
+            test["prompt"], "gpt-4", 2000
         )
 
         # Calculate y_pred and y_true
-        actual = {f.path for f in code_context.features}
+        actual = {
+            f.path for f in code_context.features if f.level == CodeMessageLevel.CODE
+        }
         expected_features = {
             CodeFile(f).path for f in test["expected_features"]
         }  # Ignore line numbers for now
@@ -105,9 +107,18 @@ async def test_code_context_performance(
         print(f"False Positive:\t{_FP:.3f}")
         print(f"False Negative:\t{_FN:.3f}")
 
-        precision = _TP / (_TP + _FP)
-        recall = _TP / (_TP + _FN)
-        f1 = 2 * precision * recall / (precision + recall)
-        print(f"Precision:\t{precision:.3f}\t| How many relevant features selected?")
-        print(f"Recall:\t\t{recall:.3f}\t| How many selected features are relevant?")
-        print(f"F1:\t\t{f1:.3f}\t| Weighted average of precision and recall")
+        precision, recall = None, None
+        if (_TP + _FP) > 0:
+            precision = _TP / (_TP + _FP)
+            print(
+                f"Precision:\t{precision:.3f}\t| How many selected features are"
+                " relevant?"
+            )
+        if (_TP + _FN) > 0:
+            recall = _TP / (_TP + _FN)
+            print(
+                f"Recall:\t\t{recall:.3f}\t| How many relevant features are selected?"
+            )
+        if precision and recall:
+            f1 = 2 * precision * recall / (precision + recall)
+            print(f"F1:\t\t{f1:.3f}\t| Weighted average of precision and recall")

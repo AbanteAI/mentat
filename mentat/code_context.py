@@ -214,7 +214,7 @@ class CodeContext:
         else:
             auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
             self.features = await self._get_auto_features(
-                model, prompt, features, auto_tokens
+                prompt, model, features, auto_tokens
             )
 
         for f in self.features:
@@ -315,11 +315,9 @@ class CodeContext:
                 recovered_tokens = await cmap_feature.count_tokens(model)
                 new_tokens = await code_feature.count_tokens(model)
                 forecast = max_sim_tokens - sim_tokens + recovered_tokens - new_tokens
-                if forecast < 0:
-                    continue
-                # If it fits, add it
-                sim_tokens += recovered_tokens - new_tokens
-                all_features[i_cmap] = code_feature
+                if forecast > 0:
+                    sim_tokens += recovered_tokens - new_tokens
+                    all_features[i_cmap] = code_feature
 
         return sorted(all_features, key=_feature_relative_path)
 

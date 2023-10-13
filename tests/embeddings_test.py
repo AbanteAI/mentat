@@ -27,7 +27,7 @@ def _make_code_file(path, text):
 
 @pytest.mark.asyncio
 async def test_get_feature_similarity_scores(
-    mocker, mock_git_root, mock_code_file_manager, mock_parser
+    mocker, mock_git_root, mock_code_file_manager, mock_parser, mock_stream
 ):
     prompt = "example prompt"
     features = [_make_code_file(f"file{i}.txt", f"File {i}") for i in range(3)]
