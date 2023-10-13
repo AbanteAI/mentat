@@ -66,12 +66,16 @@ async def _add_newline(response: AsyncGenerator[Any, None]):
     yield {"choices": [{"delta": {"content": "\n"}}]}
 
 
-async def call_llm_api(
-    messages: list[dict[str, str]], model: str
-) -> AsyncGenerator[Any, None]:
+def raise_if_in_test_environment():
     if is_test_environment():
         logging.critical("OpenAI call attempted in non benchmark test environment!")
         raise MentatError("OpenAI call attempted in non benchmark test environment!")
+
+
+async def call_llm_api(
+    messages: list[dict[str, str]], model: str
+) -> AsyncGenerator[Any, None]:
+    raise_if_in_test_environment()
 
     response: AsyncGenerator[Any, None] = cast(
         AsyncGenerator[Any, None],
@@ -89,9 +93,7 @@ async def call_llm_api(
 def call_embedding_api(
     input: list[str], model: str = "text-embedding-ada-002"
 ) -> list[list[float]]:
-    if is_test_environment():
-        logging.critical("OpenAI call attempted in non benchmark test environment!")
-        raise MentatError("OpenAI call attempted in non benchmark test environment!")
+    raise_if_in_test_environment()
 
     response = openai.Embedding.create(input=input, model=model)  # type: ignore
     return [i["embedding"] for i in response["data"]]  # type: ignore
