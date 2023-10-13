@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
+from mentat.session_stream import SESSION_STREAM
+
 from .errors import UserError
 from .git_handler import (
     GIT_ROOT,
@@ -109,15 +111,24 @@ class DiffContext:
         return self._files_cache
 
     @classmethod
-    def create(
+    async def create(
         cls,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
     ):
+        stream = SESSION_STREAM.get()
         git_root = GIT_ROOT.get()
 
         if diff and pr_diff:
-            raise UserError("Cannot specify more than one type of diff.")
+            # TODO: Once broadcast queue's unread messages and/or config is moved to client,
+            # determine if this should quit or not
+            await stream.send(
+                "Cannot specify more than one type of diff. Disabling diff and"
+                " pr-diff.",
+                color="light_yellow",
+            )
+            diff = None
+            pr_diff = None
 
         target = diff or pr_diff
         if not target:
@@ -134,9 +145,13 @@ class DiffContext:
             name = f"Merge-base {name}"
             target = _git_command(git_root, "merge-base", "HEAD", pr_diff)
             if not target:
-                raise UserError(
-                    f"Cannot identify merge base between HEAD and {pr_diff}"
+                # TODO: Same as above todo
+                await stream.send(
+                    f"Cannot identify merge base between HEAD and {pr_diff}. Disabling"
+                    " pr-diff.",
+                    color="light_yellow",
                 )
+                return cls()
 
         meta = get_treeish_metadata(target)
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
@@ -165,6 +180,9 @@ class DiffContext:
         diff = get_diff_for_file(self.target, rel_path)
         annotations = parse_diff(diff)
         return annotate_file_message(file_message, annotations)
+
+    def clear_cache(self):
+        self._files_cache = None
 
 
 TreeishType = Literal["commit", "branch", "relative"]

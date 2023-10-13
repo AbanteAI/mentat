@@ -11,7 +11,6 @@ from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.styles import Style
 
 from mentat.config_manager import CONFIG_MANAGER
-from mentat.include_files import expand_paths
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.output import print_stream_message
@@ -22,16 +21,16 @@ from mentat.terminal.prompt_session import MentatPromptSession
 class TerminalClient:
     def __init__(
         self,
-        paths: List[Path] = [],
-        exclude_paths: List[Path] = [],
+        paths: List[str] = [],
+        exclude_paths: List[str] = [],
         diff: str | None = None,
         pr_diff: str | None = None,
         no_code_map: bool = False,
         no_embedding: bool = True,
         auto_tokens: int | None = 0,
     ):
-        self.paths = paths
-        self.exclude_paths = exclude_paths
+        self.paths = [Path(path) for path in paths]
+        self.exclude_paths = [Path(path) for path in exclude_paths]
         self.diff = diff
         self.pr_diff = pr_diff
         self.no_code_map = no_code_map
@@ -117,6 +116,10 @@ class TerminalClient:
     async def _startup(self):
         assert self.session is None, "TerminalClient already running"
 
+        # TODO: Right now, everything sent in Session.create is never printed because
+        # the PromptSessions and listening tasks haven't been set up yet; once we move
+        # the config to be client-side, we can get the config without setting up the
+        # session first, and we can move the session last
         self.session = await Session.create(
             self.paths,
             self.exclude_paths,
@@ -250,11 +253,9 @@ def run_cli():
     no_embedding = not args.embedding
     auto_tokens = args.auto_tokens
 
-    # Expanding paths as soon as possible because some shells such as zsh automatically
-    # expand globs and we want to avoid differences in functionality between shells
     terminal_client = TerminalClient(
-        expand_paths(paths),
-        expand_paths(exclude_paths),
+        paths,
+        exclude_paths,
         diff,
         pr_diff,
         no_code_map,

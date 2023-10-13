@@ -82,8 +82,8 @@ async def test_code_context_performance(
         GIT_ROOT.set(code_dir)
 
         # Create a context and run get_code_message to set the features
-        settings = CodeContextSettings(paths=["mentat/__init__.py"], no_embedding=False)
-        code_context = await CodeContext.create(settings)
+        settings = CodeContextSettings(no_embedding=False)
+        code_context = await CodeContext.create(["mentat/__init__.py"], [], settings)
         _ = await code_context.get_code_message(test["prompt"], "gpt-4", 2000)
 
         # Calculate y_pred and y_true

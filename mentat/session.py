@@ -76,9 +76,11 @@ class Session:
         PARSER.set(parser)
 
         code_context_settings = CodeContextSettings(
-            paths, exclude_paths, diff, pr_diff, no_code_map, no_embedding, auto_tokens
+            diff, pr_diff, no_code_map, no_embedding, auto_tokens
         )
-        code_context = await CodeContext.create(code_context_settings)
+        code_context = await CodeContext.create(
+            paths, exclude_paths, code_context_settings
+        )
         CODE_CONTEXT.set(code_context)
 
         # NOTE: Should codefilemanager, codecontext, and conversation be contextvars/singletons or regular instances?

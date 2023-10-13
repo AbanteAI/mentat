@@ -15,6 +15,7 @@ from mentat import config_manager
 from mentat.code_context import CODE_CONTEXT, CodeContext, CodeContextSettings
 from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
 from mentat.config_manager import CONFIG_MANAGER, ConfigManager, config_file_name
+from mentat.diff_context import DiffContext
 from mentat.git_handler import GIT_ROOT
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.parser import PARSER
@@ -222,6 +223,7 @@ def _mock_code_context(_mock_git_root, _mock_config):
 
 @pytest_asyncio.fixture()
 async def mock_code_context(_mock_code_context):
+    _mock_code_context.diff_context = await DiffContext.create()
     yield _mock_code_context
 
 

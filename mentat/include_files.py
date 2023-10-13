@@ -4,47 +4,32 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-from termcolor import cprint
-
 from mentat.code_file import CodeFile, parse_intervals
 from mentat.config_manager import CONFIG_MANAGER
-from mentat.errors import UserError
 from mentat.git_handler import GIT_ROOT, get_non_gitignored_files
 from mentat.session_stream import SESSION_STREAM
 
 
-def expand_paths(paths: list[str]) -> list[Path]:
-    """Expand user-input paths/globs into a list of absolute paths.
-
-    Should be done as soon as possible because some shells such as zsh automatically
-    expand globs and we want to avoid differences in functionality between shells
-    """
+def expand_paths(paths: list[Path]) -> list[Path]:
+    """Expand paths/globs into a list of absolute paths."""
     globbed_paths = set[str]()
-    invalid_paths = list[str]()
+    invalid_paths = set[str]()
     for path in paths:
-        new_paths = glob.glob(pathname=path, recursive=True)
+        new_paths = glob.glob(pathname=str(path), recursive=True)
         if new_paths:
             globbed_paths.update(new_paths)
         else:
-            split = path.rsplit(":", 1)
-            p = split[0]
+            split = str(path).rsplit(":", 1)
+            p = Path(split[0])
             if len(split) > 1:
-                # Parse additional syntax, e.g. "path/to/file.py:1-5,7,12-40"
                 intervals = parse_intervals(split[1])
             else:
                 intervals = None
             if Path(p).exists() and intervals:
-                globbed_paths.add(path)
+                globbed_paths.add(str(path))
             else:
-                invalid_paths.append(path)
-    if invalid_paths:
-        cprint(
-            "The following paths do not exist:",
-            "light_yellow",
-        )
-        print("\n".join(invalid_paths))
-        exit()
-    return [Path(path) for path in globbed_paths]
+                invalid_paths.add(str(path))
+    return [Path(path).resolve() for path in globbed_paths]
 
 
 def is_file_text_encoded(file_path: Path):
@@ -62,14 +47,16 @@ def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
     """Returns a set of CodeFiles from a list of paths."""
     files_direct = set[CodeFile]()
     file_paths_from_dirs = set[Path]()
+    invalid_paths = list[str]()
     for path in paths:
         file = CodeFile(os.path.realpath(path))
         path = Path(file.path)
         if path.is_file():
             if check_for_text and not is_file_text_encoded(path):
                 logging.info(f"File path {path} is not text encoded.")
-                raise UserError(f"File path {path} is not text encoded.")
-            files_direct.add(file)
+                invalid_paths.append(str(path))
+            else:
+                files_direct.add(file)
         elif path.is_dir():
             nonignored_files = set(
                 map(
@@ -85,27 +72,29 @@ def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
                 )
             )
 
-    files_from_dirs = [
-        CodeFile(os.path.realpath(path)) for path in file_paths_from_dirs
-    ]
-    return files_direct, files_from_dirs
+    files_from_dirs = set(CodeFile(path.resolve()) for path in file_paths_from_dirs)
+    return files_direct, files_from_dirs, invalid_paths
 
 
 def get_include_files(
     paths: list[Path], exclude_paths: list[Path]
-) -> Dict[Path, CodeFile]:
+) -> tuple[Dict[Path, CodeFile], list[str]]:
     """Returns a complete list of text files in a given set of include/exclude Paths."""
     git_root = GIT_ROOT.get()
     config = CONFIG_MANAGER.get()
-    excluded_files_direct, excluded_files_from_dirs = abs_files_from_list(
+
+    paths = expand_paths(paths)
+    exclude_paths = expand_paths(exclude_paths)
+
+    excluded_files_direct, excluded_files_from_dirs, _ = abs_files_from_list(
         exclude_paths, check_for_text=False
     )
-    excluded_files, excluded_files_from_dir = set(
-        map(lambda f: f.path, excluded_files_direct)
-    ), set(map(lambda f: f.path, excluded_files_from_dirs))
+    excluded_files = set(
+        map(lambda f: f.path, excluded_files_direct | excluded_files_from_dirs)
+    )
 
     glob_excluded_files = set(
-        os.path.join(git_root, file)
+        Path(os.path.join(git_root, file))
         for glob_path in config.file_exclude_glob_list()
         # If the user puts a / at the beginning, it will try to look in root directory
         for file in glob.glob(
@@ -114,23 +103,24 @@ def get_include_files(
             recursive=True,
         )
     )
-    files_direct, files_from_dirs = abs_files_from_list(paths, check_for_text=True)
+    files_direct, files_from_dirs, invalid_paths = abs_files_from_list(
+        paths, check_for_text=True
+    )
 
     # config glob excluded files only apply to files added from directories
     files_from_dirs = [
         file
         for file in files_from_dirs
-        if str(file.path.resolve()) not in glob_excluded_files
+        if file.path.resolve() not in glob_excluded_files
     ]
-
     files_direct.update(files_from_dirs)
 
     files = dict[Path, CodeFile]()
     for file in files_direct:
-        if file.path not in excluded_files | excluded_files_from_dir:
-            files[Path(os.path.realpath(file.path))] = file
+        if file.path not in excluded_files:
+            files[file.path.resolve()] = file
 
-    return files
+    return files, invalid_paths
 
 
 def build_path_tree(files: list[CodeFile], git_root: Path):
