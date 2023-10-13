@@ -206,7 +206,7 @@ class BlockParser(Parser):
         ans = generated[0].split("@")[0]  # BlockParserIndicator.Start.value)[0]
         for file_edit in generated[1]:
             tmp = {}
-            tmp[_BlockParserJsonKeys.File.value] = str(file_edit.file_path)
+            tmp[_BlockParserJsonKeys.File.value] = str(file_edit.file_path.as_posix())
             if file_edit.is_creation:
                 tmp[_BlockParserJsonKeys.Action.value] = (
                     _BlockParserAction.CreateFile.value
@@ -219,7 +219,9 @@ class BlockParser(Parser):
                 tmp[_BlockParserJsonKeys.Action.value] = (
                     _BlockParserAction.RenameFile.value
                 )
-                tmp[_BlockParserJsonKeys.Name.value] = str(file_edit.rename_file_path)
+                tmp[_BlockParserJsonKeys.Name.value] = str(
+                    file_edit.rename_file_path.as_posix()
+                )
             if _BlockParserJsonKeys.Action.value in tmp:
                 ans += _BlockParserIndicator.Start.value + "\n"
                 ans += json.dumps(tmp, indent=4) + "\n"
@@ -233,7 +235,9 @@ class BlockParser(Parser):
             else:
                 for replacement in file_edit.replacements:
                     tmp = {}
-                    tmp[_BlockParserJsonKeys.File.value] = str(file_edit.file_path)
+                    tmp[_BlockParserJsonKeys.File.value] = str(
+                        file_edit.file_path.as_posix()
+                    )
                     ans += _BlockParserIndicator.Start.value + "\n"
                     starting_line = replacement.starting_line
                     ending_line = replacement.ending_line
