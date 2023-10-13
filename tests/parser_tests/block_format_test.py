@@ -475,7 +475,7 @@ async def test_inverse(
 
         @@start
         {{
-            "file": "{cwd / "test.txt" }",
+            "file": "{(cwd / "test.txt").as_posix() }",
             "action": "insert",
             "insert-after-line": 1,
             "insert-before-line": 2
@@ -485,7 +485,7 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{cwd / "test.txt" }",
+            "file": "{(cwd / "test.txt").as_posix() }",
             "action": "replace",
             "start-line": 4,
             "end-line": 4
@@ -495,7 +495,7 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{cwd / "delete.txt" }",
+            "file": "{(cwd / "delete.txt").as_posix() }",
             "action": "delete",
             "start-line": 2,
             "end-line": 3
@@ -503,7 +503,7 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{cwd / "create.txt" }",
+            "file": "{(cwd / "create.txt").as_posix() }",
             "action": "create-file"
         }}
         @@code
@@ -511,9 +511,9 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{cwd / "file1.txt" }",
+            "file": "{(cwd / "file1.txt").as_posix() }",
             "action": "rename-file",
-            "name": "{cwd / "file2.txt" }"
+            "name": "{(cwd / "file2.txt").as_posix() }"
         }}
         @@end
                           """)
@@ -521,9 +521,7 @@ async def test_inverse(
     generator = convert_string_to_asyncgen(llm_response, 10)
     parser = BlockParser()
     file_edits = await parser.stream_and_parse_llm_response(generator)
-    print(file_edits)
     inverse = parser.file_edits_to_llm_message(file_edits)
-    print(inverse)
 
     assert llm_response == inverse
 
