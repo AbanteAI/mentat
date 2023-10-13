@@ -118,13 +118,19 @@ class Conversation:
                 color="cyan",
             )
 
+    # The transcript logger logs tuples containing the actual message sent by the user or LLM
+    # and (for LLM messages) the LLM conversation that led to that LLM response
     def add_user_message(self, message: str):
         """Used for actual user input messages"""
+        transcript_logger = logging.getLogger("transcript")
+        transcript_logger.info(json.dumps((message, None)))
         self.literal_messages.append((message, None))
         self.add_message(MessageRole.User, message)
 
     def add_model_message(self, message: str, messages_snapshot: list[dict[str, str]]):
         """Used for actual model output messages"""
+        transcript_logger = logging.getLogger("transcript")
+        transcript_logger.info(json.dumps((message, messages_snapshot)))
         self.literal_messages.append((message, messages_snapshot))
         self.add_message(MessageRole.Assistant, message)
 
@@ -166,10 +172,10 @@ class Conversation:
         cost_tracker = COST_TRACKER.get()
         parser = PARSER.get()
 
-        messages = self.messages.copy()
+        messages_snapshot = self.messages.copy()
 
         # Rebuild code context with active code and available tokens
-        conversation_history = "\n".join([m["content"] for m in messages])
+        conversation_history = "\n".join([m["content"] for m in messages_snapshot])
         tokens = count_tokens(conversation_history, self.model)
         response_buffer = 1000
         code_message = await code_context.get_code_message(
@@ -177,12 +183,12 @@ class Conversation:
             self.model,
             self.max_tokens - tokens - response_buffer,
         )
-        messages.append({"role": "system", "content": code_message})
+        messages_snapshot.append({"role": "system", "content": code_message})
 
         await code_context.display_features()
-        num_prompt_tokens = await get_prompt_token_count(messages, self.model)
+        num_prompt_tokens = await get_prompt_token_count(messages_snapshot, self.model)
         message, file_edits, time_elapsed = await self._stream_model_response(
-            stream, parser, messages
+            stream, parser, messages_snapshot
         )
         await cost_tracker.display_api_call_stats(
             num_prompt_tokens,
@@ -191,11 +197,8 @@ class Conversation:
             time_elapsed,
         )
 
-        transcript_logger = logging.getLogger("transcript")
-        messages.append({"role": "assistant", "content": message})
-        transcript_logger.info(json.dumps({"messages": messages}))
-
-        self.add_model_message(message, messages)
+        messages_snapshot.append({"role": "assistant", "content": message})
+        self.add_model_message(message, messages_snapshot)
         return file_edits
 
     # TODO: Should we use a templating library (like jinja?) for this?
