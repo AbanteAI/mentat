@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -464,7 +465,7 @@ async def test_inverse(
     #                               file_edits -> llm_message -> file_edits
     # we get back where we started. So this test verifies things we don't necessarily care about like the order of the
     # edits and white space.
-    cwd = os.getcwd()
+    cwd = Path(os.getcwd())
     llm_response = dedent(f"""\
         I will insert a comment between the first two lines
         and then replace the last line with 'better measure'
@@ -474,7 +475,7 @@ async def test_inverse(
 
         @@start
         {{
-            "file": "{cwd}/test.txt",
+            "file": "{cwd / "test.txt" }",
             "action": "insert",
             "insert-after-line": 1,
             "insert-before-line": 2
@@ -484,7 +485,7 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{cwd}/test.txt",
+            "file": "{cwd / "test.txt" }",
             "action": "replace",
             "start-line": 4,
             "end-line": 4
@@ -494,7 +495,7 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{cwd}/delete.txt",
+            "file": "{cwd / "delete.txt" }",
             "action": "delete",
             "start-line": 2,
             "end-line": 3
@@ -502,7 +503,7 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{cwd}/create.txt",
+            "file": "{cwd / "create.txt" }",
             "action": "create-file"
         }}
         @@code
@@ -510,9 +511,9 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{cwd}/file1.txt",
+            "file": "{cwd / "file1.txt" }",
             "action": "rename-file",
-            "name": "{cwd}/file2.txt"
+            "name": "{cwd / "file2.txt" }"
         }}
         @@end
                           """)
