@@ -1,10 +1,7 @@
 import pytest
 
 from mentat.code_file import CodeFile
-from mentat.embeddings import (
-    _batch_ffd,
-    get_feature_similarity_scores,
-)
+from mentat.embeddings import _batch_ffd, get_feature_similarity_scores
 
 
 def test_batch_ffd():
