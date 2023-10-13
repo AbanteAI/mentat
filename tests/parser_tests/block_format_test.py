@@ -1,6 +1,5 @@
 import os
 from textwrap import dedent
-from typing import AsyncGenerator
 
 import pytest
 

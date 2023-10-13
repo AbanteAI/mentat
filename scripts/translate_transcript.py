@@ -52,6 +52,7 @@ with open(args.transcript, "r") as f:
         transcript = json.loads(line)
         messages = transcript["messages"]
         for message in messages:
+            # Note we don't change the system prompts. In training they are stripped off anyway.
             if message["role"] == "assistant":
                 content = message["content"]
                 file_edits = asyncio.run(
