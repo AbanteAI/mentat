@@ -4,14 +4,12 @@ import json
 import logging
 from contextvars import ContextVar
 from enum import Enum
-from pathlib import Path
 from timeit import default_timer
 
 from openai.error import InvalidRequestError, RateLimitError
 
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import PARSER, Parser
-from mentat.utils import fetch_resource, mentat_dir_path
 from tests.conftest import SessionStream
 
 from .code_context import CODE_CONTEXT
@@ -28,8 +26,6 @@ from .llm_api import (
 from .session_stream import SESSION_STREAM
 
 CONVERSATION: ContextVar[Conversation] = ContextVar("mentat:conversation")
-
-conversation_viewer_path = Path("conversation_viewer.html")
 
 
 class MessageRole(Enum):
@@ -200,16 +196,3 @@ class Conversation:
         messages_snapshot.append({"role": "assistant", "content": message})
         self.add_model_message(message, messages_snapshot)
         return file_edits
-
-    # TODO: Should we use a templating library (like jinja?) for this?
-    def create_viewer(self) -> Path:
-        messages_json = json.dumps(self.literal_messages)
-        viewer_resource = fetch_resource(conversation_viewer_path)
-        with viewer_resource.open("r") as viewer_file:
-            html = viewer_file.read()
-        html = html.replace("{{ messages }}", messages_json)
-
-        viewer_path = mentat_dir_path / conversation_viewer_path
-        with viewer_path.open("w") as viewer_file:
-            viewer_file.write(html)
-        return viewer_path

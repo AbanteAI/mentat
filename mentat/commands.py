@@ -8,6 +8,7 @@ from typing import List
 from mentat.code_file_manager import CODE_FILE_MANAGER
 from mentat.conversation import CONVERSATION, MessageRole
 from mentat.session_stream import SESSION_STREAM
+from mentat.utils import create_viewer
 
 from .code_context import CODE_CONTEXT
 from .errors import MentatError
@@ -235,7 +236,7 @@ class ClearCommand(Command, command_name="clear"):
 class ConversationCommand(Command, command_name="conversation"):
     async def apply(self, *args: str) -> None:
         conversation = CONVERSATION.get()
-        viewer_path = conversation.create_viewer()
+        viewer_path = create_viewer(conversation.literal_messages)
         webbrowser.open(f"file://{viewer_path.resolve()}")
 
     @classmethod
