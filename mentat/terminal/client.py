@@ -114,10 +114,6 @@ class TerminalClient:
     async def _startup(self):
         assert self.session is None, "TerminalClient already running"
 
-        # TODO: Right now, everything sent in Session.create is never printed because
-        # the PromptSessions and listening tasks haven't been set up yet; once we move
-        # the config to be client-side, we can get the config without setting up the
-        # session first, and we can move the session last
         self.session = await Session.create(
             self.paths,
             self.exclude_paths,
@@ -166,7 +162,7 @@ class TerminalClient:
         while not self._force_exit and not self.session.is_stopped:
             await asyncio.sleep(0.01)
         self.session = None
-        # logging is shutdown by session stop
+        # Logging is shutdown by session stop
 
         # Stop all background tasks
         for task in self._tasks:

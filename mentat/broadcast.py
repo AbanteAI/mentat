@@ -1,29 +1,22 @@
 # Adapted from https://github.com/encode/broadcaster
 
 import asyncio
-import typing
+from asyncio import Queue
+from collections import defaultdict
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, AsyncIterator, Dict
+from typing import Any, AsyncGenerator, AsyncIterator, Dict, Set
+
+import attr
 
 
+@attr.define
 class Event:
-    def __init__(self, channel: str, message: typing.Any) -> None:
-        self.channel = channel
-        self.message = message
-
-    def __eq__(self, other: object) -> bool:
-        return (
-            isinstance(other, Event)
-            and self.channel == other.channel
-            and self.message == other.message
-        )
-
-    def __repr__(self) -> str:
-        return f"Event(channel={self.channel!r}, message={self.message!r})"
+    channel: str = attr.field()
+    message: Any = attr.field()
 
 
 class Subscriber:
-    def __init__(self, queue: asyncio.Queue[Event | None]) -> None:
+    def __init__(self, queue: Queue[Event | None]) -> None:
         self._queue = queue
 
     async def __aiter__(self) -> AsyncGenerator[Event, None]:
@@ -42,29 +35,34 @@ class Subscriber:
 
 class MemoryBackend:
     def __init__(self):
-        self._subscribed: typing.Set[str] = set()
+        self._subscribed: Set[str] = set()
+        self._missed_events: defaultdict[str, list[Event]] = defaultdict(list)
 
     async def connect(self) -> None:
-        self._published: asyncio.Queue[Event] = asyncio.Queue()
+        self._published: Queue[Event] = Queue()
 
     async def disconnect(self) -> None:
         pass
 
     async def subscribe(self, channel: str) -> None:
         self._subscribed.add(channel)
+        for event in self._missed_events[channel]:
+            await self.publish(event.channel, event.message)
+        self._missed_events[channel].clear()
 
     async def unsubscribe(self, channel: str) -> None:
         self._subscribed.remove(channel)
 
-    async def publish(self, channel: str, message: typing.Any) -> None:
+    async def publish(self, channel: str, message: Any) -> None:
         event = Event(channel=channel, message=message)
-        await self._published.put(event)
+        if channel in self._subscribed:
+            await self._published.put(event)
+        else:
+            self._missed_events[channel].append(event)
 
     async def next_published(self) -> Event:
         while True:
-            event = await self._published.get()
-            if event.channel in self._subscribed:
-                return event
+            return await self._published.get()
 
 
 class Unsubscribed(Exception):
@@ -73,7 +71,7 @@ class Unsubscribed(Exception):
 
 class Broadcast:
     def __init__(self):
-        self._subscribers: Dict[str, Any] = {}
+        self._subscribers: Dict[str, set[Queue[Event | None]]] = {}
         self._backend = MemoryBackend()
 
     async def __aenter__(self) -> "Broadcast":
@@ -97,7 +95,7 @@ class Broadcast:
     async def _listener(self) -> None:
         while True:
             event = await self._backend.next_published()
-            for queue in list(self._subscribers.get(event.channel, [])):
+            for queue in list(self._subscribers.get(event.channel, set())):
                 await queue.put(event)
 
     async def publish(self, channel: str, message: Any) -> None:
@@ -105,18 +103,17 @@ class Broadcast:
 
     @asynccontextmanager
     async def subscribe(self, channel: str) -> AsyncIterator[Subscriber]:
-        queue: asyncio.Queue[Event | None] = asyncio.Queue()
+        queue: Queue[Event | None] = Queue()
 
         try:
             if not self._subscribers.get(channel):
                 await self._backend.subscribe(channel)
-                self._subscribers[channel] = set([queue])
-            else:
-                self._subscribers[channel].add(queue)
+                self._subscribers[channel] = set()
 
+            self._subscribers[channel].add(queue)
             yield Subscriber(queue)
-
             self._subscribers[channel].remove(queue)
+
             if not self._subscribers.get(channel):
                 del self._subscribers[channel]
                 await self._backend.unsubscribe(channel)
