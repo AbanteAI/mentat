@@ -1,12 +1,13 @@
 import os
+from pathlib import Path
 
 from git import Repo
 
-CLONE_TO_DIR = f"{os.path.dirname(__file__)}/../../../"
+CLONE_TO_DIR = Path.home()
 
 
 def clone_repo(url: str, local_dir_name: str, refresh: bool = False) -> None:
-    local_dir = f"{CLONE_TO_DIR}{local_dir_name}"
+    local_dir = CLONE_TO_DIR / local_dir_name
     if os.path.exists(local_dir):
         if refresh:
             repo = Repo(local_dir)

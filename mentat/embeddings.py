@@ -1,4 +1,3 @@
-import asyncio
 import gzip
 import json
 import os
@@ -6,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .code_file import CodeFile
+from .code_file import CodeFile, count_feature_tokens
 from .config_manager import mentat_dir_path
 from .llm_api import call_embedding_api, count_tokens
 from .session_stream import SESSION_STREAM
@@ -72,30 +71,16 @@ def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
     return dot_product / (norm_v1 * norm_v2)
 
 
-async def _count_feature_tokens(features: list[CodeFile], model: str) -> list[int]:
-    """Return the number of tokens in each feature."""
-    sem = asyncio.Semaphore(10)
-
-    async def _count_tokens(feature: CodeFile) -> int:
-        async with sem:
-            return await feature.count_tokens(model)
-
-    tasks = [_count_tokens(f) for f in features]
-    return await asyncio.gather(*tasks)
-
-
 async def get_feature_similarity_scores(
     prompt: str, features: list[CodeFile]
 ) -> list[float]:
     """Return the similarity scores for a given prompt and list of features."""
-    assert all([isinstance(f, CodeFile) for f in features]), "Invalid feature list"
     global database
     stream = SESSION_STREAM.get()
 
     # Keep things in the same order
     checksums: list[str] = [f.get_checksum() for f in features]
-    tokens: list[int] = await _count_feature_tokens(features, EMBEDDING_MODEL)
-    skip: list[bool] = [t > EMBEDDING_MAX_TOKENS for t in tokens]
+    tokens: list[int] = await count_feature_tokens(features, EMBEDDING_MODEL)
 
     # Make a checksum:content dict of all items that need to be embedded
     items_to_embed = dict[str, str]()
@@ -104,8 +89,8 @@ async def get_feature_similarity_scores(
     if prompt_checksum not in database:
         items_to_embed[prompt_checksum] = prompt
         items_to_embed_tokens[prompt_checksum] = count_tokens(prompt, EMBEDDING_MODEL)
-    for feature, checksum, token, _skip in zip(features, checksums, tokens, skip):
-        if _skip:
+    for feature, checksum, token in zip(features, checksums, tokens):
+        if token > EMBEDDING_MAX_TOKENS:
             continue
         if checksum not in database:
             feature_content = await feature.get_code_message()
@@ -128,10 +113,8 @@ async def get_feature_similarity_scores(
     prompt_embedding = database[prompt_checksum]
     scores = [0.0 for _ in checksums]
     for i, checksum in enumerate(checksums):
-        if skip[i]:
-            continue
         if checksum not in database:
-            raise Exception(f"Feature {checksum} not in database")
+            continue
         feature_embedding = database[checksum]
         scores[i] = _cosine_similarity(prompt_embedding, feature_embedding)
 

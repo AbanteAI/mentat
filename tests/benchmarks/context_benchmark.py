@@ -27,6 +27,7 @@ These tests can be used to train/score #1 or #2, but we'd expect #2 to score
 a lot higher.
 """
 import os
+import subprocess
 
 import pytest
 
@@ -44,7 +45,7 @@ tests = [
         "name": "Mentat: replace subprocess/git with GitPython",
         "codebase_url": "http://github.com/AbanteAI/mentat",
         "codebase_name": "mentat",
-        "commit": "",  # hexsha
+        "commit": "",
         "prompt": (
             "I want to update all the files in git_handler to use the 'Repo' class from"
             " GitPython instead of calling subprocess. Update each function in"
@@ -79,10 +80,12 @@ async def test_code_context_performance(
 
         code_dir = clone_repo(test["codebase_url"], test["codebase_name"])
         os.chdir(code_dir)
+        subprocess.run(["git", "checkout", test["commit"]])
+
         GIT_ROOT.set(code_dir)
 
         # Create a context and run get_code_message to set the features
-        settings = CodeContextSettings(no_embedding=False)
+        settings = CodeContextSettings(use_embedding=True)
         code_context = await CodeContext.create(["mentat/__init__.py"], [], settings)
         _ = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)
 

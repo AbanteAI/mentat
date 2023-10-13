@@ -26,7 +26,7 @@ class TerminalClient:
         diff: str | None = None,
         pr_diff: str | None = None,
         no_code_map: bool = False,
-        no_embedding: bool = True,
+        use_embedding: bool = False,
         auto_tokens: int | None = 0,
     ):
         self.paths = [Path(path) for path in paths]
@@ -34,7 +34,7 @@ class TerminalClient:
         self.diff = diff
         self.pr_diff = pr_diff
         self.no_code_map = no_code_map
-        self.no_embedding = no_embedding
+        self.use_embedding = use_embedding
         self.auto_tokens = auto_tokens
 
         self.session: Session | None = None
@@ -126,7 +126,7 @@ class TerminalClient:
             self.diff,
             self.pr_diff,
             self.no_code_map,
-            self.no_embedding,
+            self.use_embedding,
             self.auto_tokens,
         )
         self.session.start()
@@ -250,7 +250,7 @@ def run_cli():
     diff = args.diff
     pr_diff = args.pr_diff
     no_code_map = args.no_code_map
-    no_embedding = not args.embedding
+    use_embedding = not args.embedding
     auto_tokens = args.auto_tokens
 
     terminal_client = TerminalClient(
@@ -259,7 +259,7 @@ def run_cli():
         diff,
         pr_diff,
         no_code_map,
-        no_embedding,
+        use_embedding,
         auto_tokens,
     )
     terminal_client.run()

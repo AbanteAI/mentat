@@ -1,3 +1,4 @@
+import asyncio
 import math
 import os
 from enum import Enum
@@ -161,3 +162,15 @@ class CodeFile:
     async def count_tokens(self, model: str) -> int:
         code_message = await self.get_code_message()
         return count_tokens("\n".join(code_message), model)
+
+
+async def count_feature_tokens(features: list[CodeFile], model: str) -> list[int]:
+    """Return the number of tokens in each feature."""
+    sem = asyncio.Semaphore(10)
+
+    async def _count_tokens(feature: CodeFile) -> int:
+        async with sem:
+            return await feature.count_tokens(model)
+
+    tasks = [_count_tokens(f) for f in features]
+    return await asyncio.gather(*tasks)
