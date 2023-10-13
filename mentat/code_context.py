@@ -313,7 +313,7 @@ class CodeContext:
                 new_tokens = await code_feature.count_tokens(model)
                 forecast = max_sim_tokens - sim_tokens + recovered_tokens - new_tokens
                 if forecast > 0:
-                    sim_tokens += recovered_tokens - new_tokens
+                    sim_tokens = sim_tokens + new_tokens - recovered_tokens
                     all_features[i_cmap] = code_feature
 
         return sorted(all_features, key=_feature_relative_path)
