@@ -38,10 +38,25 @@
     },
     "commands": [
       {
+        "command": "mentat.build-server",
+        "title": "Build server"
+      },
+      {
         "command": "mentat.helloWorld",
         "title": "Hello World"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Mentat",
+      "properties": {
+        "mentat.mentatPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "Path to Mentat executable, if built locally.\n\nFor a virtual env named `venv`, this should be set to:\n - `{path-to-venv}/bin/mentat` on Mac or Linux \n\n - `{path-to-venv}\\Scripts\\mentat` on Windows."
+        }
+      }
+    }
   },
   "scripts": {
     "clean": "node ./scripts/clean.mjs",

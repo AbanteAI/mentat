@@ -59,7 +59,6 @@ function ChatInput(props: Props) {
         onClick={handleSubmit}
         disabled={submitDisabled}
       >
-        {/* <VscSend color="var(--vscode-button-foreground)" size={18} /> */}
         <VscSend
           color={
             submitDisabled
