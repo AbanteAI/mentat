@@ -1,12 +1,8 @@
-from unittest.mock import AsyncMock
-
-import numpy as np
 import pytest
 
 from mentat.code_file import CodeFile
 from mentat.embeddings import (
     _batch_ffd,
-    _cosine_similarity,
     get_feature_similarity_scores,
 )
 

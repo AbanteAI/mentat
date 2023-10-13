@@ -7,7 +7,6 @@ from multiprocessing import Pool
 
 import pytest
 import tqdm
-from git import Repo
 from openai import InvalidRequestError
 
 from mentat.llm_api import COST_TRACKER, call_llm_api, setup_api_key
