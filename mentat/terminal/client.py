@@ -24,16 +24,18 @@ class TerminalClient:
         self,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
-        no_code_map: bool = False,
         diff: str | None = None,
         pr_diff: str | None = None,
-        auto_tokens: int | None = None,
+        no_code_map: bool = False,
+        no_embedding: bool = True,
+        auto_tokens: int | None = 0,
     ):
         self.paths = paths
         self.exclude_paths = exclude_paths
-        self.no_code_map = no_code_map
         self.diff = diff
         self.pr_diff = pr_diff
+        self.no_code_map = no_code_map
+        self.no_embedding = no_embedding
         self.auto_tokens = auto_tokens
 
         self.session: Session | None = None
@@ -118,9 +120,10 @@ class TerminalClient:
         self.session = await Session.create(
             self.paths,
             self.exclude_paths,
-            self.no_code_map,
             self.diff,
             self.pr_diff,
+            self.no_code_map,
+            self.no_embedding,
             self.auto_tokens,
         )
         self.session.start()
@@ -208,11 +211,6 @@ def run_cli():
         help="List of file paths, directory paths, or glob patterns to exclude",
     )
     parser.add_argument(
-        "--no-code-map",
-        action="store_true",
-        help="Exclude the file structure/syntax map from the system prompt",
-    )
-    parser.add_argument(
         "--diff",
         "-d",
         type=str,
@@ -227,6 +225,16 @@ def run_cli():
         help="A git tree-ish to diff against the latest common ancestor of",
     )
     parser.add_argument(
+        "--no-code-map",
+        action="store_true",
+        help="Exclude the file structure/syntax map from the system prompt",
+    )
+    parser.add_argument(
+        "--embedding",
+        action="store_true",
+        help="Fetch/compare embeddings to auto-generate code context",
+    )
+    parser.add_argument(
         "--auto-tokens",
         "-a",
         type=int,
@@ -236,9 +244,10 @@ def run_cli():
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
-    no_code_map = args.no_code_map
     diff = args.diff
     pr_diff = args.pr_diff
+    no_code_map = args.no_code_map
+    no_embedding = not args.embedding
     auto_tokens = args.auto_tokens
 
     # Expanding paths as soon as possible because some shells such as zsh automatically
@@ -246,9 +255,10 @@ def run_cli():
     terminal_client = TerminalClient(
         expand_paths(paths),
         expand_paths(exclude_paths),
-        no_code_map,
         diff,
         pr_diff,
+        no_code_map,
+        no_embedding,
         auto_tokens,
     )
     terminal_client.run()

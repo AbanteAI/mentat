@@ -46,6 +46,7 @@ class CodeContextSettings:
     diff: Optional[str] = None
     pr_diff: Optional[str] = None
     no_code_map: bool = False
+    no_embedding: bool = True
     auto_tokens: Optional[int] = None
 
 
@@ -283,40 +284,42 @@ class CodeContext:
 
         all_features = sorted(all_features, key=_feature_relative_path)
 
-        # If there's room, convert cmap to full-files, starting with the highest-scoring
+        # If there's room, convert cmap features to code features (full text)
+        # starting with the highest-scoring.
         cmap_features_tokens = await _count_tokens_in_features(all_features, model)
         max_sim_tokens = max_tokens - cmap_features_tokens
-        if max_sim_tokens > 0:
+        if self.settings.auto_tokens is not None:
+            max_sim_tokens = min(max_sim_tokens, self.settings.auto_tokens)
+
+        if not self.settings.no_embedding and max_sim_tokens > 0:
             sim_tokens = 0
 
             # Get embedding-similarity scores for all files
-            sim_scores = await get_feature_similarity_scores(prompt, all_features)
-            file_scores = {
-                (f.path, CodeMessageLevel.CODE): s
-                for f, s in zip(all_features, sim_scores)
+            all_code_features = [
+                CodeFile(f.path, CodeMessageLevel.CODE, f.diff)
+                for f in all_features
                 if f.path not in self.include_files
-            }
-
-            max_sim_tokens = max_tokens - include_features_tokens
-            file_paths_sorted = sorted(
-                list(file_scores.keys()), key=lambda x: file_scores[x], reverse=True
+            ]
+            sim_scores = await get_feature_similarity_scores(prompt, all_code_features)
+            all_code_features_scored = zip(all_code_features, sim_scores)
+            all_code_features_sorted = sorted(
+                all_code_features_scored, key=lambda x: x[1], reverse=True
             )
-            for path, _ in file_paths_sorted:
+            for code_feature, _ in all_code_features_sorted:
                 # Calculate the total change in length
                 i_cmap, cmap_feature = next(
-                    (i, f) for i, f in enumerate(all_features) if f.path == path
+                    (i, f)
+                    for i, f in enumerate(all_features)
+                    if f.path == code_feature.path
                 )
                 recovered_tokens = await cmap_feature.count_tokens(model)
-                new_feature = CodeFile(
-                    path, level=CodeMessageLevel.CODE, diff=cmap_feature.diff
-                )
-                new_tokens = await new_feature.count_tokens(model)
+                new_tokens = await code_feature.count_tokens(model)
                 forecast = max_sim_tokens - sim_tokens + recovered_tokens - new_tokens
                 if forecast < 0:
                     continue
                 # If it fits, add it
                 sim_tokens += recovered_tokens - new_tokens
-                all_features[i_cmap] = new_feature
+                all_features[i_cmap] = code_feature
 
         return sorted(all_features, key=_feature_relative_path)
 

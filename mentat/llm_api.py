@@ -94,7 +94,7 @@ def call_embedding_api(
         raise MentatError("OpenAI call attempted in non benchmark test environment!")
 
     response = openai.Embedding.create(input=input, model=model)  # type: ignore
-    return [i["embedding"] for i in response[0]["data"]]  # type: ignore
+    return [i["embedding"] for i in response["data"]]  # type: ignore
 
 
 # Ensures that each chunk will have at most one newline character

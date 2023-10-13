@@ -3,6 +3,8 @@ import os
 from enum import Enum
 from pathlib import Path
 
+from mentat.utils import sha256
+
 from .code_file_manager import CODE_FILE_MANAGER
 from .code_map import get_code_map
 from .diff_context import annotate_file_message, parse_diff
@@ -143,15 +145,16 @@ class CodeFile:
         git_root = GIT_ROOT.get()
         code_file_manager = CODE_FILE_MANAGER.get()
         abs_path = git_root / self.path
-        return code_file_manager.get_file_checksum(Path(abs_path))
+        file_checksum = code_file_manager.get_file_checksum(Path(abs_path))
+        return sha256(f"{file_checksum}{self.level.key}{self.diff}")
 
-    _file_checksum: str | None = None
+    _feature_checksum: str | None = None
     _code_message: list[str] | None = None
 
     async def get_code_message(self) -> list[str]:
-        file_checksum = self.get_checksum()
-        if file_checksum != self._file_checksum or self._code_message is None:
-            self._file_checksum = file_checksum
+        feature_checksum = self.get_checksum()
+        if feature_checksum != self._feature_checksum or self._code_message is None:
+            self._feature_checksum = feature_checksum
             self._code_message = await self._get_code_message()
         return self._code_message
 

@@ -1,3 +1,5 @@
+import asyncio
+
 import numpy as np
 
 from .code_file import CodeFile
@@ -6,6 +8,7 @@ from .utils import sha256
 
 EMBEDDING_MODEL = "text-embedding-ada-002"
 EMBEDDING_MAX_TOKENS = 8192
+
 
 database = dict[str, list[float]]()
 
@@ -36,39 +39,63 @@ def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
     return dot_product / (norm_v1 * norm_v2)
 
 
+async def _count_feature_tokens(features: list[CodeFile], model: str) -> list[int]:
+    """Return the number of tokens in each feature."""
+    sem = asyncio.Semaphore(10)
+
+    async def _count_tokens(feature: CodeFile) -> int:
+        async with sem:
+            return await feature.count_tokens(model)
+
+    tasks = [_count_tokens(f) for f in features]
+    return await asyncio.gather(*tasks)
+
+
 async def get_feature_similarity_scores(
     prompt: str, features: list[CodeFile]
 ) -> list[float]:
     """Return the similarity scores for a given prompt and list of features."""
+    assert all([isinstance(f, CodeFile) for f in features]), "Invalid feature list"
     global database
 
-    # Get a list of checksum/content to fetch embeddings for
-    embed_items = dict[str, str]()  # {checksum: content}
+    # Keep things in the same order
+    checksums: list[str] = [f.get_checksum() for f in features]
+    tokens: list[int] = await _count_feature_tokens(features, EMBEDDING_MODEL)
+    skip: list[bool] = [t > EMBEDDING_MAX_TOKENS for t in tokens]
+
+    # Make a checksum:content dict of all items that need to be embedded
+    items_to_embed = dict[str, str]()
+    items_to_embed_tokens = dict[str, int]()
     prompt_checksum = sha256(prompt)
     if prompt_checksum not in database:
-        embed_items[prompt_checksum] = prompt
-    for feature in features:
-        feature_checksum = feature.get_checksum()
-        if feature_checksum not in database:
+        items_to_embed[prompt_checksum] = prompt
+        items_to_embed_tokens[prompt_checksum] = count_tokens(prompt, EMBEDDING_MODEL)
+    for feature, checksum, token, _skip in zip(features, checksums, tokens, skip):
+        if _skip:
+            continue
+        if checksum not in database:
             feature_content = await feature.get_code_message()
-            embed_items[feature_checksum] = "\n".join(feature_content)
+            # Remove line numbering
+            items_to_embed[checksum] = "\n".join(feature_content)
+            items_to_embed_tokens[checksum] = token
 
-    # Batch and process
-    token_counts = {k: count_tokens(v, EMBEDDING_MODEL) for k, v in embed_items.items()}
-    batches = _batch_ffd(token_counts, EMBEDDING_MAX_TOKENS)
+    # Fetch embeddings in batches
+    batches = _batch_ffd(items_to_embed_tokens, EMBEDDING_MAX_TOKENS)
     for batch in batches:
-        batch_content = [embed_items[k] for k in batch]
+        if len(batch) == 1:
+            continue
+        batch_content = [items_to_embed[k] for k in batch]
         response = call_embedding_api(batch_content, EMBEDDING_MODEL)
         for k, v in zip(batch, response):
             database[k] = v
 
     # Calculate similarity score for each feature
     prompt_embedding = database[prompt_checksum]
-    feature_embeddings = {
-        k: database[k] for k in embed_items.keys() if k != prompt_checksum
-    }
-    similarity_scores = dict[str, float]()
-    for k, v in feature_embeddings.items():
-        similarity_scores[k] = _cosine_similarity(prompt_embedding, v)
+    scores = [0.0 for _ in checksums]
+    for i, checksum in enumerate(checksums):
+        if skip[i]:
+            continue
+        feature_embedding = database[checksum]
+        scores[i] = _cosine_similarity(prompt_embedding, feature_embedding)
 
-    return [similarity_scores[k] for k in feature_embeddings.keys()]
+    return scores

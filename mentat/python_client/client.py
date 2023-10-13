@@ -11,15 +11,19 @@ class PythonClient:
         self,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
-        no_code_map: bool = False,
         diff: str | None = None,
         pr_diff: str | None = None,
+        no_code_map: bool = False,
+        no_embedding: bool = True,
+        auto_tokens: int = 0,
     ):
         self.paths = paths
         self.exclude_paths = exclude_paths
-        self.no_code_map = no_code_map
         self.diff = diff
         self.pr_diff = pr_diff
+        self.no_code_map = no_code_map
+        self.no_embedding = no_embedding
+        self.auto_tokens = auto_tokens
 
         self.session: Session | None = None
 
@@ -56,7 +60,13 @@ class PythonClient:
 
     async def _startup(self):
         self.session = await Session.create(
-            self.paths, self.exclude_paths, self.no_code_map, self.diff, self.pr_diff
+            self.paths,
+            self.exclude_paths,
+            self.diff,
+            self.pr_diff,
+            self.no_code_map,
+            self.no_embedding,
+            self.auto_tokens,
         )
         asyncio.ensure_future(self.session.start())
         self.acc_task = asyncio.create_task(self._accumulate_messages())

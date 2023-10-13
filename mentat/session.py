@@ -51,9 +51,10 @@ class Session:
         cls,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
-        no_code_map: bool = False,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
+        no_code_map: bool = False,
+        no_embedding: bool = True,
         auto_tokens: Optional[int] = None,
     ):
         # Set contextvars here
@@ -75,7 +76,7 @@ class Session:
         PARSER.set(parser)
 
         code_context_settings = CodeContextSettings(
-            paths, exclude_paths, diff, pr_diff, no_code_map, auto_tokens
+            paths, exclude_paths, diff, pr_diff, no_code_map, no_embedding, auto_tokens
         )
         code_context = await CodeContext.create(code_context_settings)
         CODE_CONTEXT.set(code_context)

@@ -34,21 +34,24 @@ from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_file import CodeFile
 from mentat.git_handler import GIT_ROOT, get_non_gitignored_files
 from mentat.llm_api import setup_api_key
-from mentat.utils import clone_repo
+
+from .utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
 tests = [
     {
+        "name": "Mentat: replace subprocess/git with GitPython",
         "codebase_url": "http://github.com/AbanteAI/mentat",
         "codebase_name": "mentat",
+        "commit": "",  # hexsha
         "prompt": (
             "I want to update all the files in git_handler to use the 'Repo' class from"
             " GitPython instead of calling subprocess. Update each function in"
             " mentat/git_handler.py that calls subprocess to use Repo instead. If git"
             " is run with subprocess anywhere in the code, update those as well."
         ),
-        "expected": [
+        "expected_features": [
             "mentat/git_handler.py",
             "mentat/diff_context.py:173-179",
             "tests/benchmark_test.py:118-139",
@@ -57,6 +60,9 @@ tests = [
             "tests/diff_context_test.py",
             "tests/git_handler_test.py:23-30",
             "tests/clients/terminal_client_test.py:62-93",
+        ],
+        "expected_edits": [
+            # for other benchmarks
         ],
     },
 ]
@@ -84,11 +90,11 @@ async def test_code_context_performance(
 
         # Calculate y_pred and y_true
         actual = {f.path for f in code_context.features}
-        expected = {
-            CodeFile(f).path for f in test["expected"]
+        expected_features = {
+            CodeFile(f).path for f in test["expected_features"]
         }  # Ignore line numbers for now
         y_pred = [f in actual for f in get_non_gitignored_files(code_dir)]
-        y_true = [f in expected for f in get_non_gitignored_files(code_dir)]
+        y_true = [f in expected_features for f in get_non_gitignored_files(code_dir)]
 
         _TP = sum([1 for p, t in zip(y_pred, y_true) if p and t])
         _TN = sum([1 for p, t in zip(y_pred, y_true) if not p and not t])
