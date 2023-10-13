@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 from importlib import resources
-from importlib.resources.abc import Traversable
+from importlib.abc import Traversable
 from pathlib import Path
 
 mentat_dir_path = Path.home() / ".mentat"
