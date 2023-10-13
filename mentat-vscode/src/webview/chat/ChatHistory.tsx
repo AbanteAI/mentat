@@ -12,8 +12,15 @@ function ChatHistory(props: Props) {
       chatMessage.createdBy === "client" ? "bg-[var(--vscode-input-background)]" : "";
 
     return (
-      <div key={chatMessage.id} className={`flex items-center p-2 ${backgroundColor}`}>
+      <div
+        key={chatMessage.orderId}
+        className={`flex items-center p-2 ${backgroundColor}`}
+      >
         <VscAccount size={18} />
+
+        <div className="icon">
+          <i className="codicon codicon-account"></i> account
+        </div>
         <p className="flex-1 pl-2">{chatMessage.content}</p>
       </div>
     );

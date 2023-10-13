@@ -1,4 +1,4 @@
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, KeyboardEvent, useEffect, useState } from "react";
 import { VscSend } from "react-icons/vsc";
 
 import { ChatMessage } from "../types";
@@ -10,20 +10,35 @@ type Props = {
 
 function ChatInput(props: Props) {
   const [content, setContent] = useState<string>("");
-  const [submitDisabled] = useState(true);
+  const [submitDisabled, setSubmitDisabled] = useState(true);
 
-  function handleContentChange(event: ChangeEvent<HTMLTextAreaElement>) {
-    setContent(event.target.value);
-  }
+  useEffect(() => {
+    if (content === "") {
+      setSubmitDisabled(true);
+    } else {
+      setSubmitDisabled(false);
+    }
+  }, [content]);
 
   function handleSubmit() {
+    if (submitDisabled) {
+      return;
+    }
     const newChatMessage: ChatMessage = {
       id: "",
+      orderId: props.chatMessages[props.chatMessages.length - 1].orderId + 1,
       content: content,
       createdBy: "client",
     };
     props.setChatMessages([...props.chatMessages, newChatMessage]);
     setContent("");
+  }
+
+  function handleKeyPress(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      handleSubmit();
+    }
   }
 
   return (
@@ -33,10 +48,26 @@ function ChatInput(props: Props) {
         placeholder="What can I do for you?"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         value={content}
-        onChange={handleContentChange}
+        onKeyDown={handleKeyPress}
+        onChange={(e) => setContent(e.target.value)}
       />
-      <button onClick={handleSubmit}>
-        <VscSend size={18} />
+      <button
+        className={`${submitDisabled
+            ? "bg-none"
+            : "bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)]"
+          } w-10 h-10 flex justify-center items-center rounded-lg`}
+        onClick={handleSubmit}
+        disabled={submitDisabled}
+      >
+        {/* <VscSend color="var(--vscode-button-foreground)" size={18} /> */}
+        <VscSend
+          color={
+            submitDisabled
+              ? "var(--vscode-disabledForeground)"
+              : "var(--vscode-button-foreground)"
+          }
+          size={18}
+        />
       </button>
     </div>
   );

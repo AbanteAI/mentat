@@ -6,7 +6,8 @@ import { ChatInput } from "./ChatInput";
 
 const fakeMessages: ChatMessage[] = [
   {
-    id: "1",
+    id: "",
+    orderId: 0,
     content: "I'm using Mentat",
     createdBy: "client",
   },
