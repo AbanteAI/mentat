@@ -521,7 +521,9 @@ async def test_inverse(
     generator = convert_string_to_asyncgen(llm_response, 10)
     parser = BlockParser()
     file_edits = await parser.stream_and_parse_llm_response(generator)
+    print(file_edits)
     inverse = parser.file_edits_to_llm_message(file_edits)
+    print(inverse)
 
     assert llm_response == inverse
 
