@@ -197,3 +197,71 @@ class BlockParser(Parser):
             )
         )
         return ""
+
+    def file_edits_to_llm_message(self, generated: tuple[str, list[FileEdit]]) -> str:
+        """
+        Inverse of stream_and_parse_llm_response;
+        takes in the generated message and file edits and returns the original message
+        """
+        ans = generated[0].split("@")[0]  # BlockParserIndicator.Start.value)[0]
+        for file_edit in generated[1]:
+            tmp = {}
+            tmp[_BlockParserJsonKeys.File.value] = str(file_edit.file_path)
+            if file_edit.is_creation:
+                tmp[_BlockParserJsonKeys.Action.value] = (
+                    _BlockParserAction.CreateFile.value
+                )
+            elif file_edit.is_deletion:
+                tmp[_BlockParserJsonKeys.Action.value] = (
+                    _BlockParserAction.DeleteFile.value
+                )
+            elif file_edit.rename_file_path is not None:
+                tmp[_BlockParserJsonKeys.Action.value] = (
+                    _BlockParserAction.RenameFile.value
+                )
+                tmp[_BlockParserJsonKeys.Name.value] = str(file_edit.rename_file_path)
+            if _BlockParserJsonKeys.Action.value in tmp:
+                ans += _BlockParserIndicator.Start.value + "\n"
+                ans += json.dumps(tmp, indent=4) + "\n"
+                if (
+                    tmp[_BlockParserJsonKeys.Action.value]
+                    == _BlockParserAction.CreateFile.value
+                ):
+                    ans += _BlockParserIndicator.Code.value + "\n"
+                    ans += "\n".join(file_edit.replacements[0].new_lines) + "\n"
+                ans += _BlockParserIndicator.End.value + "\n"
+            else:
+                for replacement in file_edit.replacements:
+                    tmp = {}
+                    tmp[_BlockParserJsonKeys.File.value] = str(file_edit.file_path)
+                    ans += _BlockParserIndicator.Start.value + "\n"
+                    starting_line = replacement.starting_line
+                    ending_line = replacement.ending_line
+                    if len(replacement.new_lines) == 0:
+                        tmp[_BlockParserJsonKeys.Action.value] = (
+                            _BlockParserAction.Delete.value
+                        )
+                        tmp[_BlockParserJsonKeys.StartLine.value] = starting_line + 1
+                        tmp[_BlockParserJsonKeys.EndLine.value] = ending_line
+                    else:
+                        if starting_line == ending_line:
+                            tmp[_BlockParserJsonKeys.Action.value] = (
+                                _BlockParserAction.Insert.value
+                            )
+                            tmp[_BlockParserJsonKeys.AfterLine.value] = starting_line
+                            tmp[_BlockParserJsonKeys.BeforeLine.value] = ending_line + 1
+                        else:
+                            tmp[_BlockParserJsonKeys.Action.value] = (
+                                _BlockParserAction.Replace.value
+                            )
+                            tmp[_BlockParserJsonKeys.StartLine.value] = (
+                                starting_line + 1
+                            )
+                            tmp[_BlockParserJsonKeys.EndLine.value] = ending_line
+                    ans += json.dumps(tmp, indent=4) + "\n"
+                    if len(replacement.new_lines) > 0:
+                        ans += _BlockParserIndicator.Code.value + "\n"
+                        ans += "\n".join(replacement.new_lines) + "\n"
+                    ans += _BlockParserIndicator.End.value + "\n"
+
+        return ans
