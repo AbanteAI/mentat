@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import webbrowser
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
 
 from mentat.code_file_manager import CODE_FILE_MANAGER
-from mentat.conversation import CONVERSATION
+from mentat.conversation import CONVERSATION, MessageRole
 from mentat.session_stream import SESSION_STREAM
 
 from .code_context import CODE_CONTEXT
@@ -214,7 +215,9 @@ class ClearCommand(Command, command_name="clear"):
         conversation = CONVERSATION.get()
         # Only keep system messages (for now just the prompt)
         conversation.messages = [
-            message for message in conversation.messages if message["role"] == "system"
+            message
+            for message in conversation.messages
+            if message["role"] == MessageRole.System
         ]
         message = "Message history cleared"
         await stream.send(message, color="green")
@@ -226,3 +229,19 @@ class ClearCommand(Command, command_name="clear"):
     @classmethod
     def help_message(cls) -> str:
         return "Clear the current conversation's message history"
+
+
+# TODO: Make this command hidden?
+class ConversationCommand(Command, command_name="conversation"):
+    async def apply(self, *args: str) -> None:
+        conversation = CONVERSATION.get()
+        viewer_path = conversation.create_viewer()
+        webbrowser.open(f"file://{viewer_path.resolve()}")
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return []
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Opens an html page showing the conversation as seen by Mentat so far"

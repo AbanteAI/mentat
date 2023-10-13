@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+    <head></head>
+    <body>
+        <div class="container">
+            <div class="left-viewer viewer"></div>
+            <div class="right-viewer viewer"></div>
+        </div>
+    </body>
+    <script>
+        const messages = {{ messages }}
+               
+        const leftViewer = document.getElementsByClassName("left-viewer")[0]
+        for(message of messages) {
+            const messageDiv = document.createElement("div")
+            messageDiv.innerHTML = message[0]
+            messageDiv.classList.add("message")
+            if(message[1] == null) {
+                messageDiv.classList.add("user")
+            } else {
+                messageDiv.classList.add("assistant")
+                messageDiv.classList.add("clickable")
+                const modelMessages = message[1]
+                messageDiv.onclick = (event) => {openModelMessage(modelMessages)}
+            }
+            leftViewer.appendChild(messageDiv)
+        }
+        
+        function openModelMessage(modelMessages) {
+            const rightViewer = document.getElementsByClassName("right-viewer")[0]
+            rightViewer.replaceChildren()
+            for(message of modelMessages) {
+                const messageDiv = document.createElement("div")
+                messageDiv.innerHTML = message["content"]
+                messageDiv.classList.add("message")
+                messageDiv.classList.add(message["role"])
+                rightViewer.appendChild(messageDiv)
+            }
+        }
+    </script>
+    <style>
+        html {
+            height: 100%;
+            font-size: 20px;
+        }
+
+        body {
+            height: 100%; 
+            padding: 0; 
+            margin: 0;
+            display: flex;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: row;
+            flex-grow: 1;
+        }
+
+        .viewer {
+            border: 1px solid black;
+            overflow-y: auto;
+        }
+
+        .left-viewer {
+            background-color: rgb(240, 255, 228);
+            flex: 1 0 0;
+        }
+
+        .right-viewer {
+            background-color: rgb(255, 235, 251);
+            flex: 1 0 0;
+        }
+
+        .message {
+            padding: 8px;
+            width: 65%;
+            border: 1px solid black;
+            border-radius: 16px;
+            margin: 32px 24px;
+            white-space: pre;
+            overflow-y: auto;
+            overflow-x: auto;
+            max-height: 500px;
+        }
+
+        .user {
+            background-color: rgb(187, 236, 255);
+            margin-left: auto;
+        }
+
+        .assistant {
+            transition: background-color 0.2s;
+            background-color: rgb(204, 243, 204);
+            margin-right: auto;
+        }
+
+        .system {
+            background-color: rgb(203, 203, 203);
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .clickable {
+            user-select: none;
+        }
+
+        .clickable:hover {
+            background-color: rgb(170, 205, 170);
+        }
+    </style>
+</html>

@@ -3,9 +3,16 @@ from __future__ import annotations
 import json
 import logging
 from contextvars import ContextVar
+from enum import Enum
+from pathlib import Path
 from timeit import default_timer
 
 from openai.error import InvalidRequestError, RateLimitError
+
+from mentat.parsers.file_edit import FileEdit
+from mentat.parsers.parser import PARSER, Parser
+from mentat.utils import fetch_resource, mentat_dir_path
+from tests.conftest import SessionStream
 
 from .code_context import CODE_CONTEXT
 from .config_manager import CONFIG_MANAGER, user_config_path
@@ -18,11 +25,17 @@ from .llm_api import (
     is_model_available,
     model_context_size,
 )
-from .parsers.file_edit import FileEdit
-from .parsers.parser import PARSER, Parser
-from .session_stream import SESSION_STREAM, SessionStream
+from .session_stream import SESSION_STREAM
 
 CONVERSATION: ContextVar[Conversation] = ContextVar("mentat:conversation")
+
+conversation_viewer_path = Path("conversation_viewer.html")
+
+
+class MessageRole(Enum):
+    System = "system"
+    User = "user"
+    Assistant = "assistant"
 
 
 class Conversation:
@@ -35,8 +48,12 @@ class Conversation:
         self.model = config.model()
         self.messages = list[dict[str, str]]()
 
+        # This contain the messages the user actually sends and the messages the model output
+        # along with a snapshot of exactly what the modelg got before that message
+        self.literal_messages = list[tuple[str, list[dict[str, str]] | None]]()
+
         prompt = parser.get_system_prompt()
-        self.add_system_message(prompt)
+        self.add_message(MessageRole.System, prompt)
 
     async def display_token_count(self):
         stream = SESSION_STREAM.get()
@@ -101,14 +118,19 @@ class Conversation:
                 color="cyan",
             )
 
-    def add_system_message(self, message: str):
-        self.messages.append({"role": "system", "content": message})
-
     def add_user_message(self, message: str):
-        self.messages.append({"role": "user", "content": message})
+        """Used for actual user input messages"""
+        self.literal_messages.append((message, None))
+        self.add_message(MessageRole.User, message)
 
-    def add_assistant_message(self, message: str):
-        self.messages.append({"role": "assistant", "content": message})
+    def add_model_message(self, message: str, messages_snapshot: list[dict[str, str]]):
+        """Used for actual model output messages"""
+        self.literal_messages.append((message, messages_snapshot))
+        self.add_message(MessageRole.Assistant, message)
+
+    def add_message(self, role: MessageRole, message: str):
+        """Used for adding messages to the models conversation"""
+        self.messages.append({"role": role.value, "content": message})
 
     async def _stream_model_response(
         self,
@@ -173,5 +195,18 @@ class Conversation:
         messages.append({"role": "assistant", "content": message})
         transcript_logger.info(json.dumps({"messages": messages}))
 
-        self.add_assistant_message(message)
+        self.add_model_message(message, messages)
         return file_edits
+
+    # TODO: Should we use a templating library (like jinja?) for this?
+    def create_viewer(self) -> Path:
+        messages_json = json.dumps(self.literal_messages)
+        viewer_resource = fetch_resource(conversation_viewer_path)
+        with viewer_resource.open("r") as viewer_file:
+            html = viewer_file.read()
+        html = html.replace("{{ messages }}", messages_json)
+
+        viewer_path = mentat_dir_path / conversation_viewer_path
+        with viewer_path.open("w") as viewer_file:
+            viewer_file.write(html)
+        return viewer_path
