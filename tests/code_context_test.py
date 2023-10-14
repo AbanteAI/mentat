@@ -204,14 +204,20 @@ async def test_get_code_message_cache(
         "mentat.code_context.CodeContext._get_code_message"
     )
     mock_get_code_message.return_value = "test1"
-    value1 = await code_context.get_code_message("", "gpt-4", 1e6)
+    value1 = await code_context.get_code_message(
+        prompt="", model="gpt-4", max_tokens=1e6
+    )
     mock_get_code_message.return_value = "test2"
-    value2 = await code_context.get_code_message("", "gpt-4", 1e6)
+    value2 = await code_context.get_code_message(
+        prompt="", model="gpt-4", max_tokens=1e6
+    )
     assert value1 == value2
 
     # Regenerate if settings change
     code_context.settings.auto_tokens = 11
-    value3 = await code_context.get_code_message("", "gpt-4", 1e6)
+    value3 = await code_context.get_code_message(
+        prompt="", model="gpt-4", max_tokens=1e6
+    )
     assert value1 != value3
 
     # Regenerate if feature files change
@@ -219,7 +225,9 @@ async def test_get_code_message_cache(
     lines = file.read_text().splitlines()
     lines[0] = "something different"
     file.write_text("\n".join(lines))
-    value4 = await code_context.get_code_message("", "gpt-4", 1e6)
+    value4 = await code_context.get_code_message(
+        prompt="", model="gpt-4", max_tokens=1e6
+    )
     assert value3 != value4
 
 
@@ -242,7 +250,9 @@ async def test_get_code_message_include(
     # If max tokens is less than include_files, return include_files without
     # raising and Exception (that's handled elsewhere)
     code_context.settings.auto_tokens = 0
-    code_message = await code_context.get_code_message("", "gpt-4", 1e6)
+    code_message = await code_context.get_code_message(
+        prompt="", model="gpt-4", max_tokens=1e6
+    )
     expected = [
         "Code Files:",
         "",
@@ -261,7 +271,9 @@ async def test_get_code_message_include(
 
     async def _count_auto_tokens_where(limit: int) -> int:
         code_context.settings.auto_tokens = limit
-        code_message = await code_context.get_code_message("", "gpt-4", 1e6)
+        code_message = await code_context.get_code_message(
+            prompt="", model="gpt-4", max_tokens=1e6
+        )
         return count_tokens(code_message, "gpt-4")
 
     # If max_tokens is None, include the full auto-context

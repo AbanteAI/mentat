@@ -3,7 +3,7 @@ from pathlib import Path
 
 from git import Repo
 
-CLONE_TO_DIR = Path.home()
+CLONE_TO_DIR = Path(__file__).parent / "repos"
 
 
 def clone_repo(url: str, local_dir_name: str, refresh: bool = False) -> None:

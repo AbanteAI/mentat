@@ -45,7 +45,7 @@ tests = [
         "name": "Mentat: replace subprocess/git with GitPython",
         "codebase_url": "http://github.com/AbanteAI/mentat",
         "codebase_name": "mentat",
-        "commit": "",
+        "commit": "a9f055e",
         "prompt": (
             "I want to update all the files in git_handler to use the 'Repo' class from"
             " GitPython instead of calling subprocess. Update each function in"
@@ -80,7 +80,8 @@ async def test_code_context_performance(
 
         code_dir = clone_repo(test["codebase_url"], test["codebase_name"])
         os.chdir(code_dir)
-        subprocess.run(["git", "checkout", test["commit"]])
+        if test["commit"]:
+            subprocess.run(["git", "checkout", test["commit"]])
 
         GIT_ROOT.set(code_dir)
 
