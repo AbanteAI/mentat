@@ -117,6 +117,10 @@ class CodeContext:
         await stream.send(
             f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
         )
+        await stream.send(
+            f"{prefix}Embedding:"
+            f" {'Enabled' if self.settings.use_embedding else 'Disabled'}"
+        )
         auto = self.settings.auto_tokens
         await stream.send(
             f"{prefix}Auto-tokens: {'Model max (default)' if auto is None else auto}"
@@ -316,7 +320,7 @@ class CodeContext:
         """Return the top n features that are most similar to the query."""
         if not self.settings.use_embedding:
             raise UserError(
-                "Embeddings are disabled. Please enable with '--embedding'."
+                "Embeddings are disabled. To enable, restart with '--use-embedding'."
             )
 
         git_root = GIT_ROOT.get()

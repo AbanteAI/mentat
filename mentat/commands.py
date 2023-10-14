@@ -235,13 +235,13 @@ SEARCH_RESULT_BATCH_SIZE = 10
 class SearchCommand(Command, command_name="search"):
     async def apply(self, *args: str) -> None:
         stream = SESSION_STREAM.get()
-
         code_context = CODE_CONTEXT.get()
+
         if len(args) == 0:
             await stream.send("No search query specified\n", color="yellow")
             return
-        query = " ".join(args)
         try:
+            query = " ".join(args)
             results = await code_context.search(query=query)
         except UserError as e:
             await stream.send(str(e), color="red")
@@ -249,7 +249,7 @@ class SearchCommand(Command, command_name="search"):
 
         for i, (feature, score) in enumerate(results):
             _i = f"{i}: " if i < 10 else f"{i}:"
-            await stream.send(f"{_i} {score:.3f} | {feature.path.name}")
+            await stream.send(f"{_i} {score:.3f} | {feature.path}")
             if i > 0 and i % SEARCH_RESULT_BATCH_SIZE == 0:
                 await stream.send("\nShow More results? ")
                 if not await ask_yes_no(default_yes=True):
