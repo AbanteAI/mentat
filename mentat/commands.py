@@ -6,10 +6,11 @@ from typing import List
 
 from mentat.code_file_manager import CODE_FILE_MANAGER
 from mentat.conversation import CONVERSATION
+from mentat.session_input import ask_yes_no
 from mentat.session_stream import SESSION_STREAM
 
 from .code_context import CODE_CONTEXT
-from .errors import MentatError
+from .errors import MentatError, UserError
 from .git_handler import commit
 
 
@@ -226,3 +227,39 @@ class ClearCommand(Command, command_name="clear"):
     @classmethod
     def help_message(cls) -> str:
         return "Clear the current conversation's message history"
+
+
+SEARCH_RESULT_BATCH_SIZE = 10
+
+
+class SearchCommand(Command, command_name="search"):
+    async def apply(self, *args: str) -> None:
+        stream = SESSION_STREAM.get()
+
+        code_context = CODE_CONTEXT.get()
+        if len(args) == 0:
+            await stream.send("No search query specified\n", color="yellow")
+            return
+        query = " ".join(args)
+        try:
+            results = await code_context.search(query=query)
+        except UserError as e:
+            await stream.send(str(e), color="red")
+            return
+
+        for i, (feature, score) in enumerate(results):
+            _i = f"{i}: " if i < 10 else f"{i}:"
+            await stream.send(f"{_i} {score:.3f} | {feature.path.name}")
+            if i > 0 and i % SEARCH_RESULT_BATCH_SIZE == 0:
+                await stream.send("\nShow More results? ")
+                if not await ask_yes_no(default_yes=True):
+                    break
+        await stream.send("Search complete", color="green")
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return ["search_query"]
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Semantic search of files in code context."

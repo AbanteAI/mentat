@@ -102,7 +102,7 @@ async def get_feature_similarity_scores(
     batches = _batch_ffd(items_to_embed_tokens, EMBEDDING_MAX_TOKENS)
     for i, batch in enumerate(batches):
         batch_content = [items_to_embed[k] for k in batch]
-        await stream.send(f"Embedding batch {i}/{len(batches)}...")
+        await stream.send(f"Embedding batch {i + 1}/{len(batches)}...")
         response = call_embedding_api(batch_content, EMBEDDING_MODEL)
         for k, v in zip(batch, response):
             database[k] = v

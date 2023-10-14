@@ -8,6 +8,8 @@ from typing import Optional
 
 import attr
 
+from mentat.errors import UserError
+
 from .code_file import CodeFile, CodeMessageLevel, count_feature_tokens
 from .code_file_manager import CODE_FILE_MANAGER
 from .code_map import check_ctags_disabled
@@ -188,9 +190,9 @@ class CodeContext:
         code_message += ["Code Files:\n"]
 
         features = self._get_include_features()
+        meta_tokens = count_tokens("\n".join(code_message), model)
         include_feature_tokens = sum(await count_feature_tokens(features, model))
-        include_feature_tokens -= count_tokens("\n".join(code_message), model)
-        _max_auto = max(0, max_tokens - include_feature_tokens)
+        _max_auto = max(0, max_tokens - meta_tokens - include_feature_tokens)
         _max_user = self.settings.auto_tokens
         if _max_auto == 0 or _max_user == 0:
             self.features = features
@@ -278,16 +280,7 @@ class CodeContext:
             sim_tokens = 0
 
             # Get embedding-similarity scores for all files
-            all_code_features = [
-                CodeFile(f.path, CodeMessageLevel.CODE, f.diff)
-                for f in all_features
-                if f.path not in self.include_files
-            ]
-            sim_scores = await get_feature_similarity_scores(prompt, all_code_features)
-            all_code_features_scored = zip(all_code_features, sim_scores)
-            all_code_features_sorted = sorted(
-                all_code_features_scored, key=lambda x: x[1], reverse=True
-            )
+            all_code_features_sorted = await self.search(query=prompt)
             for code_feature, _ in all_code_features_sorted:
                 # Calculate the total change in length
                 i_cmap, cmap_feature = next(
@@ -316,3 +309,33 @@ class CodeContext:
         for new_path in paths.keys():
             if new_path in self.include_files:
                 del self.include_files[new_path]
+
+    async def search(
+        self, query: str, max_results: int | None = None
+    ) -> list[tuple[CodeFile, float]]:
+        """Return the top n features that are most similar to the query."""
+        if not self.settings.use_embedding:
+            raise UserError(
+                "Embeddings are disabled. Please enable with '--embedding'."
+            )
+
+        git_root = GIT_ROOT.get()
+
+        all_features = list[CodeFile]()
+        for path in get_non_gitignored_files(git_root):
+            if not is_file_text_encoded(path):
+                continue
+            level = CodeMessageLevel.CODE
+            diff = self.diff_context.target if path in self.diff_context.files else None
+            user_included = path in self.include_files
+            all_features.append(CodeFile(path, level, diff, user_included))
+
+        sim_scores = await get_feature_similarity_scores(query, all_features)
+        all_features_scored = zip(all_features, sim_scores)
+        all_features_sorted = sorted(
+            all_features_scored, key=lambda x: x[1], reverse=True
+        )
+        if max_results is None:
+            return all_features_sorted
+        else:
+            return all_features_sorted[:max_results]

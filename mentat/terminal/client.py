@@ -229,7 +229,7 @@ def run_cli():
         help="Exclude the file structure/syntax map from the system prompt",
     )
     parser.add_argument(
-        "--embedding",
+        "--use-embedding",
         action="store_true",
         help="Fetch/compare embeddings to auto-generate code context",
     )
@@ -246,7 +246,7 @@ def run_cli():
     diff = args.diff
     pr_diff = args.pr_diff
     no_code_map = args.no_code_map
-    use_embedding = not args.embedding
+    use_embedding = args.use_embedding
     auto_tokens = args.auto_tokens
 
     terminal_client = TerminalClient(
