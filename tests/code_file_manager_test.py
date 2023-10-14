@@ -23,7 +23,9 @@ async def test_posix_paths(
         file_file.write("I am a file")
     mock_code_context.include_files, _ = get_include_files([file_path], [])
 
-    code_message = await mock_code_context.get_code_message(mock_config.model(), 1e6)
+    code_message = await mock_code_context.get_code_message(
+        "", mock_config.model(), 1e6
+    )
     assert dir_name + "/" + file_name in code_message.split("\n")
 
 
@@ -49,7 +51,7 @@ async def test_partial_files(
     mock_code_context.code_map = False
 
     code_message = await mock_code_context.get_code_message(
-        mock_config.model(), max_tokens=1e6
+        "", mock_config.model(), max_tokens=1e6
     )
     assert code_message == dedent("""\
             Code Files:

@@ -71,7 +71,7 @@ class Conversation:
             else:
                 context_size = maximum_context
         tokens = count_tokens(
-            await code_context.get_code_message(self.model, max_tokens=0),
+            await code_context.get_code_message("", self.model, max_tokens=0),
             self.model,
         ) + count_tokens(prompt, self.model)
 
@@ -151,6 +151,7 @@ class Conversation:
         tokens = count_tokens(conversation_history, self.model)
         response_buffer = 1000
         code_message = await code_context.get_code_message(
+            messages[-1]["content"],
             self.model,
             self.max_tokens - tokens - response_buffer,
         )

@@ -1,7 +1,10 @@
+import asyncio
 import math
 import os
 from enum import Enum
 from pathlib import Path
+
+from mentat.utils import sha256
 
 from .code_file_manager import CODE_FILE_MANAGER
 from .code_map import get_code_map
@@ -139,19 +142,35 @@ class CodeFile:
                     code_message += section.message
         return code_message
 
-    _file_checksum: str | None = None
-    _code_message: list[str] | None = None
-
-    async def get_code_message(self) -> list[str]:
+    def get_checksum(self) -> str:
         git_root = GIT_ROOT.get()
         code_file_manager = CODE_FILE_MANAGER.get()
         abs_path = git_root / self.path
         file_checksum = code_file_manager.get_file_checksum(Path(abs_path))
-        if file_checksum != self._file_checksum or self._code_message is None:
-            self._file_checksum = file_checksum
+        return sha256(f"{file_checksum}{self.level.key}{self.diff}")
+
+    _feature_checksum: str | None = None
+    _code_message: list[str] | None = None
+
+    async def get_code_message(self) -> list[str]:
+        feature_checksum = self.get_checksum()
+        if feature_checksum != self._feature_checksum or self._code_message is None:
+            self._feature_checksum = feature_checksum
             self._code_message = await self._get_code_message()
         return self._code_message
 
     async def count_tokens(self, model: str) -> int:
         code_message = await self.get_code_message()
         return count_tokens("\n".join(code_message), model)
+
+
+async def count_feature_tokens(features: list[CodeFile], model: str) -> list[int]:
+    """Return the number of tokens in each feature."""
+    sem = asyncio.Semaphore(10)
+
+    async def _count_tokens(feature: CodeFile) -> int:
+        async with sem:
+            return await feature.count_tokens(model)
+
+    tasks = [_count_tokens(f) for f in features]
+    return await asyncio.gather(*tasks)
