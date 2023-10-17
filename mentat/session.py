@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import shlex
 import traceback
 from pathlib import Path
 from typing import List, Optional, Union, cast
@@ -11,10 +10,9 @@ from mentat.logging_config import setup_logging
 from .code_context import CODE_CONTEXT, CodeContext, CodeContextSettings
 from .code_edit_feedback import get_user_feedback_on_edits
 from .code_file_manager import CODE_FILE_MANAGER, CodeFileManager
-from .commands import Command
 from .config_manager import CONFIG_MANAGER, ConfigManager
 from .conversation import CONVERSATION, Conversation
-from .errors import MentatError
+from .errors import MentatError, SessionExit
 from .git_handler import GIT_ROOT, get_shared_git_root_for_paths
 from .llm_api import COST_TRACKER, CostTracker, setup_api_key
 from .parsers.block_parser import BlockParser
@@ -104,33 +102,27 @@ class Session:
             await stream.send(str(e), color="red")
             return
 
-        await stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
-        await stream.send("What can I do for you?", color="light_blue")
-        need_user_request = True
-        while True:
-            if need_user_request:
-                message = await collect_user_input()
+        try:
+            await stream.send(
+                "Type 'q' or use Ctrl-C to quit at any time.", color="cyan"
+            )
+            await stream.send("What can I do for you?", color="light_blue")
+            need_user_request = True
+            while True:
+                if need_user_request:
+                    message = await collect_user_input()
+                    conversation.add_user_message(message.data)
 
-                # Intercept and run command
-                if isinstance(message.data, str) and message.data.startswith("/"):
-                    arguments = shlex.split(message.data[1:])
-                    command = Command.create_command(arguments[0])
-                    await command.apply(*arguments[1:])
-                    continue
-
-                if message.data == "q":
-                    break
-
-                conversation.add_user_message(message.data)
-
-            file_edits = await conversation.get_model_response()
-            file_edits = [
-                file_edit for file_edit in file_edits if await file_edit.is_valid()
-            ]
-            if file_edits:
-                need_user_request = await get_user_feedback_on_edits(file_edits)
-            else:
-                need_user_request = True
+                file_edits = await conversation.get_model_response()
+                file_edits = [
+                    file_edit for file_edit in file_edits if await file_edit.is_valid()
+                ]
+                if file_edits:
+                    need_user_request = await get_user_feedback_on_edits(file_edits)
+                else:
+                    need_user_request = True
+        except SessionExit:
+            pass
 
     ### lifecycle
 

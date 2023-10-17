@@ -1,8 +1,11 @@
 import asyncio
 import logging
+import shlex
 from typing import Any, Coroutine
 
-from .errors import RemoteKeyboardInterrupt
+from mentat.commands import Command
+
+from .errors import RemoteKeyboardInterrupt, SessionExit
 from .session_stream import SESSION_STREAM, StreamMessage
 
 
@@ -19,6 +22,20 @@ async def collect_user_input(**kwargs: Any) -> StreamMessage:
     response = await stream.recv(f"input_request:{message.id}")
 
     logging.debug(f"User Input: {response.data}")
+
+    # Intercept and run commands
+    if not kwargs.get("plain"):
+        while isinstance(response.data, str) and response.data.startswith("/"):
+            arguments = shlex.split(message.data[1:])
+            command = Command.create_command(arguments[0])
+            await command.apply(*arguments[1:])
+
+            message = await stream.send("", channel="input_request", **kwargs)
+            response = await stream.recv(f"input_request:{message.id}")
+
+    # Quit on q
+    if response.data == "q":
+        raise SessionExit
 
     return response
 
