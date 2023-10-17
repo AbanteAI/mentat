@@ -1,24 +1,45 @@
 import asyncio
 import logging
+import shlex
 from typing import Any, Coroutine
 
-from .errors import RemoteKeyboardInterrupt
+from .errors import RemoteKeyboardInterrupt, SessionExit
 from .session_stream import SESSION_STREAM, StreamMessage
 
 
-async def collect_user_input(**kwargs: Any) -> StreamMessage:
+async def _get_input_request(**kwargs: Any) -> StreamMessage:
+    stream = SESSION_STREAM.get()
+
+    message = await stream.send("", channel="input_request", **kwargs)
+    response = await stream.recv(f"input_request:{message.id}")
+    return response
+
+
+async def collect_user_input(plain: bool = False) -> StreamMessage:
     """Listens for user input on a new channel
 
     send a message requesting user to send a response
     create a new broadcast channel that listens for the input
     close the channel after receiving the input
     """
-    stream = SESSION_STREAM.get()
+    # This fixes a circular import
+    from mentat.commands import Command
 
-    message = await stream.send("", channel="input_request", **kwargs)
-    response = await stream.recv(f"input_request:{message.id}")
-
+    response = await _get_input_request(plain=plain)
     logging.debug(f"User Input: {response.data}")
+
+    # Intercept and run commands
+    if not plain:
+        while isinstance(response.data, str) and response.data.startswith("/"):
+            arguments = shlex.split(response.data[1:])
+            command = Command.create_command(arguments[0])
+            await command.apply(*arguments[1:])
+
+            response = await _get_input_request(plain=plain)
+
+    # Quit on q
+    if isinstance(response.data, str) and response.data.strip() == "q":
+        raise SessionExit
 
     return response
 
