@@ -29,25 +29,36 @@ class PythonClient:
 
         self._tasks: Set[asyncio.Task[None]] = set()
         self.acc_task: asyncio.Task[None] | None = None
-        self._started = False
+        self.started = False
         self._accumulated_message = ""
 
     async def call_mentat(self, message: str):
-        if not self._started:
-            await self._startup()
+        if not self.started:
+            await self.startup()
         assert isinstance(self.session, Session), "Client is not running"
         await self.session.stream.send(
             message,
             source=StreamMessageSource.CLIENT,
             channel=f"input_request:{self._input_request_message.id}",
         )
-        self._input_request_message = await self.session.stream.recv("input_request")
+        # If the Session shuts down, we'll be waiting here forever;
+        # but because we need to wait for this request to insure that all changes have been made,
+        # setting a timeout is the best way to determine if the Session has shut down
+        try:
+            self._input_request_message = await asyncio.wait_for(
+                self.session.stream.recv("input_request"), 3
+            )
+        except TimeoutError:
+            await self.stop()
+
         temp = self._accumulated_message
         self._accumulated_message = ""
         return temp
 
     async def call_mentat_auto_accept(self, message: str):
         await self.call_mentat(message)
+        if not self.started:
+            return
         await self.call_mentat("y")
 
     async def _accumulate_messages(self):
@@ -58,7 +69,7 @@ class PythonClient:
                 end = message.extra["end"]
             self._accumulated_message += message.data + end
 
-    async def _startup(self):
+    async def startup(self):
         self.session = await Session.create(
             self.paths,
             self.exclude_paths,
@@ -71,7 +82,7 @@ class PythonClient:
         asyncio.ensure_future(self.session.start())
         self.acc_task = asyncio.create_task(self._accumulate_messages())
         self._input_request_message = await self.session.stream.recv("input_request")
-        self._started = True
+        self.started = True
 
     async def stop(self):
         if self.session is not None:
@@ -80,4 +91,4 @@ class PythonClient:
         if self.acc_task is not None:
             self.acc_task.cancel()
             self.acc_task = None
-        self._started = False
+        self.started = False

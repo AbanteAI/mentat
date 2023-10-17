@@ -125,6 +125,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         exclude_paths=exercise_runner.exclude_files(),
         no_code_map=True,
     )
+    await client.startup()
 
     prompt_1 = (
         f"Use the instructions in {exercise_runner.docs()} to modify"
@@ -138,7 +139,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
     )
 
     iterations = 0
-    while iterations < max_iterations:
+    while iterations < max_iterations and client.started:
         if exercise_runner.passed():
             break
         message = (
