@@ -9,6 +9,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
+import attr
 from termcolor import colored
 
 from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
@@ -29,6 +30,13 @@ from mentat.session_stream import SESSION_STREAM
 from mentat.streaming_printer import StreamingPrinter
 
 PARSER: ContextVar[Parser] = ContextVar("mentat:parser")
+
+
+@attr.define
+class ParsedLLMResponse:
+    full_response: str = attr.field()
+    conversation: str = attr.field()
+    file_edits: list[FileEdit] = attr.field()
 
 
 class Parser(ABC):
@@ -63,7 +71,7 @@ class Parser(ABC):
     async def stream_and_parse_llm_response(
         self,
         response: AsyncGenerator[Any, None],
-    ) -> tuple[str, list[FileEdit]]:
+    ) -> ParsedLLMResponse:
         """
         This general parsing structure relies on the assumption that all formats require three types of lines:
         1. 'conversation' lines, which are streamed as they come,
@@ -79,6 +87,7 @@ class Parser(ABC):
         printer = StreamingPrinter()
         printer_task = asyncio.create_task(printer.print_lines())
         message = ""
+        conversation = ""
         file_edits = dict[Path, FileEdit]()
 
         cur_line = ""
@@ -89,7 +98,7 @@ class Parser(ABC):
         line_printed = False
         in_special_lines = False
         in_code_lines = False
-        conversation = True
+        in_conversation = True
         printed_delimiter = False
         rename_map = dict[Path, Path]()
         async for chunk in response:
@@ -124,6 +133,8 @@ class Parser(ABC):
                                 )
                             )
                             printer.add_string(to_print, end="")
+                            if not in_code_lines or display_information is None:
+                                conversation += to_print
                     else:
                         to_print = (
                             content
@@ -133,11 +144,13 @@ class Parser(ABC):
                             )
                         )
                         printer.add_string(to_print, end="")
+                        if not in_code_lines or display_information is None:
+                            conversation += to_print
 
                 # If we print non code lines, we want to reprint the file name of the next change,
                 # even if it's the same file as the last change
                 if not in_code_lines and not in_special_lines and line_printed:
-                    conversation = True
+                    in_conversation = True
 
                 # New line handling
                 if "\n" in cur_line:
@@ -187,8 +200,9 @@ class Parser(ABC):
                             await printer_task
                             logging.debug("LLM Response:")
                             logging.debug(message)
-                            return (
+                            return ParsedLLMResponse(
                                 message,
+                                conversation,
                                 [file_edit for file_edit in file_edits.values()],
                             )
 
@@ -225,12 +239,12 @@ class Parser(ABC):
 
                         # Print file header
                         if (
-                            conversation
+                            in_conversation
                             or display_information.file_action_type
                             == FileActionType.RenameFile
                             or (file_edit.file_path != previous_file)
                         ):
-                            conversation = False
+                            in_conversation = False
                             printer.add_string(get_file_name(display_information))
                             if in_code_lines or display_information.removed_block:
                                 printed_delimiter = True
@@ -297,7 +311,11 @@ class Parser(ABC):
 
         logging.debug("LLM Response:")
         logging.debug(message)
-        return (message, [file_edit for file_edit in file_edits.values()])
+        return ParsedLLMResponse(
+            message,
+            conversation,
+            [file_edit for file_edit in file_edits.values()],
+        )
 
     # Ideally this would be called in this class instead of subclasses
     def _get_file_lines(
