@@ -232,7 +232,7 @@ class BlockParser(Parser):
                     ans += _BlockParserIndicator.Code.value + "\n"
                     ans += "\n".join(file_edit.replacements[0].new_lines) + "\n"
                 ans += _BlockParserIndicator.End.value + "\n"
-            else:
+            if not file_edit.is_creation:
                 for replacement in file_edit.replacements:
                     tmp = {}
                     tmp[_BlockParserJsonKeys.File.value] = str(

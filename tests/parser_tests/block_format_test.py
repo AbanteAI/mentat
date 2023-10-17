@@ -514,12 +514,34 @@ async def test_inverse(
             "name": "{(cwd / "file2.txt").as_posix() }"
         }}
         @@end
+        @@start
+        {{
+            "file": "{(cwd / "file1.txt").as_posix() }",
+            "action": "insert",
+            "insert-after-line": 1,
+            "insert-before-line": 2
+        }}
+        @@code
+        # I inserted this comment in a replacement
+        @@end
+        @@start
+        {{
+            "file": "{(cwd / "file1.txt").as_posix() }",
+            "action": "replace",
+            "start-line": 4,
+            "end-line": 4
+        }}
+        @@code
+        # better measure in a replacement
+        @@end
                           """)
 
     generator = convert_string_to_asyncgen(llm_response, 10)
     parser = BlockParser()
     parsedLLMResponse = await parser.stream_and_parse_llm_response(generator)
     inverse = parser.file_edits_to_llm_message(parsedLLMResponse)
+    print(parsedLLMResponse.file_edits)
+    print(inverse)
 
     assert llm_response == inverse
 
