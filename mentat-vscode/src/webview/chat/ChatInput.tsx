@@ -1,7 +1,8 @@
 import { ChangeEvent, KeyboardEvent, useEffect, useState } from "react";
 import { VscSend } from "react-icons/vsc";
 
-import { ChatMessage } from "../types";
+import { ChatMessage } from "../../types";
+import { vscode } from "../utils/vscode";
 
 type Props = {
   chatMessages: ChatMessage[];
@@ -30,6 +31,7 @@ function ChatInput(props: Props) {
       content: content,
       createdBy: "client",
     };
+    vscode.postMessage({ command: "mentat/chatMessage", data: newChatMessage });
     props.setChatMessages([...props.chatMessages, newChatMessage]);
     setContent("");
   }
@@ -52,10 +54,11 @@ function ChatInput(props: Props) {
         onChange={(e) => setContent(e.target.value)}
       />
       <button
-        className={`${submitDisabled
+        className={`${
+          submitDisabled
             ? "bg-none"
             : "bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)]"
-          } w-10 h-10 flex justify-center items-center rounded-lg`}
+        } w-10 h-10 flex justify-center items-center rounded-lg`}
         onClick={handleSubmit}
         disabled={submitDisabled}
       >

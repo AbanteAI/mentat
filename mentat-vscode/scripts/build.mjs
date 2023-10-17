@@ -34,6 +34,7 @@ const webviewOptions = {
   entryPoints: ["src/webview/index.tsx"],
   bundle: true,
   outfile: "build/webview/index.js",
+  // external: ["vscode"],
   sourcemap: args.includes("--sourcemap") ? "inline" : false,
   minify: args.includes("--minify"),
   plugins: [esbuildProblemMatcherPlugin],

@@ -1,5 +1,9 @@
+import { LanguageClientMessage } from "types";
 import * as vscode from "vscode";
 import { Uri, Webview } from "vscode";
+import { LanguageClient } from "vscode-languageclient/node";
+
+import { MentatClient } from "./client";
 
 /**
  * A helper function that returns a unique alphanumeric identifier called a nonce.
@@ -24,11 +28,28 @@ function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
 
 class WebviewProvider implements vscode.WebviewViewProvider {
   private extensionUri: vscode.Uri;
+  private mentatClient: MentatClient;
   private view?: vscode.WebviewView;
   private doc?: vscode.TextDocument;
 
-  constructor(extensionUri: vscode.Uri) {
+  constructor(extensionUri: vscode.Uri, mentatClient: MentatClient) {
     this.extensionUri = extensionUri;
+    this.mentatClient = mentatClient;
+  }
+
+  // Posts a message to the webview view.
+  //  endpoint: The endpoint to send the message to.
+  //  message: The message to send.
+  //  Throws an error if the view is not available.
+  // notice: the only things being posted to the webviews are state objects, so this will be a private function
+  private postMessage(endpoint: string, message: any) {
+    if (!this.view) {
+      console.log("postMessage to: ", endpoint);
+      console.log("with message: ", message);
+      console.error(`No view available. Its possibly collapsed`);
+    } else {
+      this.view.webview.postMessage({ type: endpoint, data: message });
+    }
   }
 
   private getHtmlForWebview(webview: vscode.Webview) {
@@ -78,6 +99,12 @@ class WebviewProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [this.extensionUri],
     };
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
+
+    webviewView.webview.onDidReceiveMessage(async (message: LanguageClientMessage) => {
+      console.log(`Extension received message: ${message}`);
+
+      this.mentatClient.sendChatMessage(message.data);
+    });
   }
 }
 

@@ -1,10 +1,13 @@
 import { exec } from "child_process";
 import * as fs from "fs";
+import * as net from "net";
 import * as os from "os";
 import * as path from "path";
 import * as semver from "semver";
 import * as util from "util";
 import * as vscode from "vscode";
+
+import { isPortInUse, tcpServerOptions } from "./utils/tcp";
 
 const MENTAT_COMMIT = "main";
 const PIP_INSTALL_ARGS = `install --upgrade "git+https://github.com/AbanteAI/mentat.git@${MENTAT_COMMIT}"`;
@@ -21,7 +24,7 @@ async function installMentat(
     console.log("Executing: fs.mkdirSync(mentatDir);");
     fs.mkdirSync(mentatDir);
   }
-  progress.report({ message: "Detecting Python version..." });
+  progress.report({ message: "Mentat: Detecting Python version..." });
   const pythonCommands =
     process.platform === "win32"
       ? ["py -3.10", "py -3", "py"]
@@ -58,7 +61,7 @@ async function installMentat(
       "Python 3.10 or above is not found on your system. Please install it and try again."
     );
   }
-  progress.report({ message: "Creating Python environment..." });
+  progress.report({ message: "Mentat: Creating Python environment..." });
   const createVenvCommand = `${pythonCommand} -m venv ${mentatDir}/venv`;
   console.log(`Executing: ${createVenvCommand}`);
   await aexec(createVenvCommand);
@@ -79,4 +82,13 @@ async function installMentat(
   console.log("Installed Mentat");
 }
 
-export { installMentat };
+// FIXME: start the server if it isn't already running
+async function getLanguageServerOptions(port: number) {
+  try {
+    return tcpServerOptions(port);
+  } catch {
+    throw Error("Did not detect a running server on port 8080");
+  }
+}
+
+export { installMentat, getLanguageServerOptions };

@@ -1,6 +1,6 @@
 import { VscAccount } from "react-icons/vsc";
 
-import { ChatMessage } from "../types";
+import { ChatMessage } from "../../types";
 
 type Props = {
   chatMessages: ChatMessage[];
