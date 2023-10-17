@@ -111,6 +111,8 @@ class Session:
             while True:
                 if need_user_request:
                     message = await collect_user_input()
+                    if message.data.strip() == "":
+                        continue
                     conversation.add_user_message(message.data)
 
                 file_edits = await conversation.get_model_response()

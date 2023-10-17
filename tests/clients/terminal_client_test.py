@@ -25,6 +25,15 @@ def mock_prompt_session_prompt(mocker):
     return mock_method
 
 
+def test_empty_prompt(
+    mock_prompt_session_prompt, mock_call_llm_api, mock_setup_api_key
+):
+    mock_prompt_session_prompt.side_effect = ["", "q"]
+    terminal_client = TerminalClient(["."])
+    terminal_client.run()
+    mock_call_llm_api.assert_not_called()
+
+
 def test_editing_file(
     mock_prompt_session_prompt, mock_call_llm_api, mock_setup_api_key
 ):
@@ -32,7 +41,7 @@ def test_editing_file(
     with open(file_name, "w") as f:
         f.write("# Line 1")
     mock_prompt_session_prompt.side_effect = [
-        "",
+        "Edit the file",
         "y",
         "q",
     ]

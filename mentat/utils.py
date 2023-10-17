@@ -3,6 +3,7 @@ import hashlib
 from importlib import resources
 from importlib.abc import Traversable
 from pathlib import Path
+from typing import AsyncGenerator
 
 mentat_dir_path = Path.home() / ".mentat"
 
@@ -31,6 +32,15 @@ async def run_subprocess_async(*args: str) -> str:
     output = stdout.decode("utf-8").strip() if stdout else ""
 
     return output
+
+
+# Useful for using functions designed to work with LLMs on prepared strings
+async def convert_string_to_asyncgen(
+    input_str: str, chunk_size: int
+) -> AsyncGenerator[dict[str, list[dict[str, dict[str, str]]]], None]:
+    for i in range(0, len(input_str), chunk_size):
+        yield {"choices": [{"delta": {"content": input_str[i : i + chunk_size]}}]}
+    return
 
 
 def fetch_resource(resource_path: Path) -> Traversable:
