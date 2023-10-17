@@ -28,7 +28,7 @@ async def test_replacement(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -75,7 +75,7 @@ async def test_replacement_case_not_matching(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -120,7 +120,7 @@ async def test_replacement_whitespace_not_matching(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -158,7 +158,7 @@ async def test_file_creation(
     temp_file_name = "temp.py"
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -188,7 +188,7 @@ async def test_file_deletion(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "y",
             "q",
@@ -220,7 +220,7 @@ async def test_file_rename(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]

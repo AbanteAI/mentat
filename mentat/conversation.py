@@ -147,9 +147,7 @@ class Conversation:
                 "Streaming... use control-c to interrupt the model at any point\n"
             )
             async with parser.interrupt_catcher():
-                message, file_edits = await parser.stream_and_parse_llm_response(
-                    response
-                )
+                parsedLLMResponse = await parser.stream_and_parse_llm_response(response)
         except InvalidRequestError as e:
             raise MentatError(
                 "Something went wrong - invalid request to OpenAI API. OpenAI"
@@ -160,7 +158,7 @@ class Conversation:
             raise UserError("OpenAI gave a rate limit error:\n" + str(e))
 
         time_elapsed = default_timer() - start_time
-        return (message, file_edits, time_elapsed)
+        return (parsedLLMResponse, time_elapsed)
 
     async def get_model_response(self) -> list[FileEdit]:
         stream = SESSION_STREAM.get()
@@ -183,16 +181,21 @@ class Conversation:
 
         await code_context.display_features()
         num_prompt_tokens = await get_prompt_token_count(messages_snapshot, self.model)
-        message, file_edits, time_elapsed = await self._stream_model_response(
+        parsedLLMResponse, time_elapsed = await self._stream_model_response(
             stream, parser, messages_snapshot
         )
         await cost_tracker.display_api_call_stats(
             num_prompt_tokens,
-            count_tokens(message, self.model),
+            count_tokens(parsedLLMResponse.full_response, self.model),
             self.model,
             time_elapsed,
         )
 
-        messages_snapshot.append({"role": "assistant", "content": message})
-        self.add_model_message(message, messages_snapshot)
-        return file_edits
+        transcript_logger = logging.getLogger("transcript")
+        messages_snapshot.append(
+            {"role": "assistant", "content": parsedLLMResponse.full_response}
+        )
+        transcript_logger.info(json.dumps({"messages": messages_snapshot}))
+
+        self.add_model_message(parsedLLMResponse.full_response, messages_snapshot)
+        return parsedLLMResponse.file_edits

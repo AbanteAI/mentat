@@ -274,7 +274,7 @@ class CodeContext:
         if self.settings.auto_tokens is not None:
             max_sim_tokens = min(max_sim_tokens, self.settings.auto_tokens)
 
-        if self.settings.use_embedding and max_sim_tokens > 0:
+        if self.settings.use_embedding and max_sim_tokens > 0 and prompt != "":
             sim_tokens = 0
 
             # Get embedding-similarity scores for all files

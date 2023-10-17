@@ -16,3 +16,7 @@ class UserError(Exception):
 # Used to indicate a KeyboardInterupt thrown by a remote client
 class RemoteKeyboardInterrupt(Exception):
     pass
+
+
+class SessionExit(Exception):
+    pass
