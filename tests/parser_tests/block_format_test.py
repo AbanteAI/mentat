@@ -469,10 +469,8 @@ async def test_inverse(
     llm_response = dedent(f"""\
         I will insert a comment between the first two lines
         and then replace the last line with 'better measure'
-
         Steps: 1. Insert a comment
                2. Replace last line
-
         @@start
         {{
             "file": "{(cwd / "test.txt").as_posix() }",
@@ -520,8 +518,8 @@ async def test_inverse(
 
     generator = convert_string_to_asyncgen(llm_response, 10)
     parser = BlockParser()
-    file_edits = await parser.stream_and_parse_llm_response(generator)
-    inverse = parser.file_edits_to_llm_message(file_edits)
+    parsedLLMResponse = await parser.stream_and_parse_llm_response(generator)
+    inverse = parser.file_edits_to_llm_message(parsedLLMResponse)
 
     assert llm_response == inverse
 

@@ -10,7 +10,7 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
 from mentat.parsers.file_edit import FileEdit, Replacement
-from mentat.parsers.parser import Parser
+from mentat.parsers.parser import ParsedLLMResponse, Parser
 from mentat.prompts.prompts import read_prompt
 
 block_parser_prompt_filename = Path("block_parser_prompt.txt")
@@ -198,13 +198,13 @@ class BlockParser(Parser):
         )
         return ""
 
-    def file_edits_to_llm_message(self, generated: tuple[str, list[FileEdit]]) -> str:
+    def file_edits_to_llm_message(self, parsedLLMResponse: ParsedLLMResponse) -> str:
         """
         Inverse of stream_and_parse_llm_response;
         takes in the generated message and file edits and returns the original message
         """
-        ans = generated[0].split("@")[0]  # BlockParserIndicator.Start.value)[0]
-        for file_edit in generated[1]:
+        ans = parsedLLMResponse.conversation
+        for file_edit in parsedLLMResponse.file_edits:
             tmp = {}
             tmp[_BlockParserJsonKeys.File.value] = str(file_edit.file_path.as_posix())
             if file_edit.is_creation:
