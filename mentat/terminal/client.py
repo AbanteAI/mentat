@@ -64,17 +64,15 @@ class TerminalClient:
         assert isinstance(self.session, Session), "TerminalClient is not running"
         while True:
             input_request_message = await self.session.stream.recv("input_request")
-            user_input = None
-            while user_input is None or user_input == "":
-                # TODO: Make extra kwargs like plain constants
-                if (
-                    input_request_message.extra is not None
-                    and input_request_message.extra.get("plain")
-                ):
-                    prompt_session = self._plain_session
-                else:
-                    prompt_session = self._prompt_session
-                user_input = await prompt_session.prompt_async(handle_sigint=False)
+            # TODO: Make extra kwargs like plain constants
+            if (
+                input_request_message.extra is not None
+                and input_request_message.extra.get("plain")
+            ):
+                prompt_session = self._plain_session
+            else:
+                prompt_session = self._prompt_session
+            user_input = await prompt_session.prompt_async(handle_sigint=False)
             assert isinstance(user_input, str)
             if user_input == "q":
                 self._should_exit = True

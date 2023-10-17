@@ -121,6 +121,9 @@ class Session:
                 if message.data == "q":
                     break
 
+                if message.data == "":
+                    continue
+
                 conversation.add_user_message(message.data)
 
             file_edits = await conversation.get_model_response()
