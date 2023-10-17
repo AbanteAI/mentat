@@ -7,13 +7,13 @@ from multiprocessing import Pool
 
 import pytest
 import tqdm
-from git import Repo
 from openai import InvalidRequestError
 
 from mentat.llm_api import COST_TRACKER, call_llm_api, setup_api_key
 from mentat.python_client.client import PythonClient
 
 from .exercise_runners.exercise_runner_factory import ExerciseRunnerFactory
+from .utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
@@ -21,17 +21,7 @@ pytestmark = pytest.mark.benchmark
 @pytest.fixture
 def clone_exercism_repo(refresh_repo, language):
     exercism_url = f"https://github.com/exercism/{language}.git"
-
-    local_dir = f"{os.path.dirname(__file__)}/../../../exercism-{language}"
-    if os.path.exists(local_dir):
-        if refresh_repo:
-            repo = Repo(local_dir)
-            repo.git.reset("--hard")
-            repo.git.clean("-fd")
-            repo.remotes.origin.pull()
-    else:
-        repo = Repo.clone_from(exercism_url, local_dir)
-
+    local_dir = clone_repo(exercism_url, f"exercism-{language}", refresh_repo)
     os.chdir(local_dir)
 
 

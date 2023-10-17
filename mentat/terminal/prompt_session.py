@@ -21,12 +21,7 @@ class FilteredFileHistory(FileHistory):
         super().__init__(filename)
 
     def append_string(self, string: str):
-        if (
-            string.strip().lower() not in self.excluded_phrases
-            # If the user mistypes a command, we don't want it to appear later
-            and string.strip()
-            and string.strip()[0] != "/"
-        ):
+        if string.strip().lower() not in self.excluded_phrases and string.strip():
             super().append_string(string)
 
 

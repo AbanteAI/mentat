@@ -1,6 +1,15 @@
 import asyncio
 import hashlib
+from importlib import resources
+from importlib.abc import Traversable
+from pathlib import Path
 from typing import AsyncGenerator
+
+mentat_dir_path = Path.home() / ".mentat"
+
+# package_name should always be "mentat" - but this will work if package name is changed
+package_name = __name__.split(".")[0]
+resources_path = Path("resources")
 
 
 def sha256(data: str) -> str:
@@ -32,3 +41,10 @@ async def convert_string_to_asyncgen(
     for i in range(0, len(input_str), chunk_size):
         yield {"choices": [{"delta": {"content": input_str[i : i + chunk_size]}}]}
     return
+
+
+def fetch_resource(resource_path: Path) -> Traversable:
+    resource = resources.files(package_name).joinpath(
+        str(resources_path / resource_path)
+    )
+    return resource

@@ -11,7 +11,6 @@ from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.styles import Style
 
 from mentat.config_manager import CONFIG_MANAGER
-from mentat.include_files import expand_paths
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.output import print_stream_message
@@ -22,18 +21,20 @@ from mentat.terminal.prompt_session import MentatPromptSession
 class TerminalClient:
     def __init__(
         self,
-        paths: List[Path] = [],
-        exclude_paths: List[Path] = [],
-        no_code_map: bool = False,
+        paths: List[str] = [],
+        exclude_paths: List[str] = [],
         diff: str | None = None,
         pr_diff: str | None = None,
-        auto_tokens: int | None = None,
+        no_code_map: bool = False,
+        use_embedding: bool = False,
+        auto_tokens: int | None = 0,
     ):
-        self.paths = paths
-        self.exclude_paths = exclude_paths
-        self.no_code_map = no_code_map
+        self.paths = [Path(path) for path in paths]
+        self.exclude_paths = [Path(path) for path in exclude_paths]
         self.diff = diff
         self.pr_diff = pr_diff
+        self.no_code_map = no_code_map
+        self.use_embedding = use_embedding
         self.auto_tokens = auto_tokens
 
         self.session: Session | None = None
@@ -118,9 +119,10 @@ class TerminalClient:
         self.session = await Session.create(
             self.paths,
             self.exclude_paths,
-            self.no_code_map,
             self.diff,
             self.pr_diff,
+            self.no_code_map,
+            self.use_embedding,
             self.auto_tokens,
         )
         self.session.start()
@@ -163,7 +165,7 @@ class TerminalClient:
         while not self._force_exit and not self.session.is_stopped:
             await asyncio.sleep(0.01)
         self.session = None
-        # logging is shutdown by session stop
+        # Logging is shutdown by session stop
 
         # Stop all background tasks
         for task in self._tasks:
@@ -208,11 +210,6 @@ def run_cli():
         help="List of file paths, directory paths, or glob patterns to exclude",
     )
     parser.add_argument(
-        "--no-code-map",
-        action="store_true",
-        help="Exclude the file structure/syntax map from the system prompt",
-    )
-    parser.add_argument(
         "--diff",
         "-d",
         type=str,
@@ -227,6 +224,16 @@ def run_cli():
         help="A git tree-ish to diff against the latest common ancestor of",
     )
     parser.add_argument(
+        "--no-code-map",
+        action="store_true",
+        help="Exclude the file structure/syntax map from the system prompt",
+    )
+    parser.add_argument(
+        "--embedding",
+        action="store_true",
+        help="Fetch/compare embeddings to auto-generate code context",
+    )
+    parser.add_argument(
         "--auto-tokens",
         "-a",
         type=int,
@@ -236,19 +243,19 @@ def run_cli():
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
-    no_code_map = args.no_code_map
     diff = args.diff
     pr_diff = args.pr_diff
+    no_code_map = args.no_code_map
+    use_embedding = not args.embedding
     auto_tokens = args.auto_tokens
 
-    # Expanding paths as soon as possible because some shells such as zsh automatically
-    # expand globs and we want to avoid differences in functionality between shells
     terminal_client = TerminalClient(
-        expand_paths(paths),
-        expand_paths(exclude_paths),
-        no_code_map,
+        paths,
+        exclude_paths,
         diff,
         pr_diff,
+        no_code_map,
+        use_embedding,
         auto_tokens,
     )
     terminal_client.run()
