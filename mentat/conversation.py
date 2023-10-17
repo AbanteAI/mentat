@@ -191,11 +191,8 @@ class Conversation:
             time_elapsed,
         )
 
-        transcript_logger = logging.getLogger("transcript")
         messages_snapshot.append(
             {"role": "assistant", "content": parsedLLMResponse.full_response}
         )
-        transcript_logger.info(json.dumps({"messages": messages_snapshot}))
-
         self.add_model_message(parsedLLMResponse.full_response, messages_snapshot)
         return parsedLLMResponse.file_edits
