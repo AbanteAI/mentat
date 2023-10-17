@@ -3,9 +3,14 @@ from __future__ import annotations
 import json
 import logging
 from contextvars import ContextVar
+from enum import Enum
 from timeit import default_timer
 
 from openai.error import InvalidRequestError, RateLimitError
+
+from mentat.parsers.file_edit import FileEdit
+from mentat.parsers.parser import PARSER, Parser
+from tests.conftest import SessionStream
 
 from .code_context import CODE_CONTEXT
 from .config_manager import CONFIG_MANAGER, user_config_path
@@ -18,11 +23,15 @@ from .llm_api import (
     is_model_available,
     model_context_size,
 )
-from .parsers.file_edit import FileEdit
-from .parsers.parser import PARSER, Parser
-from .session_stream import SESSION_STREAM, SessionStream
+from .session_stream import SESSION_STREAM
 
 CONVERSATION: ContextVar[Conversation] = ContextVar("mentat:conversation")
+
+
+class MessageRole(Enum):
+    System = "system"
+    User = "user"
+    Assistant = "assistant"
 
 
 class Conversation:
@@ -35,8 +44,12 @@ class Conversation:
         self.model = config.model()
         self.messages = list[dict[str, str]]()
 
+        # This contain the messages the user actually sends and the messages the model output
+        # along with a snapshot of exactly what the model got before that message
+        self.literal_messages = list[tuple[str, list[dict[str, str]] | None]]()
+
         prompt = parser.get_system_prompt()
-        self.add_system_message(prompt)
+        self.add_message(MessageRole.System, prompt)
 
     async def display_token_count(self):
         stream = SESSION_STREAM.get()
@@ -101,14 +114,25 @@ class Conversation:
                 color="cyan",
             )
 
-    def add_system_message(self, message: str):
-        self.messages.append({"role": "system", "content": message})
-
+    # The transcript logger logs tuples containing the actual message sent by the user or LLM
+    # and (for LLM messages) the LLM conversation that led to that LLM response
     def add_user_message(self, message: str):
-        self.messages.append({"role": "user", "content": message})
+        """Used for actual user input messages"""
+        transcript_logger = logging.getLogger("transcript")
+        transcript_logger.info(json.dumps((message, None)))
+        self.literal_messages.append((message, None))
+        self.add_message(MessageRole.User, message)
 
-    def add_assistant_message(self, message: str):
-        self.messages.append({"role": "assistant", "content": message})
+    def add_model_message(self, message: str, messages_snapshot: list[dict[str, str]]):
+        """Used for actual model output messages"""
+        transcript_logger = logging.getLogger("transcript")
+        transcript_logger.info(json.dumps((message, messages_snapshot)))
+        self.literal_messages.append((message, messages_snapshot))
+        self.add_message(MessageRole.Assistant, message)
+
+    def add_message(self, role: MessageRole, message: str):
+        """Used for adding messages to the models conversation"""
+        self.messages.append({"role": role.value, "content": message})
 
     async def _stream_model_response(
         self,
@@ -142,23 +166,23 @@ class Conversation:
         cost_tracker = COST_TRACKER.get()
         parser = PARSER.get()
 
-        messages = self.messages.copy()
+        messages_snapshot = self.messages.copy()
 
         # Rebuild code context with active code and available tokens
-        conversation_history = "\n".join([m["content"] for m in messages])
+        conversation_history = "\n".join([m["content"] for m in messages_snapshot])
         tokens = count_tokens(conversation_history, self.model)
         response_buffer = 1000
         code_message = await code_context.get_code_message(
-            messages[-1]["content"],
+            messages_snapshot[-1]["content"],
             self.model,
             self.max_tokens - tokens - response_buffer,
         )
-        messages.append({"role": "system", "content": code_message})
+        messages_snapshot.append({"role": "system", "content": code_message})
 
         await code_context.display_features()
-        num_prompt_tokens = await get_prompt_token_count(messages, self.model)
+        num_prompt_tokens = await get_prompt_token_count(messages_snapshot, self.model)
         parsedLLMResponse, time_elapsed = await self._stream_model_response(
-            stream, parser, messages
+            stream, parser, messages_snapshot
         )
         await cost_tracker.display_api_call_stats(
             num_prompt_tokens,
@@ -167,11 +191,8 @@ class Conversation:
             time_elapsed,
         )
 
-        transcript_logger = logging.getLogger("transcript")
-        messages.append(
+        messages_snapshot.append(
             {"role": "assistant", "content": parsedLLMResponse.full_response}
         )
-        transcript_logger.info(json.dumps({"messages": messages}))
-
-        self.add_assistant_message(parsedLLMResponse.full_response)
+        self.add_model_message(parsedLLMResponse.full_response, messages_snapshot)
         return parsedLLMResponse.file_edits
