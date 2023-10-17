@@ -200,7 +200,7 @@ class BlockParser(Parser):
         return ""
 
     def file_edits_to_llm_message(
-        self, parsedLLMResponse: ParsedLLMResponse, git_root=None
+        self, parsedLLMResponse: ParsedLLMResponse, git_root: Path | None = None
     ) -> str:
         """
         Inverse of stream_and_parse_llm_response;
