@@ -14,7 +14,6 @@ from mentat.parsers.unified_diff_parser import UnifiedDiffParser
 from mentat.session_stream import SESSION_STREAM
 from mentat.utils import convert_string_to_asyncgen
 
-GIT_ROOT.set(".")
 CODE_FILE_MANAGER.set(CodeFileManager())
 SESSION_STREAM.set(AsyncMock())
 
@@ -42,7 +41,9 @@ parser.add_argument(
 parser.add_argument(
     "--ending-format", type=str, default="block", help="Format to translate to"
 )
+parser.add_argument("--git-root", type=str, default=".", help="Git root directory")
 args = parser.parse_args()
+GIT_ROOT.set(args.git_root)
 
 starting_parser = parser_map[args.starting_format]
 ending_parser = parser_map[args.ending_format]

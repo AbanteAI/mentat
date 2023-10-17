@@ -465,7 +465,6 @@ async def test_inverse(
     #                               file_edits -> llm_message -> file_edits
     # we get back where we started. So this test verifies things we don't necessarily care about like the order of the
     # edits and white space.
-    cwd = Path(os.getcwd())
     llm_response = dedent(f"""\
         I will insert a comment between the first two lines
         and then replace the last line with 'better measure'
@@ -473,7 +472,7 @@ async def test_inverse(
                2. Replace last line
         @@start
         {{
-            "file": "{(cwd / "test.txt").as_posix() }",
+            "file": "test.txt",
             "action": "insert",
             "insert-after-line": 1,
             "insert-before-line": 2
@@ -483,7 +482,7 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{(cwd / "test.txt").as_posix() }",
+            "file": "test.txt",
             "action": "replace",
             "start-line": 4,
             "end-line": 4
@@ -493,7 +492,7 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{(cwd / "delete.txt").as_posix() }",
+            "file": "delete.txt",
             "action": "delete",
             "start-line": 2,
             "end-line": 3
@@ -501,7 +500,7 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{(cwd / "create.txt").as_posix() }",
+            "file": "create.txt",
             "action": "create-file"
         }}
         @@code
@@ -509,14 +508,14 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{(cwd / "file1.txt").as_posix() }",
+            "file": "file1.txt",
             "action": "rename-file",
-            "name": "{(cwd / "file2.txt").as_posix() }"
+            "name": "file2.txt"
         }}
         @@end
         @@start
         {{
-            "file": "{(cwd / "file1.txt").as_posix() }",
+            "file": "file1.txt",
             "action": "insert",
             "insert-after-line": 1,
             "insert-before-line": 2
@@ -526,7 +525,7 @@ async def test_inverse(
         @@end
         @@start
         {{
-            "file": "{(cwd / "file1.txt").as_posix() }",
+            "file": "file1.txt",
             "action": "replace",
             "start-line": 4,
             "end-line": 4
@@ -540,8 +539,6 @@ async def test_inverse(
     parser = BlockParser()
     parsedLLMResponse = await parser.stream_and_parse_llm_response(generator)
     inverse = parser.file_edits_to_llm_message(parsedLLMResponse)
-    print(parsedLLMResponse.file_edits)
-    print(inverse)
 
     assert llm_response == inverse
 

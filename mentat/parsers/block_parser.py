@@ -8,6 +8,7 @@ from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
+from mentat.git_handler import GIT_ROOT
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import ParsedLLMResponse, Parser
@@ -198,15 +199,21 @@ class BlockParser(Parser):
         )
         return ""
 
-    def file_edits_to_llm_message(self, parsedLLMResponse: ParsedLLMResponse) -> str:
+    def file_edits_to_llm_message(
+        self, parsedLLMResponse: ParsedLLMResponse, git_root=None
+    ) -> str:
         """
         Inverse of stream_and_parse_llm_response;
         takes in the generated message and file edits and returns the original message
         """
+        if git_root is None:
+            git_root = GIT_ROOT.get()
         ans = parsedLLMResponse.conversation
         for file_edit in parsedLLMResponse.file_edits:
             tmp = {}
-            tmp[_BlockParserJsonKeys.File.value] = str(file_edit.file_path.as_posix())
+            tmp[_BlockParserJsonKeys.File.value] = file_edit.file_path.relative_to(
+                git_root
+            ).as_posix()
             if file_edit.is_creation:
                 tmp[_BlockParserJsonKeys.Action.value] = (
                     _BlockParserAction.CreateFile.value
@@ -219,7 +226,7 @@ class BlockParser(Parser):
                 tmp[_BlockParserJsonKeys.Action.value] = (
                     _BlockParserAction.RenameFile.value
                 )
-                tmp[_BlockParserJsonKeys.Name.value] = str(
+                tmp[_BlockParserJsonKeys.Name.value] = (
                     file_edit.rename_file_path.as_posix()
                 )
             if _BlockParserJsonKeys.Action.value in tmp:
@@ -235,8 +242,8 @@ class BlockParser(Parser):
             if not file_edit.is_creation:
                 for replacement in file_edit.replacements:
                     tmp = {}
-                    tmp[_BlockParserJsonKeys.File.value] = str(
-                        file_edit.file_path.as_posix()
+                    tmp[_BlockParserJsonKeys.File.value] = (
+                        file_edit.file_path.relative_to(git_root).as_posix()
                     )
                     ans += _BlockParserIndicator.Start.value + "\n"
                     starting_line = replacement.starting_line
