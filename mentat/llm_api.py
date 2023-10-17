@@ -7,11 +7,12 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Optional, cast
 
+import backoff
 import openai
 import openai.error
 import tiktoken
 from dotenv import load_dotenv
-from openai.error import AuthenticationError
+from openai.error import AuthenticationError, RateLimitError, Timeout
 
 from mentat.session_stream import SESSION_STREAM
 
@@ -72,6 +73,12 @@ def raise_if_in_test_environment():
         raise MentatError("OpenAI call attempted in non benchmark test environment!")
 
 
+@backoff.on_exception(
+    wait_gen=backoff.expo, exception=Timeout, max_tries=5, base=2, factor=2
+)
+@backoff.on_exception(
+    wait_gen=backoff.expo, exception=RateLimitError, max_tries=3, base=2, factor=10
+)
 async def call_llm_api(
     messages: list[dict[str, str]], model: str
 ) -> AsyncGenerator[Any, None]:
