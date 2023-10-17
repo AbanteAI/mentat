@@ -45,7 +45,7 @@ class Conversation:
         self.messages = list[dict[str, str]]()
 
         # This contain the messages the user actually sends and the messages the model output
-        # along with a snapshot of exactly what the modelg got before that message
+        # along with a snapshot of exactly what the model got before that message
         self.literal_messages = list[tuple[str, list[dict[str, str]] | None]]()
 
         prompt = parser.get_system_prompt()

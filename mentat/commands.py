@@ -18,6 +18,7 @@ from .git_handler import commit
 class Command(ABC):
     # Unfortunately, Command isn't defined here yet, so even with annotations we need quotation marks
     _registered_commands = dict[str, type["Command"]]()
+    hidden = False
 
     def __init_subclass__(cls, command_name: str | None) -> None:
         if command_name is not None:
@@ -32,8 +33,16 @@ class Command(ABC):
         return command_cls()
 
     @classmethod
+    def get_command_names(cls) -> list[str]:
+        return [
+            name
+            for name, command in cls._registered_commands.items()
+            if not command.hidden
+        ]
+
+    @classmethod
     def get_command_completions(cls) -> List[str]:
-        return list(map(lambda name: "/" + name, cls._registered_commands))
+        return list(map(lambda name: "/" + name, cls.get_command_names()))
 
     @abstractmethod
     async def apply(self, *args: str) -> None:
@@ -79,7 +88,7 @@ class HelpCommand(Command, command_name="help"):
         stream = SESSION_STREAM.get()
 
         if not args:
-            commands = Command._registered_commands.keys()
+            commands = Command.get_command_names()
         else:
             commands = args
         for command_name in commands:
@@ -232,8 +241,9 @@ class ClearCommand(Command, command_name="clear"):
         return "Clear the current conversation's message history"
 
 
-# TODO: Make this command hidden?
 class ConversationCommand(Command, command_name="conversation"):
+    hidden = True
+
     async def apply(self, *args: str) -> None:
         conversation = CONVERSATION.get()
         viewer_path = create_viewer(conversation.literal_messages)
