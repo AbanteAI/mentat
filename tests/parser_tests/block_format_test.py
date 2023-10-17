@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -465,71 +464,71 @@ async def test_inverse(
     #                               file_edits -> llm_message -> file_edits
     # we get back where we started. So this test verifies things we don't necessarily care about like the order of the
     # edits and white space.
-    llm_response = dedent(f"""\
+    llm_response = dedent("""\
         I will insert a comment between the first two lines
         and then replace the last line with 'better measure'
         Steps: 1. Insert a comment
                2. Replace last line
         @@start
-        {{
+        {
             "file": "test.txt",
             "action": "insert",
             "insert-after-line": 1,
             "insert-before-line": 2
-        }}
+        }
         @@code
         # I inserted this comment
         @@end
         @@start
-        {{
+        {
             "file": "test.txt",
             "action": "replace",
             "start-line": 4,
             "end-line": 4
-        }}
+        }
         @@code
         # better measure
         @@end
         @@start
-        {{
+        {
             "file": "delete.txt",
             "action": "delete",
             "start-line": 2,
             "end-line": 3
-        }}
+        }
         @@end
         @@start
-        {{
+        {
             "file": "create.txt",
             "action": "create-file"
-        }}
+        }
         @@code
         # I created this file
         @@end
         @@start
-        {{
+        {
             "file": "file1.txt",
             "action": "rename-file",
             "name": "file2.txt"
-        }}
+        }
         @@end
         @@start
-        {{
+        {
             "file": "file1.txt",
             "action": "insert",
             "insert-after-line": 1,
             "insert-before-line": 2
-        }}
+        }
         @@code
         # I inserted this comment in a replacement
         @@end
         @@start
-        {{
+        {
             "file": "file1.txt",
             "action": "replace",
             "start-line": 4,
             "end-line": 4
-        }}
+        }
         @@code
         # better measure in a replacement
         @@end
