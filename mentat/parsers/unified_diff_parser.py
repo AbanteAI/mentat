@@ -22,8 +22,8 @@ unified_diff_parser_prompt_filename = Path("unified_diff_parser_prompt.txt")
 class UnifiedDiffDelimiter(Enum):
     SpecialStart = "---"
     SpecialEnd = "+++"
-    MidChange = "@@\n"
-    EndChange = "@@end\n"
+    MidChange = "@@ @@\n"
+    EndChange = "@@ end @@\n"
 
 
 class UnifiedDiffParser(Parser):
@@ -78,7 +78,9 @@ class UnifiedDiffParser(Parser):
 
     @override
     def _ends_special(self, line: str) -> bool:
-        return line.startswith(UnifiedDiffDelimiter.SpecialEnd.value)
+        return line.startswith(
+            UnifiedDiffDelimiter.MidChange.value.strip()
+        ) or line.startswith(UnifiedDiffDelimiter.EndChange.value.strip())
 
     @override
     def _special_block(
@@ -88,7 +90,7 @@ class UnifiedDiffParser(Parser):
         rename_map: dict[Path, Path],
         special_block: str,
     ) -> tuple[DisplayInformation, FileEdit, bool]:
-        lines = special_block.split("\n")
+        lines = special_block.strip().split("\n")
         file_name = lines[0][4:]
         new_name = lines[1][4:]
         is_creation = file_name == "/dev/null"
@@ -108,8 +110,11 @@ class UnifiedDiffParser(Parser):
         file_edit = FileEdit(
             git_root / file_name, [], is_creation, is_deletion, new_name
         )
-        # BUG: There is a change delimiter for when it doesn't add anything on a deletion, addition, or rename
-        return (display_information, file_edit, True)
+        return (
+            display_information,
+            file_edit,
+            lines[-1].startswith(UnifiedDiffDelimiter.MidChange.value.strip()),
+        )
 
     @override
     def _ends_code(self, line: str) -> bool:
@@ -129,7 +134,7 @@ class UnifiedDiffParser(Parser):
             code_file_manager, rename_map, display_information.file_name
         ).copy()
 
-        # First, we split by the @@ symbols that separate changes.
+        # First, we split by the symbols that separate changes.
         lines = code_block.split("\n")
         changes = list[list[str]]()
         cur_lines = list[str]()
@@ -160,6 +165,8 @@ class UnifiedDiffParser(Parser):
         # Next, we collect the - and context lines, search for their locations, and set the replacement ranges
         replacements = list[Replacement]()
         for change in changes:
+            if not change:
+                continue
             # We need both removals and context in this array this one
             search_lines = list[str]()
             for line in change:
@@ -178,12 +185,30 @@ class UnifiedDiffParser(Parser):
                     color="red",
                 )
 
+            # Matching lines checks for matches that are missing whitespace only lines;
+            # this will cause errors with line numbering if we don't add those lines into the change lines
+            cur_file_index = start_index
+            cur_change_index = 0
+            while cur_change_index < len(change) and cur_file_index < len(file_lines):
+                cur_change_line = change[cur_change_index]
+                if cur_change_line.startswith("+"):
+                    cur_change_index += 1
+                    continue
+                cur_file_line = file_lines[cur_file_index]
+
+                if not cur_file_line.strip() and cur_change_line.strip():
+                    change.insert(cur_change_index, "")
+                elif not cur_change_line.strip() and cur_file_line.strip():
+                    file_lines.insert(cur_file_index, "")
+                cur_file_index += 1
+                cur_change_index += 1
+
             # We need a separate Replacement whenever context lines are between a group of additions/removals
             cur_start = None
             cur_additions = list[str]()
             cur_index = start_index
             for line in change:
-                if line.startswith(" "):
+                if line.startswith(" ") or not line:
                     if cur_start is not None:
                         replacements.append(
                             Replacement(cur_start, cur_index, cur_additions)
