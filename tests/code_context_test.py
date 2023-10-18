@@ -274,6 +274,7 @@ async def test_get_code_message_include(
         code_message = await code_context.get_code_message(
             prompt="", model="gpt-4", max_tokens=1e6
         )
+        print(limit, code_message)
         return count_tokens(code_message, "gpt-4")
 
     # If max_tokens is None, include the full auto-context
