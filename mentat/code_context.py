@@ -112,13 +112,15 @@ class CodeContext:
             )
         else:
             await stream.send(f"{prefix}Included files: None", color="yellow")
-        await stream.send(
-            f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
-        )
         auto = self.settings.auto_tokens
         await stream.send(
-            f"{prefix}Auto-tokens: {'Model max (default)' if auto is None else auto}"
+            f"{prefix}Auto-token limit:"
+            f" {'Model max (default)' if auto is None else auto}"
         )
+        if auto != 0:
+            await stream.send(
+                f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
+            )
 
     async def display_features(self):
         """Display a summary of all active features"""
