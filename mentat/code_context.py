@@ -178,7 +178,7 @@ class CodeContext:
     ) -> str:
         code_message = list[str]()
 
-        self.diff_context.clear_cache
+        self.diff_context.clear_cache()
         await self._set_code_map()
         if self.diff_context.files:
             code_message += [
@@ -261,6 +261,7 @@ class CodeContext:
                 _features.append(feature)
             level_length = sum(await count_feature_tokens(_features, model))
             if level_length < max_auto_tokens:
+                print(level)
                 all_features += _features
                 break
 
