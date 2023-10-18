@@ -5,12 +5,12 @@
 These instructions will run through the workflow of running the project locally and
 (optionally) using the VSCode debugger for the extension and the webviews.
 
-**Prerequisites**
+### Prerequisites
 
 - VSCode
 - Node v18.16.0
 
-**Steps**
+### Steps
 
 1. Install the project
 
@@ -20,7 +20,7 @@ npm install
 
 2. Open VSCode
 
-2.a Without the VSCode Debugger
+**Without the VSCode Debugger**
 
 If you want to just open VSCode with the extension running (without the VSCode
 Debugger), use:
@@ -29,10 +29,10 @@ Debugger), use:
 npm run vscode
 ```
 
-At this point the extension is running and you don't have to follow the rest of the
-setup instructions.
+At this point the extension is running and you should see the Mentat logo attached to
+the sidebar. You don't have to follow the rest of the setup instructions. Congrats!
 
-2.b With the VSCode Debugger
+**With the VSCode Debugger**
 
 If you want to open VSCode with the javascript debugger active and debug the running
 extension, use:
