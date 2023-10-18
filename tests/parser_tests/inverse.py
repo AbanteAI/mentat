@@ -70,7 +70,7 @@ async def verify_inverse(parser):
                 ],
                 is_creation=False,
                 is_deletion=False,
-                rename_file_path=Path("file2.txt"),
+                rename_file_path=Path("file2.txt").resolve(),
             ),
         ],
     )
