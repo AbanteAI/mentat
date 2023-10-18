@@ -3,8 +3,10 @@ from textwrap import dedent
 
 import pytest
 
+from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session import Session
 from tests.conftest import ConfigManager
+from tests.parser_tests.inverse import verify_inverse
 
 
 @pytest.fixture(autouse=True)
@@ -246,3 +248,15 @@ async def test_change_then_rename_then_change(
             # New line 2
             # with 2 lines""")
     assert content == expected_content
+
+
+@pytest.mark.asyncio
+async def test_inverse(
+    mock_stream,
+    mock_call_llm_api,
+    mock_collect_user_input,
+    mock_setup_api_key,
+    mock_code_file_manager,
+    mock_git_root,
+):
+    await verify_inverse(ReplacementParser())
