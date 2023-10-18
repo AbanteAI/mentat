@@ -20,7 +20,10 @@ npm install
 
 2. Open VSCode
 
-If you want to just open VSCode with the extension running, use:
+2.a Without the VSCode Debugger
+
+If you want to just open VSCode with the extension running (without the VSCode
+Debugger), use:
 
 ```
 npm run vscode
@@ -28,6 +31,8 @@ npm run vscode
 
 At this point the extension is running and you don't have to follow the rest of the
 setup instructions.
+
+2.b With the VSCode Debugger
 
 If you want to open VSCode with the javascript debugger active and debug the running
 extension, use:
@@ -44,7 +49,7 @@ at the top of the menu. The "Run Extension" launch configuration should be selec
 If everything runs correctly you should see:
 
 - a second VSCode window opened with the Mentat extension logo in the sidebar
-- the VSCode debugger active and attacked in the original VSCode window
+- the VSCode debugger active and attached in the original VSCode window
 - two "[watch] build finished" log messages in the terminal (one for the extension and
   one for the webview)
 
