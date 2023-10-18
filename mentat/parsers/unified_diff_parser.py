@@ -20,7 +20,7 @@ unified_diff_parser_prompt_filename = Path("unified_diff_parser_prompt.txt")
 
 
 class UnifiedDiffDelimiter(Enum):
-    SpecialStart = "---"
+    SpecialStart = "diff --git"
     SpecialEnd = "+++"
     MidChange = "@@ @@\n"
     EndChange = "@@ end @@\n"
@@ -91,10 +91,10 @@ class UnifiedDiffParser(Parser):
         special_block: str,
     ) -> tuple[DisplayInformation, FileEdit, bool]:
         lines = special_block.strip().split("\n")
-        file_name = lines[0][4:]
-        new_name = lines[1][4:]
-        is_creation = file_name == "/dev/null"
-        is_deletion = new_name == "/dev/null"
+        file_name = lines[1][6:]
+        new_name = lines[2][6:]
+        is_creation = file_name == "ev/null"
+        is_deletion = new_name == "ev/null"
         if is_creation:
             file_name = new_name
         if file_name == new_name or is_deletion:
