@@ -74,18 +74,21 @@ class FileEdit:
         if self.is_creation:
             if self.file_path.exists():
                 await stream.send(
-                    f"File {rel_path} already exists, canceling creation."
+                    f"File {rel_path} already exists, canceling creation.",
+                    color="light_yellow",
                 )
                 return False
         else:
             if not self.file_path.exists():
                 await stream.send(
-                    f"File {rel_path} does not exist, canceling all edits to file."
+                    f"File {rel_path} does not exist, canceling all edits to file.",
+                    color="light_yellow",
                 )
                 return False
             elif rel_path not in code_file_manager.file_lines:
                 await stream.send(
-                    f"File {rel_path} not in context, canceling all edits to file."
+                    f"File {rel_path} not in context, canceling all edits to file.",
+                    color="light_yellow",
                 )
                 return False
 
@@ -93,7 +96,8 @@ class FileEdit:
             rel_rename_path = Path(os.path.relpath(self.rename_file_path, git_root))
             await stream.send(
                 f"File {rel_path} being renamed to existing file {rel_rename_path},"
-                " canceling rename."
+                " canceling rename.",
+                color="light_yellow",
             )
             self.rename_file_path = None
         return True

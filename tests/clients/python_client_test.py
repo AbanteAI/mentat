@@ -26,7 +26,9 @@ async def test_editing_file_auto_accept(mock_call_llm_api, mock_setup_api_key):
         @@end""")])
 
     python_client = PythonClient(["."])
+    await python_client.startup()
     await python_client.call_mentat_auto_accept("Conversation")
+    await python_client.wait_for_edit_completion()
     with open(file_name, "r") as f:
         content = f.read()
         expected_content = "# Line 1\n# Line 2"
@@ -55,7 +57,9 @@ async def test_collects_mentat_response(mock_call_llm_api, mock_setup_api_key):
         @@end""")])
 
     python_client = PythonClient(["."])
+    await python_client.startup()
     response = await python_client.call_mentat("Conversation")
+    response += await python_client.call_mentat("y")
     assert "Conversation" in response
     assert "Apply these changes? 'Y/n/i' or provide feedback." in response
     await python_client.stop()

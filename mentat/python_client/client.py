@@ -33,23 +33,14 @@ class PythonClient:
         self._accumulated_message = ""
 
     async def call_mentat(self, message: str):
-        if not self.started:
-            await self.startup()
         assert isinstance(self.session, Session), "Client is not running"
+
+        input_request_message = await self.session.stream.recv("input_request")
         await self.session.stream.send(
             message,
             source=StreamMessageSource.CLIENT,
-            channel=f"input_request:{self._input_request_message.id}",
+            channel=f"input_request:{input_request_message.id}",
         )
-        # If the Session shuts down, we'll be waiting here forever;
-        # but because we need to wait for this request to insure that all changes have been made,
-        # setting a timeout is the best way to determine if the Session has shut down
-        try:
-            self._input_request_message = await asyncio.wait_for(
-                self.session.stream.recv("input_request"), 3
-            )
-        except TimeoutError:
-            await self.stop()
 
         temp = self._accumulated_message
         self._accumulated_message = ""
@@ -60,6 +51,10 @@ class PythonClient:
         if not self.started:
             return
         await self.call_mentat("y")
+
+    async def wait_for_edit_completion(self):
+        assert isinstance(self.session, Session), "Client is not running"
+        await self.session.stream.recv(channel="edits_complete")
 
     async def _accumulate_messages(self):
         assert isinstance(self.session, Session), "Client is not running"
@@ -81,7 +76,6 @@ class PythonClient:
         )
         asyncio.ensure_future(self.session.start())
         self.acc_task = asyncio.create_task(self._accumulate_messages())
-        self._input_request_message = await self.session.stream.recv("input_request")
         self.started = True
 
     async def stop(self):

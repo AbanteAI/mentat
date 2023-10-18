@@ -148,10 +148,12 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
             else exercise_runner.get_error_message() + prompt_2
         )
         await client.call_mentat_auto_accept(message)
+        await client.wait_for_edit_completion()
 
         exercise_runner.run_test()
         iterations += 1
 
+    had_error = not client.started
     await client.stop()
     passed = exercise_runner.passed()
     result = {
@@ -159,7 +161,10 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         "passed": passed,
         "test": exercise_runner.name,
     }
-    if not result["passed"]:
+    if had_error:
+        result["response"] = "Error while running mentat"
+        result["reason"] = "error"
+    elif not result["passed"]:
         response, reason = await failure_analysis(exercise_runner, language)
         result["response"] = response
         result["reason"] = reason

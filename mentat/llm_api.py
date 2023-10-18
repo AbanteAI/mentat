@@ -74,10 +74,22 @@ def raise_if_in_test_environment():
 
 
 @backoff.on_exception(
-    wait_gen=backoff.expo, exception=Timeout, max_tries=5, base=2, factor=2
+    wait_gen=backoff.expo,
+    exception=Timeout,
+    max_tries=5,
+    base=2,
+    factor=2,
+    logger="",
+    giveup_log_level=logging.INFO,
 )
 @backoff.on_exception(
-    wait_gen=backoff.expo, exception=RateLimitError, max_tries=3, base=2, factor=10
+    wait_gen=backoff.expo,
+    exception=RateLimitError,
+    max_tries=3,
+    base=2,
+    factor=10,
+    logger="",
+    giveup_log_level=logging.INFO,
 )
 async def call_llm_api(
     messages: list[dict[str, str]], model: str

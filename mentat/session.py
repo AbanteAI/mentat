@@ -125,10 +125,13 @@ class Session:
                     need_user_request = await get_user_feedback_on_edits(file_edits)
                 else:
                     need_user_request = True
+                await stream.send(bool(file_edits), channel="edits_complete")
         except SessionExit:
             pass
         except (Timeout, RateLimitError) as e:
             await stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
+        finally:
+            await stream.send(None, channel="exit")
 
     ### lifecycle
 
