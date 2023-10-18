@@ -178,7 +178,7 @@ class CodeContext:
     ) -> str:
         code_message = list[str]()
 
-        self.diff_context.clear_cache
+        self.diff_context.clear_cache()
         await self._set_code_map()
         if self.diff_context.files:
             code_message += [
@@ -245,18 +245,19 @@ class CodeContext:
         for level in levels:
             _features = list[CodeFile]()
             for path in get_non_gitignored_files(git_root):
+                abs_path = git_root / path
                 if (
-                    path in self.include_files
-                    or path.is_dir()
-                    or not is_file_text_encoded(path)
+                    abs_path in self.include_files
+                    or abs_path.is_dir()
+                    or not is_file_text_encoded(abs_path)
                 ):
                     continue
                 diff_target = (
                     self.diff_context.target
-                    if path in self.diff_context.files
+                    if abs_path in self.diff_context.files
                     else None
                 )
-                feature = CodeFile(path, level=level, diff=diff_target)
+                feature = CodeFile(abs_path, level=level, diff=diff_target)
                 _features.append(feature)
             level_length = sum(await count_feature_tokens(_features, model))
             if level_length < max_auto_tokens:

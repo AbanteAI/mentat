@@ -32,11 +32,11 @@ def expand_paths(paths: list[Path]) -> list[Path]:
     return [Path(path).resolve() for path in globbed_paths]
 
 
-def is_file_text_encoded(file_path: Path):
+def is_file_text_encoded(abs_path: Path):
     """Checks if a file is text encoded."""
     try:
         # The ultimate filetype test
-        with open(file_path, "r") as f:
+        with open(abs_path, "r") as f:
             f.read()
         return True
     except UnicodeDecodeError:
