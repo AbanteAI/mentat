@@ -72,3 +72,7 @@ The Mentat VSCode Extension code is broken up into 2 main sections:
   VSCode resources, and run any background processes managed by VSCode.
 - The webview. This is all all the React code thats rendered and injected into VSCode
   "webviews".
+
+The code style follows the
+[Airbnb Javascript Style Guide](https://airbnb.io/javascript/) and the
+[Airbnb React/JSX Style Guide](https://airbnb.io/javascript/react/).

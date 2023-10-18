@@ -14,6 +14,12 @@ const fakeMessages: ChatMessage[] = [
   {
     id: "1",
     orderId: 1,
+    content: "This is a server message",
+    createdBy: "server",
+  },
+  {
+    id: "2",
+    orderId: 2,
     content: "Whoa this is another chat message!",
     createdBy: "client",
   },
@@ -24,12 +30,21 @@ function Chat() {
 
   function handleMessage(payload: any) {
     console.log(`Webview got message from Extension: ${payload}`);
+    setChatMessages((prevMessages) => {
+      const newChatMessage: ChatMessage = {
+        id: "",
+        orderId: prevMessages[prevMessages.length - 1].orderId + 1,
+        content: "hello from the server!",
+        createdBy: "server",
+      };
+      return [...prevMessages, newChatMessage];
+    });
   }
 
   useEffect(() => {
-    document.addEventListener("message", handleMessage);
+    window.addEventListener("message", handleMessage);
     return () => {
-      document.removeEventListener("message", handleMessage);
+      window.removeEventListener("message", handleMessage);
     };
   }, []);
 

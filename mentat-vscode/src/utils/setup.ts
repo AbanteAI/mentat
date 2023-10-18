@@ -1,13 +1,12 @@
 import { exec } from "child_process";
 import * as fs from "fs";
-import * as net from "net";
 import * as os from "os";
 import * as path from "path";
 import * as semver from "semver";
 import * as util from "util";
 import * as vscode from "vscode";
 
-import { isPortInUse, tcpServerOptions } from "./utils/tcp";
+import { isPortInUse, tcpServerOptions } from "./tcp";
 
 const MENTAT_COMMIT = "main";
 const PIP_INSTALL_ARGS = `install --upgrade "git+https://github.com/AbanteAI/mentat.git@${MENTAT_COMMIT}"`;

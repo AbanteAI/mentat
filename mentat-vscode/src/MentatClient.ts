@@ -1,3 +1,4 @@
+import emitter from "emitter";
 import * as vscode from "vscode";
 import { LanguageClient, ServerOptions, State } from "vscode-languageclient/node";
 
@@ -22,6 +23,14 @@ class MentatClient {
       this.languageServerOptions,
       {
         documentSelector: [{ language: "*" }],
+      }
+    );
+
+    this.languageServerClient.onNotification(
+      "mentat/inputRequest",
+      async (params: any) => {
+        console.log(`Got params ${params} from Language Server`);
+        emitter.emit("mentat/inputRequest", params);
       }
     );
 
@@ -63,4 +72,4 @@ class MentatClient {
   }
 }
 
-export { MentatClient };
+export default MentatClient;

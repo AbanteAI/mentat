@@ -65,10 +65,7 @@
     "watch:css": "npx tailwindcss -i ./src/webview/main.css -o ./build/webview/main.css --watch",
     "watch": "npm run build-base -- --sourcemap --watch",
     "vscode": "code --extensionDevelopmentPath=$PWD .",
-    "vscode:prepublish": "npm run build-base -- --minify",
-    "vite:dev": "vite",
-    "vite:build": "vite build",
-    "vite:preview": "vite preview"
+    "vscode:prepublish": "npm run build-base -- --minify"
   },
   "devDependencies": {
     "@types/node": "20.8.3",

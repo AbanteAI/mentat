@@ -1,4 +1,4 @@
-import { ChangeEvent, KeyboardEvent, useEffect, useState } from "react";
+import { Dispatch, KeyboardEvent, SetStateAction, useEffect, useState } from "react";
 import { VscSend } from "react-icons/vsc";
 
 import { ChatMessage } from "../../types";
@@ -6,7 +6,7 @@ import { vscode } from "../utils/vscode";
 
 type Props = {
   chatMessages: ChatMessage[];
-  setChatMessages: (chatMessages: ChatMessage[]) => void;
+  setChatMessages: Dispatch<SetStateAction<ChatMessage[]>>;
 };
 
 function ChatInput(props: Props) {
@@ -25,14 +25,18 @@ function ChatInput(props: Props) {
     if (submitDisabled) {
       return;
     }
-    const newChatMessage: ChatMessage = {
-      id: "",
-      orderId: props.chatMessages[props.chatMessages.length - 1].orderId + 1,
-      content: content,
-      createdBy: "client",
-    };
-    vscode.postMessage({ command: "mentat/chatMessage", data: newChatMessage });
-    props.setChatMessages([...props.chatMessages, newChatMessage]);
+
+    props.setChatMessages((prevMessages) => {
+      const newChatMessage: ChatMessage = {
+        id: "",
+        orderId: prevMessages[prevMessages.length - 1].orderId + 1,
+        content: content,
+        createdBy: "client",
+      };
+      vscode.postMessage({ command: "mentat/chatMessage", data: newChatMessage });
+      return [...prevMessages, newChatMessage];
+    });
+
     setContent("");
   }
 

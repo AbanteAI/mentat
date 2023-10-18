@@ -1,6 +1,7 @@
 import { VscAccount } from "react-icons/vsc";
 
 import { ChatMessage } from "../../types";
+import MentatIcon from "./MentatIcon";
 
 type Props = {
   chatMessages: ChatMessage[];
@@ -11,12 +12,15 @@ function ChatHistory(props: Props) {
     const backgroundColor =
       chatMessage.createdBy === "client" ? "bg-[var(--vscode-input-background)]" : "";
 
+    const messageIcon =
+      chatMessage.createdBy === "client" ? <VscAccount size={18} /> : <MentatIcon />;
+
     return (
       <div
         key={chatMessage.orderId}
         className={`flex items-center p-2 ${backgroundColor}`}
       >
-        <VscAccount size={18} />
+        {messageIcon}
         <p className="flex-1 pl-2">{chatMessage.content}</p>
       </div>
     );

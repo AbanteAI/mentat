@@ -1,1 +1,6 @@
-{"include": ["mentat"], "ignore": ["testbed", "tests"], "typeCheckingMode": "strict"}
+{
+  "include": ["mentat"],
+  "ignore": ["testbed", "tests"],
+  "typeCheckingMode": "strict",
+  "reportImplicitOverride": true
+}

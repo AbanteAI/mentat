@@ -1,9 +1,8 @@
+import MentatClient from "MentatClient";
+import emitter from "emitter";
 import { LanguageClientMessage } from "types";
 import * as vscode from "vscode";
 import { Uri, Webview } from "vscode";
-import { LanguageClient } from "vscode-languageclient/node";
-
-import { MentatClient } from "./client";
 
 /**
  * A helper function that returns a unique alphanumeric identifier called a nonce.
@@ -73,7 +72,7 @@ class WebviewProvider implements vscode.WebviewViewProvider {
         <head>
           <meta charset="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; font-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'nonce-${nonce}'; font-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
           <link nonce="${nonce}" rel="stylesheet" type="text/css" href="${styleUri}">
           <title>Mentat</title>
         </head>
@@ -105,7 +104,12 @@ class WebviewProvider implements vscode.WebviewViewProvider {
 
       this.mentatClient.sendChatMessage(message.data);
     });
+
+    emitter.on("mentat/inputRequest", (message) => {
+      console.log(`Emitter for mentat/inputRequest got: ${message}`);
+      this.postMessage("mentat/inputRequest", message);
+    });
   }
 }
 
-export { WebviewProvider };
+export default WebviewProvider;
