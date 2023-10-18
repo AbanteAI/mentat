@@ -261,7 +261,6 @@ class CodeContext:
                 _features.append(feature)
             level_length = sum(await count_feature_tokens(_features, model))
             if level_length < max_auto_tokens:
-                print(level)
                 all_features += _features
                 break
 

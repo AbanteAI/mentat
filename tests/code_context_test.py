@@ -274,13 +274,13 @@ async def test_get_code_message_include(
         code_message = await code_context.get_code_message(
             prompt="", model="gpt-4", max_tokens=1e6
         )
-        print(limit, code_message)
         return count_tokens(code_message, "gpt-4")
 
-    # If max_tokens is None, include the full auto-context
-    assert await _count_auto_tokens_where(None) == 236  # Cmap w/ signatures
-    assert False
-    assert await _count_auto_tokens_where(230) == 184  # Cmap
+    # Github Actions doesn't have ctags, so we need this
+    if not code_context.settings.no_code_map:
+        # If max_tokens is None, include the full auto-context
+        assert await _count_auto_tokens_where(None) == 236  # Cmap w/ signatures
+        assert await _count_auto_tokens_where(230) == 184  # Cmap
     assert await _count_auto_tokens_where(170) == 134  # fnames
     # Always return include_files, regardless of max
     assert await _count_auto_tokens_where(0) == 102  # Include_files only
