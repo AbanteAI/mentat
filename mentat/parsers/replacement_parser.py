@@ -141,21 +141,20 @@ class ReplacementParser(Parser):
                 ans += f"@ {file_rel_path} {action_indicator}\n"
 
             for replacement in file_edit.replacements:
-                if len(replacement.new_lines) == 0:
+                if (
+                    replacement.starting_line == replacement.ending_line
+                    and len(replacement.new_lines) != 0
+                ):
+                    ans += (
+                        f"@ {file_rel_path} insert_line={replacement.starting_line + 1}\n"
+                    )
+                else:
                     ans += (
                         f"@ {file_rel_path} starting_line={replacement.starting_line + 1} "
                         f"ending_line={replacement.ending_line}\n"
                     )
-                else:
-                    if replacement.starting_line == replacement.ending_line:
-                        ans += (
-                            f"@ {file_rel_path} insert_line={replacement.starting_line + 1}\n"
-                        )
-                    else:
-                        ans += (
-                            f"@ {file_rel_path} starting_line={replacement.starting_line + 1} "
-                            f"ending_line={replacement.ending_line}\n"
-                        )
+
+                if len(replacement.new_lines) != 0:
                     ans += "\n".join(replacement.new_lines) + "\n"
                 ans += "@\n"
 
