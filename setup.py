@@ -10,7 +10,7 @@ with open(readme_path, "r", encoding="utf-8") as f:
 
 setup(
     name="mentat",
-    version="0.1.17",
+    version="0.1.19",
     python_requires=">=3.10",
     packages=["mentat"],
     install_requires=[
