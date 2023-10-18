@@ -1,0 +1,5 @@
+include requirements.txt
+include dev-requirements.txt
+include README.md
+include LICENSE
+recursive-include mentat/resources/**

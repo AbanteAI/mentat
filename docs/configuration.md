@@ -46,7 +46,7 @@ A list of key-value pairs defining a custom [Pygment Style](https://pygments.org
 If you're using a model other than gpt-3.5 or gpt-4 we won't be able to infer the model's context size so you need to manually set the maximum context like so. 
 ```json
 {
-    "maximum-context": "16000"
+    "maximum-context": 16000
 }
 ```
 This can also be used to save costs for instance if you want to use a maximum of 16k tokens when using gpt-4-32k.

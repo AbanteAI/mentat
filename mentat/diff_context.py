@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
+from mentat.session_stream import SESSION_STREAM
+
 from .errors import UserError
 from .git_handler import (
     GIT_ROOT,
@@ -11,7 +13,6 @@ from .git_handler import (
     get_files_in_diff,
     get_treeish_metadata,
 )
-from .session_stream import SESSION_STREAM
 
 
 @dataclass
@@ -24,7 +25,7 @@ class DiffAnnotation:
         return sum(bool(line.startswith("+")) for line in self.message)
 
 
-def _parse_diff(diff: str) -> list[DiffAnnotation]:
+def parse_diff(diff: str) -> list[DiffAnnotation]:
     """Parse diff into a list of annotations."""
     annotations: list[DiffAnnotation] = []
     active_annotation: Optional[DiffAnnotation] = None
@@ -51,7 +52,7 @@ def _parse_diff(diff: str) -> list[DiffAnnotation]:
     return annotations
 
 
-def _annotate_file_message(
+def annotate_file_message(
     code_message: list[str], annotations: list[DiffAnnotation]
 ) -> list[str]:
     """Return the code_message with annotations inserted."""
@@ -99,16 +100,35 @@ class DiffContext:
             self.target = target
             self.name = name
 
+    _files_cache: list[Path] | None = None
+
+    @property
+    def files(self) -> list[Path]:
+        if self._files_cache is None:
+            if self.target == "HEAD" and not check_head_exists():
+                return []  # A new repo without any commits
+            self._files_cache = get_files_in_diff(self.target)
+        return self._files_cache
+
     @classmethod
-    def create(
+    async def create(
         cls,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
     ):
+        stream = SESSION_STREAM.get()
         git_root = GIT_ROOT.get()
 
         if diff and pr_diff:
-            raise UserError("Cannot specify more than one type of diff.")
+            # TODO: Once broadcast queue's unread messages and/or config is moved to client,
+            # determine if this should quit or not
+            await stream.send(
+                "Cannot specify more than one type of diff. Disabling diff and"
+                " pr-diff.",
+                color="light_yellow",
+            )
+            diff = None
+            pr_diff = None
 
         target = diff or pr_diff
         if not target:
@@ -125,47 +145,44 @@ class DiffContext:
             name = f"Merge-base {name}"
             target = _git_command(git_root, "merge-base", "HEAD", pr_diff)
             if not target:
-                raise UserError(
-                    f"Cannot identify merge base between HEAD and {pr_diff}"
+                # TODO: Same as above todo
+                await stream.send(
+                    f"Cannot identify merge base between HEAD and {pr_diff}. Disabling"
+                    " pr-diff.",
+                    color="light_yellow",
                 )
+                return cls()
 
         meta = get_treeish_metadata(target)
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
         return cls(target, name)
 
-    @property
-    def files(self) -> list[Path]:
-        if self.target == "HEAD" and not check_head_exists():
-            return []  # A new repo without any commits
-        return get_files_in_diff(self.target)
-
-    async def display_context(self) -> None:
-        stream = SESSION_STREAM.get()
-
+    def get_display_context(self) -> str:
         if not self.files:
-            return
-        await stream.send("Diff annotations:", color="green")
+            return ""
         num_files = len(self.files)
         num_lines = 0
-        # TODO: Only include paths in context
         for file in self.files:
             diff = get_diff_for_file(self.target, file)
             diff_lines = diff.splitlines()
             num_lines += len(
                 [line for line in diff_lines if line.startswith(("+ ", "- "))]
             )
-        await stream.send(f" ─•─ {self.name} | {num_files} files | {num_lines} lines\n")
+        return f" {self.name} | {num_files} files | {num_lines} lines"
 
     def annotate_file_message(
         self, rel_path: Path, file_message: list[str]
     ) -> list[str]:
         """Return file_message annotated with active diff."""
-
         if not self.files:
             return file_message
+
         diff = get_diff_for_file(self.target, rel_path)
-        annotations = _parse_diff(diff)
-        return _annotate_file_message(file_message, annotations)
+        annotations = parse_diff(diff)
+        return annotate_file_message(file_message, annotations)
+
+    def clear_cache(self):
+        self._files_cache = None
 
 
 TreeishType = Literal["commit", "branch", "relative"]

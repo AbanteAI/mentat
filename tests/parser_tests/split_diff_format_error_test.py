@@ -27,7 +27,7 @@ async def test_no_matching_lines(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]

@@ -66,12 +66,16 @@ async def _add_newline(response: AsyncGenerator[Any, None]):
     yield {"choices": [{"delta": {"content": "\n"}}]}
 
 
-async def call_llm_api(
-    messages: list[dict[str, str]], model: str
-) -> AsyncGenerator[Any, None]:
+def raise_if_in_test_environment():
     if is_test_environment():
         logging.critical("OpenAI call attempted in non benchmark test environment!")
         raise MentatError("OpenAI call attempted in non benchmark test environment!")
+
+
+async def call_llm_api(
+    messages: list[dict[str, str]], model: str
+) -> AsyncGenerator[Any, None]:
+    raise_if_in_test_environment()
 
     response: AsyncGenerator[Any, None] = cast(
         AsyncGenerator[Any, None],
@@ -86,11 +90,23 @@ async def call_llm_api(
     return _add_newline(response)
 
 
+def call_embedding_api(
+    input: list[str], model: str = "text-embedding-ada-002"
+) -> list[list[float]]:
+    raise_if_in_test_environment()
+
+    response = openai.Embedding.create(input=input, model=model)  # type: ignore
+    return [i["embedding"] for i in response["data"]]  # type: ignore
+
+
 # Ensures that each chunk will have at most one newline character
 def chunk_to_lines(chunk: Any) -> list[str]:
     return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)
 
 
+# NOTE: We may be calculating the length of Conversation messages incorrectly,
+# but the difference should be negligible (<5 tokens per message):
+# https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
 def count_tokens(message: str, model: str) -> int:
     try:
         return len(
@@ -165,6 +181,7 @@ COST_TRACKER: ContextVar[CostTracker] = ContextVar("mentat:cost_tracker")
 
 @dataclass
 class CostTracker:
+    total_tokens: int = 0
     total_cost: float = 0
 
     async def display_api_call_stats(
@@ -176,6 +193,7 @@ class CostTracker:
     ) -> None:
         stream = SESSION_STREAM.get()
 
+        self.total_tokens += num_prompt_tokens + num_sampled_tokens
         tokens_per_second = num_sampled_tokens / call_time
         cost = model_price_per_1000_tokens(model)
         if cost:

@@ -3,20 +3,16 @@ from __future__ import annotations
 import json
 import logging
 from contextvars import ContextVar
-from importlib import resources
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Dict, Optional, cast
 
 from mentat.git_handler import GIT_ROOT
 from mentat.session_stream import SESSION_STREAM
+from mentat.utils import fetch_resource, mentat_dir_path
 
-mentat_dir_path = Path.home() / ".mentat"
-
-# package_name should always be "mentat" - but this will work if package name is changed
-package_name = __name__.split(".")[0]
-default_config_file_name = "default_config.json"
-config_file_name = ".mentat_config.json"
+default_config_file_name = Path("default_config.json")
+config_file_name = Path(".mentat_config.json")
 user_config_path = mentat_dir_path / config_file_name
 
 CONFIG_MANAGER: ContextVar[ConfigManager] = ContextVar("mentat:config_manager")
@@ -31,9 +27,7 @@ class ConfigManager:
         self.user_config = user_config
         self.project_config = project_config
 
-        default_config_path = resources.files(package_name).joinpath(
-            default_config_file_name
-        )
+        default_config_path = fetch_resource(default_config_file_name)
         with default_config_path.open("r") as config_file:
             self.default_config = json.load(config_file)
 
@@ -85,7 +79,7 @@ class ConfigManager:
     def maximum_context(self) -> Optional[int]:
         maximum_context = self._get_key("maximum-context")
         if maximum_context:
-            return cast(int, maximum_context)
+            return int(maximum_context)
         return None
 
     def file_exclude_glob_list(self) -> list[str]:

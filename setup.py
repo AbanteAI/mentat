@@ -1,13 +1,8 @@
 import os
 from pathlib import Path
 
+import pkg_resources
 from setuptools import find_packages, setup
-
-
-def read_requirements(file):
-    with open(file, "r") as f:
-        return f.read().splitlines()
-
 
 readme_path = os.path.join(Path(__file__).parent, "README.md")
 with open(readme_path, "r", encoding="utf-8") as f:
@@ -15,13 +10,15 @@ with open(readme_path, "r", encoding="utf-8") as f:
 
 setup(
     name="mentat",
-    version="0.1.15",
+    version="0.1.17",
     python_requires=">=3.10",
     packages=find_packages(),
-    install_requires=read_requirements("requirements.txt"),
-    package_data={
-        "mentat": ["default_config.json", "prompts/*.txt"],
-    },
+    install_requires=[
+        str(r)
+        for r in pkg_resources.parse_requirements(
+            open(os.path.join(os.path.dirname(__file__), "requirements.txt"))
+        )
+    ],
     entry_points={
         "console_scripts": [
             "mentat=mentat.terminal.client:run_cli",
@@ -31,4 +28,13 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     license="Apache-2.0",
+    include_package_data=True,
+    extras_require={
+        "dev": [
+            str(r)
+            for r in pkg_resources.parse_requirements(
+                open(os.path.join(os.path.dirname(__file__), "dev-requirements.txt"))
+            )
+        ]
+    },
 )

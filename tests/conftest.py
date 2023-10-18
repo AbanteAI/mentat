@@ -11,10 +11,14 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
+from mentat import config_manager
 from mentat.code_context import CODE_CONTEXT, CodeContext, CodeContextSettings
 from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
-from mentat.config_manager import CONFIG_MANAGER, ConfigManager
+from mentat.config_manager import CONFIG_MANAGER, ConfigManager, config_file_name
+from mentat.diff_context import DiffContext
 from mentat.git_handler import GIT_ROOT
+from mentat.parsers.block_parser import BlockParser
+from mentat.parsers.parser import PARSER
 from mentat.session_stream import (
     SESSION_STREAM,
     SessionStream,
@@ -113,9 +117,7 @@ def mock_call_llm_api(mocker):
 def mock_collect_user_input(mocker):
     async_mock = AsyncMock()
 
-    mocker.patch("mentat.code_edit_feedback.collect_user_input", side_effect=async_mock)
-    mocker.patch("mentat.session_input.collect_user_input", side_effect=async_mock)
-    mocker.patch("mentat.session.collect_user_input", side_effect=async_mock)
+    mocker.patch("mentat.session_input._get_input_request", side_effect=async_mock)
 
     def set_stream_messages(values):
         async_mock.side_effect = [
@@ -219,7 +221,7 @@ def _mock_code_context(_mock_git_root, _mock_config):
 
 @pytest_asyncio.fixture()
 async def mock_code_context(_mock_code_context):
-    await _mock_code_context.refresh(replace_paths=True)
+    _mock_code_context.diff_context = await DiffContext.create()
     yield _mock_code_context
 
 
@@ -235,6 +237,20 @@ def _mock_code_file_manager():
 @pytest_asyncio.fixture()
 async def mock_code_file_manager(_mock_code_file_manager):
     yield _mock_code_file_manager
+
+
+# Parser
+@pytest.fixture
+def _mock_parser():
+    parser = BlockParser()
+    token = PARSER.set(parser)
+    yield parser
+    PARSER.reset(token)
+
+
+@pytest_asyncio.fixture()
+async def mock_parser(_mock_parser):
+    yield _mock_parser
 
 
 ### Auto-used fixtures
@@ -283,12 +299,14 @@ def temp_testbed(monkeypatch):
 # it will be unset unless a specific test wants to make a config in the testbed
 @pytest.fixture(autouse=True)
 def mock_user_config(mocker):
-    from mentat import config_manager
-    from mentat.config_manager import config_file_name
-
     config_manager.user_config_path = Path(config_file_name)
 
 
 @pytest.fixture(autouse=True)
 def mock_sleep_time(mocker):
     mocker.patch.object(StreamingPrinter, "sleep_time", new=lambda self: 0)
+
+
+@pytest.fixture(autouse=True)
+def mock_get_codemaps(mocker):
+    mocker.patch("mentat.code_map.get_code_map", return_value=[])
