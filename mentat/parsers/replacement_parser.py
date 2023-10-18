@@ -121,15 +121,11 @@ class ReplacementParser(Parser):
         )
         return ""
 
-    def file_edits_to_llm_message(
-        self, parsedLLMResponse: ParsedLLMResponse, git_root: Path | None = None
-    ) -> str:
+    def file_edits_to_llm_message(self, parsedLLMResponse: ParsedLLMResponse) -> str:
         """
         Inverse of stream_and_parse_llm_response
         """
-        if git_root is None:
-            git_root = GIT_ROOT.get()
-
+        git_root = GIT_ROOT.get()
         ans = parsedLLMResponse.conversation
         for file_edit in parsedLLMResponse.file_edits:
             action_indicator = ""
