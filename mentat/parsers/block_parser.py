@@ -203,8 +203,7 @@ class BlockParser(Parser):
         self, parsedLLMResponse: ParsedLLMResponse, git_root: Path | None = None
     ) -> str:
         """
-        Inverse of stream_and_parse_llm_response;
-        takes in the generated message and file edits and returns the original message
+        Inverse of stream_and_parse_llm_response
         """
         if git_root is None:
             git_root = GIT_ROOT.get()
