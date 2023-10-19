@@ -6,9 +6,11 @@ import pytest
 
 from mentat.diff_context import DiffContext
 
+
 @pytest.fixture
 def abs_path(temp_testbed):
     return Path(temp_testbed).resolve() / "multifile_calculator/operations.py"
+
 
 def _update_ops(temp_testbed, last_line, commit_message=None):
     # Update the last line of operations.py and (optionally) commit
