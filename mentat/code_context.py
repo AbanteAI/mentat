@@ -32,7 +32,7 @@ class CodeContextSettings:
     diff: Optional[str] = None
     pr_diff: Optional[str] = None
     no_code_map: bool = False
-    use_embedding: bool = False
+    use_embeddings: bool = False
     auto_tokens: Optional[int] = None
 
 
@@ -119,7 +119,7 @@ class CodeContext:
         )
         await stream.send(
             f"{prefix}Embedding:"
-            f" {'Enabled' if self.settings.use_embedding else 'Disabled'}"
+            f" {'Enabled' if self.settings.use_embeddings else 'Disabled'}"
         )
         auto = self.settings.auto_tokens
         await stream.send(
@@ -280,7 +280,7 @@ class CodeContext:
         if self.settings.auto_tokens is not None:
             max_sim_tokens = min(max_sim_tokens, self.settings.auto_tokens)
 
-        if self.settings.use_embedding and max_sim_tokens > 0:
+        if self.settings.use_embeddings and max_sim_tokens > 0:
             sim_tokens = 0
 
             # Get embedding-similarity scores for all files
@@ -318,9 +318,9 @@ class CodeContext:
         self, query: str, max_results: int | None = None
     ) -> list[tuple[CodeFile, float]]:
         """Return the top n features that are most similar to the query."""
-        if not self.settings.use_embedding:
+        if not self.settings.use_embeddings:
             raise UserError(
-                "Embeddings are disabled. To enable, restart with '--use-embedding'."
+                "Embeddings are disabled. To enable, restart with '--use-embeddings'."
             )
 
         git_root = GIT_ROOT.get()

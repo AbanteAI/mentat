@@ -90,12 +90,12 @@ async def call_llm_api(
     return _add_newline(response)
 
 
-def call_embedding_api(
+async def call_embedding_api(
     input: list[str], model: str = "text-embedding-ada-002"
 ) -> list[list[float]]:
     raise_if_in_test_environment()
 
-    response = openai.Embedding.create(input=input, model=model)  # type: ignore
+    response = await openai.Embedding.acreate(input=input, model=model)  # type: ignore
     return [i["embedding"] for i in response["data"]]  # type: ignore
 
 
@@ -137,11 +137,14 @@ def model_context_size(model: str) -> Optional[int]:
             return 16385
         else:
             return 4097
+    elif "ada-002" in model:
+        return 8191
     else:
         return None
 
 
 def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
+    """Returns (input, output) cost per 1000 tokens in USD"""
     if "gpt-4" in model:
         if "32k" in model:
             return (0.06, 0.12)
@@ -152,6 +155,8 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
             return (0.003, 0.004)
         else:
             return (0.0015, 0.002)
+    elif "ada-002" in model:
+        return (0.0001, 0)
     else:
         return None
 
@@ -190,30 +195,34 @@ class CostTracker:
         num_sampled_tokens: int,
         model: str,
         call_time: float,
+        decimal_places: int = 2,
     ) -> None:
         stream = SESSION_STREAM.get()
 
+        speed_and_cost_string = ""
         self.total_tokens += num_prompt_tokens + num_sampled_tokens
-        tokens_per_second = num_sampled_tokens / call_time
+        if num_sampled_tokens > 0:
+            tokens_per_second = num_sampled_tokens / call_time
+            speed_and_cost_string += (
+                f"Speed: {tokens_per_second:.{decimal_places}f} tkns/s"
+            )
         cost = model_price_per_1000_tokens(model)
         if cost:
             prompt_cost = (num_prompt_tokens / 1000) * cost[0]
             sampled_cost = (num_sampled_tokens / 1000) * cost[1]
             call_cost = prompt_cost + sampled_cost
             self.total_cost += call_cost
-
-            speed_and_cost_string = (
-                f"Speed: {tokens_per_second:.2f} tkns/s | Cost: ${call_cost:.2f}"
-            )
-        else:
-            speed_and_cost_string = f"Speed: {tokens_per_second:.2f} tkns/s"
+            if speed_and_cost_string:
+                speed_and_cost_string += " | "
+            speed_and_cost_string += f"Cost: ${call_cost:.{decimal_places}f}"
         await stream.send(speed_and_cost_string, color="cyan")
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
 
-    async def display_total_cost(self) -> None:
+    async def display_total_cost(self, decimal_places: int = 2) -> None:
         stream = SESSION_STREAM.get()
         await stream.send(
-            f"Total session cost: ${self.total_cost:.2f}", color="light_blue"
+            f"Total session cost: ${self.total_cost:.{decimal_places}f}",
+            color="light_blue",
         )

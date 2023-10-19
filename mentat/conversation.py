@@ -150,6 +150,7 @@ class Conversation:
         conversation_history = "\n".join([m["content"] for m in messages])
         tokens = count_tokens(conversation_history, self.model)
         response_buffer = 1000
+        print()
         code_message = await code_context.get_code_message(
             messages[-1]["content"],
             self.model,
@@ -157,7 +158,6 @@ class Conversation:
         )
         messages.append({"role": "system", "content": code_message})
 
-        print()
         await code_context.display_features()
         num_prompt_tokens = await get_prompt_token_count(messages, self.model)
         message, file_edits, time_elapsed = await self._stream_model_response(

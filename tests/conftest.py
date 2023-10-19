@@ -17,6 +17,7 @@ from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
 from mentat.config_manager import CONFIG_MANAGER, ConfigManager, config_file_name
 from mentat.diff_context import DiffContext
 from mentat.git_handler import GIT_ROOT
+from mentat.llm_api import COST_TRACKER, CostTracker
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.parser import PARSER
 from mentat.session_stream import (
@@ -253,6 +254,20 @@ def _mock_parser():
 @pytest_asyncio.fixture()
 async def mock_parser(_mock_parser):
     yield _mock_parser
+
+
+# CostTracker
+@pytest.fixture
+def _mock_cost_tracker():
+    cost_tracker = CostTracker()
+    token = COST_TRACKER.set(cost_tracker)
+    yield cost_tracker
+    COST_TRACKER.reset(token)
+
+
+@pytest_asyncio.fixture()
+async def mock_cost_tracker(_mock_cost_tracker):
+    yield _mock_cost_tracker
 
 
 ### Auto-used fixtures

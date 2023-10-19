@@ -14,7 +14,7 @@ class PythonClient:
         diff: str | None = None,
         pr_diff: str | None = None,
         no_code_map: bool = False,
-        use_embedding: bool = True,
+        use_embeddings: bool = True,
         auto_tokens: int = 0,
     ):
         self.paths = paths
@@ -22,7 +22,7 @@ class PythonClient:
         self.diff = diff
         self.pr_diff = pr_diff
         self.no_code_map = no_code_map
-        self.use_embedding = use_embedding
+        self.use_embeddings = use_embeddings
         self.auto_tokens = auto_tokens
 
         self.session: Session | None = None
@@ -65,7 +65,7 @@ class PythonClient:
             self.diff,
             self.pr_diff,
             self.no_code_map,
-            self.use_embedding,
+            self.use_embeddings,
             self.auto_tokens,
         )
         asyncio.ensure_future(self.session.start())
