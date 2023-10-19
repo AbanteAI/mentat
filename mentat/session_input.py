@@ -25,6 +25,7 @@ async def collect_user_input(plain: bool = False) -> StreamMessage:
     create a new broadcast channel that listens for the input
     close the channel after receiving the input
     """
+    # TODO: Remove this when we create SessionContext
     # This fixes a circular import
     from mentat.commands import Command
 

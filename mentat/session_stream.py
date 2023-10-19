@@ -66,6 +66,27 @@ class SessionStream:
 
         return message
 
+    def send_sync(
+        self,
+        data: Any,
+        source: StreamMessageSource = StreamMessageSource.SERVER,
+        channel: str = "default",
+        **kwargs: Any,
+    ):
+        message = StreamMessage(
+            id=uuid4(),
+            source=source,
+            channel=channel,
+            data=data,
+            created_at=datetime.utcnow(),
+            extra=kwargs,
+        )
+
+        self.messages.append(message)
+        self._broadcast.publish_sync(channel=channel, message=message)
+
+        return message
+
     async def recv(self, channel: str = "default") -> StreamMessage:
         """Listen for a single event on a channel"""
         async with self._broadcast.subscribe(channel) as subscriber:

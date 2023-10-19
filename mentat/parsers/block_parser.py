@@ -171,7 +171,9 @@ class BlockParser(Parser):
             replacements,
             is_creation=file_action == FileActionType.CreateFile,
             is_deletion=file_action == FileActionType.DeleteFile,
-            rename_file_path=deserialized_json.name,
+            rename_file_path=(
+                git_root / deserialized_json.name if deserialized_json.name else None
+            ),
         )
         has_code = block[-1] == _BlockParserIndicator.Code.value
         return (display_information, file_edit, has_code)
@@ -225,7 +227,7 @@ class BlockParser(Parser):
                     _BlockParserAction.RenameFile.value
                 )
                 tmp[_BlockParserJsonKeys.Name.value] = (
-                    file_edit.rename_file_path.as_posix()
+                    file_edit.rename_file_path.relative_to(git_root).as_posix()
                 )
             if _BlockParserJsonKeys.Action.value in tmp:
                 ans += _BlockParserIndicator.Start.value + "\n"

@@ -108,7 +108,11 @@ class UnifiedDiffParser(Parser):
             file_name, file_lines, [], [], file_action_type, -1, -1, new_name
         )
         file_edit = FileEdit(
-            git_root / file_name, [], is_creation, is_deletion, new_name
+            git_root / file_name,
+            [],
+            is_creation,
+            is_deletion,
+            git_root / new_name if new_name else None,
         )
         return (
             display_information,

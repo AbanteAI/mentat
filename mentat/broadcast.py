@@ -60,6 +60,13 @@ class MemoryBackend:
         else:
             self._missed_events[channel].append(event)
 
+    def publish_sync(self, channel: str, message: Any) -> None:
+        event = Event(channel=channel, message=message)
+        if channel in self._subscribed:
+            self._published.put_nowait(event)
+        else:
+            self._missed_events[channel].append(event)
+
     async def next_published(self) -> Event:
         while True:
             return await self._published.get()
@@ -100,6 +107,9 @@ class Broadcast:
 
     async def publish(self, channel: str, message: Any) -> None:
         await self._backend.publish(channel, message)
+
+    def publish_sync(self, channel: str, message: Any) -> None:
+        self._backend.publish_sync(channel, message)
 
     @asynccontextmanager
     async def subscribe(self, channel: str) -> AsyncIterator[Subscriber]:

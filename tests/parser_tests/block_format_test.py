@@ -3,9 +3,9 @@ from textwrap import dedent
 
 import pytest
 
+from mentat.config_manager import ConfigManager
 from mentat.parsers.block_parser import BlockParser
 from mentat.session import Session
-from tests.conftest import ConfigManager
 from tests.parser_tests.inverse import verify_inverse
 
 
