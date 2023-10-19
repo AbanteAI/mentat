@@ -227,7 +227,7 @@ class ClearCommand(Command, command_name="clear"):
         conversation.messages = [
             message
             for message in conversation.messages
-            if message["role"] == MessageRole.System
+            if message["role"] == MessageRole.System.value
         ]
         message = "Message history cleared"
         await stream.send(message, color="green")

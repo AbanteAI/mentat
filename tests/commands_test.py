@@ -5,7 +5,8 @@ from textwrap import dedent
 import pytest
 
 from mentat.code_context import CODE_CONTEXT
-from mentat.commands import Command, HelpCommand, InvalidCommand
+from mentat.commands import Command, ContextCommand, HelpCommand, InvalidCommand
+from mentat.conversation import CONVERSATION
 from mentat.session import Session
 
 
@@ -79,7 +80,6 @@ async def test_exclude_command(
     await session.stream.stop()
 
     code_context = CODE_CONTEXT.get()
-    print(code_context.include_files)
     assert not code_context.include_files
 
 
@@ -172,3 +172,34 @@ async def test_undo_all_command(
             # This is a temporary file
             # with 2 lines""")
     assert content == expected_content
+
+
+@pytest.mark.asyncio
+async def test_clear_command(
+    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
+):
+    mock_collect_user_input.set_stream_messages(
+        [
+            "Request",
+            "/clear",
+            "q",
+        ]
+    )
+    mock_call_llm_api.set_generator_values(["Answer"])
+
+    session = await Session.create()
+    await session.start()
+    await session.stream.stop()
+
+    conversation = CONVERSATION.get()
+    assert len(conversation.messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_context_command(
+    temp_testbed, mock_setup_api_key, mock_stream, mock_code_context
+):
+    mock_code_context.include_files = {}
+    command = Command.create_command("context")
+    await command.apply()
+    assert isinstance(command, ContextCommand)
