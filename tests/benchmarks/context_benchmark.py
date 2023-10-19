@@ -27,8 +27,8 @@ These tests can be used to train/score #1 or #2, but we'd expect #2 to score
 a lot higher.
 """
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -87,7 +87,7 @@ tests = [
             "src/simoc_abm/agents/plant.py:135-197",
         ],
         "expected_edits": [],
-    }
+    },
 ]
 
 
@@ -103,15 +103,19 @@ async def test_code_context_performance(
         code_dir = clone_repo(test["codebase_url"], test["codebase_name"])
         os.chdir(code_dir)
         if test["commit"]:
-            subprocess.run(["git", "checkout", test["commit"]])
-
+            subprocess.run(
+                ["git", "checkout", test["commit"]], 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL
+            )
         GIT_ROOT.set(code_dir)
 
         # Create a context and run get_code_message to set the features
         paths = test["args"].get("paths", [])
         exclude_paths = test["args"].get("exclude_paths", [])
-        rest = {k: v for k, v in test["args"].items() 
-                if k not in ["paths", "exclude_paths"]}
+        rest = {
+            k: v for k, v in test["args"].items() if k not in ["paths", "exclude_paths"]
+        }
         settings = CodeContextSettings(**rest, use_embedding=True, auto_tokens=None)
         code_context = await CodeContext.create(paths, exclude_paths, settings)
         _ = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)
