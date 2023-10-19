@@ -4,7 +4,7 @@ from mentat.session_stream import SESSION_STREAM
 
 from .code_context import CODE_CONTEXT
 from .code_file_manager import CODE_FILE_MANAGER
-from .conversation import CONVERSATION
+from .conversation import CONVERSATION, MessageRole
 
 
 async def get_user_feedback_on_edits(
@@ -26,26 +26,33 @@ async def get_user_feedback_on_edits(
     match user_response.lower():
         case "y" | "":
             edits_to_apply = file_edits
-            conversation.add_user_message("User chose to apply all your changes.")
+            # TODO: All of the 'user messages' here feel like they should be system messages;
+            # if we decide to change this, make sure to change the clear command as well
+            conversation.add_message(
+                MessageRole.User, "User chose to apply all your changes."
+            )
         case "n":
             edits_to_apply = []
-            conversation.add_user_message(
-                "User chose not to apply any of your changes."
+            conversation.add_message(
+                MessageRole.User, "User chose not to apply any of your changes."
             )
         case "i":
             edits_to_apply = await _user_filter_changes(file_edits)
-            conversation.add_user_message(
+            conversation.add_message(
+                MessageRole.User,
                 "User chose to apply"
                 f" {len(edits_to_apply)}/{len(file_edits)} of your suggested"
-                " changes."
+                " changes.",
             )
         case _:
             need_user_request = False
             edits_to_apply = []
-            conversation.add_user_message(
-                "User chose not to apply any of your changes. User response:"
-                f" {user_response}\n\nPlease adjust your previous plan and changes to"
-                " reflect this. Respond with a full new set of changes."
+            conversation.add_user_message(user_response)
+            conversation.add_message(
+                MessageRole.User,
+                "User chose not to apply any of your changes. Please adjust your"
+                " previous plan and changes to reflect their feedback. Respond with a"
+                " full new set of changes.",
             )
 
     for file_edit in edits_to_apply:

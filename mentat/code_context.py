@@ -115,16 +115,18 @@ class CodeContext:
         else:
             await stream.send(f"{prefix}Included files: None", color="yellow")
         await stream.send(
-            f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
-        )
-        await stream.send(
             f"{prefix}Embedding:"
             f" {'Enabled' if self.settings.use_embeddings else 'Disabled'}"
         )
         auto = self.settings.auto_tokens
         await stream.send(
-            f"{prefix}Auto-tokens: {'Model max (default)' if auto is None else auto}"
+            f"{prefix}Auto-token limit:"
+            f" {'Model max (default)' if auto is None else auto}"
         )
+        if auto != 0:
+            await stream.send(
+                f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
+            )
 
     async def display_features(self):
         """Display a summary of all active features"""
@@ -182,7 +184,7 @@ class CodeContext:
     ) -> str:
         code_message = list[str]()
 
-        self.diff_context.clear_cache
+        self.diff_context.clear_cache()
         await self._set_code_map()
         if self.diff_context.files:
             code_message += [
@@ -249,18 +251,19 @@ class CodeContext:
         for level in levels:
             _features = list[CodeFile]()
             for path in get_non_gitignored_files(git_root):
+                abs_path = git_root / path
                 if (
-                    path in self.include_files
-                    or path.is_dir()
-                    or not is_file_text_encoded(path)
+                    abs_path in self.include_files
+                    or abs_path.is_dir()
+                    or not is_file_text_encoded(abs_path)
                 ):
                     continue
                 diff_target = (
                     self.diff_context.target
-                    if path in self.diff_context.files
+                    if abs_path in self.diff_context.files
                     else None
                 )
-                feature = CodeFile(path, level=level, diff=diff_target)
+                feature = CodeFile(abs_path, level=level, diff=diff_target)
                 _features.append(feature)
             level_length = sum(await count_feature_tokens(_features, model))
             if level_length < max_auto_tokens:
@@ -280,17 +283,16 @@ class CodeContext:
         if self.settings.auto_tokens is not None:
             max_sim_tokens = min(max_sim_tokens, self.settings.auto_tokens)
 
-        if self.settings.use_embeddings and max_sim_tokens > 0:
+        if self.settings.use_embeddings and max_sim_tokens > 0 and prompt != "":
             sim_tokens = 0
 
             # Get embedding-similarity scores for all files
             all_code_features_sorted = await self.search(query=prompt)
             for code_feature, _ in all_code_features_sorted:
+                abs_path = git_root / code_feature.path
                 # Calculate the total change in length
                 i_cmap, cmap_feature = next(
-                    (i, f)
-                    for i, f in enumerate(all_features)
-                    if f.path == code_feature.path
+                    (i, f) for i, f in enumerate(all_features) if f.path == abs_path
                 )
                 recovered_tokens = await cmap_feature.count_tokens(model)
                 new_tokens = await code_feature.count_tokens(model)

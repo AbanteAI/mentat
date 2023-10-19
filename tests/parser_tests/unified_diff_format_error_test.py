@@ -26,7 +26,7 @@ async def test_not_matching(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -36,6 +36,7 @@ async def test_not_matching(
 
         --- {temp_file_name}
         +++ {temp_file_name}
+        @@ @@
          # Not matching
         -# a temporary file
         -# with
@@ -69,7 +70,7 @@ async def test_no_prefix(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -79,6 +80,7 @@ async def test_no_prefix(
 
         --- {temp_file_name}
         +++ {temp_file_name}
+        @@ @@
         # This is
         -# a temporary file
         -# with

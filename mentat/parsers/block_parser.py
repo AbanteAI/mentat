@@ -8,9 +8,10 @@ from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
+from mentat.git_handler import GIT_ROOT
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
 from mentat.parsers.file_edit import FileEdit, Replacement
-from mentat.parsers.parser import Parser
+from mentat.parsers.parser import ParsedLLMResponse, Parser
 from mentat.prompts.prompts import read_prompt
 
 block_parser_prompt_filename = Path("block_parser_prompt.txt")
@@ -197,3 +198,77 @@ class BlockParser(Parser):
             )
         )
         return ""
+
+    def file_edits_to_llm_message(self, parsedLLMResponse: ParsedLLMResponse) -> str:
+        """
+        Inverse of stream_and_parse_llm_response
+        """
+        git_root = GIT_ROOT.get()
+        ans = parsedLLMResponse.conversation
+        for file_edit in parsedLLMResponse.file_edits:
+            tmp = {}
+            tmp[_BlockParserJsonKeys.File.value] = file_edit.file_path.relative_to(
+                git_root
+            ).as_posix()
+            if file_edit.is_creation:
+                tmp[_BlockParserJsonKeys.Action.value] = (
+                    _BlockParserAction.CreateFile.value
+                )
+            elif file_edit.is_deletion:
+                tmp[_BlockParserJsonKeys.Action.value] = (
+                    _BlockParserAction.DeleteFile.value
+                )
+            elif file_edit.rename_file_path is not None:
+                tmp[_BlockParserJsonKeys.Action.value] = (
+                    _BlockParserAction.RenameFile.value
+                )
+                tmp[_BlockParserJsonKeys.Name.value] = (
+                    file_edit.rename_file_path.as_posix()
+                )
+            if _BlockParserJsonKeys.Action.value in tmp:
+                ans += _BlockParserIndicator.Start.value + "\n"
+                ans += json.dumps(tmp, indent=4) + "\n"
+                if (
+                    tmp[_BlockParserJsonKeys.Action.value]
+                    == _BlockParserAction.CreateFile.value
+                ):
+                    ans += _BlockParserIndicator.Code.value + "\n"
+                    ans += "\n".join(file_edit.replacements[0].new_lines) + "\n"
+                ans += _BlockParserIndicator.End.value + "\n"
+            if not file_edit.is_creation:
+                for replacement in file_edit.replacements:
+                    tmp = {}
+                    tmp[_BlockParserJsonKeys.File.value] = (
+                        file_edit.file_path.relative_to(git_root).as_posix()
+                    )
+                    ans += _BlockParserIndicator.Start.value + "\n"
+                    starting_line = replacement.starting_line
+                    ending_line = replacement.ending_line
+                    if len(replacement.new_lines) == 0:
+                        tmp[_BlockParserJsonKeys.Action.value] = (
+                            _BlockParserAction.Delete.value
+                        )
+                        tmp[_BlockParserJsonKeys.StartLine.value] = starting_line + 1
+                        tmp[_BlockParserJsonKeys.EndLine.value] = ending_line
+                    else:
+                        if starting_line == ending_line:
+                            tmp[_BlockParserJsonKeys.Action.value] = (
+                                _BlockParserAction.Insert.value
+                            )
+                            tmp[_BlockParserJsonKeys.AfterLine.value] = starting_line
+                            tmp[_BlockParserJsonKeys.BeforeLine.value] = ending_line + 1
+                        else:
+                            tmp[_BlockParserJsonKeys.Action.value] = (
+                                _BlockParserAction.Replace.value
+                            )
+                            tmp[_BlockParserJsonKeys.StartLine.value] = (
+                                starting_line + 1
+                            )
+                            tmp[_BlockParserJsonKeys.EndLine.value] = ending_line
+                    ans += json.dumps(tmp, indent=4) + "\n"
+                    if len(replacement.new_lines) > 0:
+                        ans += _BlockParserIndicator.Code.value + "\n"
+                        ans += "\n".join(replacement.new_lines) + "\n"
+                    ans += _BlockParserIndicator.End.value + "\n"
+
+        return ans

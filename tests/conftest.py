@@ -118,9 +118,7 @@ def mock_call_llm_api(mocker):
 def mock_collect_user_input(mocker):
     async_mock = AsyncMock()
 
-    mocker.patch("mentat.code_edit_feedback.collect_user_input", side_effect=async_mock)
-    mocker.patch("mentat.session_input.collect_user_input", side_effect=async_mock)
-    mocker.patch("mentat.session.collect_user_input", side_effect=async_mock)
+    mocker.patch("mentat.session_input._get_input_request", side_effect=async_mock)
 
     def set_stream_messages(values):
         async_mock.side_effect = [

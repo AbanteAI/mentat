@@ -10,25 +10,23 @@ This means that you will be editing old_file_name in the next section of the edi
 Just like a git diff, to rename a file, put a different name in the +++ section from the --- section; to create a file, put --- /dev/null; and to delete a file, put +++ /dev/null.
 Unlike a git diff, when deleting a file, there is no need to print the removed lines.
 The second part of the edit format is the git diff part. In this part, you will print a git diff with context lines prefixed with a space, deleted lines prefixed with a -, and added lines prefixed with a +.
-To mark a new diff for a separate section of code, provide an @@ marker. Finally, end the diff with a @@end marker, like this:
+To mark a new diff for a separate section of code, provide an @@ @@ marker. Finally, end the diff with a @@ end @@ marker, like this:
 --- example.py
 +++ example.py
+@@ @@
  for i in range(10):
 -    print(i)
 +    print(f"Number: {i}")
  return
-@@
+@@ @@
 -print("Hello, World!")
 +print("Goodbye, World!")
-@@end
+@@ end @@
 
 IMPORTANT:
 Unless the file is empty, you *MUST* give context to additions to the file!!! If you do not give context, your lines will be inserted at the very beginning of the file! *THIS INCLUDES IMPORTS!*
 There is no need to print more context lines than are necessary to find the location of the diff within the given file.
-You must *ALWAYS*, *NO MATTER WHAT*, close out a change with a @@end symbol, *EVEN IF* it is just a deletion, creation, or rename.
-NEVER ALTER THE CONTEXT LINES! If you need to change a line, REMOVE IT and REPLACE IT with an added line!
-The context lines MUST MATCH the lines in the file, or your change WILL NOT BE ACCEPTED!
-NEVER OMIT ANY WHITESPACE IN THE CONTEXT LINES!
+The context lines *MUST MATCH* the lines in the file, or your change WILL *NOT BE ACCEPTED*!
 
 
 To demonstrate the response format, here's an example user request, followed by an example response:
@@ -73,21 +71,23 @@ Steps:
 
 --- core/hello_world.py
 +++ core/goodbye_world.py
+@@ @@
 -def hello_world():
 -    print("Hello, World!")
 +def goodbye_world():
 +    print("Goodbye, World!")
-@@
+@@ @@
  def main(name):
 -    hello_world()
 +    goodbye_world()
      print(f"Hello, {name}!")
 +    print(f"Goodbye, {name}!")
-@@end
+@@ end @@
 --- /dev/null
 +++ test.py
+@@ @@
 +print("testing...")
-@@end
+@@ end @@
 --- test.py
 +++ /dev/null
-@@end
+@@ end @@

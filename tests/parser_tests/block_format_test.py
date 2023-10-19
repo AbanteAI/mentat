@@ -3,8 +3,10 @@ from textwrap import dedent
 
 import pytest
 
+from mentat.parsers.block_parser import BlockParser
 from mentat.session import Session
 from tests.conftest import ConfigManager
+from tests.parser_tests.inverse import verify_inverse
 
 
 @pytest.fixture(autouse=True)
@@ -25,7 +27,7 @@ async def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -73,7 +75,7 @@ async def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -121,7 +123,7 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -163,7 +165,7 @@ async def test_create_file(
     temp_file_name = "new_dir/temp.py"
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -206,7 +208,7 @@ async def test_delete_file(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "y",
             "q",
@@ -246,7 +248,7 @@ async def test_rename_file(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -287,7 +289,7 @@ async def test_change_then_rename_file(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -340,7 +342,7 @@ async def test_rename_file_then_change(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -396,7 +398,7 @@ async def test_multiple_blocks(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -448,6 +450,18 @@ async def test_multiple_blocks(
 
 
 @pytest.mark.asyncio
+async def test_inverse(
+    mock_stream,
+    mock_call_llm_api,
+    mock_collect_user_input,
+    mock_setup_api_key,
+    mock_code_file_manager,
+    mock_git_root,
+):
+    await verify_inverse(BlockParser())
+
+
+@pytest.mark.asyncio
 async def test_json_strings(
     mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
 ):
@@ -459,7 +473,7 @@ async def test_json_strings(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]

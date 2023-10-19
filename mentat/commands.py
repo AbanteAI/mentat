@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import webbrowser
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
 
 from mentat.code_file_manager import CODE_FILE_MANAGER
-from mentat.conversation import CONVERSATION
+from mentat.conversation import CONVERSATION, MessageRole
 from mentat.session_input import ask_yes_no
 from mentat.session_stream import SESSION_STREAM
+from mentat.utils import create_viewer
 
 from .code_context import CODE_CONTEXT
 from .errors import MentatError, UserError
@@ -17,6 +19,7 @@ from .git_handler import commit
 class Command(ABC):
     # Unfortunately, Command isn't defined here yet, so even with annotations we need quotation marks
     _registered_commands = dict[str, type["Command"]]()
+    hidden = False
 
     def __init_subclass__(cls, command_name: str | None) -> None:
         if command_name is not None:
@@ -31,8 +34,16 @@ class Command(ABC):
         return command_cls()
 
     @classmethod
+    def get_command_names(cls) -> list[str]:
+        return [
+            name
+            for name, command in cls._registered_commands.items()
+            if not command.hidden
+        ]
+
+    @classmethod
     def get_command_completions(cls) -> List[str]:
-        return list(map(lambda name: "/" + name, cls._registered_commands))
+        return list(map(lambda name: "/" + name, cls.get_command_names()))
 
     @abstractmethod
     async def apply(self, *args: str) -> None:
@@ -78,7 +89,7 @@ class HelpCommand(Command, command_name="help"):
         stream = SESSION_STREAM.get()
 
         if not args:
-            commands = Command._registered_commands.keys()
+            commands = Command.get_command_names()
         else:
             commands = args
         for command_name in commands:
@@ -215,7 +226,9 @@ class ClearCommand(Command, command_name="clear"):
         conversation = CONVERSATION.get()
         # Only keep system messages (for now just the prompt)
         conversation.messages = [
-            message for message in conversation.messages if message["role"] == "system"
+            message
+            for message in conversation.messages
+            if message["role"] == MessageRole.System
         ]
         message = "Message history cleared"
         await stream.send(message, color="green")
@@ -263,3 +276,20 @@ class SearchCommand(Command, command_name="search"):
     @classmethod
     def help_message(cls) -> str:
         return "Semantic search of files in code context."
+
+
+class ConversationCommand(Command, command_name="conversation"):
+    hidden = True
+
+    async def apply(self, *args: str) -> None:
+        conversation = CONVERSATION.get()
+        viewer_path = create_viewer(conversation.literal_messages)
+        webbrowser.open(f"file://{viewer_path.resolve()}")
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return []
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Opens an html page showing the conversation as seen by Mentat so far"

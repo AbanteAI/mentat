@@ -26,7 +26,7 @@ async def test_replacement(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -36,12 +36,13 @@ async def test_replacement(
 
         --- {temp_file_name}
         +++ {temp_file_name}
+        @@ @@
          # This is
         -# a temporary file
         -# with
         +# your captain speaking
          # 4 lines
-        @@end""")])
+        @@ end @@""")])
 
     session = await Session.create([temp_file_name])
     await session.start()
@@ -73,7 +74,7 @@ async def test_multiple_replacements(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -83,6 +84,7 @@ async def test_multiple_replacements(
 
         --- {temp_file_name}
         +++ {temp_file_name}
+        @@ @@
          # This
         -# is
         +# was
@@ -94,7 +96,7 @@ async def test_multiple_replacements(
         -# 8
         +# new line
          # lines
-        @@end""")])
+        @@ end @@""")])
 
     session = await Session.create([temp_file_name])
     await session.start()
@@ -131,7 +133,7 @@ async def test_multiple_replacement_spots(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -141,13 +143,14 @@ async def test_multiple_replacement_spots(
 
         --- {temp_file_name}
         +++ {temp_file_name}
+        @@ @@
         -# is
         +# was
-        @@
+        @@ @@
         -# file
          # with
         +# more than
-        @@end""")])
+        @@ end @@""")])
 
     session = await Session.create([temp_file_name])
     await session.start()
@@ -184,7 +187,7 @@ async def test_little_context_addition(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -194,12 +197,13 @@ async def test_little_context_addition(
 
         --- {temp_file_name}
         +++ {temp_file_name}
+        @@ @@
          # is
         +# New line
-        @@
+        @@ @@
         +# New line 2
          # with 
-        @@end""")])
+        @@ end @@""")])
 
     session = await Session.create([temp_file_name])
     await session.start()
@@ -230,7 +234,7 @@ async def test_empty_file(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -240,9 +244,10 @@ async def test_empty_file(
 
         --- {temp_file_name}
         +++ {temp_file_name}
+        @@ @@
         +# New
         +# line
-        @@end""")])
+        @@ end @@""")])
 
     session = await Session.create([temp_file_name])
     await session.start()
@@ -262,7 +267,7 @@ async def test_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_a
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -272,8 +277,9 @@ async def test_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_a
 
         --- /dev/null
         +++ {temp_file_name}
+        @@ @@
         +# New line
-        @@end
+        @@ end @@
         """)])
 
     session = await Session.create([temp_file_name])
@@ -302,7 +308,7 @@ async def test_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_a
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "y",
             "q",
@@ -313,7 +319,7 @@ async def test_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_a
 
         --- {temp_file_name}
         +++ /dev/null
-        @@end""")])
+        @@ end @@""")])
 
     session = await Session.create([temp_file_name])
     await session.start()
@@ -335,7 +341,7 @@ async def test_no_ending_marker(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -345,6 +351,7 @@ async def test_no_ending_marker(
 
         --- {temp_file_name}
         +++ {temp_file_name}
+        @@ @@
          # This is
         -# a temporary file
         -# with

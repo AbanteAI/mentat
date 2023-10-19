@@ -25,7 +25,7 @@ async def test_invalid_line_numbers(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]
@@ -67,7 +67,7 @@ async def test_invalid_special_line(
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "test",
             "y",
             "q",
         ]

@@ -164,3 +164,43 @@ async def test_without_os_join(
         content = f.read()
         expected_content = 'print("Hello, world!")'
     assert content == expected_content
+
+
+@pytest.mark.asyncio
+async def test_sub_directory(
+    mock_call_llm_api, mock_setup_api_key, mock_collect_user_input, monkeypatch
+):
+    with monkeypatch.context() as m:
+        m.chdir("scripts")
+        file_name = "calculator.py"
+        mock_collect_user_input.set_stream_messages(
+            [
+                "Add changes to the file",
+                "y",
+                "q",
+            ]
+        )
+
+        mock_call_llm_api.set_generator_values([dedent(f"""\
+            Conversation
+
+            @@start
+            {{
+                "file": "scripts/{file_name}",
+                "action": "replace",
+                "start-line": 1,
+                "end-line": 50
+            }}
+            @@code
+            print("Hello, world!")
+            @@end""")])
+
+        session = await Session.create([file_name])
+        await session.start()
+        await session.stream.stop()
+
+        # Check if the temporary file is modified as expected
+        with open(file_name, "r") as f:
+            content = f.read()
+            expected_content = 'print("Hello, world!")'
+        assert content == expected_content

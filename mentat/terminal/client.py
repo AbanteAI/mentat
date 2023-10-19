@@ -237,7 +237,7 @@ def run_cli():
         "--auto-tokens",
         "-a",
         type=int,
-        default=None,
+        default=0,
         help="Maximum number of auto-generated tokens to include in the prompt context",
     )
     args = parser.parse_args()
