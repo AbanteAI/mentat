@@ -45,11 +45,11 @@ class CodeFileManager:
 
     def _create_file(self, code_context: CodeContext, abs_path: Path):
         logging.info(f"Creating new file {abs_path}")
-        code_context.include_file(abs_path)
         # Create any missing directories in the path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         with open(abs_path, "w") as f:
             f.write("")
+        code_context.include_file(abs_path)
 
     def _delete_file(self, code_context: CodeContext, abs_path: Path):
         logging.info(f"Deleting file {abs_path}")
