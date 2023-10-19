@@ -137,8 +137,11 @@ async def test_cli_glob_exclude(temp_testbed, mock_session_context):
     exclude_paths = ["**/*.py", "**/*.ts"]
     code_context_settings = CodeContextSettings()
     code_context = await CodeContext.create(
-        file_paths, exclude_paths, code_context_settings
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
     )
+    await code_context.set_paths(file_paths, exclude_paths)
 
     file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_include_then_exclude_path) not in file_paths
@@ -154,7 +157,12 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
         f.write(bytearray([0x81]))
 
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(["./"], [], code_context_settings)
+    code_context = await CodeContext.create(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
+    )
+    await code_context.set_paths(["./"], [])
     file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, nontext_path) not in file_paths
 
@@ -163,8 +171,11 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
         # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
         f.write(bytearray([0x81]))
     code_context = await CodeContext.create(
-        [Path(nontext_path_requested)], [], code_context_settings
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
     )
+    await code_context.set_paths([Path(nontext_path_requested)], [])
     assert not code_context.include_files
 
 
@@ -191,10 +202,14 @@ def features(mocker):
 async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context):
     code_context_settings = CodeContextSettings(auto_tokens=10)
     code_context = await CodeContext.create(
-        ["multifile_calculator"],
-        ["multifile_calculator/calculator.py"],
+        mock_session_context.stream,
+        mock_session_context.git_root,
         code_context_settings,
     )
+    await code_context.set_paths(
+        ["multifile_calculator"], ["multifile_calculator/calculator.py"]
+    )
+
     file = Path("multifile_calculator/operations.py")
     feature = mocker.MagicMock()
     feature.path = file
