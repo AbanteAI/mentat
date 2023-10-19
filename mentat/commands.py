@@ -7,12 +7,13 @@ from typing import List
 
 from mentat.code_file_manager import CODE_FILE_MANAGER
 from mentat.conversation import CONVERSATION, MessageRole
+from mentat.include_files import print_invalid_path
 from mentat.session_stream import SESSION_STREAM
 from mentat.utils import create_viewer
 
 from .code_context import CODE_CONTEXT
 from .errors import MentatError
-from .git_handler import commit
+from .git_handler import GIT_ROOT, commit
 
 
 class Command(ABC):
@@ -139,19 +140,20 @@ class IncludeCommand(Command, command_name="include"):
     async def apply(self, *args: str) -> None:
         stream = SESSION_STREAM.get()
         code_context = CODE_CONTEXT.get()
+        git_root = GIT_ROOT.get()
 
         if len(args) == 0:
             await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
-            invalid_paths = code_context.include_file(Path(file_path).absolute())
+            included_paths, invalid_paths = code_context.include_file(
+                Path(file_path).absolute()
+            )
             for invalid_path in invalid_paths:
-                await stream.send(
-                    f"File path {invalid_path} is not text encoded, and was skipped.",
-                    color="light_yellow",
-                )
-            if file_path not in invalid_paths:
-                await stream.send(f"{file_path} added to context", color="green")
+                await print_invalid_path(invalid_path)
+            for included_path in included_paths:
+                rel_path = included_path.relative_to(git_root)
+                await stream.send(f"{rel_path} added to context", color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -166,13 +168,20 @@ class ExcludeCommand(Command, command_name="exclude"):
     async def apply(self, *args: str) -> None:
         stream = SESSION_STREAM.get()
         code_context = CODE_CONTEXT.get()
+        git_root = GIT_ROOT.get()
 
         if len(args) == 0:
             await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
-            code_context.exclude_file(Path(file_path).absolute())
-            await stream.send(f"{file_path} removed from context", color="green")
+            excluded_paths, invalid_paths = code_context.exclude_file(
+                Path(file_path).absolute()
+            )
+            for invalid_path in invalid_paths:
+                await print_invalid_path(invalid_path)
+            for excluded_path in excluded_paths:
+                rel_path = excluded_path.relative_to(git_root)
+                await stream.send(f"{rel_path} removed from context", color="red")
 
     @classmethod
     def argument_names(cls) -> list[str]:
