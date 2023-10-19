@@ -5,13 +5,16 @@ import os
 import sys
 from contextvars import ContextVar
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, AsyncGenerator, Optional, cast
 
+import backoff
 import openai
 import openai.error
 import tiktoken
+from backoff.types import Details
 from dotenv import load_dotenv
-from openai.error import AuthenticationError
+from openai.error import AuthenticationError, RateLimitError, Timeout
 
 from mentat.session_stream import SESSION_STREAM
 
@@ -72,6 +75,39 @@ def raise_if_in_test_environment():
         raise MentatError("OpenAI call attempted in non benchmark test environment!")
 
 
+async def warn_user(message: str, max_tries: int, details: Details):
+    stream = SESSION_STREAM.get()
+
+    warning = f"{message}: Retry number {details['tries']}/{max_tries - 1}..."
+    await stream.send(warning, color="light_yellow")
+
+
+# This can be mocked in benchmarks to increase the wait time
+backoff_delay_base = 2
+
+
+@backoff.on_exception(
+    wait_gen=backoff.expo,
+    exception=Timeout,
+    max_tries=5,
+    base=backoff_delay_base,
+    factor=2,
+    jitter=None,
+    logger="",
+    giveup_log_level=logging.INFO,
+    on_backoff=partial(warn_user, "Error reaching OpenAI's servers", 5),
+)
+@backoff.on_exception(
+    wait_gen=backoff.expo,
+    exception=RateLimitError,
+    max_tries=3,
+    base=backoff_delay_base,
+    factor=10,
+    jitter=None,
+    logger="",
+    giveup_log_level=logging.INFO,
+    on_backoff=partial(warn_user, "Rate limit recieved from OpenAI's servers", 3),
+)
 async def call_llm_api(
     messages: list[dict[str, str]], model: str
 ) -> AsyncGenerator[Any, None]:

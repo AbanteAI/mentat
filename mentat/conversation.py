@@ -6,14 +6,14 @@ from contextvars import ContextVar
 from enum import Enum
 from timeit import default_timer
 
-from openai.error import InvalidRequestError, RateLimitError
+from openai.error import InvalidRequestError
 
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import PARSER, Parser
 
 from .code_context import CODE_CONTEXT
 from .config_manager import CONFIG_MANAGER, user_config_path
-from .errors import MentatError, UserError
+from .errors import MentatError
 from .llm_api import (
     COST_TRACKER,
     call_llm_api,
@@ -153,8 +153,6 @@ class Conversation:
                 " returned:\n"
                 + str(e)
             )
-        except RateLimitError as e:
-            raise UserError("OpenAI gave a rate limit error:\n" + str(e))
 
         time_elapsed = default_timer() - start_time
         return (parsedLLMResponse, time_elapsed)

@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import List, Optional, Union, cast
 from uuid import uuid4
 
+from openai.error import RateLimitError, Timeout
+
 from mentat.logging_config import setup_logging
 
 from .code_context import CODE_CONTEXT, CodeContext, CodeContextSettings
@@ -123,8 +125,13 @@ class Session:
                     need_user_request = await get_user_feedback_on_edits(file_edits)
                 else:
                     need_user_request = True
+                await stream.send(bool(file_edits), channel="edits_complete")
         except SessionExit:
             pass
+        except (Timeout, RateLimitError) as e:
+            await stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
+        finally:
+            await stream.send(None, channel="exit")
 
     ### lifecycle
 

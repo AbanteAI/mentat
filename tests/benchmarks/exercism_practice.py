@@ -125,6 +125,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         exclude_paths=exercise_runner.exclude_files(),
         no_code_map=True,
     )
+    await client.startup()
 
     prompt_1 = (
         f"Use the instructions in {exercise_runner.docs()} to modify"
@@ -138,7 +139,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
     )
 
     iterations = 0
-    while iterations < max_iterations:
+    while iterations < max_iterations and client.started:
         if exercise_runner.passed():
             break
         message = (
@@ -147,10 +148,12 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
             else exercise_runner.get_error_message() + prompt_2
         )
         await client.call_mentat_auto_accept(message)
+        await client.wait_for_edit_completion()
 
         exercise_runner.run_test()
         iterations += 1
 
+    had_error = not client.started
     await client.stop()
     passed = exercise_runner.passed()
     result = {
@@ -158,7 +161,10 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         "passed": passed,
         "test": exercise_runner.name,
     }
-    if not result["passed"]:
+    if had_error:
+        result["response"] = "Error while running mentat"
+        result["reason"] = "error"
+    elif not result["passed"]:
         response, reason = await failure_analysis(exercise_runner, language)
         result["response"] = response
         result["reason"] = reason
