@@ -104,9 +104,9 @@ async def test_code_context_performance(
         os.chdir(code_dir)
         if test["commit"]:
             subprocess.run(
-                ["git", "checkout", test["commit"]], 
-                stdout=subprocess.DEVNULL, 
-                stderr=subprocess.DEVNULL
+                ["git", "checkout", test["commit"]],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
         GIT_ROOT.set(code_dir)
 
