@@ -26,15 +26,22 @@ async def collect_user_input(plain: bool = False) -> StreamMessage:
     # This fixes a circular import
     from mentat.commands import Command
 
+    stream = SESSION_STREAM.get()
+
     response = await _get_input_request(plain=plain)
     logging.debug(f"User Input: {response.data}")
 
     # Intercept and run commands
     if not plain:
         while isinstance(response.data, str) and response.data.startswith("/"):
-            arguments = shlex.split(response.data[1:])
-            command = Command.create_command(arguments[0])
-            await command.apply(*arguments[1:])
+            try:
+                arguments = shlex.split(response.data[1:])
+                command = Command.create_command(arguments[0])
+                await command.apply(*arguments[1:])
+            except ValueError as e:
+                await stream.send(
+                    f"Error processing command arguments: {e}", color="light_red"
+                )
 
             response = await _get_input_request(plain=plain)
 
