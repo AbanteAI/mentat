@@ -4,11 +4,10 @@ import json
 import logging
 from enum import Enum
 from timeit import default_timer
+from typing import TYPE_CHECKING
 
 from openai.error import InvalidRequestError
 
-from mentat.parsers.file_edit import FileEdit
-from mentat.parsers.parser import Parser
 from mentat.session_context import SESSION_CONTEXT
 
 from .config_manager import ConfigManager, user_config_path
@@ -21,6 +20,10 @@ from .llm_api import (
     model_context_size,
 )
 from .session_stream import SessionStream
+
+if TYPE_CHECKING:
+    from mentat.parsers.file_edit import FileEdit
+    from mentat.parsers.parser import Parser
 
 
 class MessageRole(Enum):
