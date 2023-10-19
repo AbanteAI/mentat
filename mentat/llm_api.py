@@ -5,12 +5,14 @@ import os
 import sys
 from contextvars import ContextVar
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, AsyncGenerator, Optional, cast
 
 import backoff
 import openai
 import openai.error
 import tiktoken
+from backoff.types import Details
 from dotenv import load_dotenv
 from openai.error import AuthenticationError, RateLimitError, Timeout
 
@@ -73,14 +75,23 @@ def raise_if_in_test_environment():
         raise MentatError("OpenAI call attempted in non benchmark test environment!")
 
 
+async def warn_user(message: str, max_tries: int, details: Details):
+    stream = SESSION_STREAM.get()
+
+    warning = f"{message}: Retry number {details['tries']}/{max_tries - 1}..."
+    await stream.send(warning, color="light_yellow")
+
+
 @backoff.on_exception(
     wait_gen=backoff.expo,
     exception=Timeout,
     max_tries=5,
     base=2,
     factor=2,
+    jitter=None,
     logger="",
     giveup_log_level=logging.INFO,
+    on_backoff=partial(warn_user, "Error reaching OpenAI's servers", 5),
 )
 @backoff.on_exception(
     wait_gen=backoff.expo,
@@ -88,8 +99,10 @@ def raise_if_in_test_environment():
     max_tries=3,
     base=2,
     factor=10,
+    jitter=None,
     logger="",
     giveup_log_level=logging.INFO,
+    on_backoff=partial(warn_user, "Rate limit recieved from OpenAI's servers", 3),
 )
 async def call_llm_api(
     messages: list[dict[str, str]], model: str
