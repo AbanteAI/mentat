@@ -4,14 +4,13 @@ import os
 from enum import Enum
 from pathlib import Path
 
+from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import sha256
 
-from .code_file_manager import CODE_FILE_MANAGER
 from .code_map import get_code_map
 from .diff_context import annotate_file_message, parse_diff
-from .git_handler import GIT_ROOT, get_diff_for_file
+from .git_handler import get_diff_for_file
 from .llm_api import count_tokens
-from .parsers.parser import PARSER
 
 
 class Interval:
@@ -100,9 +99,10 @@ class CodeFile:
         return any([interval.contains(line_number) for interval in self.intervals])
 
     async def _get_code_message(self) -> list[str]:
-        git_root = GIT_ROOT.get()
-        code_file_manager = CODE_FILE_MANAGER.get()
-        parser = PARSER.get()
+        session_context = SESSION_CONTEXT.get()
+        code_file_manager = session_context.code_file_manager
+        git_root = session_context.git_root
+        parser = session_context.parser
 
         code_message: list[str] = []
 
@@ -143,8 +143,10 @@ class CodeFile:
         return code_message
 
     def get_checksum(self) -> str:
-        git_root = GIT_ROOT.get()
-        code_file_manager = CODE_FILE_MANAGER.get()
+        session_context = SESSION_CONTEXT.get()
+        code_file_manager = session_context.code_file_manager
+        git_root = session_context.git_root
+
         abs_path = git_root / self.path
         file_checksum = code_file_manager.get_file_checksum(Path(abs_path))
         return sha256(f"{file_checksum}{self.level.key}{self.diff}")

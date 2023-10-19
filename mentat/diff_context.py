@@ -3,11 +3,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
-from mentat.session_stream import SESSION_STREAM
+from mentat.session_context import SESSION_CONTEXT
 
 from .errors import UserError
 from .git_handler import (
-    GIT_ROOT,
     check_head_exists,
     get_diff_for_file,
     get_files_in_diff,
@@ -116,8 +115,9 @@ class DiffContext:
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
     ):
-        stream = SESSION_STREAM.get()
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        git_root = session_context.git_root
 
         if diff and pr_diff:
             # TODO: Once broadcast queue's unread messages and/or config is moved to client,

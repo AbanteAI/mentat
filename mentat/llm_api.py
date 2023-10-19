@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Optional, cast
 
@@ -13,7 +12,7 @@ import tiktoken
 from dotenv import load_dotenv
 from openai.error import AuthenticationError
 
-from mentat.session_stream import SESSION_STREAM
+from mentat.session_context import SESSION_CONTEXT
 
 from .config_manager import mentat_dir_path
 from .errors import MentatError, UserError
@@ -157,7 +156,8 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
 
 
 async def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
-    stream = SESSION_STREAM.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
 
     prompt_token_count = 0
     for message in messages:
@@ -176,9 +176,6 @@ async def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> 
     return prompt_token_count
 
 
-COST_TRACKER: ContextVar[CostTracker] = ContextVar("mentat:cost_tracker")
-
-
 @dataclass
 class CostTracker:
     total_tokens: int = 0
@@ -191,7 +188,8 @@ class CostTracker:
         model: str,
         call_time: float,
     ) -> None:
-        stream = SESSION_STREAM.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
 
         self.total_tokens += num_prompt_tokens + num_sampled_tokens
         tokens_per_second = num_sampled_tokens / call_time
@@ -213,7 +211,8 @@ class CostTracker:
         costs_logger.info(speed_and_cost_string)
 
     async def display_total_cost(self) -> None:
-        stream = SESSION_STREAM.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
         await stream.send(
             f"Total session cost: ${self.total_cost:.2f}", color="light_blue"
         )

@@ -6,22 +6,19 @@ from typing import List, Optional, Union, cast
 from uuid import uuid4
 
 from mentat.logging_config import setup_logging
+from mentat.session_context import SESSION_CONTEXT, SessionContext
 
-from .code_context import CODE_CONTEXT, CodeContext, CodeContextSettings
+from .code_context import CodeContextSettings
 from .code_edit_feedback import get_user_feedback_on_edits
-from .code_file_manager import CODE_FILE_MANAGER, CodeFileManager
-from .config_manager import CONFIG_MANAGER, ConfigManager
-from .conversation import CONVERSATION, Conversation
 from .errors import MentatError, SessionExit
-from .git_handler import GIT_ROOT, get_shared_git_root_for_paths
-from .llm_api import COST_TRACKER, CostTracker, setup_api_key
+from .llm_api import setup_api_key
 from .parsers.block_parser import BlockParser
-from .parsers.parser import PARSER, Parser
+from .parsers.parser import Parser
 from .parsers.replacement_parser import ReplacementParser
 from .parsers.split_diff_parser import SplitDiffParser
 from .parsers.unified_diff_parser import UnifiedDiffParser
 from .session_input import collect_user_input
-from .session_stream import SESSION_STREAM, SessionStream
+from .session_stream import SessionStream
 
 parser_map: dict[str, Parser] = {
     "block": BlockParser(),
@@ -55,45 +52,19 @@ class Session:
         use_embedding: bool = False,
         auto_tokens: Optional[int] = None,
     ):
-        # Set contextvars here
-        stream = SessionStream()
-        await stream.start()
-        SESSION_STREAM.set(stream)
-
-        cost_tracker = CostTracker()
-        COST_TRACKER.set(cost_tracker)
-
-        git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
-        GIT_ROOT.set(git_root)
-
-        # TODO: Config should be created in the client (i.e., to get vscode settings) and passed to session
-        config = await ConfigManager.create()
-        CONFIG_MANAGER.set(config)
-
-        parser = parser_map[config.parser()]
-        PARSER.set(parser)
-
         code_context_settings = CodeContextSettings(
             diff, pr_diff, no_code_map, use_embedding, auto_tokens
         )
-        code_context = await CodeContext.create(
+        session_context = await SessionContext.create(
             paths, exclude_paths, code_context_settings
         )
-        CODE_CONTEXT.set(code_context)
-
-        # NOTE: Should codefilemanager, codecontext, and conversation be contextvars/singletons or regular instances?
-        code_file_manager = CodeFileManager()
-        CODE_FILE_MANAGER.set(code_file_manager)
-
-        conversation = Conversation()
-        CONVERSATION.set(conversation)
-
-        return cls(stream)
+        return cls(session_context.stream)
 
     async def _main(self):
-        stream = SESSION_STREAM.get()
-        code_context = CODE_CONTEXT.get()
-        conversation = CONVERSATION.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        code_context = session_context.code_context
+        conversation = session_context.conversation
 
         try:
             await code_context.display_context()
@@ -183,7 +154,8 @@ class Session:
             return
 
         async def run_stop():
-            cost_tracker = COST_TRACKER.get()
+            session_context = SESSION_CONTEXT.get()
+            cost_tracker = session_context.cost_tracker
 
             if self._main_task is None:
                 return

@@ -4,13 +4,17 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .session_stream import SESSION_STREAM
+from mentat.session_context import SESSION_CONTEXT
+
 from .utils import run_subprocess_async
 
 
 async def get_code_map(
     root: Path, file_path: Path, exclude_signatures: bool = False
 ) -> list[str]:
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+
     # Create ctags from executable in a subprocess
     ctags_cmd_args = [
         "--extras=-F",
@@ -34,7 +38,7 @@ async def get_code_map(
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            await SESSION_STREAM.get().send(
+            await stream.send(
                 f"Error parsing ctags output: {err}\n{repr(output_line)}",
                 color="yellow",
             )

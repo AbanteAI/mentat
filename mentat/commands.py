@@ -5,12 +5,10 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
 
-from mentat.code_file_manager import CODE_FILE_MANAGER
-from mentat.conversation import CONVERSATION, MessageRole
-from mentat.session_stream import SESSION_STREAM
+from mentat.conversation import MessageRole
+from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import create_viewer
 
-from .code_context import CODE_CONTEXT
 from .errors import MentatError
 from .git_handler import commit
 
@@ -65,7 +63,10 @@ class InvalidCommand(Command, command_name=None):
         self.invalid_name = invalid_name
 
     async def apply(self, *args: str) -> None:
-        await SESSION_STREAM.get().send(
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+
+        await stream.send(
             f"{self.invalid_name} is not a valid command. Use /help to see a list of"
             " all valid commands",
             color="light_yellow",
@@ -85,7 +86,8 @@ help_message_width = 60
 
 class HelpCommand(Command, command_name="help"):
     async def apply(self, *args: str) -> None:
-        stream = SESSION_STREAM.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
 
         if not args:
             commands = Command.get_command_names()
@@ -137,8 +139,9 @@ class CommitCommand(Command, command_name="commit"):
 
 class IncludeCommand(Command, command_name="include"):
     async def apply(self, *args: str) -> None:
-        stream = SESSION_STREAM.get()
-        code_context = CODE_CONTEXT.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        code_context = session_context.code_context
 
         if len(args) == 0:
             await stream.send("No files specified\n", color="yellow")
@@ -164,8 +167,9 @@ class IncludeCommand(Command, command_name="include"):
 
 class ExcludeCommand(Command, command_name="exclude"):
     async def apply(self, *args: str) -> None:
-        stream = SESSION_STREAM.get()
-        code_context = CODE_CONTEXT.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        code_context = session_context.code_context
 
         if len(args) == 0:
             await stream.send("No files specified\n", color="yellow")
@@ -185,8 +189,10 @@ class ExcludeCommand(Command, command_name="exclude"):
 
 class UndoCommand(Command, command_name="undo"):
     async def apply(self, *args: str) -> None:
-        stream = SESSION_STREAM.get()
-        code_file_manager = CODE_FILE_MANAGER.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        code_file_manager = session_context.code_file_manager
+
         errors = code_file_manager.history.undo()
         if errors:
             await stream.send(errors)
@@ -203,8 +209,10 @@ class UndoCommand(Command, command_name="undo"):
 
 class UndoAllCommand(Command, command_name="undo-all"):
     async def apply(self, *args: str) -> None:
-        stream = SESSION_STREAM.get()
-        code_file_manager = CODE_FILE_MANAGER.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        code_file_manager = session_context.code_file_manager
+
         errors = code_file_manager.history.undo_all()
         if errors:
             await stream.send(errors)
@@ -221,8 +229,10 @@ class UndoAllCommand(Command, command_name="undo-all"):
 
 class ClearCommand(Command, command_name="clear"):
     async def apply(self, *args: str) -> None:
-        stream = SESSION_STREAM.get()
-        conversation = CONVERSATION.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        conversation = session_context.conversation
+
         # Only keep system messages (for now just the prompt)
         conversation.messages = [
             message
@@ -245,7 +255,9 @@ class ConversationCommand(Command, command_name="conversation"):
     hidden = True
 
     async def apply(self, *args: str) -> None:
-        conversation = CONVERSATION.get()
+        session_context = SESSION_CONTEXT.get()
+        conversation = session_context.conversation
+
         viewer_path = create_viewer(conversation.literal_messages)
         webbrowser.open(f"file://{viewer_path.resolve()}")
 

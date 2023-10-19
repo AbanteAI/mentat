@@ -8,11 +8,11 @@ from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
-from mentat.git_handler import GIT_ROOT
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import ParsedLLMResponse, Parser
 from mentat.prompts.prompts import read_prompt
+from mentat.session_context import SESSION_CONTEXT
 
 block_parser_prompt_filename = Path("block_parser_prompt.txt")
 
@@ -203,7 +203,9 @@ class BlockParser(Parser):
         """
         Inverse of stream_and_parse_llm_response
         """
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+
         ans = parsedLLMResponse.conversation
         for file_edit in parsedLLMResponse.file_edits:
             tmp = {}

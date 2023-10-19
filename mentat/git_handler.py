@@ -1,16 +1,15 @@
 import logging
 import os
 import subprocess
-from contextvars import ContextVar
 from pathlib import Path
 
 from mentat.errors import UserError
-
-GIT_ROOT: ContextVar[Path] = ContextVar("mentat:git_root")
+from mentat.session_context import SESSION_CONTEXT
 
 
 def get_git_diff_for_path(path: Path) -> str:
-    git_root = GIT_ROOT.get()
+    session_context = SESSION_CONTEXT.get()
+    git_root = session_context.git_root
     return subprocess.check_output(["git", "diff", path], cwd=git_root).decode("utf-8")
 
 
@@ -32,7 +31,8 @@ def get_non_gitignored_files(path: Path) -> set[Path]:
 
 
 def get_paths_with_git_diffs() -> set[Path]:
-    git_root = GIT_ROOT.get()
+    session_context = SESSION_CONTEXT.get()
+    git_root = session_context.git_root
 
     changed = subprocess.check_output(
         ["git", "diff", "--name-only"], cwd=git_root, text=True
@@ -111,7 +111,8 @@ def commit(message: str) -> None:
 
 def get_diff_for_file(target: str, path: Path) -> str:
     """Return commit data & diff for target versus active code"""
-    git_root = GIT_ROOT.get()
+    session_context = SESSION_CONTEXT.get()
+    git_root = session_context.git_root
 
     try:
         diff_content = subprocess.check_output(
@@ -124,7 +125,8 @@ def get_diff_for_file(target: str, path: Path) -> str:
 
 
 def get_treeish_metadata(target: str) -> dict[str, str]:
-    git_root = GIT_ROOT.get()
+    session_context = SESSION_CONTEXT.get()
+    git_root = session_context.git_root
 
     try:
         commit_info = subprocess.check_output(
@@ -143,7 +145,8 @@ def get_treeish_metadata(target: str) -> dict[str, str]:
 
 def get_files_in_diff(target: str) -> list[Path]:
     """Return commit data & diff for target versus active code"""
-    git_root = GIT_ROOT.get()
+    session_context = SESSION_CONTEXT.get()
+    git_root = session_context.git_root
 
     try:
         diff_content = subprocess.check_output(
@@ -159,7 +162,8 @@ def get_files_in_diff(target: str) -> list[Path]:
 
 
 def check_head_exists() -> bool:
-    git_root = GIT_ROOT.get()
+    session_context = SESSION_CONTEXT.get()
+    git_root = session_context.git_root
 
     try:
         subprocess.check_output(["git", "rev-parse", "HEAD", "--"], cwd=git_root)
@@ -169,7 +173,8 @@ def check_head_exists() -> bool:
 
 
 def get_default_branch() -> str:
-    git_root = GIT_ROOT.get()
+    session_context = SESSION_CONTEXT.get()
+    git_root = session_context.git_root
 
     try:
         # Fetch the symbolic ref of HEAD which points to the default branch

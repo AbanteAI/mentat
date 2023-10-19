@@ -2,29 +2,25 @@ from __future__ import annotations
 
 import json
 import logging
-from contextvars import ContextVar
 from enum import Enum
 from timeit import default_timer
 
 from openai.error import InvalidRequestError, RateLimitError
 
 from mentat.parsers.file_edit import FileEdit
-from mentat.parsers.parser import PARSER, Parser
+from mentat.parsers.parser import Parser
+from mentat.session_context import SESSION_CONTEXT
 
-from .code_context import CODE_CONTEXT
-from .config_manager import CONFIG_MANAGER, user_config_path
+from .config_manager import user_config_path
 from .errors import MentatError, UserError
 from .llm_api import (
-    COST_TRACKER,
     call_llm_api,
     count_tokens,
     get_prompt_token_count,
     is_model_available,
     model_context_size,
 )
-from .session_stream import SESSION_STREAM, SessionStream
-
-CONVERSATION: ContextVar[Conversation] = ContextVar("mentat:conversation")
+from .session_stream import SessionStream
 
 
 class MessageRole(Enum):
@@ -37,8 +33,9 @@ class Conversation:
     max_tokens: int
 
     def __init__(self):
-        config = CONFIG_MANAGER.get()
-        parser = PARSER.get()
+        session_context = SESSION_CONTEXT.get()
+        config = session_context.config
+        parser = session_context.parser
 
         self.model = config.model()
         self.messages = list[dict[str, str]]()
@@ -51,10 +48,11 @@ class Conversation:
         self.add_message(MessageRole.System, prompt)
 
     async def display_token_count(self):
-        stream = SESSION_STREAM.get()
-        parser = PARSER.get()
-        code_context = CODE_CONTEXT.get()
-        config = CONFIG_MANAGER.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        config = session_context.config
+        code_context = session_context.code_context
+        parser = session_context.parser
 
         if not is_model_available(self.model):
             raise MentatError(
@@ -160,10 +158,11 @@ class Conversation:
         return (parsedLLMResponse, time_elapsed)
 
     async def get_model_response(self) -> list[FileEdit]:
-        stream = SESSION_STREAM.get()
-        code_context = CODE_CONTEXT.get()
-        cost_tracker = COST_TRACKER.get()
-        parser = PARSER.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        code_context = session_context.code_context
+        parser = session_context.parser
+        cost_tracker = session_context.cost_tracker
 
         messages_snapshot = self.messages.copy()
 

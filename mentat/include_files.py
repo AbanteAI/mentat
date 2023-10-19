@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import Any, Dict
 
 from mentat.code_file import CodeFile, parse_intervals
-from mentat.config_manager import CONFIG_MANAGER
-from mentat.git_handler import GIT_ROOT, get_non_gitignored_files
-from mentat.session_stream import SESSION_STREAM
+from mentat.git_handler import get_non_gitignored_files
+from mentat.session_context import SESSION_CONTEXT
 
 
 def expand_paths(paths: list[Path]) -> list[Path]:
@@ -80,8 +79,9 @@ def get_include_files(
     paths: list[Path], exclude_paths: list[Path]
 ) -> tuple[Dict[Path, CodeFile], list[str]]:
     """Returns a complete list of text files in a given set of include/exclude Paths."""
-    git_root = GIT_ROOT.get()
-    config = CONFIG_MANAGER.get()
+    session_context = SESSION_CONTEXT.get()
+    git_root = session_context.git_root
+    config = session_context.config
 
     paths = expand_paths(paths)
     exclude_paths = expand_paths(exclude_paths)
@@ -141,7 +141,9 @@ async def print_path_tree(
     tree: dict[str, Any], changed_files: set[Path], cur_path: Path, prefix: str = ""
 ):
     """Prints a tree of paths, with changed files highlighted."""
-    stream = SESSION_STREAM.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+
     keys = list(tree.keys())
     for i, key in enumerate(sorted(keys)):
         if i < len(keys) - 1:

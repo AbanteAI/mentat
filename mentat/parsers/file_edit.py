@@ -5,17 +5,15 @@ from pathlib import Path
 
 import attr
 
-from mentat.code_file_manager import CODE_FILE_MANAGER
 from mentat.errors import MentatError
-from mentat.git_handler import GIT_ROOT
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
     change_delimiter,
     get_full_change,
 )
+from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
-from mentat.session_stream import SESSION_STREAM
 
 
 # TODO: Add 'owner' to Replacement so that interactive mode can accept/reject multiple replacements at once
@@ -44,7 +42,8 @@ async def _ask_user_change(
     display_information: DisplayInformation,
     text: str,
 ) -> bool:
-    stream = SESSION_STREAM.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
     await stream.send(get_full_change(display_information))
     await stream.send(text, color="light_blue")
     return await ask_yes_no(default_yes=True)
@@ -66,9 +65,10 @@ class FileEdit:
     rename_file_path: Path | None = attr.field(default=None)
 
     async def is_valid(self) -> bool:
-        stream = SESSION_STREAM.get()
-        code_file_manager = CODE_FILE_MANAGER.get()
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+        stream = session_context.stream
+        code_file_manager = session_context.code_file_manager
 
         rel_path = Path(os.path.relpath(self.file_path, git_root))
         if self.is_creation:
@@ -101,8 +101,9 @@ class FileEdit:
     async def filter_replacements(
         self,
     ) -> bool:
-        code_file_manager = CODE_FILE_MANAGER.get()
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+        code_file_manager = session_context.code_file_manager
 
         if self.is_creation:
             display_information = DisplayInformation(
@@ -161,7 +162,8 @@ class FileEdit:
         )
 
     async def _print_resolution(self, first: Replacement, second: Replacement):
-        stream = SESSION_STREAM.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
 
         await stream.send(
             "Change overlap detected, auto-merged back to back changes:\n"
