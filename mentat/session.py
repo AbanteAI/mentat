@@ -5,13 +5,17 @@ from pathlib import Path
 from typing import List, Optional, Union, cast
 from uuid import uuid4
 
+from mentat.code_file_manager import CodeFileManager
+from mentat.config_manager import ConfigManager
+from mentat.conversation import Conversation
+from mentat.git_handler import get_shared_git_root_for_paths
 from mentat.logging_config import setup_logging
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 
-from .code_context import CodeContextSettings
+from .code_context import CodeContext, CodeContextSettings
 from .code_edit_feedback import get_user_feedback_on_edits
 from .errors import MentatError, SessionExit
-from .llm_api import setup_api_key
+from .llm_api import CostTracker, setup_api_key
 from .parsers.block_parser import BlockParser
 from .parsers.parser import Parser
 from .parsers.replacement_parser import ReplacementParser
@@ -52,12 +56,43 @@ class Session:
         use_embedding: bool = False,
         auto_tokens: Optional[int] = None,
     ):
+        # Since we can't set the session_context until after all of the singletons are created,
+        # any singletons used in the constructor of another singleton must be passed in
+        git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
+
+        stream = SessionStream()
+        await stream.start()
+
+        cost_tracker = CostTracker()
+
+        # TODO: Part of config should be retrieved in client (i.e., to get vscode settings) and passed to server
+        config = await ConfigManager.create(git_root, stream)
+
+        parser = parser_map[config.parser()]
+
         code_context_settings = CodeContextSettings(
             diff, pr_diff, no_code_map, use_embedding, auto_tokens
         )
-        session_context = await SessionContext.create(
-            paths, exclude_paths, code_context_settings
+        code_context = await CodeContext.create(stream, git_root, code_context_settings)
+
+        code_file_manager = CodeFileManager()
+
+        conversation = Conversation(config, parser)
+
+        session_context = SessionContext(
+            stream,
+            cost_tracker,
+            git_root,
+            config,
+            parser,
+            code_context,
+            code_file_manager,
+            conversation,
         )
+
+        # Functions that require session_context
+        await code_context.set_paths(paths, exclude_paths)
+
         return cls(session_context.stream)
 
     async def _main(self):

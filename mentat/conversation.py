@@ -11,7 +11,7 @@ from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import Parser
 from mentat.session_context import SESSION_CONTEXT
 
-from .config_manager import user_config_path
+from .config_manager import ConfigManager, user_config_path
 from .errors import MentatError, UserError
 from .llm_api import (
     call_llm_api,
@@ -32,11 +32,7 @@ class MessageRole(Enum):
 class Conversation:
     max_tokens: int
 
-    def __init__(self):
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        parser = session_context.parser
-
+    def __init__(self, config: ConfigManager, parser: Parser):
         self.model = config.model()
         self.messages = list[dict[str, str]]()
 

@@ -6,7 +6,7 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Dict, Optional, cast
 
-from mentat.session_context import SESSION_CONTEXT
+from mentat.session_stream import SessionStream
 from mentat.utils import fetch_resource, mentat_dir_path
 
 default_config_file_name = Path("default_config.json")
@@ -28,11 +28,7 @@ class ConfigManager:
             self.default_config = json.load(config_file)
 
     @classmethod
-    async def create(cls):
-        session_context = SESSION_CONTEXT.get()
-        git_root = session_context.git_root
-        stream = session_context.stream
-
+    async def create(cls, git_root: Path, stream: SessionStream):
         if user_config_path.exists():
             with open(user_config_path) as config_file:
                 try:

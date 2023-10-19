@@ -12,19 +12,14 @@ import pytest
 import pytest_asyncio
 
 from mentat import config_manager
-from mentat.code_context import CODE_CONTEXT, CodeContext, CodeContextSettings
-from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
-from mentat.config_manager import CONFIG_MANAGER, ConfigManager, config_file_name
-from mentat.diff_context import DiffContext
-from mentat.git_handler import GIT_ROOT
-from mentat.parsers.block_parser import BlockParser
-from mentat.parsers.parser import PARSER
-from mentat.session_stream import (
-    SESSION_STREAM,
-    SessionStream,
-    StreamMessage,
-    StreamMessageSource,
-)
+from mentat.code_context import CodeContext, CodeContextSettings
+from mentat.code_file_manager import CodeFileManager
+from mentat.config_manager import ConfigManager, config_file_name
+from mentat.conversation import Conversation
+from mentat.llm_api import CostTracker
+from mentat.session import parser_map
+from mentat.session_context import SESSION_CONTEXT, SessionContext
+from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
 from mentat.streaming_printer import StreamingPrinter
 
 pytest_plugins = ("pytest_reportlog",)
@@ -166,91 +161,45 @@ def add_permissions(func, path, exc_info):
 # https://github.com/pytest-dev/pytest-asyncio/issues/127
 
 
-# SessionStream
-@pytest.fixture
-def _mock_stream():
-    session_stream = SessionStream()
-    token = SESSION_STREAM.set(session_stream)
-    yield session_stream
-    SESSION_STREAM.reset(token)
-
-
 @pytest_asyncio.fixture()
-async def mock_stream(_mock_stream):
-    await _mock_stream.start()
-    yield _mock_stream
-    await _mock_stream.stop()
+async def _mock_session_context(temp_testbed):
+    git_root = temp_testbed
 
+    stream = SessionStream()
+    await stream.start()
 
-# Git root
-@pytest.fixture
-def _mock_git_root(temp_testbed):
-    git_root = Path(temp_testbed)
-    token = GIT_ROOT.set(git_root)
-    yield git_root
-    GIT_ROOT.reset(token)
+    cost_tracker = CostTracker()
 
+    config = await ConfigManager.create(git_root, stream)
 
-@pytest_asyncio.fixture()
-async def mock_git_root(_mock_git_root):
-    yield _mock_git_root
+    parser = parser_map[config.parser()]
 
+    code_context_settings = CodeContextSettings()
+    code_context = await CodeContext.create(stream, git_root, code_context_settings)
 
-# ConfigManager
-@pytest.fixture
-def _mock_config():
-    config = ConfigManager({}, {})
-    token = CONFIG_MANAGER.set(config)
-    yield config
-    CONFIG_MANAGER.reset(token)
-
-
-@pytest_asyncio.fixture()
-async def mock_config(_mock_config):
-    yield _mock_config
-
-
-# CodeContext
-@pytest.fixture
-def _mock_code_context(_mock_git_root, _mock_config):
-    code_context = CodeContext(settings=CodeContextSettings())
-    token = CODE_CONTEXT.set(code_context)
-    yield code_context
-    CODE_CONTEXT.reset(token)
-
-
-@pytest_asyncio.fixture()
-async def mock_code_context(_mock_code_context):
-    _mock_code_context.diff_context = await DiffContext.create()
-    yield _mock_code_context
-
-
-# CodeFileManager
-@pytest.fixture
-def _mock_code_file_manager():
     code_file_manager = CodeFileManager()
-    token = CODE_FILE_MANAGER.set(code_file_manager)
-    yield code_file_manager
-    CODE_FILE_MANAGER.reset(token)
+
+    conversation = Conversation(config, parser)
+
+    session_context = SessionContext(
+        stream,
+        cost_tracker,
+        git_root,
+        config,
+        parser,
+        code_context,
+        code_file_manager,
+        conversation,
+    )
+    yield session_context
+    await session_context.stream.stop()
 
 
-@pytest_asyncio.fixture()
-async def mock_code_file_manager(_mock_code_file_manager):
-    yield _mock_code_file_manager
-
-
-# Parser
 @pytest.fixture
-def _mock_parser():
-    parser = BlockParser()
-    token = PARSER.set(parser)
-    yield parser
-    PARSER.reset(token)
-
-
-@pytest_asyncio.fixture()
-async def mock_parser(_mock_parser):
-    yield _mock_parser
+def mock_session_context(_mock_session_context):
+    token = SESSION_CONTEXT.set(_mock_session_context)
+    yield _mock_session_context
+    SESSION_CONTEXT.reset(token)
 
 
 ### Auto-used fixtures

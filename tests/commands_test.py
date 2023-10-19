@@ -4,9 +4,9 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.code_context import CODE_CONTEXT
 from mentat.commands import Command, HelpCommand, InvalidCommand
 from mentat.session import Session
+from mentat.session_context import SESSION_CONTEXT
 
 
 def test_invalid_command():
@@ -14,7 +14,7 @@ def test_invalid_command():
 
 
 @pytest.mark.asyncio
-async def test_help_command(mock_stream):
+async def test_help_command(mock_session_context):
     command = Command.create_command("help")
     await command.apply()
     assert isinstance(command, HelpCommand)
@@ -57,7 +57,7 @@ async def test_include_command(
     await session.start()
     await session.stream.stop()
 
-    code_context = CODE_CONTEXT.get()
+    code_context = SESSION_CONTEXT.get().code_context
     assert (
         Path(temp_testbed) / "scripts" / "calculator.py" in code_context.include_files
     )
@@ -78,8 +78,7 @@ async def test_exclude_command(
     await session.start()
     await session.stream.stop()
 
-    code_context = CODE_CONTEXT.get()
-    print(code_context.include_files)
+    code_context = SESSION_CONTEXT.get().code_context
     assert not code_context.include_files
 
 

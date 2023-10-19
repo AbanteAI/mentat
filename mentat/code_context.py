@@ -8,6 +8,7 @@ from typing import Optional
 import attr
 
 from mentat.session_context import SESSION_CONTEXT
+from mentat.session_stream import SessionStream
 
 from .code_file import CodeFile, CodeMessageLevel, count_feature_tokens
 from .code_map import check_ctags_disabled
@@ -48,30 +49,31 @@ class CodeContext:
 
     @classmethod
     async def create(
-        cls, paths: list[Path], exclude_paths: list[Path], settings: CodeContextSettings
+        cls,
+        stream: SessionStream,
+        git_root: Path,
+        settings: CodeContextSettings,
     ):
+        self = cls(settings)
+        self.diff_context = await DiffContext.create(
+            stream, git_root, self.settings.diff, self.settings.pr_diff
+        )
+        self.include_files = {}
+        await self._set_code_map(stream)
+        return self
+
+    async def set_paths(self, paths: list[Path], exclude_paths: list[Path]):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
 
-        self = cls(settings)
-
-        self.diff_context = await DiffContext.create(
-            self.settings.diff, self.settings.pr_diff
-        )
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
             await stream.send(
                 f"File path {invalid_path} is not text encoded, and was skipped.",
                 color="light_yellow",
             )
-        await self._set_code_map()
 
-        return self
-
-    async def _set_code_map(self):
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-
+    async def _set_code_map(self, stream: SessionStream):
         if self.settings.no_code_map:
             self.code_map = False
         else:
@@ -179,10 +181,13 @@ class CodeContext:
         model: str,
         max_tokens: int,
     ) -> str:
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+
         code_message = list[str]()
 
         self.diff_context.clear_cache()
-        await self._set_code_map()
+        await self._set_code_map(stream)
         if self.diff_context.files:
             code_message += [
                 "Diff References:",
