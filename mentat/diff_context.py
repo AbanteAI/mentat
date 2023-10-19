@@ -107,7 +107,8 @@ class DiffContext:
         if self._files_cache is None:
             if self.target == "HEAD" and not check_head_exists():
                 return []  # A new repo without any commits
-            self._files_cache = get_files_in_diff(self.target)
+            diff_files = get_files_in_diff(self.target)
+            self._files_cache = [f.resolve() for f in diff_files]
         return self._files_cache
 
     @classmethod
