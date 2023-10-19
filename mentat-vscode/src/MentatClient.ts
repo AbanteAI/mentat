@@ -1,13 +1,15 @@
 import emitter from "emitter";
+import { once } from "events";
 import * as vscode from "vscode";
 import { LanguageClient, ServerOptions, State } from "vscode-languageclient/node";
 
+import { MentatSessionStreamMessage } from "./types";
 import { ChatMessage } from "./types";
 
 class MentatClient {
   context: vscode.ExtensionContext;
   languageServerOptions: ServerOptions;
-  languageServerClient?: LanguageClient;
+  languageClient?: LanguageClient;
   private restartCount: number;
 
   constructor(context: vscode.ExtensionContext, serverOptions: ServerOptions) {
@@ -17,7 +19,7 @@ class MentatClient {
   }
 
   async startLanguageClient() {
-    this.languageServerClient = new LanguageClient(
+    this.languageClient = new LanguageClient(
       "mentat-server",
       "mentat-server",
       this.languageServerOptions,
@@ -26,19 +28,38 @@ class MentatClient {
       }
     );
 
-    this.languageServerClient.onNotification(
-      "mentat/inputRequest",
-      async (params: any) => {
-        console.log(`Got params ${params} from Language Server`);
-        emitter.emit("mentat/inputRequest", params);
+    // Handle notifications from the Language Server
+    // this.languageClient.onNotification("mentat/inputRequest", async (params: any) => {
+    //   console.log(`Got params ${params} from Language Server`);
+    //   emitter.emit("mentat/inputRequest", params);
+    // });
+
+    this.languageClient.onRequest(
+      "input_request",
+      async (message: MentatSessionStreamMessage) => {
+        console.log(`Got params ${message} from Language Server`);
+
+        const webviewResponsePromise = once(emitter, `input_request:${message.id}`);
+        emitter.emit("input_request", message);
+        const webviewResponse = await webviewResponsePromise;
+
+        return webviewResponse;
       }
     );
 
-    this.languageServerClient.onDidChangeState(async (e) => {
+    this.languageClient.onNotification(
+      "default",
+      async (message: MentatSessionStreamMessage) => {
+        emitter.emit("default", message);
+      }
+    );
+
+    // Restart the LanguageClient if it's stopped
+    this.languageClient.onDidChangeState(async (e) => {
       console.log(`language client state changed: ${e.oldState} ▸ ${e.newState} `);
       if (e.newState === State.Stopped) {
         console.log("language client stopped, restarting...");
-        await this.languageServerClient?.dispose();
+        await this.languageClient?.dispose();
         console.log("language client disposed");
         vscode.window.withProgress(
           { location: vscode.ProgressLocation.Notification },
@@ -54,18 +75,27 @@ class MentatClient {
       }
     });
 
+    // Start the LanguageClient
     console.log("language server options", this.languageServerOptions);
     await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification },
       async (progress) => {
         progress.report({ message: "Mentat: Launching server..." });
-        await this.languageServerClient?.start();
+        await this.languageClient?.start();
       }
     );
   }
 
+  async createSession() {
+    const response = await this.languageClient?.sendRequest("mentat/createSession", {
+      test: "test",
+    });
+
+    console.log(`Got response: ${response}`);
+  }
+
   async sendChatMessage(chatMessage: ChatMessage) {
-    const result = await this.languageServerClient?.sendRequest(
+    const result = await this.languageClient?.sendRequest(
       "mentat/chatMessage",
       chatMessage
     );

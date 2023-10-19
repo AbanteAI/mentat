@@ -1,6 +1,7 @@
+import { useEffect, useRef } from "react";
 import { VscAccount } from "react-icons/vsc";
 
-import { ChatMessage } from "../../types";
+import { ChatMessage, ChatMessageSender } from "../../types";
 import MentatIcon from "./MentatIcon";
 
 type Props = {
@@ -8,12 +9,30 @@ type Props = {
 };
 
 function ChatHistory(props: Props) {
+  const chatHistoryRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (chatHistoryRef.current) {
+      chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [props.chatMessages]);
+
   const chatMessageCards = props.chatMessages.map((chatMessage) => {
     const backgroundColor =
-      chatMessage.createdBy === "client" ? "bg-[var(--vscode-input-background)]" : "";
+      chatMessage.createdBy === ChatMessageSender.Client
+        ? "bg-[var(--vscode-input-background)]"
+        : "";
 
     const messageIcon =
-      chatMessage.createdBy === "client" ? <VscAccount size={18} /> : <MentatIcon />;
+      chatMessage.createdBy === ChatMessageSender.Client ? (
+        <VscAccount size={18} />
+      ) : (
+        <MentatIcon />
+      );
 
     return (
       <div
@@ -27,7 +46,10 @@ function ChatHistory(props: Props) {
   });
 
   return (
-    <div className="flex-1 border border-purple-400">
+    <div
+      ref={chatHistoryRef}
+      className="flex-1 border border-purple-400 overflow-y-scroll"
+    >
       <h1>History</h1>
       {chatMessageCards}
     </div>

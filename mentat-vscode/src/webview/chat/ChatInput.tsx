@@ -1,12 +1,19 @@
 import { Dispatch, KeyboardEvent, SetStateAction, useEffect, useState } from "react";
 import { VscSend } from "react-icons/vsc";
+import { vscode } from "webview/utils/vscode";
 
-import { ChatMessage } from "../../types";
-import { vscode } from "../utils/vscode";
+import {
+  ChatMessage,
+  ChatMessageSender,
+  MentatClientMessage,
+  MentatSessionStreamMessage,
+} from "../../types";
 
 type Props = {
   chatMessages: ChatMessage[];
   setChatMessages: Dispatch<SetStateAction<ChatMessage[]>>;
+  inputRequest: MentatSessionStreamMessage | null;
+  setInputRequest: Dispatch<SetStateAction<MentatSessionStreamMessage | null>>;
 };
 
 function ChatInput(props: Props) {
@@ -25,17 +32,28 @@ function ChatInput(props: Props) {
     if (submitDisabled) {
       return;
     }
+    if (props.inputRequest === null) {
+      console.log("INPUT REQUEST IS NULL");
+      return;
+    }
 
     props.setChatMessages((prevMessages) => {
       const newChatMessage: ChatMessage = {
         id: "",
         orderId: prevMessages[prevMessages.length - 1].orderId + 1,
         content: content,
-        createdBy: "client",
+        createdBy: ChatMessageSender.Client,
       };
-      vscode.postMessage({ command: "mentat/chatMessage", data: newChatMessage });
       return [...prevMessages, newChatMessage];
     });
+
+    const mentatClientMessage: MentatClientMessage = {
+      channel: `input_request:${props.inputRequest.id}`,
+      data: content,
+      created_at: new Date(),
+    };
+
+    vscode.postMessage(mentatClientMessage);
 
     setContent("");
   }
@@ -58,11 +76,10 @@ function ChatInput(props: Props) {
         onChange={(e) => setContent(e.target.value)}
       />
       <button
-        className={`${
-          submitDisabled
+        className={`${submitDisabled
             ? "bg-none"
             : "bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)]"
-        } w-10 h-10 flex justify-center items-center rounded-lg`}
+          } w-10 h-10 flex justify-center items-center rounded-lg`}
         onClick={handleSubmit}
         disabled={submitDisabled}
       >

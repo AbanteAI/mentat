@@ -1,13 +1,45 @@
+enum ChatMessageSender {
+  Client,
+  Server,
+}
+
 type ChatMessage = {
   id: string;
   orderId: number;
   content: string;
-  createdBy: "client" | "server";
+  createdBy: ChatMessageSender;
 };
 
-type LanguageClientMessage = {
-  command: string;
-  data: ChatMessage;
+enum MentatSessionStreamMessageSource {
+  Client = "client",
+  Server = "server",
+}
+
+type MentatSessionStreamMessage = {
+  id: string;
+  channel: string;
+  source: MentatSessionStreamMessageSource;
+  data: any;
+  extra?: any;
+  created_at: string;
 };
 
-export { LanguageClientMessage, ChatMessage };
+type MentatLanguageServerMessage = {
+  type: "input_request";
+  data: MentatSessionStreamMessage;
+};
+
+type MentatClientMessage = {
+  channel: string;
+  data: any;
+  extra?: any;
+  created_at: Date;
+};
+
+export {
+  ChatMessage,
+  ChatMessageSender,
+  MentatSessionStreamMessage,
+  MentatLanguageServerMessage,
+  MentatClientMessage,
+};

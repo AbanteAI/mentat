@@ -1,6 +1,6 @@
 import MentatClient from "MentatClient";
 import emitter from "emitter";
-import { LanguageClientMessage } from "types";
+import { MentatClientMessage, MentatSessionStreamMessage } from "types";
 import * as vscode from "vscode";
 import { Uri, Webview } from "vscode";
 
@@ -51,14 +51,18 @@ class WebviewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private getHtmlForWebview(webview: vscode.Webview) {
-    const scriptUri = getUri(webview, this.extensionUri, [
+  private setHtmlForWebview() {
+    if (this.view === undefined) {
+      throw Error("Webview View is undefined");
+    }
+
+    const scriptUri = getUri(this.view.webview, this.extensionUri, [
       "build",
       "webview",
       "index.js",
     ]);
 
-    const styleUri = getUri(webview, this.extensionUri, [
+    const styleUri = getUri(this.view.webview, this.extensionUri, [
       "build",
       "webview",
       "main.css",
@@ -72,7 +76,7 @@ class WebviewProvider implements vscode.WebviewViewProvider {
         <head>
           <meta charset="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'nonce-${nonce}'; font-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src ${this.view.webview.cspSource} 'nonce-${nonce}'; font-src ${this.view.webview.cspSource}; script-src 'nonce-${nonce}';">
           <link nonce="${nonce}" rel="stylesheet" type="text/css" href="${styleUri}">
           <title>Mentat</title>
         </head>
@@ -83,7 +87,7 @@ class WebviewProvider implements vscode.WebviewViewProvider {
       </html>
     `;
 
-    return html;
+    this.view.webview.html = html;
   }
 
   public resolveWebviewView(
@@ -93,21 +97,33 @@ class WebviewProvider implements vscode.WebviewViewProvider {
   ) {
     this.view = webviewView;
 
-    webviewView.webview.options = {
+    this.view.webview.options = {
       enableScripts: true,
       localResourceRoots: [this.extensionUri],
     };
-    webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
+    this.setHtmlForWebview();
 
-    webviewView.webview.onDidReceiveMessage(async (message: LanguageClientMessage) => {
+    // Handle messages from the webview (and send to MentatClient)
+    this.view.webview.onDidReceiveMessage(async (message: MentatClientMessage) => {
       console.log(`Extension received message: ${message}`);
-
-      this.mentatClient.sendChatMessage(message.data);
+      emitter.emit(message.channel, message);
+      // if (message.command === "mentat/chatMessage") {
+      //   const res = await this.mentatClient.languageClient?.sendRequest(
+      //     "mentat/chatMessage",
+      //     { ooga: "booga" }
+      //   );
+      //   console.log(`Got: ${res}`);
+      // }
     });
 
-    emitter.on("mentat/inputRequest", (message) => {
-      console.log(`Emitter for mentat/inputRequest got: ${message}`);
-      this.postMessage("mentat/inputRequest", message);
+    // Handle messages from the MentatClient (and send to webview)
+    emitter.on("input_request", (message: MentatSessionStreamMessage) => {
+      console.log(`Emitter for input_request got: ${message}`);
+      this.postMessage("input_request", message);
+    });
+
+    emitter.on("default", (message: MentatSessionStreamMessage) => {
+      this.postMessage("default", message);
     });
   }
 }

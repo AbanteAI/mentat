@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import asyncio
 from contextvars import ContextVar
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, AsyncGenerator, Dict, List, cast
 from uuid import UUID, uuid4
+
+from pydantic import BaseModel
 
 from .broadcast import Broadcast
 
@@ -18,8 +19,7 @@ class StreamMessageSource(Enum):
     CLIENT = "client"
 
 
-@dataclass(slots=True)
-class StreamMessage:
+class StreamMessage(BaseModel):
     id: UUID
     channel: str
     source: StreamMessageSource
