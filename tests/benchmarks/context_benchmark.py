@@ -27,6 +27,7 @@ These tests can be used to train/score #1 or #2, but we'd expect #2 to score
 a lot higher.
 """
 import os
+from pathlib import Path
 import subprocess
 
 import pytest
@@ -46,6 +47,7 @@ tests = [
         "codebase_url": "http://github.com/AbanteAI/mentat",
         "codebase_name": "mentat",
         "commit": "a9f055e",
+        "args": {"paths": ["mentat/__init__.py"]},
         "prompt": (
             "I want to update all the files in git_handler to use the 'Repo' class from"
             " GitPython instead of calling subprocess. Update each function in"
@@ -66,6 +68,26 @@ tests = [
             # for other benchmarks
         ],
     },
+    {
+        "name": "simoc-abm: Change 'Lamp' to 'Electric Light'",
+        "codebase_url": "http://github.com/overthesun/simoc-abm",
+        "codebase_name": "simoc-abm",
+        "commit": "d77f44f",
+        "args": {"exclude_paths": ["src/simoc_abm/data_files", "test"]},
+        "prompt": (
+            "Rename 'lamp' to 'electric light' throughout the code. Update "
+            "instances of 'lamp' to 'electric_light', and 'Lamp' to 'Electric "
+            "Light', and if there's a class Lamp, should be class ElectricLight."
+        ),
+        "expected_features": [
+            "docs/api.rst:21-22",
+            "src/simoc_abm/agent_model.py:129-230",
+            "src/simoc_abm/agents/__init__.py",
+            "src/simoc_abm/agents/lamp.py",
+            "src/simoc_abm/agents/plant.py:135-197",
+        ],
+        "expected_edits": [],
+    }
 ]
 
 
@@ -76,7 +98,7 @@ async def test_code_context_performance(
     setup_api_key()
 
     for test in tests:
-        print(f"\n\n{test['codebase_name']}/ \t '{test['prompt'][:50]}...'")
+        print(f"\n\n{test['name']}\n{test['prompt']}")
 
         code_dir = clone_repo(test["codebase_url"], test["codebase_name"])
         os.chdir(code_dir)
@@ -86,8 +108,12 @@ async def test_code_context_performance(
         GIT_ROOT.set(code_dir)
 
         # Create a context and run get_code_message to set the features
-        settings = CodeContextSettings(use_embedding=True)
-        code_context = await CodeContext.create(["mentat/__init__.py"], [], settings)
+        paths = test["args"].get("paths", [])
+        exclude_paths = test["args"].get("exclude_paths", [])
+        rest = {k: v for k, v in test["args"].items() 
+                if k not in ["paths", "exclude_paths"]}
+        settings = CodeContextSettings(**rest, use_embedding=True, auto_tokens=None)
+        code_context = await CodeContext.create(paths, exclude_paths, settings)
         _ = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)
 
         # Calculate y_pred and y_true
@@ -95,10 +121,11 @@ async def test_code_context_performance(
             f.path for f in code_context.features if f.level == CodeMessageLevel.CODE
         }
         expected_features = {
-            CodeFile(f).path for f in test["expected_features"]
+            Path(code_dir / CodeFile(f).path) for f in test["expected_features"]
         }  # Ignore line numbers for now
-        y_pred = [f in actual for f in get_non_gitignored_files(code_dir)]
-        y_true = [f in expected_features for f in get_non_gitignored_files(code_dir)]
+        all_files = [Path(code_dir / f) for f in get_non_gitignored_files(code_dir)]
+        y_pred = [f in actual for f in all_files]
+        y_true = [f in expected_features for f in all_files]
 
         _TP = sum([1 for p, t in zip(y_pred, y_true) if p and t])
         _TN = sum([1 for p, t in zip(y_pred, y_true) if not p and not t])
