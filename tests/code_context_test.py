@@ -50,7 +50,7 @@ async def test_config_glob_exclude(
     # Makes sure glob exclude config works
     mock_glob_exclude = mocker.MagicMock()
     mocker.patch.object(ConfigManager, "file_exclude_glob_list", new=mock_glob_exclude)
-    mock_glob_exclude.side_effect = [[os.path.join("glob_test", "**", "*.py")]]
+    mock_glob_exclude.return_value = [os.path.join("glob_test", "**", "*.py")]
 
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")

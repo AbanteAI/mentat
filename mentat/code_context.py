@@ -16,6 +16,7 @@ from .embeddings import get_feature_similarity_scores
 from .git_handler import GIT_ROOT, get_non_gitignored_files, get_paths_with_git_diffs
 from .include_files import (
     build_path_tree,
+    get_exclude_files,
     get_include_files,
     is_file_text_encoded,
     print_path_tree,
@@ -39,6 +40,7 @@ CODE_CONTEXT: ContextVar[CodeContext] = ContextVar("mentat:code_context")
 
 class CodeContext:
     settings: CodeContextSettings
+    exclude_files: list[Path]
     include_files: dict[Path, CodeFile]
     diff_context: DiffContext
     code_map: bool = True
@@ -61,6 +63,7 @@ class CodeContext:
         self.diff_context = await DiffContext.create(
             self.settings.diff, self.settings.pr_diff
         )
+        self.exclude_files = get_exclude_files(exclude_paths)
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
             await stream.send(
@@ -284,7 +287,10 @@ class CodeContext:
             all_code_features = [
                 CodeFile(f.path, CodeMessageLevel.CODE, f.diff)
                 for f in all_features
-                if f.path not in self.include_files
+                if (
+                    f.path not in self.include_files
+                    and f.path not in self.exclude_files
+                )
             ]
             sim_scores = await get_feature_similarity_scores(prompt, all_code_features)
             all_code_features_scored = zip(all_code_features, sim_scores)

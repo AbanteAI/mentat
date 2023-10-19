@@ -76,16 +76,13 @@ def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
     return files_direct, files_from_dirs, invalid_paths
 
 
-def get_include_files(
-    paths: list[Path], exclude_paths: list[Path]
-) -> tuple[Dict[Path, CodeFile], list[str]]:
-    """Returns a complete list of text files in a given set of include/exclude Paths."""
+def get_exclude_files(exclude_paths: list[Path]) -> list[Path]:
+    """Get the set of excluded files from the given exclude paths."""
     git_root = GIT_ROOT.get()
     config = CONFIG_MANAGER.get()
 
-    paths = expand_paths(paths)
+    # Paths excluded by Session
     exclude_paths = expand_paths(exclude_paths)
-
     excluded_files_direct, excluded_files_from_dirs, _ = abs_files_from_list(
         exclude_paths, check_for_text=False
     )
@@ -93,6 +90,7 @@ def get_include_files(
         map(lambda f: f.path, excluded_files_direct | excluded_files_from_dirs)
     )
 
+    # Paths excluded by config
     glob_excluded_files = set(
         Path(os.path.join(git_root, file))
         for glob_path in config.file_exclude_glob_list()
@@ -103,20 +101,35 @@ def get_include_files(
             recursive=True,
         )
     )
+    excluded_files.update(glob_excluded_files)
+
+    return list(excluded_files)
+
+
+def get_include_files(
+    paths: list[Path], exclude_paths: list[Path]
+) -> tuple[Dict[Path, CodeFile], list[str]]:
+    """Returns a complete list of text files in a given set of include/exclude Paths."""
+    paths = expand_paths(paths)
+    excluded_files = get_exclude_files(exclude_paths)
+
     files_direct, files_from_dirs, invalid_paths = abs_files_from_list(
         paths, check_for_text=True
     )
 
     # config glob excluded files only apply to files added from directories
     files_from_dirs = [
-        file
-        for file in files_from_dirs
-        if file.path.resolve() not in glob_excluded_files
+        file for file in files_from_dirs if file.path.resolve() not in excluded_files
     ]
-    files_direct.update(files_from_dirs)
 
     files = dict[Path, CodeFile]()
+
+    # Add directly added files without checking for exclusion
     for file in files_direct:
+        files[file.path.resolve()] = file
+
+    # Add files from directories after checking for exclusion
+    for file in files_from_dirs:
         if file.path not in excluded_files:
             files[file.path.resolve()] = file
 
