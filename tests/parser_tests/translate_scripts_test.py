@@ -24,10 +24,13 @@ def git_diff_format():
         return f.read()
 
 
-# This one doesn't pass. I think it's actually a bug with the parser as if I print out the final parsed
-# FileEdit from the parsed block_format I don't see the single line deletion.
-# def test_block_to_replacement(block_format, replacement_format, mock_stream, mock_code_file_manager, mock_git_root):
-# assert translate_message(block_format, BlockParser(), ReplacementParser()) == replacement_format
+def test_block_to_replacement(
+    block_format, replacement_format, mock_stream, mock_code_file_manager, mock_git_root
+):
+    assert (
+        translate_message(block_format, BlockParser(), ReplacementParser())
+        == replacement_format
+    )
 
 
 def test_replacement_to_block(

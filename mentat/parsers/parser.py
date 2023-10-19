@@ -235,6 +235,7 @@ class Parser(ABC):
                                 cur_file_edit.rename_file_path = (
                                     file_edit.rename_file_path
                                 )
+                            cur_file_edit.replacements.extend(file_edit.replacements)
                             file_edit = cur_file_edit
 
                         # Print file header
