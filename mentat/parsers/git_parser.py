@@ -29,8 +29,8 @@ class GitParser:
             is_creation = "new file mode" in diff
             is_deletion = "deleted file mode" in diff
             first_line = diff.split("\n")[0]
-            start_file_name = Path(first_line.split()[0][2:])
-            end_file_name = Path(first_line.split()[1][2:])
+            start_file_name = Path(first_line.split()[0][2:]).resolve()
+            end_file_name = Path(first_line.split()[1][2:]).resolve()
             if start_file_name != end_file_name:
                 new_name = end_file_name
             else:
