@@ -126,7 +126,7 @@ class ReplacementParser(Parser):
         Inverse of stream_and_parse_llm_response
         """
         git_root = GIT_ROOT.get()
-        ans = parsedLLMResponse.conversation
+        ans = parsedLLMResponse.conversation.strip() + "\n\n"
         for file_edit in parsedLLMResponse.file_edits:
             action_indicator = ""
             if file_edit.is_creation:
