@@ -66,8 +66,12 @@ class FileEdit:
     rename_file_path: Path | None = attr.field(default=None)
 
     async def is_valid(self) -> bool:
+        # TODO: Remove this when we create SessionContext
+        # This fixes a circular import
+        from mentat.code_context import CODE_CONTEXT
+
         stream = SESSION_STREAM.get()
-        code_file_manager = CODE_FILE_MANAGER.get()
+        code_context = CODE_CONTEXT.get()
         git_root = GIT_ROOT.get()
 
         rel_path = Path(os.path.relpath(self.file_path, git_root))
@@ -83,7 +87,7 @@ class FileEdit:
                     f"File {rel_path} does not exist, canceling all edits to file."
                 )
                 return False
-            elif rel_path not in code_file_manager.file_lines:
+            elif self.file_path not in code_context.include_files:
                 await stream.send(
                     f"File {rel_path} not in context, canceling all edits to file."
                 )

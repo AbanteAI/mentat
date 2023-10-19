@@ -2,8 +2,8 @@ from textwrap import dedent
 
 import pytest
 
+from mentat.config_manager import ConfigManager
 from mentat.session import Session
-from tests.conftest import ConfigManager
 
 
 @pytest.fixture(autouse=True)
