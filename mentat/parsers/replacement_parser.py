@@ -93,7 +93,7 @@ class ReplacementParser(Parser):
             [],
             is_creation=file_action_type == FileActionType.CreateFile,
             is_deletion=file_action_type == FileActionType.DeleteFile,
-            rename_file_path=new_name,
+            rename_file_path=git_root / new_name if new_name else None,
         )
         has_code = file_action_type == FileActionType.UpdateFile
         return (display_information, file_edit, has_code)
@@ -134,7 +134,9 @@ class ReplacementParser(Parser):
             elif file_edit.is_deletion:
                 action_indicator = "-"
             elif file_edit.rename_file_path is not None:
-                action_indicator = file_edit.rename_file_path.as_posix()
+                action_indicator = file_edit.rename_file_path.relative_to(
+                    git_root
+                ).as_posix()
 
             file_rel_path = file_edit.file_path.relative_to(git_root).as_posix()
             if action_indicator != "":
