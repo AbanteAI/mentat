@@ -82,11 +82,15 @@ async def warn_user(message: str, max_tries: int, details: Details):
     await stream.send(warning, color="light_yellow")
 
 
+# This can be mocked in benchmarks to increase the wait time
+backoff_delay_base = 2
+
+
 @backoff.on_exception(
     wait_gen=backoff.expo,
     exception=Timeout,
     max_tries=5,
-    base=2,
+    base=backoff_delay_base,
     factor=2,
     jitter=None,
     logger="",
@@ -97,7 +101,7 @@ async def warn_user(message: str, max_tries: int, details: Details):
     wait_gen=backoff.expo,
     exception=RateLimitError,
     max_tries=3,
-    base=2,
+    base=backoff_delay_base,
     factor=10,
     jitter=None,
     logger="",
