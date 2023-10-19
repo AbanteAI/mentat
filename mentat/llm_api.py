@@ -75,7 +75,8 @@ def raise_if_in_test_environment():
 
 
 async def warn_user(message: str, max_tries: int, details: Details):
-    stream = SESSION_STREAM.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
 
     warning = f"{message}: Retry number {details['tries']}/{max_tries - 1}..."
     await stream.send(warning, color="light_yellow")
