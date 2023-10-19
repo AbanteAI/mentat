@@ -2,20 +2,19 @@
 import argparse
 import asyncio
 import json
-from unittest.mock import AsyncMock
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
 from mentat.git_handler import GIT_ROOT
 from mentat.parsers.block_parser import BlockParser
+from mentat.parsers.git_parser import GitParser
 from mentat.parsers.parser import Parser
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.parsers.split_diff_parser import SplitDiffParser
 from mentat.parsers.unified_diff_parser import UnifiedDiffParser
-from mentat.parsers.git_parser import GitParser
 from mentat.session_stream import SESSION_STREAM
 from mentat.utils import convert_string_to_asyncgen
-
 
 parser_map: dict[str, Parser] = {
     "block": BlockParser(),
