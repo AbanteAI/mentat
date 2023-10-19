@@ -95,7 +95,7 @@ class CodeContext:
         stream = SESSION_STREAM.get()
         git_root = GIT_ROOT.get()
 
-        await stream.send("\nCode Context:", color="blue")
+        await stream.send("Code Context:", color="blue")
         prefix = "  "
         await stream.send(f"{prefix}Directory: {git_root}")
         if self.diff_context.name:
@@ -113,11 +113,11 @@ class CodeContext:
         else:
             await stream.send(f"{prefix}Included files: None", color="yellow")
         auto = self.settings.auto_tokens
-        await stream.send(
-            f"{prefix}Auto-token limit:"
-            f" {'Model max (default)' if auto is None else auto}"
-        )
         if auto != 0:
+            await stream.send(
+                f"{prefix}Auto-token limit:"
+                f" {'Model max (default)' if auto is None else auto}"
+            )
             await stream.send(
                 f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
             )

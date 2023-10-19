@@ -256,3 +256,18 @@ class ConversationCommand(Command, command_name="conversation"):
     @classmethod
     def help_message(cls) -> str:
         return "Opens an html page showing the conversation as seen by Mentat so far"
+
+
+class ContextCommand(Command, command_name="context"):
+    async def apply(self, *args: str) -> None:
+        code_context = CODE_CONTEXT.get()
+
+        await code_context.display_context()
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return []
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Shows all files currently in Mentat's context"
