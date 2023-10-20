@@ -206,7 +206,7 @@ class BlockParser(Parser):
         Inverse of stream_and_parse_llm_response
         """
         git_root = GIT_ROOT.get()
-        ans = parsedLLMResponse.conversation
+        ans = parsedLLMResponse.conversation.strip() + "\n\n"
         for file_edit in parsedLLMResponse.file_edits:
             tmp = {}
             tmp[_BlockParserJsonKeys.File.value] = file_edit.file_path.relative_to(
