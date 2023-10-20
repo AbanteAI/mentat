@@ -65,7 +65,7 @@ class PythonClient:
             self._accumulated_message += message.data + end
 
     async def startup(self):
-        self.session = await Session.create(
+        self.session = Session(
             self.paths,
             self.exclude_paths,
             self.diff,

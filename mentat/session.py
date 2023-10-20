@@ -37,19 +37,6 @@ parser_map: dict[str, Parser] = {
 class Session:
     def __init__(
         self,
-        stream: SessionStream,
-    ):
-        self.stream = stream
-
-        self.id = uuid4()
-        setup_api_key()
-
-        self._main_task: asyncio.Task[None] | None = None
-        self._stop_task: asyncio.Task[None] | None = None
-
-    @classmethod
-    async def create(
-        cls,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
         diff: Optional[str] = None,
@@ -58,12 +45,19 @@ class Session:
         use_embedding: bool = False,
         auto_tokens: Optional[int] = None,
     ):
+        self.id = uuid4()
+        setup_api_key()
+
+        self._main_task: asyncio.Task[None] | None = None
+        self._stop_task: asyncio.Task[None] | None = None
+
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
 
         stream = SessionStream()
         stream.start()
+        self.stream = stream
 
         cost_tracker = CostTracker()
 
@@ -75,7 +69,7 @@ class Session:
         code_context_settings = CodeContextSettings(
             diff, pr_diff, no_code_map, use_embedding, auto_tokens
         )
-        code_context = await CodeContext.create(stream, git_root, code_context_settings)
+        code_context = CodeContext(stream, git_root, code_context_settings)
 
         code_file_manager = CodeFileManager()
 
@@ -91,12 +85,11 @@ class Session:
             code_file_manager,
             conversation,
         )
+        SESSION_CONTEXT.set(session_context)
 
         # Functions that require session_context
         code_context.set_paths(paths, exclude_paths)
-        await code_context.set_code_map()
-
-        return cls(session_context.stream)
+        code_context.set_code_map()
 
     async def _main(self):
         session_context = SESSION_CONTEXT.get()

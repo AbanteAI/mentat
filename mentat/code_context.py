@@ -44,37 +44,29 @@ class CodeContext:
 
     def __init__(
         self,
-        settings: CodeContextSettings,
-    ):
-        self.settings = settings
-
-    @classmethod
-    async def create(
-        cls,
         stream: SessionStream,
         git_root: Path,
         settings: CodeContextSettings,
     ):
-        self = cls(settings)
+        self.settings = settings
         self.diff_context = DiffContext(
             stream, git_root, self.settings.diff, self.settings.pr_diff
         )
         self.include_files = {}
-        return self
 
     def set_paths(self, paths: list[Path], exclude_paths: list[Path]):
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
             print_invalid_path(invalid_path)
 
-    async def set_code_map(self):
+    def set_code_map(self):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
 
         if self.settings.no_code_map:
             self.code_map = False
         else:
-            disabled_reason = await check_ctags_disabled()
+            disabled_reason = check_ctags_disabled()
             if disabled_reason:
                 ctags_disabled_message = f"""
                     There was an error with your universal ctags installation, disabling CodeMap.
@@ -181,7 +173,7 @@ class CodeContext:
         code_message = list[str]()
 
         self.diff_context.clear_cache()
-        await self.set_code_map()
+        self.set_code_map()
         if self.diff_context.files:
             code_message += [
                 "Diff References:",
@@ -205,7 +197,7 @@ class CodeContext:
             )
 
         for f in self.features:
-            code_message += await f.get_code_message()
+            code_message += f.get_code_message()
         return "\n".join(code_message)
 
     def _get_include_features(self) -> list[CodeFile]:
@@ -303,8 +295,8 @@ class CodeContext:
                     for i, f in enumerate(all_features)
                     if f.path == code_feature.path
                 )
-                recovered_tokens = await cmap_feature.count_tokens(model)
-                new_tokens = await code_feature.count_tokens(model)
+                recovered_tokens = cmap_feature.count_tokens(model)
+                new_tokens = code_feature.count_tokens(model)
                 forecast = max_sim_tokens - sim_tokens + recovered_tokens - new_tokens
                 if forecast > 0:
                     sim_tokens = sim_tokens + new_tokens - recovered_tokens

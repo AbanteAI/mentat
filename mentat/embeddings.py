@@ -95,7 +95,7 @@ async def get_feature_similarity_scores(
         if token > EMBEDDING_MAX_TOKENS:
             continue
         if checksum not in database:
-            feature_content = await feature.get_code_message()
+            feature_content = feature.get_code_message()
             # Remove line numbering
             items_to_embed[checksum] = "\n".join(feature_content)
             items_to_embed_tokens[checksum] = token

@@ -98,7 +98,7 @@ class CodeFile:
     def contains_line(self, line_number: int):
         return any([interval.contains(line_number) for interval in self.intervals])
 
-    async def _get_code_message(self) -> list[str]:
+    def _get_code_message(self) -> list[str]:
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
         git_root = session_context.git_root
@@ -125,10 +125,10 @@ class CodeFile:
                     else:
                         code_message.append(f"{line}")
         elif self.level == CodeMessageLevel.CMAP_FULL:
-            cmap = await get_code_map(git_root, self.path)
+            cmap = get_code_map(git_root, self.path)
             code_message += cmap
         elif self.level == CodeMessageLevel.CMAP:
-            cmap = await get_code_map(git_root, self.path, exclude_signatures=True)
+            cmap = get_code_map(git_root, self.path, exclude_signatures=True)
             code_message += cmap
         code_message.append("")
 
@@ -154,15 +154,15 @@ class CodeFile:
     _feature_checksum: str | None = None
     _code_message: list[str] | None = None
 
-    async def get_code_message(self) -> list[str]:
+    def get_code_message(self) -> list[str]:
         feature_checksum = self.get_checksum()
         if feature_checksum != self._feature_checksum or self._code_message is None:
             self._feature_checksum = feature_checksum
-            self._code_message = await self._get_code_message()
+            self._code_message = self._get_code_message()
         return self._code_message
 
-    async def count_tokens(self, model: str) -> int:
-        code_message = await self.get_code_message()
+    def count_tokens(self, model: str) -> int:
+        code_message = self.get_code_message()
         return count_tokens("\n".join(code_message), model)
 
 
@@ -172,7 +172,7 @@ async def count_feature_tokens(features: list[CodeFile], model: str) -> list[int
 
     async def _count_tokens(feature: CodeFile) -> int:
         async with sem:
-            return await feature.count_tokens(model)
+            return feature.count_tokens(model)
 
     tasks = [_count_tokens(f) for f in features]
     return await asyncio.gather(*tasks)

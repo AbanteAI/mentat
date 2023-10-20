@@ -94,9 +94,10 @@ class TerminalClient:
     # add signal handler (which isn't available on Windows), this function can interrupt
     # asyncio coroutines, potentially causing race conditions.
     def _handle_exit(self, sig: int, frame: FrameType | None):
-        assert isinstance(self.session, Session), "TerminalClient is not running"
         if (
-            self.session.is_stopped
+            # If session is still starting up we want to quit without an error
+            not self.session
+            or self.session.is_stopped
             or self.session.stream.interrupt_lock.locked() is False
         ):
             if self._should_exit:
@@ -116,7 +117,7 @@ class TerminalClient:
     async def _startup(self):
         assert self.session is None, "TerminalClient already running"
 
-        self.session = await Session.create(
+        self.session = Session(
             self.paths,
             self.exclude_paths,
             self.diff,
