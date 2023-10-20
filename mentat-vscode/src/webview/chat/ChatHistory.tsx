@@ -46,11 +46,7 @@ function ChatHistory(props: Props) {
   });
 
   return (
-    <div
-      ref={chatHistoryRef}
-      className="flex-1 border border-purple-400 overflow-y-scroll"
-    >
-      <h1>History</h1>
+    <div ref={chatHistoryRef} className="flex-1 overflow-y-scroll">
       {chatMessageCards}
     </div>
   );

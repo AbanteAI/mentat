@@ -46,7 +46,7 @@ const extensionOptions = {
   external: ["vscode"],
   format: "cjs",
   platform: "node",
-  sourcemap: args.includes("--sourcemap"),
+  sourcemap: args.includes("--sourcemap") ? "inline" : false,
   minify: args.includes("--minify"),
   plugins: [esbuildProblemMatcherPlugin],
 };
