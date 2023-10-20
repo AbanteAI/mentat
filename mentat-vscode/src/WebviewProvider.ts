@@ -3,6 +3,7 @@ import emitter from "emitter";
 import {
   LanguageClientMessage,
   LanguageServerMethod,
+  LanguageServerNotification,
   LanguageServerRequest,
 } from "types";
 import * as vscode from "vscode";
@@ -33,25 +34,23 @@ class WebviewProvider implements vscode.WebviewViewProvider {
   private extensionUri: vscode.Uri;
   private mentatClient: MentatClient;
   private view?: vscode.WebviewView;
-  private doc?: vscode.TextDocument;
 
   constructor(extensionUri: vscode.Uri, mentatClient: MentatClient) {
     this.extensionUri = extensionUri;
     this.mentatClient = mentatClient;
   }
 
-  // Posts a message to the webview view.
-  //  endpoint: The endpoint to send the message to.
-  //  message: The message to send.
-  //  Throws an error if the view is not available.
-  // notice: the only things being posted to the webviews are state objects, so this will be a private function
-  private postMessage(endpoint: string, message: any) {
+  // Send LS Messages to the WebView
+  private postMessage(
+    method: LanguageServerMethod,
+    message: LanguageServerRequest | LanguageServerNotification
+  ) {
     if (!this.view) {
-      console.log("postMessage to: ", endpoint);
+      console.log("postMessage to: ", method);
       console.log("with message: ", message);
       console.error(`No view available. Its possibly collapsed`);
     } else {
-      this.view.webview.postMessage({ type: endpoint, data: message });
+      this.view.webview.postMessage({ method: method, data: message });
     }
   }
 
@@ -110,15 +109,24 @@ class WebviewProvider implements vscode.WebviewViewProvider {
     // Handle messages from the webview (and send to MentatClient)
     this.view.webview.onDidReceiveMessage(async (message: LanguageClientMessage) => {
       console.log(`Extension received message from Webview: ${message}`);
-      emitter.emit(message.method, message);
+      switch (message.method) {
+        case LanguageServerMethod.CreateSession:
+          this.mentatClient.handleCreateSession();
+          break;
+        case LanguageServerMethod.GetInput:
+          this.mentatClient.handleGetInput(message);
+          break;
+        default:
+          console.log(`Webview received unhandled method ${message.method}`);
+      }
     });
 
     // Handle messages from the MentatClient (and send to webview)
-    emitter.on(LanguageServerMethod.InputRequest, (message: LanguageServerRequest) => {
-      this.postMessage(LanguageServerMethod.InputRequest, message);
+    emitter.on(LanguageServerMethod.GetInput, (message: LanguageServerRequest) => {
+      this.postMessage(LanguageServerMethod.GetInput, message);
     });
-    emitter.on(LanguageServerMethod.SessionOutput, (message: LanguageServerRequest) => {
-      this.postMessage(LanguageServerMethod.SessionOutput, message);
+    emitter.on(LanguageServerMethod.StreamSession, (message: LanguageServerRequest) => {
+      this.postMessage(LanguageServerMethod.StreamSession, message);
     });
   }
 }

@@ -1,9 +1,7 @@
 import asyncio
-import json
 import logging
 import signal
 from typing import Any, Coroutine, Set
-from uuid import uuid4
 
 from ipdb import set_trace  # pyright: ignore
 from lsprotocol.types import EXIT, INITIALIZED
@@ -48,7 +46,7 @@ class Server:
         self.language_server = LanguageServer(
             name="mentat-server",
             version="v0.1",
-            protocol_cls=MentatLanguageServerProtocol,
+            # protocol_cls=MentatLanguageServerProtocol,
         )
         self.language_server_server: asyncio.Server | None = None
 
@@ -70,12 +68,15 @@ class Server:
 
         return task
 
+    async def _run_language_server(self):
+        ...
+
     async def _handle_session_output(self):
         assert isinstance(self.language_server_server, asyncio.Server)
         assert isinstance(self.session, Session)
         async for message in self.session.stream.listen():
             self.language_server.send_notification(
-                method="default", params=message.model_dump(mode="json")
+                method="mentat/streamSession", params=message.model_dump(mode="json")
             )
 
     async def _handle_input_requests(self):
@@ -84,22 +85,19 @@ class Server:
         while True:
             input_request_message = await self.session.stream.recv("input_request")
 
-            # set_trace()
             print("sending input request to client")
 
             language_client_res = await self.language_server.lsp.send_request_async(
-                method="input_request",
+                method="mentat/getInput",
                 params=input_request_message.model_dump(mode="json"),
             )
-            input_response_channel = language_client_res[0]["channel"]
-            input_response_data = language_client_res[0]["data"]
 
-            print("Got input response:", input_response_data)
+            print("Got input response:", language_client_res[0]["data"]["content"])
 
             await self.session.stream.send(
-                data=input_response_data,
+                data=language_client_res[0]["data"]["content"],
                 source=StreamMessageSource.CLIENT,
-                channel=input_response_channel,
+                channel=f"input_request:{str(input_request_message.id)}",
             )
 
     def _handle_exit(self):
@@ -123,6 +121,7 @@ class Server:
         self.language_server_server = await asyncio.get_running_loop().create_server(
             self.language_server.lsp, "127.0.0.1", 7798
         )
+
         self.session = await Session.create(paths=[], exclude_paths=[])
         self.session.start()
 
@@ -191,8 +190,6 @@ async def get_chat_message(params: Any):
 @server.language_server.feature(INITIALIZED)
 async def on_initalized(params: Any):
     print("INITALIZED")
-    # server._create_task(server._handle_session_output())
-    # server._create_task(server._handle_input_requests())
 
 
 @server.language_server.feature("mentat/createSession")

@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 
-import { Chat } from "./chat";
+import Chat from "./chat";
 
 const domNode = document.getElementById("root");
 if (domNode === null) {

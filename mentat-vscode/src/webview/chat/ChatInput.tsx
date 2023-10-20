@@ -2,7 +2,12 @@ import { Dispatch, KeyboardEvent, SetStateAction, useEffect, useState } from "re
 import { VscSend } from "react-icons/vsc";
 import { vscode } from "webview/utils/vscode";
 
-import { ChatMessage, ChatMessageSender } from "../../types";
+import {
+  ChatMessage,
+  ChatMessageSender,
+  LanguageClientMessage,
+  LanguageServerMethod,
+} from "../../types";
 
 type Props = {
   chatMessages: ChatMessage[];
@@ -16,7 +21,7 @@ function ChatInput(props: Props) {
   const [submitDisabled, setSubmitDisabled] = useState(true);
 
   useEffect(() => {
-    if (content === "") {
+    if (content === "" || props.inputRequestId === null) {
       setSubmitDisabled(true);
     } else {
       setSubmitDisabled(false);
@@ -27,8 +32,8 @@ function ChatInput(props: Props) {
     if (submitDisabled) {
       return;
     }
-    if (props.inputRequest === null) {
-      console.log("INPUT REQUEST IS NULL");
+    if (props.inputRequestId === null) {
+      console.log("inputRequestId IS NULL");
       return;
     }
 
@@ -42,14 +47,16 @@ function ChatInput(props: Props) {
       return [...prevMessages, newChatMessage];
     });
 
-    const mentatClientMessage: MentatClientMessage = {
-      channel: `input_request:${props.inputRequest.id}`,
-      data: content,
-      created_at: new Date(),
+    const languageClientMessage: LanguageClientMessage = {
+      method: LanguageServerMethod.GetInput,
+      data: {
+        inputRequestId: props.inputRequestId,
+        content: content,
+      },
     };
+    vscode.postMessage(languageClientMessage);
 
-    vscode.postMessage(mentatClientMessage);
-
+    props.setInputRequestId(null);
     setContent("");
   }
 

@@ -44,38 +44,43 @@ function Chat() {
     const message = event.data;
     console.log(`React got message from LanguageServer: ${message}`);
 
-    if (message.method === LanguageServerMethod.InputRequest) {
-      setInputRequestId(message.data.id);
-    } else if (message.method === LanguageServerMethod.SessionOutput) {
-      // // Session server output
-      // if (message.channel === "default") {
-      //     setChatMessages((prevMessages) => {
-      //       if (prevMessages.length === 0) {
-      //         const newChatMessage: ChatMessage = {
-      //           id: "",
-      //           orderId: prevMessages[prevMessages.length - 1].orderId + 1,
-      //           content: message.data,
-      //           createdBy: ChatMessageSender.Server,
-      //         };
-      //         return [newChatMessage];
-      //       }
-      //
-      //       const lastMessageIndex = prevMessages.length - 1;
-      //       if (prevMessages[lastMessageIndex].createdBy === ChatMessageSender.Server) {
-      //         prevMessages[lastMessageIndex].content =
-      //           prevMessages[lastMessageIndex].content + message.data;
-      //         return [...prevMessages];
-      //       } else {
-      //         const newChatMessage: ChatMessage = {
-      //           id: "",
-      //           orderId: prevMessages[prevMessages.length - 1].orderId + 1,
-      //           content: message.data,
-      //           createdBy: ChatMessageSender.Server,
-      //         };
-      //         return [...prevMessages, newChatMessage];
-      //       }
-      //     });
-      //   }
+    switch (message.method) {
+      case LanguageServerMethod.GetInput:
+        setInputRequestId(message.data.id);
+        break;
+      case LanguageServerMethod.StreamSession:
+        if (chatMessages.length === 0) {
+          const newChatMessage: ChatMessage = {
+            id: "0",
+            orderId: 0,
+            content: message.data.data,
+            createdBy: ChatMessageSender.Server,
+          };
+          setChatMessages([newChatMessage]);
+        } else {
+          setChatMessages((prevChatMessages) => {
+            const lastIndex = prevChatMessages.length - 1;
+            const lastMessage = { ...prevChatMessages[lastIndex] }; // Create a copy of the last message
+            if (lastMessage.createdBy === ChatMessageSender.Server) {
+              lastMessage.content = lastMessage.content + message.data.data; // Update the copy, not the original
+              const updatedChatMessages = [...prevChatMessages]; // Create a copy of the array
+              updatedChatMessages[lastIndex] = lastMessage; // Update the copy of the array
+              return updatedChatMessages; // Return the updated copy
+            } else {
+              const newChatMessage: ChatMessage = {
+                id: "",
+                orderId: lastMessage.orderId + 1,
+                content: message.data.data,
+                createdBy: ChatMessageSender.Server,
+              };
+              return [...prevChatMessages, newChatMessage];
+            }
+          });
+        }
+        break;
+      default:
+        console.log(`Unhandled LanguageServerMethod ${message.method}`);
+        break;
     }
   }
 
@@ -83,7 +88,7 @@ function Chat() {
     window.addEventListener("message", handleLanguageServerMessage);
 
     vscode.postMessage({
-      method: LanguageServerMethod.SessionCreate,
+      method: LanguageServerMethod.CreateSession,
     });
 
     return () => {
@@ -106,4 +111,4 @@ function Chat() {
   );
 }
 
-export { Chat };
+export default Chat;

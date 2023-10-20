@@ -24,33 +24,10 @@ type MentatSessionStreamMessage = {
   created_at: string;
 };
 
-//
-// enum MentatLanguageServerFeature {
-//   CreateSession = "mentat/createSession",
-//   InputRequest = "mentat/inputRequest",
-// }
-//
-// type MentatLanguageServerMessage = {
-//   feature: MentatLanguageServerFeature;
-//   data: MentatSessionStreamMessage;
-// };
-//
-// type MentatClientMessage = {
-//   channel: string;
-//   data: any;
-//   extra?: any;
-//   created_at: Date;
-// };
-
-// enum LanguageServerFeature {
-//   CreateSession = "mentat/createSession",
-//   InputRequest = "mentat/inputRequest",
-// }
-
 enum LanguageServerMethod {
-  InputRequest = "mentat/inputRequest",
-  SessionCreate = "mentat/sessionCreate",
-  SessionOutput = "mentat/sessionOutput",
+  GetInput = "mentat/getInput",
+  CreateSession = "mentat/createSession",
+  StreamSession = "mentat/streamSession",
 }
 
 type LanguageServerRequest = {

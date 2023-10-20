@@ -1,6 +1,7 @@
 import emitter from "emitter";
 import { once } from "events";
 import {
+  LanguageClientMessage,
   LanguageServerMethod,
   LanguageServerNotification,
   LanguageServerRequest,
@@ -11,7 +12,7 @@ import { LanguageClient, ServerOptions, State } from "vscode-languageclient/node
 class MentatClient {
   context: vscode.ExtensionContext;
   languageServerOptions: ServerOptions;
-  languageClient?: LanguageClient;
+  private languageClient?: LanguageClient;
   private restartCount: number;
 
   constructor(context: vscode.ExtensionContext, serverOptions: ServerOptions) {
@@ -19,6 +20,21 @@ class MentatClient {
     this.languageServerOptions = serverOptions;
     this.restartCount = 0;
   }
+
+  // Handler methods that the WebViews call
+
+  handleCreateSession() {
+    this.languageClient!.sendNotification(LanguageServerMethod.CreateSession);
+  }
+
+  handleGetInput(message: LanguageClientMessage) {
+    emitter.emit(
+      `${LanguageServerMethod.GetInput}/${message.data.inputRequestId}`,
+      message
+    );
+  }
+
+  // Lifecylce methods
 
   async startLanguageClient() {
     this.languageClient = new LanguageClient(
@@ -30,25 +46,27 @@ class MentatClient {
       }
     );
 
-    // Handle notifications from the Language Server
+    // Handle requests/notifications from the Webview
+    // TODO: register emitter listeners here
 
+    // Handle requests/notifications from the Language Server
     this.languageClient.onRequest(
-      LanguageServerMethod.InputRequest,
+      LanguageServerMethod.GetInput,
       async (req: LanguageServerRequest) => {
         const languageClientResponsePromise = once(
           emitter,
-          `mentat/inputRequest/${req.data.id}`
+          `${LanguageServerMethod.GetInput}/${req.id}`
         );
-        emitter.emit(LanguageServerMethod.InputRequest, req);
+        emitter.emit(LanguageServerMethod.GetInput, req);
         const languageClientResponse = await languageClientResponsePromise;
         return languageClientResponse;
       }
     );
 
     this.languageClient.onNotification(
-      LanguageServerMethod.SessionOutput,
+      LanguageServerMethod.StreamSession,
       async (data: LanguageServerNotification) => {
-        emitter.emit(LanguageServerMethod.SessionOutput, data);
+        emitter.emit(LanguageServerMethod.StreamSession, data);
       }
     );
 
@@ -74,7 +92,6 @@ class MentatClient {
     });
 
     // Start the LanguageClient
-    console.log("language server options", this.languageServerOptions);
     await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification },
       async (progress) => {
