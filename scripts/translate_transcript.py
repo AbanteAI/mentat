@@ -5,18 +5,17 @@ import json
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
-from mentat.git_handler import GIT_ROOT
+from mentat.code_file_manager import CodeFileManager
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
 from mentat.parsers.parser import Parser
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.parsers.split_diff_parser import SplitDiffParser
 from mentat.parsers.unified_diff_parser import UnifiedDiffParser
-from mentat.session_stream import SESSION_STREAM
+from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.utils import convert_string_to_asyncgen
 
-parser_map: dict[str, Parser] = {
+parser_map: dict[str, Parser | GitParser] = {
     "block": BlockParser(),
     "replacement": ReplacementParser(),
     "split-diff": SplitDiffParser(),
@@ -25,7 +24,9 @@ parser_map: dict[str, Parser] = {
 }
 
 
-def translate_message(message: str, starting_parser, ending_parser) -> str:
+def translate_message(
+    message: str, starting_parser: Parser | GitParser, ending_parser: Parser | GitParser
+) -> str:
     parsedLLMResponse = asyncio.run(
         starting_parser.stream_and_parse_llm_response(
             convert_string_to_asyncgen(message, 100)
@@ -53,9 +54,18 @@ if __name__ == "__main__":
     parser.add_argument("--git-root", type=str, default=".", help="Git root directory")
     args = parser.parse_args()
 
-    GIT_ROOT.set(Path(args.git_root))
-    CODE_FILE_MANAGER.set(CodeFileManager())
-    SESSION_STREAM.set(AsyncMock())
+    SESSION_CONTEXT.set(
+        SessionContext(
+            AsyncMock(),
+            None,
+            Path(args.git_root),
+            None,
+            None,
+            None,
+            CodeFileManager(),
+            None,
+        )
+    )
 
     starting_parser = parser_map[args.starting_format]
     ending_parser = parser_map[args.ending_format]

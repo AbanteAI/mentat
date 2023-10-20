@@ -195,10 +195,7 @@ async def test_clear_command(
 
 
 @pytest.mark.asyncio
-async def test_context_command(
-    temp_testbed, mock_setup_api_key, mock_stream, mock_code_context
-):
-    mock_code_context.include_files = {}
+async def test_context_command(temp_testbed, mock_setup_api_key, mock_session_context):
     command = Command.create_command("context")
     await command.apply()
     assert isinstance(command, ContextCommand)
