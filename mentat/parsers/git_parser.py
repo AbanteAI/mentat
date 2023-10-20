@@ -1,8 +1,9 @@
 from pathlib import Path
 from textwrap import dedent
-from typing import List
+from typing import Any, AsyncGenerator, List
 
 from mentat.git_handler import GIT_ROOT
+from mentat.llm_api import chunk_to_lines
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import ParsedLLMResponse
 
@@ -16,6 +17,18 @@ from mentat.parsers.parser import ParsedLLMResponse
 
 
 class GitParser:
+    # This doesn't actually "stream and parse" but it is named this way to match the interface of
+    # the production parsers for use in the translation script.
+    async def stream_and_parse_llm_response(
+        self,
+        response: AsyncGenerator[Any, None],
+    ) -> ParsedLLMResponse:
+        string = ""
+        async for chunk in response:
+            for content in chunk_to_lines(chunk):
+                string += content
+        return self.parse_string(string)
+
     def parse_string(self, git_diff: str) -> ParsedLLMResponse:
         git_root = GIT_ROOT.get()
         # This is safe because actual code is prepended with ' ', + or -.

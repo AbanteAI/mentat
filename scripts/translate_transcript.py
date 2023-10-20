@@ -26,14 +26,11 @@ parser_map: dict[str, Parser] = {
 
 
 def translate_message(message: str, starting_parser, ending_parser) -> str:
-    if hasattr(starting_parser, "parse_string"):
-        parsedLLMResponse = starting_parser.parse_string(message)
-    else:
-        parsedLLMResponse = asyncio.run(
-            starting_parser.stream_and_parse_llm_response(
-                convert_string_to_asyncgen(message, 100)
-            )
+    parsedLLMResponse = asyncio.run(
+        starting_parser.stream_and_parse_llm_response(
+            convert_string_to_asyncgen(message, 100)
         )
+    )
     return ending_parser.file_edits_to_llm_message(parsedLLMResponse)
 
 
