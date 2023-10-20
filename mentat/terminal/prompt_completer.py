@@ -16,6 +16,7 @@ from pygments.util import ClassNotFound
 
 from mentat.code_context import CODE_CONTEXT
 from mentat.commands import Command
+from mentat.git_handler import GIT_ROOT
 
 
 @dataclass
@@ -66,8 +67,11 @@ class MentatCompleter(Completer):
 
     async def refresh_completions(self):
         code_context = CODE_CONTEXT.get()
+        git_root = GIT_ROOT.get()
 
-        file_paths = list(code_context.include_files.keys())
+        file_paths = [
+            path.relative_to(git_root) for path in code_context.include_files.keys()
+        ]
 
         # Remove syntax completions for files not in the context
         for file_path in set(self.syntax_completions.keys()):
