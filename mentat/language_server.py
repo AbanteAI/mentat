@@ -2,7 +2,6 @@ import asyncio
 import json
 import logging
 import signal
-from dataclasses import asdict
 from typing import Any, Coroutine, Set
 from uuid import uuid4
 
@@ -124,7 +123,7 @@ class Server:
         self.language_server_server = await asyncio.get_running_loop().create_server(
             self.language_server.lsp, "127.0.0.1", 7798
         )
-        self.session = await Session.create([], [])
+        self.session = await Session.create(paths=[], exclude_paths=[])
         self.session.start()
 
     async def _shutdown(self):
@@ -192,8 +191,20 @@ async def get_chat_message(params: Any):
 @server.language_server.feature(INITIALIZED)
 async def on_initalized(params: Any):
     print("INITALIZED")
+    # server._create_task(server._handle_session_output())
+    # server._create_task(server._handle_input_requests())
+
+
+@server.language_server.feature("mentat/createSession")
+async def create_session(params: Any):
+    print("mentat/createSession")
     server._create_task(server._handle_session_output())
     server._create_task(server._handle_input_requests())
+
+
+@server.language_server.feature(EXIT)
+async def on_exit(params: Any):
+    print("EXIT")
 
 
 if __name__ == "__main__":

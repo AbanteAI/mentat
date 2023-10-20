@@ -1,10 +1,12 @@
 import emitter from "emitter";
 import { once } from "events";
+import {
+  LanguageServerMethod,
+  LanguageServerNotification,
+  LanguageServerRequest,
+} from "types";
 import * as vscode from "vscode";
 import { LanguageClient, ServerOptions, State } from "vscode-languageclient/node";
-
-import { MentatSessionStreamMessage } from "./types";
-import { ChatMessage } from "./types";
 
 class MentatClient {
   context: vscode.ExtensionContext;
@@ -29,28 +31,24 @@ class MentatClient {
     );
 
     // Handle notifications from the Language Server
-    // this.languageClient.onNotification("mentat/inputRequest", async (params: any) => {
-    //   console.log(`Got params ${params} from Language Server`);
-    //   emitter.emit("mentat/inputRequest", params);
-    // });
 
     this.languageClient.onRequest(
-      "input_request",
-      async (message: MentatSessionStreamMessage) => {
-        console.log(`Got params ${message} from Language Server`);
-
-        const webviewResponsePromise = once(emitter, `input_request:${message.id}`);
-        emitter.emit("input_request", message);
-        const webviewResponse = await webviewResponsePromise;
-
-        return webviewResponse;
+      LanguageServerMethod.InputRequest,
+      async (req: LanguageServerRequest) => {
+        const languageClientResponsePromise = once(
+          emitter,
+          `mentat/inputRequest/${req.data.id}`
+        );
+        emitter.emit(LanguageServerMethod.InputRequest, req);
+        const languageClientResponse = await languageClientResponsePromise;
+        return languageClientResponse;
       }
     );
 
     this.languageClient.onNotification(
-      "default",
-      async (message: MentatSessionStreamMessage) => {
-        emitter.emit("default", message);
+      LanguageServerMethod.SessionOutput,
+      async (data: LanguageServerNotification) => {
+        emitter.emit(LanguageServerMethod.SessionOutput, data);
       }
     );
 
@@ -83,21 +81,6 @@ class MentatClient {
         progress.report({ message: "Mentat: Launching server..." });
         await this.languageClient?.start();
       }
-    );
-  }
-
-  async createSession() {
-    const response = await this.languageClient?.sendRequest("mentat/createSession", {
-      test: "test",
-    });
-
-    console.log(`Got response: ${response}`);
-  }
-
-  async sendChatMessage(chatMessage: ChatMessage) {
-    const result = await this.languageClient?.sendRequest(
-      "mentat/chatMessage",
-      chatMessage
     );
   }
 }

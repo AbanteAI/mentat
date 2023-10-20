@@ -1,3 +1,4 @@
+import { LanguageClientMessage } from "types";
 import type { WebviewApi } from "vscode-webview";
 
 /**
@@ -28,7 +29,7 @@ class VSCodeAPIWrapper {
    *
    * @param message Abitrary data (must be JSON serializable) to send to the extension context.
    */
-  public postMessage(message: unknown) {
+  public postMessage(message: LanguageClientMessage) {
     if (this.vsCodeApi) {
       this.vsCodeApi.postMessage(message);
     } else {

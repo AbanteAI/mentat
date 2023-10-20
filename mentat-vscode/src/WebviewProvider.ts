@@ -1,6 +1,10 @@
 import MentatClient from "MentatClient";
 import emitter from "emitter";
-import { MentatClientMessage, MentatSessionStreamMessage } from "types";
+import {
+  LanguageClientMessage,
+  LanguageServerMethod,
+  LanguageServerRequest,
+} from "types";
 import * as vscode from "vscode";
 import { Uri, Webview } from "vscode";
 
@@ -104,26 +108,17 @@ class WebviewProvider implements vscode.WebviewViewProvider {
     this.setHtmlForWebview();
 
     // Handle messages from the webview (and send to MentatClient)
-    this.view.webview.onDidReceiveMessage(async (message: MentatClientMessage) => {
-      console.log(`Extension received message: ${message}`);
-      emitter.emit(message.channel, message);
-      // if (message.command === "mentat/chatMessage") {
-      //   const res = await this.mentatClient.languageClient?.sendRequest(
-      //     "mentat/chatMessage",
-      //     { ooga: "booga" }
-      //   );
-      //   console.log(`Got: ${res}`);
-      // }
+    this.view.webview.onDidReceiveMessage(async (message: LanguageClientMessage) => {
+      console.log(`Extension received message from Webview: ${message}`);
+      emitter.emit(message.method, message);
     });
 
     // Handle messages from the MentatClient (and send to webview)
-    emitter.on("input_request", (message: MentatSessionStreamMessage) => {
-      console.log(`Emitter for input_request got: ${message}`);
-      this.postMessage("input_request", message);
+    emitter.on(LanguageServerMethod.InputRequest, (message: LanguageServerRequest) => {
+      this.postMessage(LanguageServerMethod.InputRequest, message);
     });
-
-    emitter.on("default", (message: MentatSessionStreamMessage) => {
-      this.postMessage("default", message);
+    emitter.on(LanguageServerMethod.SessionOutput, (message: LanguageServerRequest) => {
+      this.postMessage(LanguageServerMethod.SessionOutput, message);
     });
   }
 }

@@ -24,22 +24,56 @@ type MentatSessionStreamMessage = {
   created_at: string;
 };
 
-type MentatLanguageServerMessage = {
-  type: "input_request";
+//
+// enum MentatLanguageServerFeature {
+//   CreateSession = "mentat/createSession",
+//   InputRequest = "mentat/inputRequest",
+// }
+//
+// type MentatLanguageServerMessage = {
+//   feature: MentatLanguageServerFeature;
+//   data: MentatSessionStreamMessage;
+// };
+//
+// type MentatClientMessage = {
+//   channel: string;
+//   data: any;
+//   extra?: any;
+//   created_at: Date;
+// };
+
+// enum LanguageServerFeature {
+//   CreateSession = "mentat/createSession",
+//   InputRequest = "mentat/inputRequest",
+// }
+
+enum LanguageServerMethod {
+  InputRequest = "mentat/inputRequest",
+  SessionCreate = "mentat/sessionCreate",
+  SessionOutput = "mentat/sessionOutput",
+}
+
+type LanguageServerRequest = {
+  id: string;
+  method: LanguageServerMethod;
   data: MentatSessionStreamMessage;
 };
 
-type MentatClientMessage = {
-  channel: string;
-  data: any;
-  extra?: any;
-  created_at: Date;
+type LanguageServerNotification = {
+  method: LanguageServerMethod;
+  data: MentatSessionStreamMessage;
+};
+
+type LanguageClientMessage = {
+  method: LanguageServerMethod;
+  data?: any;
 };
 
 export {
   ChatMessage,
   ChatMessageSender,
-  MentatSessionStreamMessage,
-  MentatLanguageServerMessage,
-  MentatClientMessage,
+  LanguageClientMessage,
+  LanguageServerRequest,
+  LanguageServerMethod,
+  LanguageServerNotification,
 };

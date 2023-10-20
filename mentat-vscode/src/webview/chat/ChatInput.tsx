@@ -2,18 +2,13 @@ import { Dispatch, KeyboardEvent, SetStateAction, useEffect, useState } from "re
 import { VscSend } from "react-icons/vsc";
 import { vscode } from "webview/utils/vscode";
 
-import {
-  ChatMessage,
-  ChatMessageSender,
-  MentatClientMessage,
-  MentatSessionStreamMessage,
-} from "../../types";
+import { ChatMessage, ChatMessageSender } from "../../types";
 
 type Props = {
   chatMessages: ChatMessage[];
   setChatMessages: Dispatch<SetStateAction<ChatMessage[]>>;
-  inputRequest: MentatSessionStreamMessage | null;
-  setInputRequest: Dispatch<SetStateAction<MentatSessionStreamMessage | null>>;
+  inputRequestId: string | null;
+  setInputRequestId: Dispatch<SetStateAction<string | null>>;
 };
 
 function ChatInput(props: Props) {
