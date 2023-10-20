@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from textwrap import dedent
 from unittest import TestCase
 
 import pytest
@@ -8,6 +9,7 @@ from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_file import CodeMessageLevel
 from mentat.config_manager import ConfigManager
 from mentat.llm_api import count_tokens
+from tests.conftest import run_git_command
 
 
 @pytest.mark.asyncio
@@ -261,7 +263,6 @@ async def test_get_code_message_include(temp_testbed, mock_session_context):
 
     # If max tokens is less than include_files, return include_files without
     # raising and Exception (that's handled elsewhere)
-    code_context.settings.auto_tokens = 0
     code_message = await code_context.get_code_message(
         prompt="", model="gpt-4", max_tokens=1e6
     )
@@ -281,6 +282,38 @@ async def test_get_code_message_include(temp_testbed, mock_session_context):
     ]
     assert code_message.splitlines() == expected
 
+
+@pytest.mark.asyncio
+@pytest.mark.clear_testbed
+async def test_auto_tokens(temp_testbed, mock_session_context):
+    with open("file_1.py", "w") as f:
+        f.write(dedent("""\
+            def func_1(x, y):
+                return x + y
+            
+            def func_2():
+                return 3
+            """))
+
+    with open("file_2.py", "w") as f:
+        f.write(dedent("""\
+            def func_3(a, b, c):
+                return a * b ** c
+            
+            def func_4(string):
+                print(string)
+            """))
+    run_git_command(temp_testbed, "add", ".")
+    run_git_command(temp_testbed, "commit", "-m", "initial commit")
+
+    code_context_settings = CodeContextSettings()
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
+    )
+    code_context.set_paths(["file_1.py"], [])
+
     async def _count_auto_tokens_where(limit: int) -> int:
         code_context.settings.auto_tokens = limit
         code_message = await code_context.get_code_message(
@@ -288,11 +321,12 @@ async def test_get_code_message_include(temp_testbed, mock_session_context):
         )
         return count_tokens(code_message, "gpt-4")
 
+    # TODO: Install ctags on GHA
     # Github Actions doesn't have ctags, so we need this
     if not code_context.settings.no_code_map:
         # If max_tokens is None, include the full auto-context
-        assert await _count_auto_tokens_where(None) == 253  # Cmap w/ signatures
-        assert await _count_auto_tokens_where(230) == 201  # Cmap
-    assert await _count_auto_tokens_where(170) == 151  # fnames
+        assert await _count_auto_tokens_where(None) == 65  # Cmap w/ signatures
+        assert await _count_auto_tokens_where(60) == 57  # Cmap
+    assert await _count_auto_tokens_where(52) == 47  # fnames
     # Always return include_files, regardless of max
-    assert await _count_auto_tokens_where(0) == 102  # Include_files only
+    assert await _count_auto_tokens_where(0) == 42  # Include_files only

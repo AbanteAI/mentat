@@ -82,6 +82,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "uitest: run ui-tests that get evaluated by humans"
     )
+    config.addinivalue_line(
+        "markers", "clear_testbed: create a testbed without any existing files"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
@@ -89,6 +92,11 @@ def pytest_collection_modifyitems(config, items):
     uitest = config.getoption("--uitest")
     items[:] = filter_mark(items, "benchmark", benchmark)
     items[:] = filter_mark(items, "uitest", uitest)
+
+
+@pytest.fixture
+def get_marks(request):
+    return [mark.name for mark in request.node.iter_markers()]
 
 
 @pytest.fixture(scope="function")
@@ -136,24 +144,6 @@ def mock_setup_api_key(mocker):
     mocker.patch("mentat.session.setup_api_key")
     mocker.patch("mentat.conversation.is_model_available")
     return
-
-
-def add_permissions(func, path, exc_info):
-    """
-    Error handler for ``shutil.rmtree``.
-
-    If the error is due to an access error (read only file)
-    it attempts to add write permission and then retries.
-
-    If the error is for another reason it re-raises the error.
-    """
-
-    # Is the error an access error?
-    if not os.access(path, os.W_OK):
-        os.chmod(path, stat.S_IWUSR)
-        func(path)
-    else:
-        raise
 
 
 # ContextVars need to be set in a synchronous fixture due to pytest not propagating
@@ -216,14 +206,31 @@ def run_git_command(cwd, *args):
     )
 
 
+def add_permissions(func, path, exc_info):
+    """
+    Error handler for ``shutil.rmtree``.
+
+    If the error is due to an access error (read only file)
+    it attempts to add write permission and then retries.
+
+    If the error is for another reason it re-raises the error.
+    """
+
+    # Is the error an access error?
+    if not os.access(path, os.W_OK):
+        os.chmod(path, stat.S_IWUSR)
+        func(path)
+    else:
+        raise
+
+
 @pytest.fixture(autouse=True)
-def temp_testbed(monkeypatch):
+def temp_testbed(monkeypatch, get_marks):
     # create temporary copy of testbed, complete with git repo
     # realpath() resolves symlinks, required for paths to match on macOS
     temp_dir = os.path.realpath(tempfile.mkdtemp())
     temp_testbed = os.path.join(temp_dir, "testbed")
-    shutil.copytree("testbed", temp_testbed)
-    shutil.copy(".gitignore", temp_testbed)
+    os.mkdir(temp_testbed)
 
     # Initialize git repo
     run_git_command(temp_testbed, "init")
@@ -233,9 +240,14 @@ def temp_testbed(monkeypatch):
     run_git_command(temp_testbed, "config", "user.email", "test@example.com")
     run_git_command(temp_testbed, "config", "user.name", "Test User")
 
-    # Add all files and commit
-    run_git_command(temp_testbed, "add", ".")
-    run_git_command(temp_testbed, "commit", "-m", "add testbed")
+    if "clear_testbed" not in get_marks:
+        # Copy testbed
+        shutil.copytree("testbed", temp_testbed, dirs_exist_ok=True)
+        shutil.copy(".gitignore", temp_testbed)
+
+        # Add all files and commit
+        run_git_command(temp_testbed, "add", ".")
+        run_git_command(temp_testbed, "commit", "-m", "add testbed")
 
     # necessary to undo chdir before calling rmtree, or it fails on windows
     with monkeypatch.context() as m:
