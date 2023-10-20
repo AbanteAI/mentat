@@ -105,10 +105,10 @@ class DiffContext:
     @property
     def files(self) -> list[Path]:
         if self._files_cache is None:
+            git_root = GIT_ROOT.get()
             if self.target == "HEAD" and not check_head_exists():
                 return []  # A new repo without any commits
-            diff_files = get_files_in_diff(self.target)
-            self._files_cache = [f.resolve() for f in diff_files]
+            self._files_cache = [git_root / f for f in get_files_in_diff(self.target)]
         return self._files_cache
 
     @classmethod

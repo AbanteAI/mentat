@@ -7,14 +7,10 @@ import pytest
 from mentat.diff_context import DiffContext
 
 
-@pytest.fixture
-def abs_path(temp_testbed):
-    return Path(temp_testbed).resolve() / "multifile_calculator/operations.py"
-
-
 def _update_ops(temp_testbed, last_line, commit_message=None):
     # Update the last line of operations.py and (optionally) commit
-    abs_path = os.path.join(temp_testbed, "multifile_calculator", "operations.py")
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     with open(abs_path, "r") as f:
         lines = f.readlines()
     lines[-1:] = [
@@ -57,8 +53,10 @@ def _get_file_message(abs_path):
 
 
 def test_diff_context_default(
-    mock_stream, mock_config, temp_testbed, git_history, mock_git_root, abs_path
+    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
 ):
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     # DiffContext.__init__() (default): active code vs last commit
     diff_context = DiffContext()
     assert diff_context.target == "HEAD"
@@ -82,8 +80,10 @@ def test_diff_context_default(
 
 @pytest.mark.asyncio
 async def test_diff_context_commit(
-    mock_stream, mock_config, temp_testbed, git_history, mock_git_root, abs_path
+    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
 ):
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     # Get the hash of 2-commits-ago
     last_commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD~2"], cwd=temp_testbed, text=True
@@ -104,8 +104,10 @@ async def test_diff_context_commit(
 
 @pytest.mark.asyncio
 async def test_diff_context_branch(
-    mock_stream, mock_config, temp_testbed, git_history, mock_git_root, abs_path
+    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
 ):
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     diff_context = await DiffContext.create(diff="test_branch")
     assert diff_context.target == "test_branch"
     assert diff_context.name.startswith("Branch test_branch:")
@@ -123,8 +125,10 @@ async def test_diff_context_branch(
 
 @pytest.mark.asyncio
 async def test_diff_context_relative(
-    mock_stream, mock_config, temp_testbed, git_history, mock_git_root, abs_path
+    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
 ):
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     diff_context = await DiffContext.create(diff="HEAD~2")
     assert diff_context.target == "HEAD~2"
     assert diff_context.name.startswith("HEAD~2: ")
@@ -142,8 +146,10 @@ async def test_diff_context_relative(
 
 @pytest.mark.asyncio
 async def test_diff_context_pr(
-    mock_stream, mock_config, temp_testbed, git_history, mock_git_root, abs_path
+    mock_stream, mock_config, temp_testbed, git_history, mock_git_root
 ):
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     subprocess.run(["git", "checkout", "test_branch"], cwd=temp_testbed)
     diff_context = await DiffContext.create(pr_diff="master")
 
