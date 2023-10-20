@@ -28,6 +28,3 @@ class SessionContext:
     code_context: CodeContext = attr.field()
     code_file_manager: CodeFileManager = attr.field()
     conversation: Conversation = attr.field()
-
-    def __attrs_post_init__(self):
-        SESSION_CONTEXT.set(self)

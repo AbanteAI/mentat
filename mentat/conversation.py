@@ -59,14 +59,14 @@ class Conversation:
                 " different model."
             )
         if "gpt-4" not in self.model:
-            await stream.send(
+            stream.send(
                 "Warning: Mentat has only been tested on GPT-4. You may experience"
                 " issues with quality. This model may not be able to respond in"
                 " mentat's edit format.",
                 color="yellow",
             )
             if "gpt-3.5" not in self.model:
-                await stream.send(
+                stream.send(
                     "Warning: Mentat does not know how to calculate costs or context"
                     " size for this model.",
                     color="yellow",
@@ -98,14 +98,14 @@ class Conversation:
                 " number of files."
             )
         elif tokens + 1000 > context_size:
-            await stream.send(
+            stream.send(
                 f"Warning: Included files are close to token limit ({tokens} /"
                 f" {context_size}), you may not be able to have a long"
                 " conversation.",
                 color="red",
             )
         else:
-            await stream.send(
+            stream.send(
                 f"Prompt and included files token count: {tokens} / {context_size}",
                 color="cyan",
             )
@@ -139,7 +139,7 @@ class Conversation:
         start_time = default_timer()
         try:
             response = await call_llm_api(messages, self.model)
-            await stream.send(
+            stream.send(
                 "Streaming... use control-c to interrupt the model at any point\n"
             )
             async with parser.interrupt_catcher():
@@ -174,12 +174,12 @@ class Conversation:
         )
         messages_snapshot.append({"role": "system", "content": code_message})
 
-        await code_context.display_features()
-        num_prompt_tokens = await get_prompt_token_count(messages_snapshot, self.model)
+        code_context.display_features()
+        num_prompt_tokens = get_prompt_token_count(messages_snapshot, self.model)
         parsedLLMResponse, time_elapsed = await self._stream_model_response(
             stream, parser, messages_snapshot
         )
-        await cost_tracker.display_api_call_stats(
+        cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             count_tokens(parsedLLMResponse.full_response, self.model),
             self.model,

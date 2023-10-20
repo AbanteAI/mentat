@@ -45,7 +45,7 @@ class StreamingPrinter:
         while not self.shutdown:
             if self.strings_to_print:
                 next_string = self.strings_to_print.popleft()
-                await stream.send(next_string, end="", flush=True)
+                stream.send(next_string, end="", flush=True)
                 self.chars_remaining -= 1
             elif self.finishing:
                 break

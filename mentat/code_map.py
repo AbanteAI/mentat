@@ -6,10 +6,8 @@ from typing import Any
 
 from mentat.session_context import SESSION_CONTEXT
 
-from .utils import run_subprocess_async
 
-
-async def get_code_map(
+def get_code_map(
     root: Path, file_path: Path, exclude_signatures: bool = False
 ) -> list[str]:
     session_context = SESSION_CONTEXT.get()
@@ -28,8 +26,9 @@ async def get_code_map(
     else:
         ctags_cmd_args.append("--fields=+S")
     ctags_cmd = ["ctags", *ctags_cmd_args, str(Path(root).joinpath(file_path))]
-
-    output = await run_subprocess_async(*ctags_cmd)
+    output = subprocess.check_output(
+        ctags_cmd, stderr=subprocess.DEVNULL, start_new_session=True, text=True
+    ).strip()
     output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
@@ -38,7 +37,7 @@ async def get_code_map(
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            await stream.send(
+            stream.send(
                 f"Error parsing ctags output: {err}\n{repr(output_line)}",
                 color="yellow",
             )
@@ -90,7 +89,7 @@ async def get_code_map(
     return output.splitlines()
 
 
-async def check_ctags_disabled() -> str | None:
+def check_ctags_disabled() -> str | None:
     try:
         cmd = ["ctags", "--version"]
         output = subprocess.check_output(cmd, stderr=subprocess.PIPE).decode("utf-8")
@@ -106,7 +105,7 @@ async def check_ctags_disabled() -> str | None:
             hello_py = Path(tempdir) / "hello.py"
             with open(hello_py, "w", encoding="utf-8") as f:
                 f.write("def hello():\n    print('Hello, world!')\n")
-            await get_code_map(Path(tempdir), hello_py)
+            get_code_map(Path(tempdir), hello_py)
         return
     except FileNotFoundError:
         return "ctags executable not found"

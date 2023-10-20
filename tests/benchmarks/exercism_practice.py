@@ -9,8 +9,9 @@ import pytest
 import tqdm
 from openai import InvalidRequestError
 
-from mentat.llm_api import COST_TRACKER, call_llm_api, setup_api_key
+from mentat.llm_api import call_llm_api, setup_api_key
 from mentat.python_client.client import PythonClient
+from mentat.session_context import SESSION_CONTEXT
 
 from .exercise_runners.exercise_runner_factory import ExerciseRunnerFactory
 from .utils import clone_repo
@@ -139,7 +140,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
     )
 
     iterations = 0
-    while iterations < max_iterations and client.started:
+    while iterations < max_iterations and not client.exited.is_set():
         if exercise_runner.passed():
             break
         message = (
@@ -153,7 +154,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         exercise_runner.run_test()
         iterations += 1
 
-    had_error = not client.started
+    had_error = client.exited.is_set()
     await client.stop()
     passed = exercise_runner.passed()
     result = {
@@ -168,7 +169,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         response, reason = await failure_analysis(exercise_runner, language)
         result["response"] = response
         result["reason"] = reason
-    result["tokens"] = COST_TRACKER.get().total_tokens
+    result["tokens"] = SESSION_CONTEXT.get().cost_tracker.total_tokens
     return result
 
 

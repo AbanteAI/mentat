@@ -104,11 +104,9 @@ async def test_run_from_subdirectory(
         # Hello
         @@end""")])
 
-    session = await Session.create(
-        [Path("calculator.py"), Path("../scripts")], auto_tokens=0
-    )
+    session = Session([Path("calculator.py"), Path("../scripts")], auto_tokens=0)
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check that it works
     with open("calculator.py") as f:
@@ -152,9 +150,9 @@ async def test_change_after_creation(
         print("Hello, World!")
         @@end""")])
 
-    session = await Session.create()
+    session = Session()
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     with file_name.open() as f:
         output = f.read()
@@ -191,7 +189,7 @@ async def test_changed_file(
         file_path=file_path,
         replacements=[Replacement(0, 1, ["I am a file", "with edited lines"])],
     )
-    assert await file_edit.is_valid()
+    assert file_edit.is_valid()
 
     # Decline overwrite
     mock_collect_user_input.set_stream_messages(["n", "q"])

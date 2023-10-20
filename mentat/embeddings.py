@@ -95,7 +95,7 @@ async def get_feature_similarity_scores(
         if token > EMBEDDING_MAX_TOKENS:
             continue
         if checksum not in database:
-            feature_content = await feature.get_code_message()
+            feature_content = feature.get_code_message()
             # Remove line numbering
             items_to_embed[checksum] = "\n".join(feature_content)
             items_to_embed_tokens[checksum] = token
@@ -104,7 +104,7 @@ async def get_feature_similarity_scores(
     batches = _batch_ffd(items_to_embed_tokens, EMBEDDING_MAX_TOKENS)
     for i, batch in enumerate(batches):
         batch_content = [items_to_embed[k] for k in batch]
-        await stream.send(f"Embedding batch {i}/{len(batches)}...")
+        stream.send(f"Embedding batch {i}/{len(batches)}...")
         response = call_embedding_api(batch_content, EMBEDDING_MODEL)
         for k, v in zip(batch, response):
             database[k] = v

@@ -50,9 +50,9 @@ async def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -98,9 +98,9 @@ async def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -144,9 +144,9 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -185,9 +185,9 @@ async def test_create_file(
         # I created this file
         @@end""".format(file_name=temp_file_name))])
 
-    session = await Session.create(["."])
+    session = Session(["."])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -228,9 +228,9 @@ async def test_delete_file(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     assert not os.path.exists(temp_file_name)
@@ -266,9 +266,9 @@ async def test_rename_file(
         }}
         @@end""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_2_file_name) as new_file:
         content = new_file.read()
         expected_content = "# Move me!"
@@ -319,9 +319,9 @@ async def test_change_then_rename_file(
         }}
         @@end""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_2_file_name) as new_file:
         content = new_file.read()
         expected_content = "# I inserted this comment!\n# Move me!"
@@ -372,9 +372,9 @@ async def test_rename_file_then_change(
         # I inserted this comment!
         @@end""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_2_file_name) as new_file:
         content = new_file.read()
         expected_content = "# I inserted this comment!\n# Move me!"
@@ -433,9 +433,9 @@ async def test_multiple_blocks(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -499,9 +499,9 @@ async def test_json_strings(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
