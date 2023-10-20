@@ -128,7 +128,7 @@ class ReplacementParser(Parser):
         session_context = SESSION_CONTEXT.get()
         git_root = session_context.git_root
 
-        ans = parsedLLMResponse.conversation
+        ans = parsedLLMResponse.conversation.strip() + "\n\n"
         for file_edit in parsedLLMResponse.file_edits:
             action_indicator = ""
             if file_edit.is_creation:

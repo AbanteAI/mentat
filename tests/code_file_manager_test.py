@@ -120,6 +120,48 @@ async def test_run_from_subdirectory(
 
 
 @pytest.mark.asyncio
+async def test_change_after_creation(
+    mock_collect_user_input, mock_call_llm_api, mock_setup_api_key
+):
+    file_name = Path("hello_world.py")
+    mock_collect_user_input.set_stream_messages(
+        [
+            "Conversation",
+            "y",
+            "q",
+        ]
+    )
+    mock_call_llm_api.set_generator_values([dedent(f"""\
+        Conversation
+
+        @@start
+        {{
+            "file": "{file_name}",
+            "action": "create-file"
+        }}
+        @@code
+        @@end
+        @@start
+        {{
+            "file": "{file_name}",
+            "action": "insert",
+            "insert-after-line": 0,
+            "insert-before-line": 1
+        }}
+        @@code
+        print("Hello, World!")
+        @@end""")])
+
+    session = await Session.create()
+    await session.start()
+    await session.stream.stop()
+
+    with file_name.open() as f:
+        output = f.read()
+    assert output == 'print("Hello, World!")'
+
+
+@pytest.mark.asyncio
 async def test_changed_file(
     mocker,
     temp_testbed,

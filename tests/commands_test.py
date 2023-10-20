@@ -4,7 +4,7 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.commands import Command, HelpCommand, InvalidCommand
+from mentat.commands import Command, ContextCommand, HelpCommand, InvalidCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
 
@@ -171,3 +171,34 @@ async def test_undo_all_command(
             # This is a temporary file
             # with 2 lines""")
     assert content == expected_content
+
+
+@pytest.mark.asyncio
+async def test_clear_command(
+    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
+):
+    mock_collect_user_input.set_stream_messages(
+        [
+            "Request",
+            "/clear",
+            "q",
+        ]
+    )
+    mock_call_llm_api.set_generator_values(["Answer"])
+
+    session = await Session.create()
+    await session.start()
+    await session.stream.stop()
+
+    conversation = SESSION_CONTEXT.get().conversation
+    assert len(conversation.messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_context_command(
+    temp_testbed, mock_setup_api_key, mock_stream, mock_code_context
+):
+    mock_code_context.include_files = {}
+    command = Command.create_command("context")
+    await command.apply()
+    assert isinstance(command, ContextCommand)

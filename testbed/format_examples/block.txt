@@ -1,0 +1,40 @@
+Fifth commit
+
+@@start
+{
+    "file": "a",
+    "action": "replace",
+    "start-line": 2,
+    "end-line": 11
+}
+@@code
+3
+4
+5
+6
+0
+10
+11
+12
+@@end
+@@start
+{
+    "file": "d",
+    "action": "delete-file"
+}
+@@end
+@@start
+{
+    "file": "c",
+    "action": "rename-file",
+    "name": "e"
+}
+@@end
+@@start
+{
+    "file": "c",
+    "action": "delete",
+    "start-line": 8,
+    "end-line": 8
+}
+@@end

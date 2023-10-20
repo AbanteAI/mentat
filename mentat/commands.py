@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List
 
 from mentat.conversation import MessageRole
+from mentat.include_files import print_invalid_path
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import create_viewer
 
@@ -142,19 +143,20 @@ class IncludeCommand(Command, command_name="include"):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
+        git_root = session_context.git_root
 
         if len(args) == 0:
             await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
-            invalid_paths = code_context.include_file(Path(file_path).absolute())
+            included_paths, invalid_paths = code_context.include_file(
+                Path(file_path).absolute()
+            )
             for invalid_path in invalid_paths:
-                await stream.send(
-                    f"File path {invalid_path} is not text encoded, and was skipped.",
-                    color="light_yellow",
-                )
-            if file_path not in invalid_paths:
-                await stream.send(f"{file_path} added to context", color="green")
+                await print_invalid_path(invalid_path)
+            for included_path in included_paths:
+                rel_path = included_path.relative_to(git_root)
+                await stream.send(f"{rel_path} added to context", color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -170,13 +172,20 @@ class ExcludeCommand(Command, command_name="exclude"):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
+        git_root = session_context.git_root
 
         if len(args) == 0:
             await stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
-            code_context.exclude_file(Path(file_path).absolute())
-            await stream.send(f"{file_path} removed from context", color="green")
+            excluded_paths, invalid_paths = code_context.exclude_file(
+                Path(file_path).absolute()
+            )
+            for invalid_path in invalid_paths:
+                await print_invalid_path(invalid_path)
+            for excluded_path in excluded_paths:
+                rel_path = excluded_path.relative_to(git_root)
+                await stream.send(f"{rel_path} removed from context", color="red")
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -237,7 +246,7 @@ class ClearCommand(Command, command_name="clear"):
         conversation.messages = [
             message
             for message in conversation.messages
-            if message["role"] == MessageRole.System
+            if message["role"] == MessageRole.System.value
         ]
         message = "Message history cleared"
         await stream.send(message, color="green")
@@ -268,3 +277,19 @@ class ConversationCommand(Command, command_name="conversation"):
     @classmethod
     def help_message(cls) -> str:
         return "Opens an html page showing the conversation as seen by Mentat so far"
+
+
+class ContextCommand(Command, command_name="context"):
+    async def apply(self, *args: str) -> None:
+        session_context = SESSION_CONTEXT.get()
+        code_context = session_context.code_context
+
+        await code_context.display_context()
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return []
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Shows all files currently in Mentat's context"

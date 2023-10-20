@@ -19,6 +19,7 @@ from .include_files import (
     build_path_tree,
     get_include_files,
     is_file_text_encoded,
+    print_invalid_path,
     print_path_tree,
 )
 from .llm_api import count_tokens
@@ -63,15 +64,9 @@ class CodeContext:
         return self
 
     async def set_paths(self, paths: list[Path], exclude_paths: list[Path]):
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
-            await stream.send(
-                f"File path {invalid_path} is not text encoded, and was skipped.",
-                color="light_yellow",
-            )
+            await print_invalid_path(invalid_path)
 
     async def _set_code_map(self, stream: SessionStream):
         if self.settings.no_code_map:
@@ -96,7 +91,7 @@ class CodeContext:
         stream = session_context.stream
         git_root = session_context.git_root
 
-        await stream.send("\nCode Context:", color="blue")
+        await stream.send("Code Context:", color="blue")
         prefix = "  "
         await stream.send(f"{prefix}Directory: {git_root}")
         if self.diff_context.name:
@@ -114,11 +109,11 @@ class CodeContext:
         else:
             await stream.send(f"{prefix}Included files: None", color="yellow")
         auto = self.settings.auto_tokens
-        await stream.send(
-            f"{prefix}Auto-token limit:"
-            f" {'Model max (default)' if auto is None else auto}"
-        )
         if auto != 0:
+            await stream.send(
+                f"{prefix}Auto-token limit:"
+                f" {'Model max (default)' if auto is None else auto}"
+            )
             await stream.send(
                 f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
             )
@@ -323,10 +318,16 @@ class CodeContext:
         for new_path, new_file in paths.items():
             if new_path not in self.include_files:
                 self.include_files[new_path] = new_file
-        return invalid_paths
+        return list(paths.keys()), invalid_paths
 
     def exclude_file(self, path: Path):
-        paths, _ = get_include_files([path], [])
+        # TODO: Using get_include_files here isn't ideal; if the user puts in a glob that
+        # matches files but doesn't match any files in context, we won't know what that glob is
+        # and can't return it as an invalid path
+        paths, invalid_paths = get_include_files([path], [])
+        removed_paths = list[Path]()
         for new_path in paths.keys():
             if new_path in self.include_files:
+                removed_paths.append(new_path)
                 del self.include_files[new_path]
+        return removed_paths, invalid_paths
