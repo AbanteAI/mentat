@@ -45,6 +45,9 @@ class MemoryBackend:
     def disconnect(self) -> None:
         pass
 
+    async def join(self) -> None:
+        await self._published.join()
+
     def subscribe(self, channel: str) -> None:
         self._subscribed.add(channel)
         for event in self._missed_events[channel]:
@@ -70,8 +73,9 @@ class MemoryBackend:
             self._missed_events[channel].append(event)
 
     async def next_published(self) -> Event:
-        while True:
-            return await self._published.get()
+        event = await self._published.get()
+        self._published.task_done()
+        return event
 
 
 class Unsubscribed(Exception):
@@ -100,6 +104,10 @@ class Broadcast:
         else:
             self._listener_task.cancel()
         self._backend.disconnect()
+
+    async def join(self) -> None:
+        """Blocks until all events have been processed"""
+        await self._backend.join()
 
     async def _listener(self) -> None:
         while True:

@@ -103,3 +103,7 @@ class SessionStream:
         with self._broadcast.subscribe(channel) as subscriber:
             async for event in subscriber:
                 yield event.message
+
+    async def join(self) -> None:
+        """Blocks until all sent events have been processed"""
+        await self._broadcast.join()

@@ -1,6 +1,8 @@
 import asyncio
+from asyncio import Event
+from asyncio.tasks import Task
 from pathlib import Path
-from typing import List, Set
+from typing import List
 
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
@@ -25,16 +27,10 @@ class PythonClient:
         self.use_embedding = use_embedding
         self.auto_tokens = auto_tokens
 
-        self.session: Session | None = None
-
-        self._tasks: Set[asyncio.Task[None]] = set()
-        self.acc_task: asyncio.Task[None] | None = None
-        self.started = False
         self._accumulated_message = ""
+        self.exited = Event()
 
     async def call_mentat(self, message: str):
-        assert isinstance(self.session, Session), "Client is not running"
-
         input_request_message = await self.session.stream.recv("input_request")
         self.session.stream.send(
             message,
@@ -48,21 +44,23 @@ class PythonClient:
 
     async def call_mentat_auto_accept(self, message: str):
         await self.call_mentat(message)
-        if not self.started:
+        if self.exited.is_set():
             return
         await self.call_mentat("y")
 
     async def wait_for_edit_completion(self):
-        assert isinstance(self.session, Session), "Client is not running"
         await self.session.stream.recv(channel="edits_complete")
 
     async def _accumulate_messages(self):
-        assert isinstance(self.session, Session), "Client is not running"
         async for message in self.session.stream.listen():
             end = "\n"
             if message.extra and isinstance(message.extra.get("end"), str):
                 end = message.extra["end"]
             self._accumulated_message += message.data + end
+
+    async def _listen_for_exit(self):
+        await self.session.stream.recv("exit")
+        await self.stop()
 
     async def startup(self):
         self.session = Session(
@@ -74,17 +72,12 @@ class PythonClient:
             self.use_embedding,
             self.auto_tokens,
         )
-        asyncio.ensure_future(self.session.start())
+        self.session.start()
         self.acc_task = asyncio.create_task(self._accumulate_messages())
-        self.started = True
+        self.exit_task: Task[None] = asyncio.create_task(self._listen_for_exit())
 
     async def stop(self):
-        if self.session is not None:
-            stop_task = self.session.stop()
-            if stop_task is not None:
-                await stop_task
-            self.session = None
-        if self.acc_task is not None:
-            self.acc_task.cancel()
-            self.acc_task = None
-        self.started = False
+        await self.session.stop()
+        self.acc_task.cancel()
+        self.exit_task.cancel()
+        self.exited.set()
