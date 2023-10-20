@@ -24,7 +24,7 @@ async def edit_file_and_run(
 
     session = await Session.create(context_file_paths)
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     assert os.path.exists(main_file_path)
 

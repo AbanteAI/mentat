@@ -50,7 +50,7 @@ async def test_replacement(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -97,7 +97,7 @@ async def test_replacement_case_not_matching(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -142,7 +142,7 @@ async def test_replacement_whitespace_not_matching(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -172,7 +172,7 @@ async def test_file_creation(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     assert Path(temp_file_name).exists()
 
 
@@ -203,7 +203,7 @@ async def test_file_deletion(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     assert not Path(temp_file_name).exists()
 
 
@@ -234,7 +234,7 @@ async def test_file_rename(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name_2, "r") as f:
         content = f.read()
         expected_content = dedent("""\

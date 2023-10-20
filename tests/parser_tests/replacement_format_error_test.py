@@ -45,7 +45,7 @@ async def test_invalid_line_numbers(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -87,7 +87,7 @@ async def test_invalid_special_line(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\

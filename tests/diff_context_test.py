@@ -55,7 +55,9 @@ def test_diff_context_default(temp_testbed, git_history, mock_session_context):
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     # DiffContext.__init__() (default): active code vs last commit
-    diff_context = DiffContext()
+    diff_context = DiffContext(
+        mock_session_context.stream, mock_session_context.git_root
+    )
     assert diff_context.target == "HEAD"
     assert diff_context.name == "HEAD (last commit)"
     assert diff_context.files == []
@@ -83,7 +85,7 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
     last_commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD~2"], cwd=temp_testbed, text=True
     ).strip()
-    diff_context = await DiffContext.create(
+    diff_context = DiffContext(
         mock_session_context.stream, mock_session_context.git_root, diff=last_commit
     )
     assert diff_context.target == last_commit
@@ -101,7 +103,7 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
 
 @pytest.mark.asyncio
 async def test_diff_context_branch(temp_testbed, git_history, mock_session_context):
-    diff_context = await DiffContext.create(
+    diff_context = DiffContext(
         mock_session_context.stream, mock_session_context.git_root, diff="test_branch"
     )
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
@@ -122,7 +124,7 @@ async def test_diff_context_branch(temp_testbed, git_history, mock_session_conte
 
 @pytest.mark.asyncio
 async def test_diff_context_relative(temp_testbed, git_history, mock_session_context):
-    diff_context = await DiffContext.create(
+    diff_context = DiffContext(
         mock_session_context.stream, mock_session_context.git_root, diff="HEAD~2"
     )
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
@@ -146,7 +148,7 @@ async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     subprocess.run(["git", "checkout", "test_branch"], cwd=temp_testbed)
-    diff_context = await DiffContext.create(
+    diff_context = DiffContext(
         mock_session_context.stream, mock_session_context.git_root, pr_diff="master"
     )
 

@@ -48,7 +48,7 @@ async def test_replacement(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -102,7 +102,7 @@ async def test_multiple_replacements(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -156,7 +156,7 @@ async def test_multiple_replacement_spots(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -209,7 +209,7 @@ async def test_little_context_addition(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -253,7 +253,7 @@ async def test_empty_file(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -286,7 +286,7 @@ async def test_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_a
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -325,7 +325,7 @@ async def test_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_a
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     assert not temp_file_name.exists()
 
 
@@ -362,7 +362,7 @@ async def test_no_ending_marker(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\

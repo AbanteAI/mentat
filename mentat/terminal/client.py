@@ -78,7 +78,7 @@ class TerminalClient:
                 self._should_exit = True
                 return
 
-            await self.session.stream.send(
+            self.session.stream.send(
                 user_input,
                 source=StreamMessageSource.CLIENT,
                 channel=f"input_request:{input_request_message.id}",
@@ -86,7 +86,7 @@ class TerminalClient:
 
     async def _send_session_stream_interrupt(self):
         assert isinstance(self.session, Session), "TerminalClient is not running"
-        await self.session.stream.send(
+        self.session.stream.send(
             "", source=StreamMessageSource.CLIENT, channel="interrupt"
         )
 

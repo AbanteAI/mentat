@@ -36,7 +36,7 @@ async def test_path_gitignoring(temp_testbed, mock_session_context):
         mock_session_context.git_root,
         code_context_settings,
     )
-    await code_context.set_paths(paths, [])
+    code_context.set_paths(paths, [])
 
     expected_file_paths = [
         os.path.join(temp_testbed, ignored_file_path_2),
@@ -78,7 +78,7 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
         mock_session_context.git_root,
         code_context_settings,
     )
-    await code_context.set_paths([Path("."), directly_added_glob_excluded_path], [])
+    code_context.set_paths([Path("."), directly_added_glob_excluded_path], [])
 
     file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
@@ -110,7 +110,7 @@ async def test_glob_include(temp_testbed, mock_session_context):
         mock_session_context.git_root,
         code_context_settings,
     )
-    await code_context.set_paths(file_paths, [])
+    code_context.set_paths(file_paths, [])
 
     file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
@@ -141,7 +141,7 @@ async def test_cli_glob_exclude(temp_testbed, mock_session_context):
         mock_session_context.git_root,
         code_context_settings,
     )
-    await code_context.set_paths(file_paths, exclude_paths)
+    code_context.set_paths(file_paths, exclude_paths)
 
     file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_include_then_exclude_path) not in file_paths
@@ -162,7 +162,7 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
         mock_session_context.git_root,
         code_context_settings,
     )
-    await code_context.set_paths(["./"], [])
+    code_context.set_paths(["./"], [])
     file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, nontext_path) not in file_paths
 
@@ -175,7 +175,7 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
         mock_session_context.git_root,
         code_context_settings,
     )
-    await code_context.set_paths([Path(nontext_path_requested)], [])
+    code_context.set_paths([Path(nontext_path_requested)], [])
     assert not code_context.include_files
 
 
@@ -206,7 +206,7 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
         mock_session_context.git_root,
         code_context_settings,
     )
-    await code_context.set_paths(
+    code_context.set_paths(
         ["multifile_calculator"], ["multifile_calculator/calculator.py"]
     )
 
@@ -255,7 +255,7 @@ async def test_get_code_message_include(temp_testbed, mock_session_context):
         mock_session_context.git_root,
         code_context_settings,
     )
-    await code_context.set_paths(
+    code_context.set_paths(
         ["multifile_calculator"], ["multifile_calculator/calculator.py"]
     )
 

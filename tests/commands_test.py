@@ -37,7 +37,7 @@ async def test_commit_command(
 
     session = await Session.create([])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     assert subprocess.check_output(["git", "status", "-s"], text=True) == ""
 
@@ -55,7 +55,7 @@ async def test_include_command(
 
     session = await Session.create([])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     code_context = SESSION_CONTEXT.get().code_context
     assert (
@@ -76,7 +76,7 @@ async def test_exclude_command(
 
     session = await Session.create(["scripts"])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     code_context = SESSION_CONTEXT.get().code_context
     assert not code_context.include_files
@@ -117,7 +117,7 @@ async def test_undo_command(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     with open(temp_file_name, "r") as f:
         content = f.read()
@@ -163,7 +163,7 @@ async def test_undo_all_command(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     with open(temp_file_name, "r") as f:
         content = f.read()
@@ -188,7 +188,7 @@ async def test_clear_command(
 
     session = await Session.create()
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     conversation = SESSION_CONTEXT.get().conversation
     assert len(conversation.messages) == 1

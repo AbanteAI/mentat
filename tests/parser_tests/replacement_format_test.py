@@ -40,7 +40,7 @@ async def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -73,7 +73,7 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -105,7 +105,7 @@ async def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -136,7 +136,7 @@ async def test_create_file(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -169,7 +169,7 @@ async def test_delete_file(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     assert not Path(temp_file_name).exists()
 
 
@@ -198,7 +198,7 @@ async def test_rename_file(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     assert not Path(temp_file_name).exists()
     with open(temp_file_name_2, "r") as f:
         content = f.read()
@@ -239,7 +239,7 @@ async def test_change_then_rename_then_change(
 
     session = await Session.create([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     assert not Path(temp_file_name).exists()
     with open(temp_file_name_2, "r") as f:
         content = f.read()

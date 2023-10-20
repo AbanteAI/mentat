@@ -16,9 +16,7 @@ async def test_config_priority(temp_testbed, mock_session_context):
 
     # Since we don't want to actually change user config file or default config file,
     # we have to just mock them
-    config = await ConfigManager.create(
-        mock_session_context.git_root, mock_session_context.stream
-    )
+    config = ConfigManager(mock_session_context.git_root, mock_session_context.stream)
     config.user_config = {"project-first": "I will not be used", "user-second": "user"}
     config.default_config = {
         "project-first": "I also am not used",
@@ -45,8 +43,6 @@ async def test_invalid_config(temp_testbed, mock_session_context):
             "invalid-json: []]
         }"""))
 
-    config = await ConfigManager.create(
-        mock_session_context.git_root, mock_session_context.stream
-    )
+    config = ConfigManager(mock_session_context.git_root, mock_session_context.stream)
     config.user_config = {"mykey": "user"}
     assert config._get_key("mykey") == "user"
