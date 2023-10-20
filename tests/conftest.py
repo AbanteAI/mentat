@@ -220,7 +220,7 @@ def _mock_code_context(_mock_git_root, _mock_config):
 
 
 @pytest_asyncio.fixture()
-async def mock_code_context(_mock_code_context):
+async def mock_code_context(_mock_code_context, mock_stream):
     _mock_code_context.diff_context = await DiffContext.create()
     yield _mock_code_context
 
