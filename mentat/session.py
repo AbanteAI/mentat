@@ -94,6 +94,7 @@ class Session:
 
         # Functions that require session_context
         await code_context.set_paths(paths, exclude_paths)
+        await code_context.set_code_map()
 
         return cls(session_context.stream)
 

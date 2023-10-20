@@ -60,7 +60,6 @@ class CodeContext:
             stream, git_root, self.settings.diff, self.settings.pr_diff
         )
         self.include_files = {}
-        await self._set_code_map(stream)
         return self
 
     async def set_paths(self, paths: list[Path], exclude_paths: list[Path]):
@@ -68,7 +67,10 @@ class CodeContext:
         for invalid_path in invalid_paths:
             await print_invalid_path(invalid_path)
 
-    async def _set_code_map(self, stream: SessionStream):
+    async def set_code_map(self):
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+
         if self.settings.no_code_map:
             self.code_map = False
         else:
@@ -176,13 +178,10 @@ class CodeContext:
         model: str,
         max_tokens: int,
     ) -> str:
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-
         code_message = list[str]()
 
         self.diff_context.clear_cache()
-        await self._set_code_map(stream)
+        await self.set_code_map()
         if self.diff_context.files:
             code_message += [
                 "Diff References:",
