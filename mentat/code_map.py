@@ -38,7 +38,7 @@ async def get_code_map(
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            await stream.send(
+            stream.send(
                 f"Error parsing ctags output: {err}\n{repr(output_line)}",
                 color="yellow",
             )

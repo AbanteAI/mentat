@@ -14,7 +14,7 @@ async def _get_input_request(**kwargs: Any) -> StreamMessage:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
-    message = await stream.send("", channel="input_request", **kwargs)
+    message = stream.send("", channel="input_request", **kwargs)
     response = await stream.recv(f"input_request:{message.id}")
     return response
 
@@ -40,7 +40,7 @@ async def collect_user_input(plain: bool = False) -> StreamMessage:
                 command = Command.create_command(arguments[0])
                 await command.apply(*arguments[1:])
             except ValueError as e:
-                await stream.send(
+                stream.send(
                     f"Error processing command arguments: {e}", color="light_red"
                 )
 
@@ -59,7 +59,7 @@ async def ask_yes_no(default_yes: bool) -> bool:
 
     while True:
         # TODO: combine this into a single message (include content)
-        await stream.send("(Y/n)" if default_yes else "(y/N)")
+        stream.send("(Y/n)" if default_yes else "(y/N)")
         response = await collect_user_input(plain=True)
         content = response.data
         if content in ["y", "n", ""]:
@@ -106,7 +106,7 @@ async def listen_for_interrupt(
             return wrapped_task.result()
         else:
             # Send a newline for terminal clients (remove later)
-            await stream.send("\n")
+            stream.send("\n")
 
             if raise_exception_on_interrupt:
                 raise RemoteKeyboardInterrupt

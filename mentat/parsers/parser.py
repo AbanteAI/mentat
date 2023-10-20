@@ -103,7 +103,7 @@ class Parser(ABC):
             if self.shutdown.is_set():
                 printer.shutdown_printer()
                 await printer_task
-                await stream.send(
+                stream.send(
                     colored("")  # Reset ANSI codes
                     + "\n\nInterrupted by user. Using the response up to this point."
                 )

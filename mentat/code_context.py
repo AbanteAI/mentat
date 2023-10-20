@@ -56,16 +56,16 @@ class CodeContext:
         settings: CodeContextSettings,
     ):
         self = cls(settings)
-        self.diff_context = await DiffContext.create(
+        self.diff_context = DiffContext(
             stream, git_root, self.settings.diff, self.settings.pr_diff
         )
         self.include_files = {}
         return self
 
-    async def set_paths(self, paths: list[Path], exclude_paths: list[Path]):
+    def set_paths(self, paths: list[Path], exclude_paths: list[Path]):
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
-            await print_invalid_path(invalid_path)
+            print_invalid_path(invalid_path)
 
     async def set_code_map(self):
         session_context = SESSION_CONTEXT.get()
@@ -81,46 +81,46 @@ class CodeContext:
                     Reason: {disabled_reason}
                 """
                 ctags_disabled_message = dedent(ctags_disabled_message)
-                await stream.send(ctags_disabled_message, color="yellow")
+                stream.send(ctags_disabled_message, color="yellow")
                 self.settings.no_code_map = True
                 self.code_map = False
             else:
                 self.code_map = True
 
-    async def display_context(self):
+    def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         git_root = session_context.git_root
 
-        await stream.send("Code Context:", color="blue")
+        stream.send("Code Context:", color="blue")
         prefix = "  "
-        await stream.send(f"{prefix}Directory: {git_root}")
+        stream.send(f"{prefix}Directory: {git_root}")
         if self.diff_context.name:
-            await stream.send(f"{prefix}Diff:", end=" ")
-            await stream.send(self.diff_context.get_display_context(), color="green")
+            stream.send(f"{prefix}Diff:", end=" ")
+            stream.send(self.diff_context.get_display_context(), color="green")
         if self.include_files:
-            await stream.send(f"{prefix}Included files:")
-            await stream.send(f"{prefix + prefix}{git_root.name}")
-            await print_path_tree(
+            stream.send(f"{prefix}Included files:")
+            stream.send(f"{prefix + prefix}{git_root.name}")
+            print_path_tree(
                 build_path_tree(list(self.include_files.values()), git_root),
                 get_paths_with_git_diffs(),
                 git_root,
                 prefix + prefix,
             )
         else:
-            await stream.send(f"{prefix}Included files: None", color="yellow")
+            stream.send(f"{prefix}Included files: None", color="yellow")
         auto = self.settings.auto_tokens
         if auto != 0:
-            await stream.send(
+            stream.send(
                 f"{prefix}Auto-token limit:"
                 f" {'Model max (default)' if auto is None else auto}"
             )
-            await stream.send(
+            stream.send(
                 f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
             )
 
-    async def display_features(self):
+    def display_features(self):
         """Display a summary of all active features"""
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
@@ -130,10 +130,10 @@ class CodeContext:
             if f.path not in self.include_files:
                 auto_features[f.level] += 1
         if any(auto_features.values()):
-            await stream.send("Auto-Selected Features:", color="blue")
+            stream.send("Auto-Selected Features:", color="blue")
             for level, count in auto_features.items():
                 if count:
-                    await stream.send(f"  {count} {level.description}")
+                    stream.send(f"  {count} {level.description}")
 
     _code_message: str | None = None
     _code_message_checksum: str | None = None

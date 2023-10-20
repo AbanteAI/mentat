@@ -63,12 +63,12 @@ class Session:
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
 
         stream = SessionStream()
-        await stream.start()
+        stream.start()
 
         cost_tracker = CostTracker()
 
         # TODO: Part of config should be retrieved in client (i.e., to get vscode settings) and passed to server
-        config = await ConfigManager.create(git_root, stream)
+        config = ConfigManager(git_root, stream)
 
         parser = parser_map[config.parser()]
 
@@ -93,7 +93,7 @@ class Session:
         )
 
         # Functions that require session_context
-        await code_context.set_paths(paths, exclude_paths)
+        code_context.set_paths(paths, exclude_paths)
         await code_context.set_code_map()
 
         return cls(session_context.stream)
@@ -105,17 +105,15 @@ class Session:
         conversation = session_context.conversation
 
         try:
-            await code_context.display_context()
+            code_context.display_context()
             await conversation.display_token_count()
         except MentatError as e:
-            await stream.send(str(e), color="red")
+            stream.send(str(e), color="red")
             return
 
         try:
-            await stream.send(
-                "Type 'q' or use Ctrl-C to quit at any time.", color="cyan"
-            )
-            await stream.send("What can I do for you?", color="light_blue")
+            stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
+            stream.send("What can I do for you?", color="light_blue")
             need_user_request = True
             while True:
                 if need_user_request:
@@ -126,19 +124,19 @@ class Session:
 
                 file_edits = await conversation.get_model_response()
                 file_edits = [
-                    file_edit for file_edit in file_edits if await file_edit.is_valid()
+                    file_edit for file_edit in file_edits if file_edit.is_valid()
                 ]
                 if file_edits:
                     need_user_request = await get_user_feedback_on_edits(file_edits)
                 else:
                     need_user_request = True
-                await stream.send(bool(file_edits), channel="edits_complete")
+                stream.send(bool(file_edits), channel="edits_complete")
         except SessionExit:
             pass
         except (Timeout, RateLimitError) as e:
-            await stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
+            stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
         finally:
-            await stream.send(None, channel="exit")
+            stream.send(None, channel="exit")
 
     ### lifecycle
 
@@ -203,7 +201,7 @@ class Session:
             if self._main_task is None:
                 return
             try:
-                await cost_tracker.display_total_cost()
+                cost_tracker.display_total_cost()
                 logging.shutdown()
                 self._main_task.cancel()
 
@@ -213,7 +211,7 @@ class Session:
 
                 while self._main_task is not None:
                     await asyncio.sleep(0.01)
-                await self.stream.stop()
+                self.stream.stop()
             except asyncio.CancelledError:
                 pass
 

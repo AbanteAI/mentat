@@ -87,18 +87,16 @@ class CodeFileManager:
                         f"Attempted to edit non-existent file {file_edit.file_path}"
                     )
                 elif file_edit.file_path not in code_context.include_files:
-                    await stream.send(
+                    stream.send(
                         f"Attempted to edit file {file_edit.file_path} not in context",
                         color="yellow",
                     )
                     continue
 
             if file_edit.is_deletion:
-                await stream.send(
-                    f"Are you sure you want to delete {rel_path}?", color="red"
-                )
+                stream.send(f"Are you sure you want to delete {rel_path}?", color="red")
                 if await ask_yes_no(default_yes=False):
-                    await stream.send(f"Deleting {rel_path}...", color="red")
+                    stream.send(f"Deleting {rel_path}...", color="red")
                     # We use the current lines rather than the stored lines for undo
                     self.history.add_action(
                         DeletionAction(
@@ -108,7 +106,7 @@ class CodeFileManager:
                     self._delete_file(code_context, file_edit.file_path)
                     continue
                 else:
-                    await stream.send(f"Not deleting {rel_path}", color="green")
+                    stream.send(f"Not deleting {rel_path}", color="green")
 
             if not file_edit.is_creation:
                 stored_lines = self.file_lines[rel_path]
@@ -116,13 +114,13 @@ class CodeFileManager:
                     logging.info(
                         f"File '{file_edit.file_path}' changed while generating changes"
                     )
-                    await stream.send(
+                    stream.send(
                         f"File '{rel_path}' changed while generating; current"
                         " file changes will be erased. Continue?",
                         color="light_yellow",
                     )
                     if not await ask_yes_no(default_yes=False):
-                        await stream.send(f"Not applying changes to file {rel_path}")
+                        stream.send(f"Not applying changes to file {rel_path}")
                         continue
             else:
                 stored_lines = []

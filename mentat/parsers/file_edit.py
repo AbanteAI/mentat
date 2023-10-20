@@ -44,8 +44,8 @@ async def _ask_user_change(
 ) -> bool:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
-    await stream.send(get_full_change(display_information))
-    await stream.send(text, color="light_blue")
+    stream.send(get_full_change(display_information))
+    stream.send(text, color="light_blue")
     return await ask_yes_no(default_yes=True)
 
 
@@ -64,7 +64,7 @@ class FileEdit:
     # Should be abs path
     rename_file_path: Path | None = attr.field(default=None)
 
-    async def is_valid(self) -> bool:
+    def is_valid(self) -> bool:
         session_context = SESSION_CONTEXT.get()
         git_root = session_context.git_root
         stream = session_context.stream
@@ -73,20 +73,20 @@ class FileEdit:
         rel_path = Path(os.path.relpath(self.file_path, git_root))
         if self.is_creation:
             if self.file_path.exists():
-                await stream.send(
+                stream.send(
                     f"File {rel_path} already exists, canceling creation.",
                     color="light_yellow",
                 )
                 return False
         else:
             if not self.file_path.exists():
-                await stream.send(
+                stream.send(
                     f"File {rel_path} does not exist, canceling all edits to file.",
                     color="light_yellow",
                 )
                 return False
             elif self.file_path not in code_context.include_files:
-                await stream.send(
+                stream.send(
                     f"File {rel_path} not in context, canceling all edits to file.",
                     color="light_yellow",
                 )
@@ -94,7 +94,7 @@ class FileEdit:
 
         if self.rename_file_path is not None and self.rename_file_path.exists():
             rel_rename_path = Path(os.path.relpath(self.rename_file_path, git_root))
-            await stream.send(
+            stream.send(
                 f"File {rel_path} being renamed to existing file {rel_rename_path},"
                 " canceling rename.",
                 color="light_yellow",
@@ -165,20 +165,18 @@ class FileEdit:
             or len(self.replacements) > 0
         )
 
-    async def _print_resolution(self, first: Replacement, second: Replacement):
+    def _print_resolution(self, first: Replacement, second: Replacement):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
 
-        await stream.send(
-            "Change overlap detected, auto-merged back to back changes:\n"
-        )
-        await stream.send(self.file_path)
-        await stream.send(change_delimiter)
+        stream.send("Change overlap detected, auto-merged back to back changes:\n")
+        stream.send(self.file_path)
+        stream.send(change_delimiter)
         for line in first.new_lines + second.new_lines:
-            await stream.send("+ " + line, color="green")
-        await stream.send("")
+            stream.send("+ " + line, color="green")
+        stream.send("")
 
-    async def resolve_conflicts(self):
+    def resolve_conflicts(self):
         self.replacements.sort(reverse=True)
         for index, replacement in enumerate(self.replacements):
             for other in self.replacements[index + 1 :]:
@@ -189,7 +187,7 @@ class FileEdit:
                     # Overlap conflict
                     other.ending_line = replacement.starting_line
                     other.starting_line = min(other.starting_line, other.ending_line)
-                    await self._print_resolution(other, replacement)
+                    self._print_resolution(other, replacement)
                 elif (
                     other.ending_line == other.starting_line
                     and replacement.ending_line == replacement.starting_line
@@ -197,7 +195,7 @@ class FileEdit:
                 ):
                     # Insertion conflict
                     # This will be a bit wonky if there are more than 2 insertion conflicts on the same line
-                    await self._print_resolution(replacement, other)
+                    self._print_resolution(replacement, other)
 
     def get_updated_file_lines(self, file_lines: list[str]):
         self.replacements.sort(reverse=True)

@@ -138,7 +138,7 @@ def build_path_tree(files: list[CodeFile], git_root: Path):
     return tree
 
 
-async def print_path_tree(
+def print_path_tree(
     tree: dict[str, Any], changed_files: set[Path], cur_path: Path, prefix: str = ""
 ):
     """Prints a tree of paths, with changed files highlighted."""
@@ -149,10 +149,10 @@ async def print_path_tree(
     for i, key in enumerate(sorted(keys)):
         if i < len(keys) - 1:
             new_prefix = prefix + "│   "
-            await stream.send(f"{prefix}├── ", end="")
+            stream.send(f"{prefix}├── ", end="")
         else:
             new_prefix = prefix + "    "
-            await stream.send(f"{prefix}└── ", end="")
+            stream.send(f"{prefix}└── ", end="")
 
         cur = cur_path / key
         star = "* " if cur in changed_files else ""
@@ -162,31 +162,31 @@ async def print_path_tree(
             color = "green"
         else:
             color = None
-        await stream.send(f"{star}{key}", color=color)
+        stream.send(f"{star}{key}", color=color)
         if tree[key]:
-            await print_path_tree(tree[key], changed_files, cur, new_prefix)
+            print_path_tree(tree[key], changed_files, cur, new_prefix)
 
 
-async def print_invalid_path(invalid_path: str):
+def print_invalid_path(invalid_path: str):
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
     git_root = session_context.git_root
 
     abs_path = Path(invalid_path).absolute()
     if "*" in invalid_path:
-        await stream.send(
+        stream.send(
             f"The glob pattern {invalid_path} did not match any files",
             color="light_red",
         )
     elif not abs_path.exists():
-        await stream.send(
+        stream.send(
             f"The path {invalid_path} does not exist and was skipped", color="light_red"
         )
     elif not is_file_text_encoded(abs_path):
         rel_path = abs_path.relative_to(git_root)
-        await stream.send(
+        stream.send(
             f"The file {rel_path} is not text encoded and was skipped",
             color="light_red",
         )
     else:
-        await stream.send(f"The file {invalid_path} was skipped", color="light_red")
+        stream.send(f"The file {invalid_path} was skipped", color="light_red")

@@ -43,6 +43,8 @@ class Command(ABC):
     def get_command_completions(cls) -> List[str]:
         return list(map(lambda name: "/" + name, cls.get_command_names()))
 
+    # Although we don't await anything inside an apply method currently, in the future we might
+    # ask ther user or a model something, which would require apply to be async
     @abstractmethod
     async def apply(self, *args: str) -> None:
         pass
@@ -67,7 +69,7 @@ class InvalidCommand(Command, command_name=None):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
 
-        await stream.send(
+        stream.send(
             f"{self.invalid_name} is not a valid command. Use /help to see a list of"
             " all valid commands",
             color="light_yellow",
@@ -96,7 +98,7 @@ class HelpCommand(Command, command_name="help"):
             commands = args
         for command_name in commands:
             if command_name not in Command._registered_commands:
-                await stream.send(
+                stream.send(
                     f"Error: Command {command_name} does not exist.", color="red"
                 )
             else:
@@ -109,7 +111,7 @@ class HelpCommand(Command, command_name="help"):
                     ).ljust(help_message_width)
                     + help_message
                 )
-                await stream.send(message)
+                stream.send(message)
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -146,17 +148,17 @@ class IncludeCommand(Command, command_name="include"):
         git_root = session_context.git_root
 
         if len(args) == 0:
-            await stream.send("No files specified\n", color="yellow")
+            stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
             included_paths, invalid_paths = code_context.include_file(
                 Path(file_path).absolute()
             )
             for invalid_path in invalid_paths:
-                await print_invalid_path(invalid_path)
+                print_invalid_path(invalid_path)
             for included_path in included_paths:
                 rel_path = included_path.relative_to(git_root)
-                await stream.send(f"{rel_path} added to context", color="green")
+                stream.send(f"{rel_path} added to context", color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -175,17 +177,17 @@ class ExcludeCommand(Command, command_name="exclude"):
         git_root = session_context.git_root
 
         if len(args) == 0:
-            await stream.send("No files specified\n", color="yellow")
+            stream.send("No files specified\n", color="yellow")
             return
         for file_path in args:
             excluded_paths, invalid_paths = code_context.exclude_file(
                 Path(file_path).absolute()
             )
             for invalid_path in invalid_paths:
-                await print_invalid_path(invalid_path)
+                print_invalid_path(invalid_path)
             for excluded_path in excluded_paths:
                 rel_path = excluded_path.relative_to(git_root)
-                await stream.send(f"{rel_path} removed from context", color="red")
+                stream.send(f"{rel_path} removed from context", color="red")
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -204,8 +206,8 @@ class UndoCommand(Command, command_name="undo"):
 
         errors = code_file_manager.history.undo()
         if errors:
-            await stream.send(errors)
-        await stream.send("Undo complete", color="green")
+            stream.send(errors)
+        stream.send("Undo complete", color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -224,8 +226,8 @@ class UndoAllCommand(Command, command_name="undo-all"):
 
         errors = code_file_manager.history.undo_all()
         if errors:
-            await stream.send(errors)
-        await stream.send("Undos complete", color="green")
+            stream.send(errors)
+        stream.send("Undos complete", color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -249,7 +251,7 @@ class ClearCommand(Command, command_name="clear"):
             if message["role"] == MessageRole.System.value
         ]
         message = "Message history cleared"
-        await stream.send(message, color="green")
+        stream.send(message, color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:
@@ -284,7 +286,7 @@ class ContextCommand(Command, command_name="context"):
         session_context = SESSION_CONTEXT.get()
         code_context = session_context.code_context
 
-        await code_context.display_context()
+        code_context.display_context()
 
     @classmethod
     def argument_names(cls) -> list[str]:

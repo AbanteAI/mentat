@@ -39,13 +39,14 @@ class SessionStream:
         self.interrupt_lock = asyncio.Lock()
         self._broadcast = Broadcast()
 
-    async def start(self):
-        await self._broadcast.connect()
+    def start(self):
+        self._broadcast.connect()
 
-    async def stop(self):
-        await self._broadcast.disconnect()
+    def stop(self):
+        self._broadcast.disconnect()
 
-    async def send(
+    # Since there is no maximum queue size, use the synchronous version of this function instead
+    async def send_async(
         self,
         data: Any,
         source: StreamMessageSource = StreamMessageSource.SERVER,
@@ -62,11 +63,11 @@ class SessionStream:
         )
 
         self.messages.append(message)
-        await self._broadcast.publish(channel=channel, message=message)
+        await self._broadcast.publish_async(channel=channel, message=message)
 
         return message
 
-    def send_sync(
+    def send(
         self,
         data: Any,
         source: StreamMessageSource = StreamMessageSource.SERVER,
@@ -83,13 +84,13 @@ class SessionStream:
         )
 
         self.messages.append(message)
-        self._broadcast.publish_sync(channel=channel, message=message)
+        self._broadcast.publish(channel=channel, message=message)
 
         return message
 
     async def recv(self, channel: str = "default") -> StreamMessage:
         """Listen for a single event on a channel"""
-        async with self._broadcast.subscribe(channel) as subscriber:
+        with self._broadcast.subscribe(channel) as subscriber:
             async for event in subscriber:
                 stream_message = cast(StreamMessage, event.message)
                 return stream_message
@@ -99,6 +100,6 @@ class SessionStream:
         self, channel: str = "default"
     ) -> AsyncGenerator[StreamMessage, None]:
         """Listen to all messages on a channel indefinitely"""
-        async with self._broadcast.subscribe(channel) as subscriber:
+        with self._broadcast.subscribe(channel) as subscriber:
             async for event in subscriber:
                 yield event.message

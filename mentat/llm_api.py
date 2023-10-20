@@ -74,12 +74,12 @@ def raise_if_in_test_environment():
         raise MentatError("OpenAI call attempted in non benchmark test environment!")
 
 
-async def warn_user(message: str, max_tries: int, details: Details):
+def warn_user(message: str, max_tries: int, details: Details):
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
     warning = f"{message}: Retry number {details['tries']}/{max_tries - 1}..."
-    await stream.send(warning, color="light_yellow")
+    stream.send(warning, color="light_yellow")
 
 
 @backoff.on_exception(
@@ -188,20 +188,20 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
         return None
 
 
-async def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
+def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
     prompt_token_count = 0
     for message in messages:
         prompt_token_count += count_tokens(message["content"], model)
-    await stream.send(f"Total token count: {prompt_token_count}", color="cyan")
+    stream.send(f"Total token count: {prompt_token_count}", color="cyan")
 
     token_buffer = 500
     context_size = model_context_size(model)
     if context_size:
         if prompt_token_count > context_size - token_buffer:
-            await stream.send(
+            stream.send(
                 f"Warning: {model} has a maximum context length of {context_size}"
                 " tokens. Attempting to run anyway:",
                 color="yellow",
@@ -214,7 +214,7 @@ class CostTracker:
     total_tokens: int = 0
     total_cost: float = 0
 
-    async def display_api_call_stats(
+    def display_api_call_stats(
         self,
         num_prompt_tokens: int,
         num_sampled_tokens: int,
@@ -238,14 +238,12 @@ class CostTracker:
             )
         else:
             speed_and_cost_string = f"Speed: {tokens_per_second:.2f} tkns/s"
-        await stream.send(speed_and_cost_string, color="cyan")
+        stream.send(speed_and_cost_string, color="cyan")
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
 
-    async def display_total_cost(self) -> None:
+    def display_total_cost(self) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        await stream.send(
-            f"Total session cost: ${self.total_cost:.2f}", color="light_blue"
-        )
+        stream.send(f"Total session cost: ${self.total_cost:.2f}", color="light_blue")

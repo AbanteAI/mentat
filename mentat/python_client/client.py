@@ -36,7 +36,7 @@ class PythonClient:
         assert isinstance(self.session, Session), "Client is not running"
 
         input_request_message = await self.session.stream.recv("input_request")
-        await self.session.stream.send(
+        self.session.stream.send(
             message,
             source=StreamMessageSource.CLIENT,
             channel=f"input_request:{input_request_message.id}",
