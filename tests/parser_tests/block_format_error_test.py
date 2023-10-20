@@ -64,7 +64,7 @@ async def error_test_template(
     )
     mock_call_llm_api.set_generator_values([changes])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
     with open(temp_file_name, "r") as f:

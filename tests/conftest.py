@@ -161,6 +161,7 @@ def add_permissions(func, path, exc_info):
 # https://github.com/pytest-dev/pytest-asyncio/issues/127
 
 
+# Despite not using any awaits here, this has to be async or there won't be a running event loop
 @pytest_asyncio.fixture()
 async def _mock_session_context(temp_testbed):
     git_root = temp_testbed
@@ -175,7 +176,7 @@ async def _mock_session_context(temp_testbed):
     parser = parser_map[config.parser()]
 
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(stream, git_root, code_context_settings)
+    code_context = CodeContext(stream, git_root, code_context_settings)
 
     code_file_manager = CodeFileManager()
 

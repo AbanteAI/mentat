@@ -31,7 +31,7 @@ async def test_path_gitignoring(temp_testbed, mock_session_context):
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
     paths = [Path(testing_dir_path), Path(ignored_file_path_2)]
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(
+    code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
         code_context_settings,
@@ -73,7 +73,7 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
         )
 
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(
+    code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
         code_context_settings,
@@ -105,7 +105,7 @@ async def test_glob_include(temp_testbed, mock_session_context):
 
     file_paths = ["**/*.py"]
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(
+    code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
         code_context_settings,
@@ -136,7 +136,7 @@ async def test_cli_glob_exclude(temp_testbed, mock_session_context):
     file_paths = ["**/*.py"]
     exclude_paths = ["**/*.py", "**/*.ts"]
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(
+    code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
         code_context_settings,
@@ -157,7 +157,7 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
         f.write(bytearray([0x81]))
 
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(
+    code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
         code_context_settings,
@@ -170,7 +170,7 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
     with open(nontext_path_requested, "wb") as f:
         # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
         f.write(bytearray([0x81]))
-    code_context = await CodeContext.create(
+    code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
         code_context_settings,
@@ -201,7 +201,7 @@ def features(mocker):
 @pytest.mark.asyncio
 async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context):
     code_context_settings = CodeContextSettings(auto_tokens=10)
-    code_context = await CodeContext.create(
+    code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
         code_context_settings,
@@ -250,7 +250,7 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
 @pytest.mark.asyncio
 async def test_get_code_message_include(temp_testbed, mock_session_context):
     code_context_settings = CodeContextSettings(auto_tokens=0)
-    code_context = await CodeContext.create(
+    code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
         code_context_settings,

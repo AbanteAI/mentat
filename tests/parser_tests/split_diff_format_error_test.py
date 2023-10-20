@@ -55,7 +55,7 @@ async def test_no_matching_lines(
         >>>>>>> updated
         {{fence[1]}}""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
     with open(temp_file_name, "r") as f:

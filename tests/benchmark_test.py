@@ -22,7 +22,7 @@ async def edit_file_and_run(
         + ["q"]
     )
 
-    session = await Session.create(context_file_paths)
+    session = Session(context_file_paths)
     await session.start()
     session.stream.stop()
 

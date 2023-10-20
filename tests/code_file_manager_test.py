@@ -104,9 +104,7 @@ async def test_run_from_subdirectory(
         # Hello
         @@end""")])
 
-    session = await Session.create(
-        [Path("calculator.py"), Path("../scripts")], auto_tokens=0
-    )
+    session = Session([Path("calculator.py"), Path("../scripts")], auto_tokens=0)
     await session.start()
     session.stream.stop()
 
@@ -152,7 +150,7 @@ async def test_change_after_creation(
         print("Hello, World!")
         @@end""")])
 
-    session = await Session.create()
+    session = Session()
     await session.start()
     session.stream.stop()
 

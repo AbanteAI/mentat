@@ -43,7 +43,7 @@ async def test_invalid_line_numbers(
         # I also will not be used
         @""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
     with open(temp_file_name, "r") as f:
@@ -85,7 +85,7 @@ async def test_invalid_special_line(
         # I will not be used
         @""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
     with open(temp_file_name, "r") as f:

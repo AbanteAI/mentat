@@ -35,7 +35,7 @@ async def test_commit_command(
         ]
     )
 
-    session = await Session.create([])
+    session = Session([])
     await session.start()
     session.stream.stop()
 
@@ -53,7 +53,7 @@ async def test_include_command(
         ]
     )
 
-    session = await Session.create([])
+    session = Session([])
     await session.start()
     session.stream.stop()
 
@@ -74,7 +74,7 @@ async def test_exclude_command(
         ]
     )
 
-    session = await Session.create(["scripts"])
+    session = Session(["scripts"])
     await session.start()
     session.stream.stop()
 
@@ -115,7 +115,7 @@ async def test_undo_command(
         # I inserted this comment
         @@end""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
 
@@ -161,7 +161,7 @@ async def test_undo_all_command(
         # I inserted this comment
         @@end""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
 
@@ -186,7 +186,7 @@ async def test_clear_command(
     )
     mock_call_llm_api.set_generator_values(["Answer"])
 
-    session = await Session.create()
+    session = Session()
     await session.start()
     session.stream.stop()
 

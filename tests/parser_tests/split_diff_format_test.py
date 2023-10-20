@@ -48,7 +48,7 @@ async def test_replacement(
         >>>>>>> updated
         {{fence[1]}}""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
     with open(temp_file_name, "r") as f:
@@ -95,7 +95,7 @@ async def test_replacement_case_not_matching(
         >>>>>>> updated
         {{fence[1]}}""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
     with open(temp_file_name, "r") as f:
@@ -140,7 +140,7 @@ async def test_replacement_whitespace_not_matching(
         >>>>>>> updated
         {{fence[1]}}""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
     with open(temp_file_name, "r") as f:
@@ -170,7 +170,7 @@ async def test_file_creation(
 
         {{fence[0]}} {temp_file_name} +""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
     assert Path(temp_file_name).exists()
@@ -201,7 +201,7 @@ async def test_file_deletion(
 
         {{fence[0]}} {temp_file_name} -""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
     assert not Path(temp_file_name).exists()
@@ -232,7 +232,7 @@ async def test_file_rename(
 
         {{fence[0]}} {temp_file_name} -> {temp_file_name_2}""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
     session.stream.stop()
     with open(temp_file_name_2, "r") as f:
