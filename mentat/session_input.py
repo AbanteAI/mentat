@@ -3,12 +3,16 @@ import logging
 import shlex
 from typing import Any, Coroutine
 
+from mentat.commands import Command
+from mentat.session_context import SESSION_CONTEXT
+
 from .errors import RemoteKeyboardInterrupt, SessionExit
-from .session_stream import SESSION_STREAM, StreamMessage
+from .session_stream import StreamMessage
 
 
 async def _get_input_request(**kwargs: Any) -> StreamMessage:
-    stream = SESSION_STREAM.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
 
     message = await stream.send("", channel="input_request", **kwargs)
     response = await stream.recv(f"input_request:{message.id}")
@@ -22,11 +26,8 @@ async def collect_user_input(plain: bool = False) -> StreamMessage:
     create a new broadcast channel that listens for the input
     close the channel after receiving the input
     """
-    # TODO: Remove this when we create SessionContext
-    # This fixes a circular import
-    from mentat.commands import Command
-
-    stream = SESSION_STREAM.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
 
     response = await _get_input_request(plain=plain)
     logging.debug(f"User Input: {response.data}")
@@ -53,7 +54,8 @@ async def collect_user_input(plain: bool = False) -> StreamMessage:
 
 
 async def ask_yes_no(default_yes: bool) -> bool:
-    stream = SESSION_STREAM.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
 
     while True:
         # TODO: combine this into a single message (include content)
@@ -82,7 +84,8 @@ async def listen_for_interrupt(
     The `.result()` call for `wrapped_task` will re-raise any exceptions thrown
     inside of that Task.
     """
-    stream = SESSION_STREAM.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
 
     async with stream.interrupt_lock:
         interrupt_task = asyncio.create_task(stream.recv("interrupt"))

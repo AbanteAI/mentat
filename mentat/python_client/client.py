@@ -80,7 +80,9 @@ class PythonClient:
 
     async def stop(self):
         if self.session is not None:
-            self.session.stop()
+            stop_task = self.session.stop()
+            if stop_task is not None:
+                await stop_task
             self.session = None
         if self.acc_task is not None:
             self.acc_task.cancel()

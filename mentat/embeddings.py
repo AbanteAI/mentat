@@ -5,10 +5,11 @@ from pathlib import Path
 
 import numpy as np
 
+from mentat.session_context import SESSION_CONTEXT
+
 from .code_file import CodeFile, count_feature_tokens
 from .config_manager import mentat_dir_path
 from .llm_api import call_embedding_api, count_tokens
-from .session_stream import SESSION_STREAM
 from .utils import sha256
 
 EMBEDDING_MODEL = "text-embedding-ada-002"
@@ -76,7 +77,8 @@ async def get_feature_similarity_scores(
 ) -> list[float]:
     """Return the similarity scores for a given prompt and list of features."""
     global database
-    stream = SESSION_STREAM.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
 
     # Keep things in the same order
     checksums: list[str] = [f.get_checksum() for f in features]

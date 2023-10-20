@@ -252,11 +252,6 @@ async def test_change_then_rename_then_change(
 
 @pytest.mark.asyncio
 async def test_inverse(
-    mock_stream,
-    mock_call_llm_api,
-    mock_collect_user_input,
-    mock_setup_api_key,
-    mock_code_file_manager,
-    mock_git_root,
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, mock_session_context
 ):
     await verify_inverse(ReplacementParser())

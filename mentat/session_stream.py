@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -9,8 +8,6 @@ from typing import Any, AsyncGenerator, Dict, List, cast
 from uuid import UUID, uuid4
 
 from .broadcast import Broadcast
-
-SESSION_STREAM: ContextVar[SessionStream] = ContextVar("mentat:session_stream")
 
 
 class StreamMessageSource(Enum):

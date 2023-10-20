@@ -6,7 +6,7 @@ from mentat.config_manager import ConfigManager, config_file_name
 
 
 @pytest.mark.asyncio
-async def test_config_priority(temp_testbed, mock_stream, mock_git_root):
+async def test_config_priority(temp_testbed, mock_session_context):
     # First project config should be considered, then user config, then default config, then error
     with open(config_file_name, "w") as project_config_file:
         project_config_file.write(dedent("""\
@@ -16,7 +16,9 @@ async def test_config_priority(temp_testbed, mock_stream, mock_git_root):
 
     # Since we don't want to actually change user config file or default config file,
     # we have to just mock them
-    config = await ConfigManager.create()
+    config = await ConfigManager.create(
+        mock_session_context.git_root, mock_session_context.stream
+    )
     config.user_config = {"project-first": "I will not be used", "user-second": "user"}
     config.default_config = {
         "project-first": "I also am not used",
@@ -34,7 +36,7 @@ async def test_config_priority(temp_testbed, mock_stream, mock_git_root):
 
 
 @pytest.mark.asyncio
-async def test_invalid_config(temp_testbed, mock_stream, mock_git_root):
+async def test_invalid_config(temp_testbed, mock_session_context):
     # If invalid config file is found, it should use next config
     with open(config_file_name, "w") as project_config_file:
         project_config_file.write(dedent("""\
@@ -43,6 +45,8 @@ async def test_invalid_config(temp_testbed, mock_stream, mock_git_root):
             "invalid-json: []]
         }"""))
 
-    config = await ConfigManager.create()
+    config = await ConfigManager.create(
+        mock_session_context.git_root, mock_session_context.stream
+    )
     config.user_config = {"mykey": "user"}
     assert config._get_key("mykey") == "user"

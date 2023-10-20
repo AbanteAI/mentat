@@ -10,8 +10,8 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.styles import Style
 
-from mentat.config_manager import CONFIG_MANAGER
 from mentat.session import Session
+from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
@@ -144,7 +144,7 @@ class TerminalClient:
 
         self._plain_session = PromptSession[str](
             message=[("class:prompt", ">>> ")],
-            style=Style(CONFIG_MANAGER.get().input_style()),
+            style=Style(SESSION_CONTEXT.get().config.input_style()),
             completer=None,
             key_bindings=plain_bindings,
         )

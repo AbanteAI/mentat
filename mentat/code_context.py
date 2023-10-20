@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 import os
-from contextvars import ContextVar
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
 import attr
 
+from mentat.session_context import SESSION_CONTEXT
+from mentat.session_stream import SessionStream
+
 from .code_file import CodeFile, CodeMessageLevel, count_feature_tokens
-from .code_file_manager import CODE_FILE_MANAGER
 from .code_map import check_ctags_disabled
 from .diff_context import DiffContext
 from .embeddings import get_feature_similarity_scores
-from .git_handler import GIT_ROOT, get_non_gitignored_files, get_paths_with_git_diffs
+from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from .include_files import (
     build_path_tree,
     get_include_files,
@@ -22,7 +23,6 @@ from .include_files import (
     print_path_tree,
 )
 from .llm_api import count_tokens
-from .session_stream import SESSION_STREAM
 from .utils import sha256
 
 
@@ -33,9 +33,6 @@ class CodeContextSettings:
     no_code_map: bool = False
     use_embedding: bool = False
     auto_tokens: Optional[int] = None
-
-
-CODE_CONTEXT: ContextVar[CodeContext] = ContextVar("mentat:code_context")
 
 
 class CodeContext:
@@ -53,22 +50,26 @@ class CodeContext:
 
     @classmethod
     async def create(
-        cls, paths: list[Path], exclude_paths: list[Path], settings: CodeContextSettings
+        cls,
+        stream: SessionStream,
+        git_root: Path,
+        settings: CodeContextSettings,
     ):
         self = cls(settings)
-
         self.diff_context = await DiffContext.create(
-            self.settings.diff, self.settings.pr_diff
+            stream, git_root, self.settings.diff, self.settings.pr_diff
         )
+        self.include_files = {}
+        return self
+
+    async def set_paths(self, paths: list[Path], exclude_paths: list[Path]):
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
             await print_invalid_path(invalid_path)
-        await self._set_code_map()
 
-        return self
-
-    async def _set_code_map(self):
-        stream = SESSION_STREAM.get()
+    async def set_code_map(self):
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
 
         if self.settings.no_code_map:
             self.code_map = False
@@ -88,8 +89,9 @@ class CodeContext:
 
     async def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
-        stream = SESSION_STREAM.get()
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        git_root = session_context.git_root
 
         await stream.send("Code Context:", color="blue")
         prefix = "  "
@@ -120,12 +122,14 @@ class CodeContext:
 
     async def display_features(self):
         """Display a summary of all active features"""
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+
         auto_features = {level: 0 for level in CodeMessageLevel}
         for f in self.features:
             if f.path not in self.include_files:
                 auto_features[f.level] += 1
         if any(auto_features.values()):
-            stream = SESSION_STREAM.get()
             await stream.send("Auto-Selected Features:", color="blue")
             for level, count in auto_features.items():
                 if count:
@@ -135,11 +139,13 @@ class CodeContext:
     _code_message_checksum: str | None = None
 
     def _get_code_message_checksum(self, max_tokens: Optional[int] = None) -> str:
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+        code_file_manager = session_context.code_file_manager
+
         if not self.features:
             features_checksum = ""
         else:
-            git_root = GIT_ROOT.get()
-            code_file_manager = CODE_FILE_MANAGER.get()
             feature_files = {Path(git_root / f.path) for f in self.features}
             feature_file_checksums = [
                 code_file_manager.get_file_checksum(f) for f in feature_files
@@ -175,7 +181,7 @@ class CodeContext:
         code_message = list[str]()
 
         self.diff_context.clear_cache()
-        await self._set_code_map()
+        await self.set_code_map()
         if self.diff_context.files:
             code_message += [
                 "Diff References:",
@@ -203,7 +209,9 @@ class CodeContext:
         return "\n".join(code_message)
 
     def _get_include_features(self) -> list[CodeFile]:
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+
         include_features = list[CodeFile]()
         for path, feature in self.include_files.items():
             if feature.level == CodeMessageLevel.INTERVAL:
@@ -227,7 +235,8 @@ class CodeContext:
         include_features: list[CodeFile],
         max_tokens: int,
     ) -> list[CodeFile]:
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
 
         # Find the first (longest) level that fits
         include_features_tokens = sum(

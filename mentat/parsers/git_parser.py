@@ -2,10 +2,10 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any, AsyncGenerator, List
 
-from mentat.git_handler import GIT_ROOT
 from mentat.llm_api import chunk_to_lines
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import ParsedLLMResponse
+from tests.conftest import SESSION_CONTEXT
 
 # The git diff format should not be used with an LLM because it contains information like SHAs
 # which it would not know about. It also involves certain arithmetic that it couldn't reliably do
@@ -30,7 +30,9 @@ class GitParser:
         return self.parse_string(string)
 
     def parse_string(self, git_diff: str) -> ParsedLLMResponse:
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+
         # This is safe because actual code is prepended with ' ', + or -.
         split_on_diff = git_diff.split("\ndiff --git ")
 

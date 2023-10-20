@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,19 +12,16 @@ from mentat.edit_history import (
     EditHistory,
     RenameAction,
 )
-from mentat.git_handler import GIT_ROOT
+from mentat.session_context import SESSION_CONTEXT
 
 from .errors import MentatError
 from .session_input import ask_yes_no
-from .session_stream import SESSION_STREAM
 from .utils import sha256
 
 if TYPE_CHECKING:
     # This normally will cause a circular import
     from .code_context import CodeContext
     from .parsers.file_edit import FileEdit
-
-CODE_FILE_MANAGER: ContextVar[CodeFileManager] = ContextVar("mentat:code_file_manager")
 
 
 class CodeFileManager:
@@ -34,7 +30,8 @@ class CodeFileManager:
         self.history = EditHistory()
 
     def read_file(self, path: Path) -> list[str]:
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
 
         abs_path = path if path.is_absolute() else Path(git_root / path)
         rel_path = Path(os.path.relpath(abs_path, git_root))
@@ -70,8 +67,9 @@ class CodeFileManager:
         file_edits: list[FileEdit],
         code_context: CodeContext,
     ):
-        stream = SESSION_STREAM.get()
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        git_root = session_context.git_root
 
         for file_edit in file_edits:
             rel_path = Path(os.path.relpath(file_edit.file_path, git_root))
