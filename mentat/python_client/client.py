@@ -32,6 +32,25 @@ class PythonClient:
         self.started = False
         self._accumulated_message = ""
 
+    async def wait_for_input_request(self):
+        assert isinstance(self.session, Session), "Client is not running"
+
+        input_request_message = await self.session.stream.recv("input_request")
+        await asyncio.sleep(0.01)
+
+        messages = self._accumulated_message
+        self._accumulated_message = ""
+        return input_request_message, messages
+
+    async def call_mentat_with_input_request(self, message: str, input_request_message):
+        assert isinstance(self.session, Session), "Client is not running"
+
+        await self.session.stream.send(
+            message,
+            source=StreamMessageSource.CLIENT,
+            channel=f"input_request:{input_request_message.id}",
+        )
+
     async def call_mentat(self, message: str):
         assert isinstance(self.session, Session), "Client is not running"
 
@@ -81,8 +100,14 @@ class PythonClient:
     async def stop(self):
         if self.session is not None:
             self.session.stop()
+            while not self.session.is_stopped:
+                await asyncio.sleep(0.01)
             self.session = None
+
         if self.acc_task is not None:
             self.acc_task.cancel()
+            while not self.acc_task.cancelled():
+                await asyncio.sleep(0.01)
             self.acc_task = None
+
         self.started = False
