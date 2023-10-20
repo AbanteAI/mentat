@@ -1,4 +1,3 @@
-import os
 import subprocess
 from pathlib import Path
 
@@ -6,12 +5,11 @@ import pytest
 
 from mentat.diff_context import DiffContext
 
-rel_path = Path("multifile_calculator/operations.py")
-
 
 def _update_ops(temp_testbed, last_line, commit_message=None):
     # Update the last line of operations.py and (optionally) commit
-    abs_path = os.path.join(temp_testbed, "multifile_calculator", "operations.py")
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     with open(abs_path, "r") as f:
         lines = f.readlines()
     lines[-1:] = [
@@ -45,8 +43,7 @@ def git_history(temp_testbed, mock_session_context):
     subprocess.run(["git", "checkout", "master"], cwd=temp_testbed)
 
 
-def _get_file_message(temp_testbed):
-    abs_path = os.path.join(temp_testbed, "multifile_calculator", "operations.py")
+def _get_file_message(abs_path):
     file_message = ["/multifile_calculator/operations.py"]
     with open(abs_path, "r") as f:
         for i, line in enumerate(f.readlines()):
@@ -55,6 +52,8 @@ def _get_file_message(temp_testbed):
 
 
 def test_diff_context_default(temp_testbed, git_history, mock_session_context):
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     # DiffContext.__init__() (default): active code vs last commit
     diff_context = DiffContext()
     assert diff_context.target == "HEAD"
@@ -64,11 +63,11 @@ def test_diff_context_default(temp_testbed, git_history, mock_session_context):
     # DiffContext.files (property): return git-tracked files with active changes
     _update_ops(temp_testbed, "commit5")
     diff_context._files_cache = None  # This is usually cached
-    assert diff_context.files == [rel_path]
+    assert diff_context.files == [abs_path]
 
     # DiffContext.annotate_file_message(): modify file_message with diff
-    file_message = _get_file_message(temp_testbed)
-    annotated_message = diff_context.annotate_file_message(rel_path, file_message)
+    file_message = _get_file_message(abs_path)
+    annotated_message = diff_context.annotate_file_message(abs_path, file_message)
     expected = file_message[:-1] + [
         "14:-    return commit3",
         "14:+    return commit5",
@@ -78,6 +77,8 @@ def test_diff_context_default(temp_testbed, git_history, mock_session_context):
 
 @pytest.mark.asyncio
 async def test_diff_context_commit(temp_testbed, git_history, mock_session_context):
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     # Get the hash of 2-commits-ago
     last_commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD~2"], cwd=temp_testbed, text=True
@@ -87,10 +88,10 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
     )
     assert diff_context.target == last_commit
     assert diff_context.name == f"{last_commit[:8]}: add testbed"
-    assert diff_context.files == [rel_path]
+    assert diff_context.files == [abs_path]
 
-    file_message = _get_file_message(temp_testbed)
-    annotated_message = diff_context.annotate_file_message(rel_path, file_message)
+    file_message = _get_file_message(abs_path)
+    annotated_message = diff_context.annotate_file_message(abs_path, file_message)
     expected = file_message[:-1] + [
         "14:-    return a / b",
         "14:+    return commit3",
@@ -103,13 +104,15 @@ async def test_diff_context_branch(temp_testbed, git_history, mock_session_conte
     diff_context = await DiffContext.create(
         mock_session_context.stream, mock_session_context.git_root, diff="test_branch"
     )
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     assert diff_context.target == "test_branch"
     assert diff_context.name.startswith("Branch test_branch:")
     assert diff_context.name.endswith(": commit4")
-    assert diff_context.files == [rel_path]
+    assert diff_context.files == [abs_path]
 
-    file_message = _get_file_message(temp_testbed)
-    annotated_message = diff_context.annotate_file_message(rel_path, file_message)
+    file_message = _get_file_message(abs_path)
+    annotated_message = diff_context.annotate_file_message(abs_path, file_message)
     expected = file_message[:-1] + [
         "14:-    return commit4",
         "14:+    return commit3",
@@ -122,13 +125,15 @@ async def test_diff_context_relative(temp_testbed, git_history, mock_session_con
     diff_context = await DiffContext.create(
         mock_session_context.stream, mock_session_context.git_root, diff="HEAD~2"
     )
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     assert diff_context.target == "HEAD~2"
     assert diff_context.name.startswith("HEAD~2: ")
     assert diff_context.name.endswith(": add testbed")
-    assert diff_context.files == [rel_path]
+    assert diff_context.files == [abs_path]
 
-    file_message = _get_file_message(temp_testbed)
-    annotated_message = diff_context.annotate_file_message(rel_path, file_message)
+    file_message = _get_file_message(abs_path)
+    annotated_message = diff_context.annotate_file_message(abs_path, file_message)
     expected = file_message[:-1] + [
         "14:-    return a / b",
         "14:+    return commit3",
@@ -138,6 +143,8 @@ async def test_diff_context_relative(temp_testbed, git_history, mock_session_con
 
 @pytest.mark.asyncio
 async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
     subprocess.run(["git", "checkout", "test_branch"], cwd=temp_testbed)
     diff_context = await DiffContext.create(
         mock_session_context.stream, mock_session_context.git_root, pr_diff="master"
@@ -149,4 +156,4 @@ async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
     assert diff_context.target == commit2
     assert diff_context.name.startswith("Merge-base Branch master:")
     assert diff_context.name.endswith(": commit2")  # NOT the latest
-    assert diff_context.files == [rel_path]
+    assert diff_context.files == [abs_path]

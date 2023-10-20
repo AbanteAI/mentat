@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
+from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
 from .errors import UserError
@@ -103,10 +104,13 @@ class DiffContext:
 
     @property
     def files(self) -> list[Path]:
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+
         if self._files_cache is None:
             if self.target == "HEAD" and not check_head_exists():
                 return []  # A new repo without any commits
-            self._files_cache = get_files_in_diff(self.target)
+            self._files_cache = [git_root / f for f in get_files_in_diff(self.target)]
         return self._files_cache
 
     @classmethod
