@@ -10,7 +10,7 @@ from mentat.git_handler import GIT_ROOT, get_non_gitignored_files
 from mentat.session_stream import SESSION_STREAM
 
 
-def expand_paths(paths: list[Path]) -> list[Path]:
+def expand_paths(paths: list[Path]) -> tuple[list[Path], list[str]]:
     """Expand paths/globs into a list of absolute paths."""
     globbed_paths = set[str]()
     invalid_paths = set[str]()
@@ -29,7 +29,7 @@ def expand_paths(paths: list[Path]) -> list[Path]:
                 globbed_paths.add(str(path))
             else:
                 invalid_paths.add(str(path))
-    return [Path(path).resolve() for path in globbed_paths]
+    return [Path(path).resolve() for path in globbed_paths], list(invalid_paths)
 
 
 def is_file_text_encoded(abs_path: Path):
@@ -83,8 +83,8 @@ def get_include_files(
     git_root = GIT_ROOT.get()
     config = CONFIG_MANAGER.get()
 
-    paths = expand_paths(paths)
-    exclude_paths = expand_paths(exclude_paths)
+    paths, invalid_paths = expand_paths(paths)
+    exclude_paths, _ = expand_paths(exclude_paths)
 
     excluded_files_direct, excluded_files_from_dirs, _ = abs_files_from_list(
         exclude_paths, check_for_text=False
@@ -103,9 +103,10 @@ def get_include_files(
             recursive=True,
         )
     )
-    files_direct, files_from_dirs, invalid_paths = abs_files_from_list(
+    files_direct, files_from_dirs, non_text_paths = abs_files_from_list(
         paths, check_for_text=True
     )
+    invalid_paths.extend(non_text_paths)
 
     # config glob excluded files only apply to files added from directories
     files_from_dirs = [
@@ -162,3 +163,27 @@ async def print_path_tree(
         await stream.send(f"{star}{key}", color=color)
         if tree[key]:
             await print_path_tree(tree[key], changed_files, cur, new_prefix)
+
+
+async def print_invalid_path(invalid_path: str):
+    stream = SESSION_STREAM.get()
+    git_root = GIT_ROOT.get()
+
+    abs_path = Path(invalid_path).absolute()
+    if "*" in invalid_path:
+        await stream.send(
+            f"The glob pattern {invalid_path} did not match any files",
+            color="light_red",
+        )
+    elif not abs_path.exists():
+        await stream.send(
+            f"The path {invalid_path} does not exist and was skipped", color="light_red"
+        )
+    elif not is_file_text_encoded(abs_path):
+        rel_path = abs_path.relative_to(git_root)
+        await stream.send(
+            f"The file {rel_path} is not text encoded and was skipped",
+            color="light_red",
+        )
+    else:
+        await stream.send(f"The file {invalid_path} was skipped", color="light_red")

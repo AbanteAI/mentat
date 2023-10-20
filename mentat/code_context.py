@@ -18,6 +18,7 @@ from .include_files import (
     build_path_tree,
     get_include_files,
     is_file_text_encoded,
+    print_invalid_path,
     print_path_tree,
 )
 from .llm_api import count_tokens
@@ -54,8 +55,6 @@ class CodeContext:
     async def create(
         cls, paths: list[Path], exclude_paths: list[Path], settings: CodeContextSettings
     ):
-        stream = SESSION_STREAM.get()
-
         self = cls(settings)
 
         self.diff_context = await DiffContext.create(
@@ -63,10 +62,7 @@ class CodeContext:
         )
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
-            await stream.send(
-                f"File path {invalid_path} is not text encoded, and was skipped.",
-                color="light_yellow",
-            )
+            await print_invalid_path(invalid_path)
         await self._set_code_map()
 
         return self
@@ -312,10 +308,16 @@ class CodeContext:
         for new_path, new_file in paths.items():
             if new_path not in self.include_files:
                 self.include_files[new_path] = new_file
-        return invalid_paths
+        return list(paths.keys()), invalid_paths
 
     def exclude_file(self, path: Path):
-        paths, _ = get_include_files([path], [])
+        # TODO: Using get_include_files here isn't ideal; if the user puts in a glob that
+        # matches files but doesn't match any files in context, we won't know what that glob is
+        # and can't return it as an invalid path
+        paths, invalid_paths = get_include_files([path], [])
+        removed_paths = list[Path]()
         for new_path in paths.keys():
             if new_path in self.include_files:
+                removed_paths.append(new_path)
                 del self.include_files[new_path]
+        return removed_paths, invalid_paths
