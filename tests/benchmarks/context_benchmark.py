@@ -32,6 +32,7 @@ from pathlib import Path
 
 import pytest
 
+from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_file import CodeFile, CodeMessageLevel
 from mentat.git_handler import get_non_gitignored_files
 from mentat.llm_api import setup_api_key
@@ -72,7 +73,7 @@ tests = [
         "codebase_url": "http://github.com/overthesun/simoc-abm",
         "codebase_name": "simoc-abm",
         "commit": "d77f44f",
-        "args": {"ignore_paths": ["src/simoc_abm/data_files", "test"]},
+        "args": {"ignore_paths": ["src/simoc_abm/data_files", "test/*"]},
         "prompt": (
             "Rename 'lamp' to 'electric light' throughout the code. Update "
             "instances of 'lamp' to 'electric_light', and 'Lamp' to 'Electric "
@@ -106,12 +107,7 @@ async def test_code_context_performance(mock_session_context):
                 stderr=subprocess.DEVNULL,
             )
         mock_session_context.git_root = code_dir
-        code_context = mock_session_context.code_context
-        code_context.include_file("mentat/__init__.py")
-        code_context.settings.use_embeddings = True
-        code_context.settings.auto_tokens = 7000
 
-        # Create a context and run get_code_message to set the features
         paths = test["args"].get("paths", [])
         exclude_paths = test["args"].get("exclude_paths", [])
         ignore_paths = test["args"].get("ignore_paths", [])
@@ -120,6 +116,17 @@ async def test_code_context_performance(mock_session_context):
             for k, v in test["args"].items()
             if k not in ["paths", "exclude_paths", "ignore_paths"]
         }
+        settings = CodeContextSettings(
+            use_embeddings=True,
+            auto_tokens=7000,
+            **rest,
+        )
+        code_context = CodeContext(
+            stream=mock_session_context.stream,
+            git_root=code_dir,
+            settings=settings,
+        )
+        code_context.set_paths(paths, exclude_paths, ignore_paths)
         _ = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)
 
         # Calculate y_pred and y_true
@@ -127,9 +134,9 @@ async def test_code_context_performance(mock_session_context):
             f.path for f in code_context.features if f.level == CodeMessageLevel.CODE
         }
         expected_features = {
-            Path(code_dir / CodeFile(f).path) for f in test["expected_features"]
+            CodeFile(f).path for f in test["expected_features"]
         }  # Ignore line numbers for now
-        all_files = [Path(code_dir / f) for f in get_non_gitignored_files(code_dir)]
+        all_files = [Path(f) for f in get_non_gitignored_files(code_dir)]
         y_pred = [f in actual for f in all_files]
         y_true = [f in expected_features for f in all_files]
 

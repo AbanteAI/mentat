@@ -311,7 +311,7 @@ async def test_get_code_message_ignore(temp_testbed, mock_session_context):
     code_context.set_paths([], [], ["scripts", "**/*.txt"])
     code_message = await code_context.get_code_message("", "gpt-4", 1e6)
 
-    # Iterate through all files in temp_testbed; if they're not in the ignore 
+    # Iterate through all files in temp_testbed; if they're not in the ignore
     # list, they should be in the code message.
     for file in get_non_gitignored_files(temp_testbed):
         abs_path = temp_testbed / file

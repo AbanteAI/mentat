@@ -340,7 +340,8 @@ class CodeContext:
 
         all_features = list[CodeFile]()
         for path in get_non_gitignored_files(git_root):
-            if not is_file_text_encoded(path) or path in self.ignore_files:
+            abs_path = git_root / path
+            if not is_file_text_encoded(path) or abs_path in self.ignore_files:
                 continue
             level = CodeMessageLevel.CODE
             diff = self.diff_context.target if path in self.diff_context.files else None
