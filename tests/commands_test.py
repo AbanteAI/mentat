@@ -4,9 +4,9 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.code_context import CODE_CONTEXT
-from mentat.commands import Command, HelpCommand, InvalidCommand
+from mentat.commands import Command, ContextCommand, HelpCommand, InvalidCommand
 from mentat.session import Session
+from mentat.session_context import SESSION_CONTEXT
 
 
 def test_invalid_command():
@@ -14,7 +14,7 @@ def test_invalid_command():
 
 
 @pytest.mark.asyncio
-async def test_help_command(mock_stream):
+async def test_help_command(mock_session_context):
     command = Command.create_command("help")
     await command.apply()
     assert isinstance(command, HelpCommand)
@@ -35,9 +35,9 @@ async def test_commit_command(
         ]
     )
 
-    session = await Session.create([])
+    session = Session([])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     assert subprocess.check_output(["git", "status", "-s"], text=True) == ""
 
@@ -53,11 +53,11 @@ async def test_include_command(
         ]
     )
 
-    session = await Session.create([])
+    session = Session([])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
-    code_context = CODE_CONTEXT.get()
+    code_context = SESSION_CONTEXT.get().code_context
     assert (
         Path(temp_testbed) / "scripts" / "calculator.py" in code_context.include_files
     )
@@ -74,12 +74,11 @@ async def test_exclude_command(
         ]
     )
 
-    session = await Session.create(["scripts"])
+    session = Session(["scripts"])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
-    code_context = CODE_CONTEXT.get()
-    print(code_context.include_files)
+    code_context = SESSION_CONTEXT.get().code_context
     assert not code_context.include_files
 
 
@@ -116,9 +115,9 @@ async def test_undo_command(
         # I inserted this comment
         @@end""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     with open(temp_file_name, "r") as f:
         content = f.read()
@@ -162,9 +161,9 @@ async def test_undo_all_command(
         # I inserted this comment
         @@end""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     with open(temp_file_name, "r") as f:
         content = f.read()
@@ -172,3 +171,31 @@ async def test_undo_all_command(
             # This is a temporary file
             # with 2 lines""")
     assert content == expected_content
+
+
+@pytest.mark.asyncio
+async def test_clear_command(
+    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
+):
+    mock_collect_user_input.set_stream_messages(
+        [
+            "Request",
+            "/clear",
+            "q",
+        ]
+    )
+    mock_call_llm_api.set_generator_values(["Answer"])
+
+    session = Session()
+    await session.start()
+    session.stream.stop()
+
+    conversation = SESSION_CONTEXT.get().conversation
+    assert len(conversation.messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_context_command(temp_testbed, mock_setup_api_key, mock_session_context):
+    command = Command.create_command("context")
+    await command.apply()
+    assert isinstance(command, ContextCommand)

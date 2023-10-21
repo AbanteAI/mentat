@@ -2,8 +2,8 @@ from textwrap import dedent
 
 import pytest
 
+from mentat.config_manager import ConfigManager
 from mentat.session import Session
-from tests.conftest import ConfigManager
 
 
 @pytest.fixture(autouse=True)
@@ -43,9 +43,9 @@ async def test_invalid_line_numbers(
         # I also will not be used
         @""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -85,9 +85,9 @@ async def test_invalid_special_line(
         # I will not be used
         @""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\

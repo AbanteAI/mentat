@@ -3,9 +3,9 @@ from textwrap import dedent
 
 import pytest
 
+from mentat.config_manager import ConfigManager
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session import Session
-from tests.conftest import ConfigManager
 from tests.parser_tests.inverse import verify_inverse
 
 
@@ -38,9 +38,9 @@ async def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api
         # I inserted this comment
         @""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -71,9 +71,9 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api
         @ {temp_file_name} starting_line=1 ending_line=1
         @""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -103,9 +103,9 @@ async def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
         # I inserted this comment
         @""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -134,9 +134,9 @@ async def test_create_file(
         # New line
         @""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -167,9 +167,9 @@ async def test_delete_file(
 
         @ {temp_file_name} -""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     assert not Path(temp_file_name).exists()
 
 
@@ -196,9 +196,9 @@ async def test_rename_file(
 
         @ {temp_file_name} {temp_file_name_2}""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     assert not Path(temp_file_name).exists()
     with open(temp_file_name_2, "r") as f:
         content = f.read()
@@ -237,9 +237,9 @@ async def test_change_then_rename_then_change(
         # New line 2
         @""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     assert not Path(temp_file_name).exists()
     with open(temp_file_name_2, "r") as f:
         content = f.read()
@@ -252,11 +252,6 @@ async def test_change_then_rename_then_change(
 
 @pytest.mark.asyncio
 async def test_inverse(
-    mock_stream,
-    mock_call_llm_api,
-    mock_collect_user_input,
-    mock_setup_api_key,
-    mock_code_file_manager,
-    mock_git_root,
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, mock_session_context
 ):
     await verify_inverse(ReplacementParser())

@@ -111,7 +111,11 @@ class SplitDiffParser(Parser):
             new_name=new_name,
         )
         file_edit = FileEdit(
-            git_root / file_name, [], is_creation, is_deletion, new_name
+            git_root / file_name,
+            [],
+            is_creation,
+            is_deletion,
+            git_root / new_name if new_name else None,
         )
         return (
             display_information,

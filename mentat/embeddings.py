@@ -6,20 +6,18 @@ from timeit import default_timer
 
 import numpy as np
 
+from mentat.code_file import CodeFile, count_feature_tokens
+from mentat.config_manager import mentat_dir_path
 from mentat.errors import MentatError
-
-from .code_file import CodeFile, count_feature_tokens
-from .config_manager import mentat_dir_path
-from .llm_api import (
-    COST_TRACKER,
+from mentat.llm_api import (
     call_embedding_api,
     count_tokens,
     model_context_size,
     model_price_per_1000_tokens,
 )
-from .session_input import ask_yes_no
-from .session_stream import SESSION_STREAM
-from .utils import sha256
+from mentat.session_context import SESSION_CONTEXT
+from mentat.session_input import ask_yes_no
+from mentat.utils import sha256
 
 EMBEDDING_MODEL = "text-embedding-ada-002"
 EMBEDDING_DIM = 1536
@@ -86,8 +84,9 @@ async def get_feature_similarity_scores(
 ) -> list[float]:
     """Return the similarity scores for a given prompt and list of features."""
     global database
-    stream = SESSION_STREAM.get()
-    cost_tracker = COST_TRACKER.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+    cost_tracker = session_context.cost_tracker
     max_model_tokens = model_context_size(EMBEDDING_MODEL)
     if max_model_tokens is None:
         raise MentatError(f"Missing model context size for {EMBEDDING_MODEL}.")
@@ -108,7 +107,7 @@ async def get_feature_similarity_scores(
         if token > max_model_tokens:
             continue
         if checksum not in database:
-            feature_content = await feature.get_code_message()
+            feature_content = feature.get_code_message()
             # Remove line numbering
             items_to_embed[checksum] = "\n".join(feature_content)
             items_to_embed_tokens[checksum] = token
@@ -117,19 +116,19 @@ async def get_feature_similarity_scores(
     # If it costs more than $1, get confirmation from user.
     cost = model_price_per_1000_tokens(EMBEDDING_MODEL)
     if cost is None:
-        await stream.send(
+        stream.send(
             "Warning: Could not determine cost of embeddings. Continuing anyway.",
             color="light_yellow",
         )
     else:
         expected_cost = (num_prompt_tokens / 1000) * cost[0]
         if expected_cost > 1.0:
-            await stream.send(
+            stream.send(
                 f"Embedding {num_prompt_tokens} tokens will cost ${cost[0]:.2f}."
                 " Continue anyway?"
             )
             if not await ask_yes_no(default_yes=True):
-                await stream.send("Ignoring embeddings for now.")
+                stream.send("Ignoring embeddings for now.")
                 return [0.0 for _ in checksums]
 
     # Fetch embeddings in batches
@@ -137,13 +136,13 @@ async def get_feature_similarity_scores(
     _start_time = default_timer()
     for i, batch in enumerate(batches):
         batch_content = [items_to_embed[k] for k in batch]
-        await stream.send(f"Embedding batch {i + 1}/{len(batches)}...")
+        stream.send(f"Embedding batch {i + 1}/{len(batches)}...")
         response = await call_embedding_api(batch_content, EMBEDDING_MODEL)
         for k, v in zip(batch, response):
             database[k] = v
     if len(batches) > 0:
         database.save()
-        await cost_tracker.display_api_call_stats(
+        cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             0,
             EMBEDDING_MODEL,

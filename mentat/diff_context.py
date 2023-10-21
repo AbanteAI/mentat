@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
-from mentat.session_stream import SESSION_STREAM
+from mentat.session_context import SESSION_CONTEXT
+from mentat.session_stream import SessionStream
 
 from .errors import UserError
 from .git_handler import (
-    GIT_ROOT,
     check_head_exists,
     get_diff_for_file,
     get_files_in_diff,
@@ -90,39 +90,15 @@ def annotate_file_message(
 class DiffContext:
     def __init__(
         self,
-        target: Optional[str] = None,
-        name: Optional[str] = None,
-    ):
-        if target is None:
-            self.target = "HEAD"
-            self.name = "HEAD (last commit)"
-        else:
-            self.target = target
-            self.name = name
-
-    _files_cache: list[Path] | None = None
-
-    @property
-    def files(self) -> list[Path]:
-        if self._files_cache is None:
-            if self.target == "HEAD" and not check_head_exists():
-                return []  # A new repo without any commits
-            self._files_cache = get_files_in_diff(self.target)
-        return self._files_cache
-
-    @classmethod
-    async def create(
-        cls,
+        stream: SessionStream,
+        git_root: Path,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
     ):
-        stream = SESSION_STREAM.get()
-        git_root = GIT_ROOT.get()
-
         if diff and pr_diff:
             # TODO: Once broadcast queue's unread messages and/or config is moved to client,
             # determine if this should quit or not
-            await stream.send(
+            stream.send(
                 "Cannot specify more than one type of diff. Disabling diff and"
                 " pr-diff.",
                 color="light_yellow",
@@ -132,7 +108,9 @@ class DiffContext:
 
         target = diff or pr_diff
         if not target:
-            return cls()
+            self.target = "HEAD"
+            self.name = "HEAD (last commit)"
+            return
 
         name = ""
         treeish_type = _get_treeish_type(git_root, target)
@@ -146,16 +124,33 @@ class DiffContext:
             target = _git_command(git_root, "merge-base", "HEAD", pr_diff)
             if not target:
                 # TODO: Same as above todo
-                await stream.send(
+                stream.send(
                     f"Cannot identify merge base between HEAD and {pr_diff}. Disabling"
                     " pr-diff.",
                     color="light_yellow",
                 )
-                return cls()
+                self.target = "HEAD"
+                self.name = "HEAD (last commit)"
+                return
 
         meta = get_treeish_metadata(target)
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
-        return cls(target, name)
+
+        self.target = target
+        self.name = name
+
+    _files_cache: list[Path] | None = None
+
+    @property
+    def files(self) -> list[Path]:
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+
+        if self._files_cache is None:
+            if self.target == "HEAD" and not check_head_exists():
+                return []  # A new repo without any commits
+            self._files_cache = [git_root / f for f in get_files_in_diff(self.target)]
+        return self._files_cache
 
     def get_display_context(self) -> str:
         if not self.files:

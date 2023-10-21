@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from contextvars import ContextVar
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional
@@ -9,21 +8,22 @@ from typing import Optional
 import attr
 
 from mentat.errors import UserError
+from mentat.session_context import SESSION_CONTEXT
+from mentat.session_stream import SessionStream
 
 from .code_file import CodeFile, CodeMessageLevel, count_feature_tokens
-from .code_file_manager import CODE_FILE_MANAGER
 from .code_map import check_ctags_disabled
 from .diff_context import DiffContext
 from .embeddings import get_feature_similarity_scores
-from .git_handler import GIT_ROOT, get_non_gitignored_files, get_paths_with_git_diffs
+from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from .include_files import (
     build_path_tree,
     get_include_files,
     is_file_text_encoded,
+    print_invalid_path,
     print_path_tree,
 )
 from .llm_api import count_tokens
-from .session_stream import SESSION_STREAM
 from .utils import sha256
 
 
@@ -36,9 +36,6 @@ class CodeContextSettings:
     auto_tokens: Optional[int] = None
 
 
-CODE_CONTEXT: ContextVar[CodeContext] = ContextVar("mentat:code_context")
-
-
 class CodeContext:
     settings: CodeContextSettings
     include_files: dict[Path, CodeFile]
@@ -48,108 +45,100 @@ class CodeContext:
 
     def __init__(
         self,
+        stream: SessionStream,
+        git_root: Path,
         settings: CodeContextSettings,
     ):
         self.settings = settings
-
-    @classmethod
-    async def create(
-        cls, paths: list[Path], exclude_paths: list[Path], settings: CodeContextSettings
-    ):
-        stream = SESSION_STREAM.get()
-
-        self = cls(settings)
-
-        self.diff_context = await DiffContext.create(
-            self.settings.diff, self.settings.pr_diff
+        self.diff_context = DiffContext(
+            stream, git_root, self.settings.diff, self.settings.pr_diff
         )
+        self.include_files = {}
+
+    def set_paths(self, paths: list[Path], exclude_paths: list[Path]):
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
-            await stream.send(
-                f"File path {invalid_path} is not text encoded, and was skipped.",
-                color="light_yellow",
-            )
-        await self._set_code_map()
+            print_invalid_path(invalid_path)
 
-        return self
-
-    async def _set_code_map(self):
-        stream = SESSION_STREAM.get()
+    def set_code_map(self):
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
 
         if self.settings.no_code_map:
             self.code_map = False
         else:
-            disabled_reason = await check_ctags_disabled()
+            disabled_reason = check_ctags_disabled()
             if disabled_reason:
                 ctags_disabled_message = f"""
                     There was an error with your universal ctags installation, disabling CodeMap.
                     Reason: {disabled_reason}
                 """
                 ctags_disabled_message = dedent(ctags_disabled_message)
-                await stream.send(ctags_disabled_message, color="yellow")
+                stream.send(ctags_disabled_message, color="yellow")
                 self.settings.no_code_map = True
                 self.code_map = False
             else:
                 self.code_map = True
 
-    async def display_context(self):
+    def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
-        stream = SESSION_STREAM.get()
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        git_root = session_context.git_root
 
-        await stream.send("\nCode Context:", color="blue")
+        stream.send("Code Context:", color="blue")
         prefix = "  "
-        await stream.send(f"{prefix}Directory: {git_root}")
+        stream.send(f"{prefix}Directory: {git_root}")
         if self.diff_context.name:
-            await stream.send(f"{prefix}Diff:", end=" ")
-            await stream.send(self.diff_context.get_display_context(), color="green")
+            stream.send(f"{prefix}Diff:", end=" ")
+            stream.send(self.diff_context.get_display_context(), color="green")
         if self.include_files:
-            await stream.send(f"{prefix}Included files:")
-            await stream.send(f"{prefix + prefix}{git_root.name}")
-            await print_path_tree(
+            stream.send(f"{prefix}Included files:")
+            stream.send(f"{prefix + prefix}{git_root.name}")
+            print_path_tree(
                 build_path_tree(list(self.include_files.values()), git_root),
                 get_paths_with_git_diffs(),
                 git_root,
                 prefix + prefix,
             )
         else:
-            await stream.send(f"{prefix}Included files: None", color="yellow")
-        await stream.send(
-            f"{prefix}Embedding:"
-            f" {'Enabled' if self.settings.use_embeddings else 'Disabled'}"
-        )
+            stream.send(f"{prefix}Included files: None", color="yellow")
         auto = self.settings.auto_tokens
-        await stream.send(
-            f"{prefix}Auto-token limit:"
-            f" {'Model max (default)' if auto is None else auto}"
-        )
         if auto != 0:
-            await stream.send(
+            stream.send(
+                f"{prefix}Auto-token limit:"
+                f" {'Model max (default)' if auto is None else auto}"
+            )
+            stream.send(
                 f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
             )
 
-    async def display_features(self):
+    def display_features(self):
         """Display a summary of all active features"""
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+
         auto_features = {level: 0 for level in CodeMessageLevel}
         for f in self.features:
             if f.path not in self.include_files:
                 auto_features[f.level] += 1
         if any(auto_features.values()):
-            stream = SESSION_STREAM.get()
-            await stream.send("Auto-Selected Features:", color="blue")
+            stream.send("Auto-Selected Features:", color="blue")
             for level, count in auto_features.items():
                 if count:
-                    await stream.send(f"  {count} {level.description}")
+                    stream.send(f"  {count} {level.description}")
 
     _code_message: str | None = None
     _code_message_checksum: str | None = None
 
     def _get_code_message_checksum(self, max_tokens: Optional[int] = None) -> str:
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+        code_file_manager = session_context.code_file_manager
+
         if not self.features:
             features_checksum = ""
         else:
-            git_root = GIT_ROOT.get()
-            code_file_manager = CODE_FILE_MANAGER.get()
             feature_files = {Path(git_root / f.path) for f in self.features}
             feature_file_checksums = [
                 code_file_manager.get_file_checksum(f) for f in feature_files
@@ -185,7 +174,7 @@ class CodeContext:
         code_message = list[str]()
 
         self.diff_context.clear_cache()
-        await self._set_code_map()
+        self.set_code_map()
         if self.diff_context.files:
             code_message += [
                 "Diff References:",
@@ -209,11 +198,13 @@ class CodeContext:
             )
 
         for f in self.features:
-            code_message += await f.get_code_message()
+            code_message += f.get_code_message()
         return "\n".join(code_message)
 
     def _get_include_features(self) -> list[CodeFile]:
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+
         include_features = list[CodeFile]()
         for path, feature in self.include_files.items():
             if feature.level == CodeMessageLevel.INTERVAL:
@@ -237,7 +228,8 @@ class CodeContext:
         include_features: list[CodeFile],
         max_tokens: int,
     ) -> list[CodeFile]:
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
 
         # Find the first (longest) level that fits
         include_features_tokens = sum(
@@ -294,8 +286,8 @@ class CodeContext:
                 i_cmap, cmap_feature = next(
                     (i, f) for i, f in enumerate(all_features) if f.path == abs_path
                 )
-                recovered_tokens = await cmap_feature.count_tokens(model)
-                new_tokens = await code_feature.count_tokens(model)
+                recovered_tokens = cmap_feature.count_tokens(model)
+                new_tokens = code_feature.count_tokens(model)
                 forecast = max_sim_tokens - sim_tokens + recovered_tokens - new_tokens
                 if forecast > 0:
                     sim_tokens = sim_tokens + new_tokens - recovered_tokens
@@ -308,13 +300,19 @@ class CodeContext:
         for new_path, new_file in paths.items():
             if new_path not in self.include_files:
                 self.include_files[new_path] = new_file
-        return invalid_paths
+        return list(paths.keys()), invalid_paths
 
     def exclude_file(self, path: Path):
-        paths, _ = get_include_files([path], [])
+        # TODO: Using get_include_files here isn't ideal; if the user puts in a glob that
+        # matches files but doesn't match any files in context, we won't know what that glob is
+        # and can't return it as an invalid path
+        paths, invalid_paths = get_include_files([path], [])
+        removed_paths = list[Path]()
         for new_path in paths.keys():
             if new_path in self.include_files:
+                removed_paths.append(new_path)
                 del self.include_files[new_path]
+        return removed_paths, invalid_paths
 
     async def search(
         self, query: str, max_results: int | None = None
@@ -325,7 +323,8 @@ class CodeContext:
                 "Embeddings are disabled. To enable, restart with '--use-embeddings'."
             )
 
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
 
         all_features = list[CodeFile]()
         for path in get_non_gitignored_files(git_root):

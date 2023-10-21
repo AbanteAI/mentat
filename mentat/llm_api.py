@@ -3,17 +3,19 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from contextvars import ContextVar
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, AsyncGenerator, Optional, cast
 
+import backoff
 import openai
 import openai.error
 import tiktoken
+from backoff.types import Details
 from dotenv import load_dotenv
-from openai.error import AuthenticationError
+from openai.error import AuthenticationError, RateLimitError, Timeout
 
-from mentat.session_stream import SESSION_STREAM
+from mentat.session_context import SESSION_CONTEXT
 
 from .config_manager import mentat_dir_path
 from .errors import MentatError, UserError
@@ -72,6 +74,36 @@ def raise_if_in_test_environment():
         raise MentatError("OpenAI call attempted in non benchmark test environment!")
 
 
+def warn_user(message: str, max_tries: int, details: Details):
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+
+    warning = f"{message}: Retry number {details['tries']}/{max_tries - 1}..."
+    stream.send(warning, color="light_yellow")
+
+
+@backoff.on_exception(
+    wait_gen=backoff.expo,
+    exception=Timeout,
+    max_tries=5,
+    base=2,
+    factor=2,
+    jitter=None,
+    logger="",
+    giveup_log_level=logging.INFO,
+    on_backoff=partial(warn_user, "Error reaching OpenAI's servers", 5),
+)
+@backoff.on_exception(
+    wait_gen=backoff.expo,
+    exception=RateLimitError,
+    max_tries=3,
+    base=2,
+    factor=10,
+    jitter=None,
+    logger="",
+    giveup_log_level=logging.INFO,
+    on_backoff=partial(warn_user, "Rate limit recieved from OpenAI's servers", 3),
+)
 async def call_llm_api(
     messages: list[dict[str, str]], model: str
 ) -> AsyncGenerator[Any, None]:
@@ -161,19 +193,20 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
         return None
 
 
-async def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
-    stream = SESSION_STREAM.get()
+def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
 
     prompt_token_count = 0
     for message in messages:
         prompt_token_count += count_tokens(message["content"], model)
-    await stream.send(f"Total token count: {prompt_token_count}", color="cyan")
+    stream.send(f"Total token count: {prompt_token_count}", color="cyan")
 
     token_buffer = 500
     context_size = model_context_size(model)
     if context_size:
         if prompt_token_count > context_size - token_buffer:
-            await stream.send(
+            stream.send(
                 f"Warning: {model} has a maximum context length of {context_size}"
                 " tokens. Attempting to run anyway:",
                 color="yellow",
@@ -181,15 +214,12 @@ async def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> 
     return prompt_token_count
 
 
-COST_TRACKER: ContextVar[CostTracker] = ContextVar("mentat:cost_tracker")
-
-
 @dataclass
 class CostTracker:
     total_tokens: int = 0
     total_cost: float = 0
 
-    async def display_api_call_stats(
+    def display_api_call_stats(
         self,
         num_prompt_tokens: int,
         num_sampled_tokens: int,
@@ -197,7 +227,8 @@ class CostTracker:
         call_time: float,
         decimal_places: int = 2,
     ) -> None:
-        stream = SESSION_STREAM.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
 
         speed_and_cost_string = ""
         self.total_tokens += num_prompt_tokens + num_sampled_tokens
@@ -215,14 +246,12 @@ class CostTracker:
             if speed_and_cost_string:
                 speed_and_cost_string += " | "
             speed_and_cost_string += f"Cost: ${call_cost:.{decimal_places}f}"
-        await stream.send(speed_and_cost_string, color="cyan")
+        stream.send(speed_and_cost_string, color="cyan")
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
 
-    async def display_total_cost(self, decimal_places: int = 2) -> None:
-        stream = SESSION_STREAM.get()
-        await stream.send(
-            f"Total session cost: ${self.total_cost:.{decimal_places}f}",
-            color="light_blue",
-        )
+    def display_total_cost(self) -> None:
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        stream.send(f"Total session cost: ${self.total_cost:.2f}", color="light_blue")
