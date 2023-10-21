@@ -77,6 +77,9 @@ def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
 
 def get_ignore_files(ignore_paths: list[Path]) -> set[Path]:
     """Returns a set of files to ignore from a list of ignore paths."""
+
+    ignore_paths, _ = expand_paths(ignore_paths)
+
     files_direct, files_from_dirs, _ = abs_files_from_list(
         ignore_paths, check_for_text=False
     )

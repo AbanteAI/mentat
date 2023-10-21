@@ -7,6 +7,8 @@ import pytest
 from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_file import CodeMessageLevel
 from mentat.config_manager import ConfigManager
+from mentat.git_handler import get_non_gitignored_files
+from mentat.include_files import is_file_text_encoded
 from mentat.llm_api import count_tokens
 
 
@@ -296,3 +298,29 @@ async def test_get_code_message_include(temp_testbed, mock_session_context):
     assert await _count_auto_tokens_where(170) == 151  # fnames
     # Always return include_files, regardless of max
     assert await _count_auto_tokens_where(0) == 102  # Include_files only
+
+
+@pytest.mark.asyncio
+async def test_get_code_message_ignore(temp_testbed, mock_session_context):
+    code_context_settings = CodeContextSettings(auto_tokens=7000)
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
+    )
+    code_context.set_paths([], [], ["scripts", "**/*.txt"])
+    code_message = await code_context.get_code_message("", "gpt-4", 1e6)
+
+    # Iterate through all files in temp_testbed; if they're not in the ignore 
+    # list, they should be in the code message.
+    for file in get_non_gitignored_files(temp_testbed):
+        abs_path = temp_testbed / file
+        rel_path = abs_path.relative_to(temp_testbed).as_posix()
+        if (
+            not is_file_text_encoded(abs_path)
+            or "scripts" in rel_path
+            or rel_path.endswith(".txt")
+        ):
+            assert rel_path not in code_message
+        else:
+            assert rel_path in code_message
