@@ -39,6 +39,7 @@ class Session:
         self,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
+        ignore_paths: List[Path] = [],
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
         no_code_map: bool = False,
@@ -85,7 +86,7 @@ class Session:
         SESSION_CONTEXT.set(session_context)
 
         # Functions that require session_context
-        code_context.set_paths(paths, exclude_paths)
+        code_context.set_paths(paths, exclude_paths, ignore_paths)
         code_context.set_code_map()
 
     async def _main(self):

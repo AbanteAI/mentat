@@ -17,6 +17,7 @@ from .embeddings import get_feature_similarity_scores
 from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from .include_files import (
     build_path_tree,
+    get_ignore_files,
     get_include_files,
     is_file_text_encoded,
     print_invalid_path,
@@ -38,6 +39,7 @@ class CodeContextSettings:
 class CodeContext:
     settings: CodeContextSettings
     include_files: dict[Path, CodeFile]
+    ignore_files: set[Path]
     diff_context: DiffContext
     code_map: bool = True
     features: list[CodeFile] = []
@@ -53,11 +55,13 @@ class CodeContext:
             stream, git_root, self.settings.diff, self.settings.pr_diff
         )
         self.include_files = {}
+        self.ignore_files = set()
 
-    def set_paths(self, paths: list[Path], exclude_paths: list[Path]):
+    def set_paths(self, paths: list[Path], exclude_paths: list[Path], ignore_paths: list[Path] = []):
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
             print_invalid_path(invalid_path)
+        self.ignore_files = get_ignore_files(ignore_paths)
 
     def set_code_map(self):
         session_context = SESSION_CONTEXT.get()
@@ -330,7 +334,7 @@ class CodeContext:
 
         all_features = list[CodeFile]()
         for path in get_non_gitignored_files(git_root):
-            if not is_file_text_encoded(path):
+            if not is_file_text_encoded(path) or path in self.ignore_files:
                 continue
             level = CodeMessageLevel.CODE
             diff = self.diff_context.target if path in self.diff_context.files else None

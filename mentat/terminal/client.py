@@ -24,6 +24,7 @@ class TerminalClient:
         self,
         paths: List[str] = [],
         exclude_paths: List[str] = [],
+        ignore_paths: List[str] = [],
         diff: str | None = None,
         pr_diff: str | None = None,
         no_code_map: bool = False,
@@ -32,6 +33,7 @@ class TerminalClient:
     ):
         self.paths = [Path(path) for path in paths]
         self.exclude_paths = [Path(path) for path in exclude_paths]
+        self.ignore_paths = [Path(path) for path in ignore_paths]
         self.diff = diff
         self.pr_diff = pr_diff
         self.no_code_map = no_code_map
@@ -116,6 +118,7 @@ class TerminalClient:
         self.session = Session(
             self.paths,
             self.exclude_paths,
+            self.ignore_paths,
             self.diff,
             self.pr_diff,
             self.no_code_map,
@@ -195,6 +198,13 @@ def run_cli():
         help="List of file paths, directory paths, or glob patterns to exclude",
     )
     parser.add_argument(
+        "--ignore",
+        "-g",
+        nargs="*",
+        default=[],
+        help="List of file paths, directory paths, or glob patterns to ignore in auto-context",
+    )
+    parser.add_argument(
         "--diff",
         "-d",
         type=str,
@@ -228,6 +238,7 @@ def run_cli():
     args = parser.parse_args()
     paths = args.paths
     exclude_paths = args.exclude
+    ignore_paths = args.ignore
     diff = args.diff
     pr_diff = args.pr_diff
     no_code_map = args.no_code_map
@@ -237,6 +248,7 @@ def run_cli():
     terminal_client = TerminalClient(
         paths,
         exclude_paths,
+        ignore_paths,
         diff,
         pr_diff,
         no_code_map,
