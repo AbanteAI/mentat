@@ -31,7 +31,7 @@ import subprocess
 
 import pytest
 
-from mentat.code_file import CodeFile, CodeMessageLevel
+from mentat.code_feature import CodeFeature, CodeMessageLevel
 from mentat.git_handler import get_non_gitignored_files
 from mentat.llm_api import setup_api_key
 
@@ -94,7 +94,7 @@ async def test_code_context_performance(mock_session_context):
             f.path for f in code_context.features if f.level == CodeMessageLevel.CODE
         }
         expected_features = {
-            CodeFile(f).path for f in test["expected_features"]
+            CodeFeature(f).path for f in test["expected_features"]
         }  # Ignore line numbers for now
         y_pred = [f in actual for f in get_non_gitignored_files(code_dir)]
         y_true = [f in expected_features for f in get_non_gitignored_files(code_dir)]

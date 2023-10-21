@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-from mentat.code_file import CodeFile, parse_intervals
+from mentat.code_feature import CodeFeature, parse_intervals
 from mentat.git_handler import get_non_gitignored_files
 from mentat.session_context import SESSION_CONTEXT
 
@@ -44,11 +44,11 @@ def is_file_text_encoded(abs_path: Path):
 
 def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
     """Returns a set of CodeFiles from a list of paths."""
-    files_direct = set[CodeFile]()
+    files_direct = set[CodeFeature]()
     file_paths_from_dirs = set[Path]()
     invalid_paths = list[str]()
     for path in paths:
-        file = CodeFile(os.path.realpath(path))
+        file = CodeFeature(os.path.realpath(path))
         path = Path(file.path)
         if path.is_file():
             if check_for_text and not is_file_text_encoded(path):
@@ -71,13 +71,13 @@ def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
                 )
             )
 
-    files_from_dirs = set(CodeFile(path.resolve()) for path in file_paths_from_dirs)
+    files_from_dirs = set(CodeFeature(path.resolve()) for path in file_paths_from_dirs)
     return files_direct, files_from_dirs, invalid_paths
 
 
 def get_include_files(
     paths: list[Path], exclude_paths: list[Path]
-) -> tuple[Dict[Path, CodeFile], list[str]]:
+) -> tuple[Dict[Path, CodeFeature], list[str]]:
     """Returns a complete list of text files in a given set of include/exclude Paths."""
     session_context = SESSION_CONTEXT.get()
     git_root = session_context.git_root
@@ -116,7 +116,7 @@ def get_include_files(
     ]
     files_direct.update(files_from_dirs)
 
-    files = dict[Path, CodeFile]()
+    files = dict[Path, CodeFeature]()
     for file in files_direct:
         if file.path not in excluded_files:
             files[file.path.resolve()] = file
@@ -124,7 +124,7 @@ def get_include_files(
     return files, invalid_paths
 
 
-def build_path_tree(files: list[CodeFile], git_root: Path):
+def build_path_tree(files: list[CodeFeature], git_root: Path):
     """Builds a tree of paths from a list of CodeFiles."""
     tree = dict[str, Any]()
     for file in files:

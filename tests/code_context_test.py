@@ -5,7 +5,7 @@ from unittest import TestCase
 import pytest
 
 from mentat.code_context import CodeContext, CodeContextSettings
-from mentat.code_file import CodeMessageLevel
+from mentat.code_feature import CodeMessageLevel
 from mentat.config_manager import ConfigManager
 from mentat.llm_api import count_tokens
 
