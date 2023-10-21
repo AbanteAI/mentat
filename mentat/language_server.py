@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import inspect
 import logging
 import signal
 import threading
@@ -8,7 +9,7 @@ from typing import Any, Coroutine, Set
 import debugpy
 from ipdb import set_trace
 from lsprotocol.types import EXIT, INITIALIZED
-from pygls.protocol import LanguageServerProtocol, lsp_method
+from pygls.protocol import LanguageServerProtocol
 from pygls.server import LanguageServer
 from typing_extensions import override
 
@@ -38,20 +39,13 @@ class MentatLanguageServerProtocol(LanguageServerProtocol):
             else:
                 logger.error("Connection to the client is lost! Doing nothing.")
 
-    @lsp_method("mentat/getInput")
-    def get_input(self, params):
-        set_trace()
-        pass
 
-    @lsp_method("mentat/createSession")
-    def create_session(self, params):
-        set_trace()
-        pass
+def lsp_feature(name: str):
+    def decorator(fn):
+        setattr(fn, "lsp_feature", name)
+        return fn
 
-    @lsp_method("mentat/streamSession")
-    def stream_session(self, params):
-        set_trace()
-        pass
+    return decorator
 
 
 class MentatLanguageServer(LanguageServer):
@@ -66,6 +60,25 @@ class MentatLanguageServer(LanguageServer):
             loop=asyncio.get_running_loop(),
             protocol_cls=MentatLanguageServerProtocol,
         )
+        self._register_features()
+
+    def _register_features(self):
+        for name, function in inspect.getmembers(
+            MentatLanguageServer, predicate=inspect.isfunction
+        ):
+            if not function.__qualname__.startswith(MentatLanguageServer.__name__):
+                continue
+            lsp_method = getattr(self, name, None)
+            if lsp_method is None:
+                continue
+            lsp_feature = getattr(function, "lsp_feature", None)
+            if lsp_feature is not None:
+                logger.debug(f"registering LSP feature '{lsp_feature}' to {name}")
+                set_trace()
+                self.feature(lsp_feature)(lsp_method)
+
+                self.lsp.fm.feature(lsp_feature, None)(lsp_method)
+                pass
 
     @property
     def is_serving(self):
@@ -117,6 +130,29 @@ class MentatLanguageServer(LanguageServer):
             self._server.close()
             await self._server.wait_closed()
             self._server = None
+
+    @lsp_feature(INITIALIZED)
+    async def on_initalized(params: Any):
+        # breakpoint()
+        print("INITALIZED")
+
+    @lsp_feature("mentat/getInput")
+    async def get_input(self, params):
+        set_trace()
+        pass
+
+    @lsp_feature("mentat/createSession")
+    async def create_session(self, params):
+        set_trace()
+        pass
+        # print("mentat/createSession")
+        # server._create_task(server._handle_session_output())
+        # server._create_task(server._handle_input_requests())
+
+    @lsp_feature("mentat/streamSession")
+    async def stream_session(self, params):
+        set_trace()
+        pass
 
 
 class Server:
@@ -246,38 +282,6 @@ class Server:
         # print("Waiting for client to connect to debugpy")
         # debugpy.wait_for_client()
         asyncio.run(self._run())
-
-
-# @server.language_server.feature("mentat/chatMessage")
-# async def get_chat_message(params: Any):
-#     print("Got: ", params)
-#
-#     if server.session is None:
-#         print("Session is NoneType")
-#         return
-#
-#     # await server.session.stream.send(
-#     #     params.content,
-#     #     source=StreamMessageSource.CLIENT,
-#     #     channel=f"input_request:{input_request_message.id}",
-#     # )
-#     #
-#     # server.language_server.send_notification(method="mentat/chatMessageInput", params=)
-#
-#     return {"test": "test response"}
-#
-#
-# @server.language_server.feature(INITIALIZED)
-# async def on_initalized(params: Any):
-#     # breakpoint()
-#     print("INITALIZED")
-#
-#
-# @server.language_server.feature("mentat/createSession")
-# async def create_session(params: Any):
-#     print("mentat/createSession")
-#     server._create_task(server._handle_session_output())
-#     server._create_task(server._handle_input_requests())
 
 
 def run_cli():
