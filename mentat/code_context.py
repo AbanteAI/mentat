@@ -254,6 +254,7 @@ class CodeContext:
                 abs_path = git_root / path
                 if (
                     abs_path in self.include_files
+                    or abs_path in self.ignore_files
                     or abs_path.is_dir()
                     or not is_file_text_encoded(abs_path)
                 ):
