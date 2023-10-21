@@ -1,5 +1,4 @@
 import * as net from "net";
-import { ServerOptions, StreamInfo } from "vscode-languageclient/node";
 
 async function isPortInUse(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -40,19 +39,4 @@ async function waitForPortToBeInUse(port: number, timeout: number): Promise<void
   }
 }
 
-/** Creates the ServerOptions for a system in the case that a language server is already running on the given port. */
-function tcpServerOptions(port: number): ServerOptions {
-  const socket = net.connect({
-    port: port,
-    host: "127.0.0.1",
-  });
-  const streamInfo: StreamInfo = {
-    reader: socket,
-    writer: socket,
-  };
-  return () => {
-    return Promise.resolve(streamInfo);
-  };
-}
-
-export { isPortInUse, waitForPortToBeInUse, tcpServerOptions };
+export { isPortInUse, waitForPortToBeInUse };

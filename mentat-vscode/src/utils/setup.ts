@@ -1,12 +1,19 @@
 import { exec } from "child_process";
 import * as fs from "fs";
+import * as net from "net";
 import * as os from "os";
 import * as path from "path";
 import * as semver from "semver";
 import * as util from "util";
 import * as vscode from "vscode";
+import {
+  Executable,
+  ServerOptions,
+  StreamInfo,
+  TransportKind,
+} from "vscode-languageclient/node";
 
-import { isPortInUse, tcpServerOptions } from "./tcp";
+import { isPortInUse } from "./tcp";
 
 const MENTAT_COMMIT = "main";
 const PIP_INSTALL_ARGS = `install --upgrade "git+https://github.com/AbanteAI/mentat.git@${MENTAT_COMMIT}"`;
@@ -81,13 +88,51 @@ async function installMentat(
   console.log("Installed Mentat");
 }
 
-// FIXME: start the server if it isn't already running
-async function getLanguageServerOptions(port: number) {
-  try {
-    return tcpServerOptions(port);
-  } catch {
-    throw Error("Did not detect a running server on port 8080");
+// TODO: actually build an executable
+function getMentatExecutable(port: number): ServerOptions {
+  let mentatPath = vscode.workspace
+    .getConfiguration("mentat")
+    .get<string>("mentatPath");
+  if (mentatPath === undefined) {
+    mentatPath = path.join(os.homedir(), ".mentat/venv/bin/mentat");
+    if (!fs.existsSync(mentatPath)) {
+      throw new Error("Unable to find a Mentat install on your system.");
+    }
   }
+
+  const args = ["--port", `${port}`];
+  const transport = { kind: TransportKind.socket, port: port } as const;
+  const executable: Executable = {
+    command: mentatPath,
+    transport: transport,
+    args: args,
+  };
+
+  return executable;
+}
+
+function getMentatSocket(port: number): ServerOptions {
+  const socket = net.connect({
+    port: port,
+    host: "127.0.0.1",
+  });
+  const streamInfo: StreamInfo = {
+    reader: socket,
+    writer: socket,
+  };
+  return () => {
+    return Promise.resolve(streamInfo);
+  };
+}
+
+async function getLanguageServerOptions(port: number) {
+  return getMentatSocket(port);
+  // if (await isPortInUse(port)) {
+  //   console.log("Using Mentat on running port");
+  //   return getMentatSocket(port);
+  // }
+  // console.log("Using Mentat executable");
+  // return getMentatExecutable(port);
 }
 
 export { installMentat, getLanguageServerOptions };
