@@ -42,7 +42,7 @@ class Session:
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
         no_code_map: bool = False,
-        use_embedding: bool = False,
+        use_embeddings: bool = False,
         auto_tokens: Optional[int] = None,
     ):
         self.id = uuid4()
@@ -64,7 +64,7 @@ class Session:
         parser = parser_map[config.parser()]
 
         code_context_settings = CodeContextSettings(
-            diff, pr_diff, no_code_map, use_embedding, auto_tokens
+            diff, pr_diff, no_code_map, use_embeddings, auto_tokens
         )
         code_context = CodeContext(stream, git_root, code_context_settings)
 
