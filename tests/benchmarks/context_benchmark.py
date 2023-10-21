@@ -31,7 +31,6 @@ import subprocess
 
 import pytest
 
-from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_file import CodeFile, CodeMessageLevel
 from mentat.git_handler import get_non_gitignored_files
 from mentat.llm_api import setup_api_key
