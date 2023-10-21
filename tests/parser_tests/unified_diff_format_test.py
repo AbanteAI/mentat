@@ -1,8 +1,10 @@
 from pathlib import Path
 from textwrap import dedent
 
+import pytest
+
+from mentat.config_manager import ConfigManager
 from mentat.session import Session
-from tests.conftest import ConfigManager, pytest
 
 
 @pytest.fixture(autouse=True)
@@ -44,9 +46,9 @@ async def test_replacement(
          # 4 lines
         @@ end @@""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -98,9 +100,9 @@ async def test_multiple_replacements(
          # lines
         @@ end @@""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -152,9 +154,9 @@ async def test_multiple_replacement_spots(
         +# more than
         @@ end @@""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -205,9 +207,9 @@ async def test_little_context_addition(
          # with 
         @@ end @@""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -249,9 +251,9 @@ async def test_empty_file(
         +# line
         @@ end @@""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -282,9 +284,9 @@ async def test_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_a
         @@ end @@
         """)])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -321,9 +323,9 @@ async def test_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_a
         +++ /dev/null
         @@ end @@""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     assert not temp_file_name.exists()
 
 
@@ -358,9 +360,9 @@ async def test_no_ending_marker(
         +# your captain speaking
          # 4 lines""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\

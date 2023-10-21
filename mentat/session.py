@@ -1,27 +1,30 @@
 import asyncio
 import logging
-import traceback
+from asyncio import Task
 from pathlib import Path
-from typing import List, Optional, Union, cast
+from typing import List, Optional
 from uuid import uuid4
 
-from mentat.logging_config import setup_logging
+from openai.error import RateLimitError, Timeout
 
-from .code_context import CODE_CONTEXT, CodeContext, CodeContextSettings
+from mentat.code_file_manager import CodeFileManager
+from mentat.config_manager import ConfigManager
+from mentat.conversation import Conversation
+from mentat.git_handler import get_shared_git_root_for_paths
+from mentat.logging_config import setup_logging
+from mentat.session_context import SESSION_CONTEXT, SessionContext
+
+from .code_context import CodeContext, CodeContextSettings
 from .code_edit_feedback import get_user_feedback_on_edits
-from .code_file_manager import CODE_FILE_MANAGER, CodeFileManager
-from .config_manager import CONFIG_MANAGER, ConfigManager
-from .conversation import CONVERSATION, Conversation
 from .errors import MentatError, SessionExit
-from .git_handler import GIT_ROOT, get_shared_git_root_for_paths
-from .llm_api import COST_TRACKER, CostTracker, setup_api_key
+from .llm_api import CostTracker, setup_api_key
 from .parsers.block_parser import BlockParser
-from .parsers.parser import PARSER, Parser
+from .parsers.parser import Parser
 from .parsers.replacement_parser import ReplacementParser
 from .parsers.split_diff_parser import SplitDiffParser
 from .parsers.unified_diff_parser import UnifiedDiffParser
 from .session_input import collect_user_input
-from .session_stream import SESSION_STREAM, SessionStream
+from .session_stream import SessionStream
 
 parser_map: dict[str, Parser] = {
     "block": BlockParser(),
@@ -34,79 +37,74 @@ parser_map: dict[str, Parser] = {
 class Session:
     def __init__(
         self,
-        stream: SessionStream,
-    ):
-        self.stream = stream
-
-        self.id = uuid4()
-        setup_api_key()
-
-        self._main_task: asyncio.Task[None] | None = None
-        self._stop_task: asyncio.Task[None] | None = None
-
-    @classmethod
-    async def create(
-        cls,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
+        ignore_paths: List[Path] = [],
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
         no_code_map: bool = False,
-        use_embedding: bool = False,
+        use_embeddings: bool = False,
         auto_tokens: Optional[int] = None,
     ):
-        # Set contextvars here
+        self.id = uuid4()
+        setup_api_key()
+
+        # Since we can't set the session_context until after all of the singletons are created,
+        # any singletons used in the constructor of another singleton must be passed in
+        git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
+
         stream = SessionStream()
-        await stream.start()
-        SESSION_STREAM.set(stream)
+        stream.start()
+        self.stream = stream
 
         cost_tracker = CostTracker()
-        COST_TRACKER.set(cost_tracker)
 
-        git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
-        GIT_ROOT.set(git_root)
-
-        # TODO: Config should be created in the client (i.e., to get vscode settings) and passed to session
-        config = await ConfigManager.create()
-        CONFIG_MANAGER.set(config)
+        # TODO: Part of config should be retrieved in client (i.e., to get vscode settings) and passed to server
+        config = ConfigManager(git_root, stream)
 
         parser = parser_map[config.parser()]
-        PARSER.set(parser)
 
         code_context_settings = CodeContextSettings(
-            diff, pr_diff, no_code_map, use_embedding, auto_tokens
+            diff, pr_diff, no_code_map, use_embeddings, auto_tokens
         )
-        code_context = await CodeContext.create(
-            paths, exclude_paths, code_context_settings
-        )
-        CODE_CONTEXT.set(code_context)
+        code_context = CodeContext(stream, git_root, code_context_settings)
 
-        # NOTE: Should codefilemanager, codecontext, and conversation be contextvars/singletons or regular instances?
         code_file_manager = CodeFileManager()
-        CODE_FILE_MANAGER.set(code_file_manager)
 
-        conversation = Conversation()
-        CONVERSATION.set(conversation)
+        conversation = Conversation(config, parser)
 
-        return cls(stream)
+        session_context = SessionContext(
+            stream,
+            cost_tracker,
+            git_root,
+            config,
+            parser,
+            code_context,
+            code_file_manager,
+            conversation,
+        )
+        SESSION_CONTEXT.set(session_context)
+
+        # Functions that require session_context
+        code_context.set_paths(paths, exclude_paths, ignore_paths)
+        code_context.set_code_map()
 
     async def _main(self):
-        stream = SESSION_STREAM.get()
-        code_context = CODE_CONTEXT.get()
-        conversation = CONVERSATION.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        code_context = session_context.code_context
+        conversation = session_context.conversation
 
         try:
-            await code_context.display_context()
+            code_context.display_context()
             await conversation.display_token_count()
         except MentatError as e:
-            await stream.send(str(e), color="red")
+            stream.send(str(e), color="red")
             return
 
         try:
-            await stream.send(
-                "Type 'q' or use Ctrl-C to quit at any time.", color="cyan"
-            )
-            await stream.send("What can I do for you?", color="light_blue")
+            stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
+            stream.send("What can I do for you?", color="light_blue")
             need_user_request = True
             while True:
                 if need_user_request:
@@ -117,96 +115,46 @@ class Session:
 
                 file_edits = await conversation.get_model_response()
                 file_edits = [
-                    file_edit for file_edit in file_edits if await file_edit.is_valid()
+                    file_edit for file_edit in file_edits if file_edit.is_valid()
                 ]
                 if file_edits:
                     need_user_request = await get_user_feedback_on_edits(file_edits)
                 else:
                     need_user_request = True
+                stream.send(bool(file_edits), channel="edits_complete")
         except SessionExit:
             pass
+        except (Timeout, RateLimitError) as e:
+            stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
 
     ### lifecycle
-
-    @property
-    def is_stopped(self):
-        return self._main_task is None and self._stop_task is None
 
     def start(self) -> asyncio.Task[None]:
         """Asynchronously start the Session.
 
-        A background asyncio. Task will be created to run the startup sequence and run
+        A background asyncio Task will be created to run the startup sequence and run
         the main loop which runs forever (until a client interrupts it).
         """
-
-        if self._main_task:
-            logging.warning("Job already started")
-            return self._main_task
-
-        setup_logging()
 
         async def run_main():
             try:
                 await self._main()
-                await cast(asyncio.Task[None], self.stop())
+                await self.stop()
             except asyncio.CancelledError:
                 pass
 
-        def cleanup_main(task: asyncio.Task[None]):
-            exception = task.exception()
-            if exception is not None:
-                logging.error(f"Main task for Session({self.id}) threw an exception")
-                traceback.print_exception(
-                    type(exception), exception, exception.__traceback__
-                )
-
-            self._main_task = None
-            logging.debug("Main task stopped")
-
-        self._main_task = asyncio.create_task(run_main())
-        self._main_task.add_done_callback(cleanup_main)
-
+        setup_logging()
+        self._main_task: Task[None] = asyncio.create_task(run_main())
         return self._main_task
 
-    def stop(self) -> asyncio.Task[None] | None:
-        """Asynchronously stop the Session.
+    async def stop(self):
+        session_context = SESSION_CONTEXT.get()
+        cost_tracker = session_context.cost_tracker
 
-        A background asyncio.Task will be created that handles the shutdown sequence
-        of the Session. Clients should wait for `self.is_stopped` to return `True` in
-        order to make sure the shutdown sequence has finished.
-        """
-        if self._stop_task is not None:
-            logging.debug("Task is already stopping")
-            return self._stop_task
-        if self.is_stopped:
-            logging.debug("Task is already stopped")
-            return
-
-        async def run_stop():
-            cost_tracker = COST_TRACKER.get()
-
-            if self._main_task is None:
-                return
-            try:
-                await cost_tracker.display_total_cost()
-                logging.shutdown()
-                self._main_task.cancel()
-
-                # Pyright can't see `self._main_task` being set to `None` in the task
-                # callback handler, so we have to cast the type explicitly here
-                self._main_task = cast(Union[asyncio.Task[None], None], self._main_task)
-
-                while self._main_task is not None:
-                    await asyncio.sleep(0.01)
-                await self.stream.stop()
-            except asyncio.CancelledError:
-                pass
-
-        def cleanup_stop(_: asyncio.Task[None]):
-            self._stop_task = None
-            logging.debug("Task has stopped")
-
-        self._stop_task = asyncio.create_task(run_stop())
-        self._stop_task.add_done_callback(cleanup_stop)
-
-        return self._stop_task
+        cost_tracker.display_total_cost()
+        logging.shutdown()
+        self._main_task.cancel()
+        await self._main_task
+        self.stream.send(None, channel="exit")
+        await self.stream.join()
+        self.stream.stop()

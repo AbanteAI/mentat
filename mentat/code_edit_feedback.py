@@ -1,21 +1,20 @@
 from mentat.parsers.file_edit import FileEdit
+from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import collect_user_input
-from mentat.session_stream import SESSION_STREAM
 
-from .code_context import CODE_CONTEXT
-from .code_file_manager import CODE_FILE_MANAGER
-from .conversation import CONVERSATION, MessageRole
+from .conversation import MessageRole
 
 
 async def get_user_feedback_on_edits(
     file_edits: list[FileEdit],
 ) -> bool:
-    stream = SESSION_STREAM.get()
-    conversation = CONVERSATION.get()
-    code_file_manager = CODE_FILE_MANAGER.get()
-    code_context = CODE_CONTEXT.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+    conversation = session_context.conversation
+    code_file_manager = session_context.code_file_manager
+    code_context = session_context.code_context
 
-    await stream.send(
+    stream.send(
         "Apply these changes? 'Y/n/i' or provide feedback.",
         color="light_blue",
     )
@@ -56,16 +55,16 @@ async def get_user_feedback_on_edits(
             )
 
     for file_edit in edits_to_apply:
-        await file_edit.resolve_conflicts()
+        file_edit.resolve_conflicts()
 
     if edits_to_apply:
         await code_file_manager.write_changes_to_files(edits_to_apply, code_context)
-        await stream.send("Changes applied.", color="light_blue")
+        stream.send("Changes applied.", color="light_blue")
     else:
-        await stream.send("No changes applied.", color="light_blue")
+        stream.send("No changes applied.", color="light_blue")
 
     if need_user_request:
-        await stream.send("Can I do anything else for you?", color="light_blue")
+        stream.send("Can I do anything else for you?", color="light_blue")
 
     return need_user_request
 

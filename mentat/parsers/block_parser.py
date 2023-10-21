@@ -8,11 +8,11 @@ from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
-from mentat.git_handler import GIT_ROOT
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import ParsedLLMResponse, Parser
 from mentat.prompts.prompts import read_prompt
+from mentat.session_context import SESSION_CONTEXT
 
 block_parser_prompt_filename = Path("block_parser_prompt.txt")
 
@@ -171,7 +171,9 @@ class BlockParser(Parser):
             replacements,
             is_creation=file_action == FileActionType.CreateFile,
             is_deletion=file_action == FileActionType.DeleteFile,
-            rename_file_path=deserialized_json.name,
+            rename_file_path=(
+                git_root / deserialized_json.name if deserialized_json.name else None
+            ),
         )
         has_code = block[-1] == _BlockParserIndicator.Code.value
         return (display_information, file_edit, has_code)
@@ -203,8 +205,10 @@ class BlockParser(Parser):
         """
         Inverse of stream_and_parse_llm_response
         """
-        git_root = GIT_ROOT.get()
-        ans = parsedLLMResponse.conversation
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+
+        ans = parsedLLMResponse.conversation.strip() + "\n\n"
         for file_edit in parsedLLMResponse.file_edits:
             tmp = {}
             tmp[_BlockParserJsonKeys.File.value] = file_edit.file_path.relative_to(
@@ -223,7 +227,7 @@ class BlockParser(Parser):
                     _BlockParserAction.RenameFile.value
                 )
                 tmp[_BlockParserJsonKeys.Name.value] = (
-                    file_edit.rename_file_path.as_posix()
+                    file_edit.rename_file_path.relative_to(git_root).as_posix()
                 )
             if _BlockParserJsonKeys.Action.value in tmp:
                 ans += _BlockParserIndicator.Start.value + "\n"

@@ -2,73 +2,54 @@ from __future__ import annotations
 
 import json
 import logging
-from contextvars import ContextVar
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Dict, Optional, cast
+from typing import Any, Optional, cast
 
-from mentat.git_handler import GIT_ROOT
-from mentat.session_stream import SESSION_STREAM
+from mentat.session_stream import SessionStream
 from mentat.utils import fetch_resource, mentat_dir_path
 
 default_config_file_name = Path("default_config.json")
 config_file_name = Path(".mentat_config.json")
 user_config_path = mentat_dir_path / config_file_name
 
-CONFIG_MANAGER: ContextVar[ConfigManager] = ContextVar("mentat:config_manager")
-
 
 class ConfigManager:
-    def __init__(
-        self,
-        user_config: Dict[str, str],
-        project_config: Dict[str, str],
-    ):
-        self.user_config = user_config
-        self.project_config = project_config
-
-        default_config_path = fetch_resource(default_config_file_name)
-        with default_config_path.open("r") as config_file:
-            self.default_config = json.load(config_file)
-
-    @classmethod
-    async def create(cls):
-        stream = SESSION_STREAM.get()
-
+    def __init__(self, git_root: Path, stream: SessionStream):
         if user_config_path.exists():
             with open(user_config_path) as config_file:
                 try:
-                    user_config = json.load(config_file)
+                    self.user_config = json.load(config_file)
                 except JSONDecodeError:
                     logging.info("User config file contains invalid json")
-                    await stream.send(
+                    stream.send(
                         "Warning: User .mentat_config.json contains invalid"
                         " json; ignoring user configuration file",
                         color="light_yellow",
                     )
-                    user_config = dict[str, str]()
+                    self.user_config = dict[str, str]()
         else:
-            user_config = dict[str, str]()
+            self.user_config = dict[str, str]()
 
-        project_config_path = GIT_ROOT.get() / config_file_name
+        project_config_path = git_root / config_file_name
         if project_config_path.exists():
             with open(project_config_path) as config_file:
                 try:
-                    project_config = json.load(config_file)
+                    self.project_config = json.load(config_file)
                 except JSONDecodeError:
                     logging.info("Project config file contains invalid json")
-                    await stream.send(
+                    stream.send(
                         "Warning: Git project .mentat_config.json contains invalid"
                         " json; ignoring project configuration file",
                         color="light_yellow",
                     )
-                    project_config = dict[str, str]()
+                    self.project_config = dict[str, str]()
         else:
-            project_config = dict[str, str]()
+            self.project_config = dict[str, str]()
 
-        self = cls(user_config, project_config)
-
-        return self
+        default_config_path = fetch_resource(default_config_file_name)
+        with default_config_path.open("r") as config_file:
+            self.default_config = json.load(config_file)
 
     def input_style(self) -> list[tuple[str, str]]:
         return cast(list[tuple[str, str]], self._get_key("input-style"))

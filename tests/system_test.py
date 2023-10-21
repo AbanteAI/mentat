@@ -42,9 +42,9 @@ async def test_system(mock_call_llm_api, mock_setup_api_key, mock_collect_user_i
         print("Hello, world!")
         @@end""".format(file_name=temp_file_name))])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -112,9 +112,9 @@ async def test_interactive_change_selection(
         print("Change 3")
         @@end""".format(file_name=temp_file_name))])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -156,9 +156,9 @@ async def test_without_os_join(
         @@code
         print("Hello, world!")
         @@end""".format(file_name=fake_file_path))])
-    session = await Session.create([temp_file_path])
+    session = Session([temp_file_path])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     mock_collect_user_input.reset_mock()
     with open(temp_file_path, "r") as f:
         content = f.read()
@@ -195,9 +195,9 @@ async def test_sub_directory(
             print("Hello, world!")
             @@end""")])
 
-        session = await Session.create([file_name])
+        session = Session([file_name])
         await session.start()
-        await session.stream.stop()
+        session.stream.stop()
 
         # Check if the temporary file is modified as expected
         with open(file_name, "r") as f:

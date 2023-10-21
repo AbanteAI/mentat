@@ -2,29 +2,28 @@ from __future__ import annotations
 
 import json
 import logging
-from contextvars import ContextVar
 from enum import Enum
 from timeit import default_timer
+from typing import TYPE_CHECKING
 
-from openai.error import InvalidRequestError, RateLimitError
+from openai.error import InvalidRequestError
 
-from mentat.parsers.file_edit import FileEdit
-from mentat.parsers.parser import PARSER, Parser
+from mentat.session_context import SESSION_CONTEXT
 
-from .code_context import CODE_CONTEXT
-from .config_manager import CONFIG_MANAGER, user_config_path
-from .errors import MentatError, UserError
+from .config_manager import ConfigManager, user_config_path
+from .errors import MentatError
 from .llm_api import (
-    COST_TRACKER,
     call_llm_api,
     count_tokens,
     get_prompt_token_count,
     is_model_available,
     model_context_size,
 )
-from .session_stream import SESSION_STREAM, SessionStream
+from .session_stream import SessionStream
 
-CONVERSATION: ContextVar[Conversation] = ContextVar("mentat:conversation")
+if TYPE_CHECKING:
+    from mentat.parsers.file_edit import FileEdit
+    from mentat.parsers.parser import Parser
 
 
 class MessageRole(Enum):
@@ -36,10 +35,7 @@ class MessageRole(Enum):
 class Conversation:
     max_tokens: int
 
-    def __init__(self):
-        config = CONFIG_MANAGER.get()
-        parser = PARSER.get()
-
+    def __init__(self, config: ConfigManager, parser: Parser):
         self.model = config.model()
         self.messages = list[dict[str, str]]()
 
@@ -51,10 +47,11 @@ class Conversation:
         self.add_message(MessageRole.System, prompt)
 
     async def display_token_count(self):
-        stream = SESSION_STREAM.get()
-        parser = PARSER.get()
-        code_context = CODE_CONTEXT.get()
-        config = CONFIG_MANAGER.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        config = session_context.config
+        code_context = session_context.code_context
+        parser = session_context.parser
 
         if not is_model_available(self.model):
             raise MentatError(
@@ -62,14 +59,14 @@ class Conversation:
                 " different model."
             )
         if "gpt-4" not in self.model:
-            await stream.send(
+            stream.send(
                 "Warning: Mentat has only been tested on GPT-4. You may experience"
                 " issues with quality. This model may not be able to respond in"
                 " mentat's edit format.",
                 color="yellow",
             )
             if "gpt-3.5" not in self.model:
-                await stream.send(
+                stream.send(
                     "Warning: Mentat does not know how to calculate costs or context"
                     " size for this model.",
                     color="yellow",
@@ -101,14 +98,14 @@ class Conversation:
                 " number of files."
             )
         elif tokens + 1000 > context_size:
-            await stream.send(
+            stream.send(
                 f"Warning: Included files are close to token limit ({tokens} /"
                 f" {context_size}), you may not be able to have a long"
                 " conversation.",
                 color="red",
             )
         else:
-            await stream.send(
+            stream.send(
                 f"Prompt and included files token count: {tokens} / {context_size}",
                 color="cyan",
             )
@@ -142,7 +139,7 @@ class Conversation:
         start_time = default_timer()
         try:
             response = await call_llm_api(messages, self.model)
-            await stream.send(
+            stream.send(
                 "Streaming... use control-c to interrupt the model at any point\n"
             )
             async with parser.interrupt_catcher():
@@ -153,17 +150,16 @@ class Conversation:
                 " returned:\n"
                 + str(e)
             )
-        except RateLimitError as e:
-            raise UserError("OpenAI gave a rate limit error:\n" + str(e))
 
         time_elapsed = default_timer() - start_time
         return (parsedLLMResponse, time_elapsed)
 
     async def get_model_response(self) -> list[FileEdit]:
-        stream = SESSION_STREAM.get()
-        code_context = CODE_CONTEXT.get()
-        cost_tracker = COST_TRACKER.get()
-        parser = PARSER.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        code_context = session_context.code_context
+        parser = session_context.parser
+        cost_tracker = session_context.cost_tracker
 
         messages_snapshot = self.messages.copy()
 
@@ -178,12 +174,12 @@ class Conversation:
         )
         messages_snapshot.append({"role": "system", "content": code_message})
 
-        await code_context.display_features()
-        num_prompt_tokens = await get_prompt_token_count(messages_snapshot, self.model)
+        code_context.display_features()
+        num_prompt_tokens = get_prompt_token_count(messages_snapshot, self.model)
         parsedLLMResponse, time_elapsed = await self._stream_model_response(
             stream, parser, messages_snapshot
         )
-        await cost_tracker.display_api_call_stats(
+        cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             count_tokens(parsedLLMResponse.full_response, self.model),
             self.model,

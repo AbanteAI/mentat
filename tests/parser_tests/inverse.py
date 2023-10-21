@@ -17,7 +17,7 @@ async def verify_inverse(parser):
         """),
         file_edits=[
             FileEdit(
-                file_path=Path(cwd / "test.txt"),
+                file_path=cwd / "test.txt",
                 replacements=[
                     Replacement(
                         starting_line=1,
@@ -33,7 +33,7 @@ async def verify_inverse(parser):
                 rename_file_path=None,
             ),
             FileEdit(
-                file_path=Path(cwd / "delete.txt"),
+                file_path=cwd / "delete.txt",
                 replacements=[
                     Replacement(starting_line=1, ending_line=3, new_lines=[])
                 ],
@@ -42,7 +42,7 @@ async def verify_inverse(parser):
                 rename_file_path=None,
             ),
             FileEdit(
-                file_path=Path(cwd / "create.txt"),
+                file_path=cwd / "create.txt",
                 replacements=[
                     Replacement(
                         starting_line=0,
@@ -55,7 +55,7 @@ async def verify_inverse(parser):
                 rename_file_path=None,
             ),
             FileEdit(
-                file_path=Path(cwd / "file1.txt"),
+                file_path=cwd / "file1.txt",
                 replacements=[
                     Replacement(
                         starting_line=1,
@@ -70,7 +70,7 @@ async def verify_inverse(parser):
                 ],
                 is_creation=False,
                 is_deletion=False,
-                rename_file_path=Path("file2.txt"),
+                rename_file_path=cwd / "file2.txt",
             ),
         ],
     )

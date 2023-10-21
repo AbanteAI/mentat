@@ -32,9 +32,8 @@ from pathlib import Path
 
 import pytest
 
-from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_file import CodeFile, CodeMessageLevel
-from mentat.git_handler import GIT_ROOT, get_non_gitignored_files
+from mentat.git_handler import get_non_gitignored_files
 from mentat.llm_api import setup_api_key
 
 from .utils import clone_repo
@@ -73,7 +72,7 @@ tests = [
         "codebase_url": "http://github.com/overthesun/simoc-abm",
         "codebase_name": "simoc-abm",
         "commit": "d77f44f",
-        "args": {"exclude_paths": ["src/simoc_abm/data_files", "test"]},
+        "args": {"ignore_paths": ["src/simoc_abm/data_files", "test"]},
         "prompt": (
             "Rename 'lamp' to 'electric light' throughout the code. Update "
             "instances of 'lamp' to 'electric_light', and 'Lamp' to 'Electric "
@@ -92,9 +91,7 @@ tests = [
 
 
 @pytest.mark.asyncio
-async def test_code_context_performance(
-    mock_stream, mock_config, mock_code_file_manager, mock_parser
-):
+async def test_code_context_performance(mock_session_context):
     setup_api_key()
 
     for test in tests:
@@ -108,16 +105,21 @@ async def test_code_context_performance(
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-        GIT_ROOT.set(code_dir)
+        mock_session_context.git_root = code_dir
+        code_context = mock_session_context.code_context
+        code_context.include_file("mentat/__init__.py")
+        code_context.settings.use_embeddings = True
+        code_context.settings.auto_tokens = 7000
 
         # Create a context and run get_code_message to set the features
         paths = test["args"].get("paths", [])
         exclude_paths = test["args"].get("exclude_paths", [])
+        ignore_paths = test["args"].get("ignore_paths", [])
         rest = {
-            k: v for k, v in test["args"].items() if k not in ["paths", "exclude_paths"]
+            k: v for k, v in test["args"].items() if k not in [
+                "paths", "exclude_paths", "ignore_paths"
+            ]
         }
-        settings = CodeContextSettings(**rest, use_embedding=True, auto_tokens=None)
-        code_context = await CodeContext.create(paths, exclude_paths, settings)
         _ = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)
 
         # Calculate y_pred and y_true
