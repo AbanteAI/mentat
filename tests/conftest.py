@@ -203,20 +203,6 @@ def mock_session_context(_mock_session_context):
     SESSION_CONTEXT.reset(token)
 
 
-# CostTracker
-@pytest.fixture
-def _mock_cost_tracker():
-    cost_tracker = CostTracker()
-    token = COST_TRACKER.set(cost_tracker)
-    yield cost_tracker
-    COST_TRACKER.reset(token)
-
-
-@pytest_asyncio.fixture()
-async def mock_cost_tracker(_mock_cost_tracker):
-    yield _mock_cost_tracker
-
-
 ### Auto-used fixtures
 
 
