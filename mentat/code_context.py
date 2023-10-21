@@ -57,7 +57,12 @@ class CodeContext:
         self.include_files = {}
         self.ignore_files = set()
 
-    def set_paths(self, paths: list[Path], exclude_paths: list[Path], ignore_paths: list[Path] = []):
+    def set_paths(
+        self,
+        paths: list[Path],
+        exclude_paths: list[Path],
+        ignore_paths: list[Path] = [],
+    ):
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
             print_invalid_path(invalid_path)

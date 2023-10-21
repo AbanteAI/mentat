@@ -116,9 +116,9 @@ async def test_code_context_performance(mock_session_context):
         exclude_paths = test["args"].get("exclude_paths", [])
         ignore_paths = test["args"].get("ignore_paths", [])
         rest = {
-            k: v for k, v in test["args"].items() if k not in [
-                "paths", "exclude_paths", "ignore_paths"
-            ]
+            k: v
+            for k, v in test["args"].items()
+            if k not in ["paths", "exclude_paths", "ignore_paths"]
         }
         _ = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)
 
