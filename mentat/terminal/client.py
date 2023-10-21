@@ -27,7 +27,7 @@ class TerminalClient:
         diff: str | None = None,
         pr_diff: str | None = None,
         no_code_map: bool = False,
-        use_embedding: bool = False,
+        use_embeddings: bool = False,
         auto_tokens: int | None = 0,
     ):
         self.paths = [Path(path) for path in paths]
@@ -35,7 +35,7 @@ class TerminalClient:
         self.diff = diff
         self.pr_diff = pr_diff
         self.no_code_map = no_code_map
-        self.use_embedding = use_embedding
+        self.use_embeddings = use_embeddings
         self.auto_tokens = auto_tokens
 
         self._tasks: Set[asyncio.Task[None]] = set()
@@ -119,7 +119,7 @@ class TerminalClient:
             self.diff,
             self.pr_diff,
             self.no_code_map,
-            self.use_embedding,
+            self.use_embeddings,
             self.auto_tokens,
         )
         self.session.start()
@@ -214,7 +214,7 @@ def run_cli():
         help="Exclude the file structure/syntax map from the system prompt",
     )
     parser.add_argument(
-        "--embedding",
+        "--use-embeddings",
         action="store_true",
         help="Fetch/compare embeddings to auto-generate code context",
     )
@@ -231,7 +231,7 @@ def run_cli():
     diff = args.diff
     pr_diff = args.pr_diff
     no_code_map = args.no_code_map
-    use_embedding = not args.embedding
+    use_embeddings = args.use_embeddings
     auto_tokens = args.auto_tokens
 
     terminal_client = TerminalClient(
@@ -240,7 +240,7 @@ def run_cli():
         diff,
         pr_diff,
         no_code_map,
-        use_embedding,
+        use_embeddings,
         auto_tokens,
     )
     terminal_client.run()
