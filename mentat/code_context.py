@@ -7,7 +7,6 @@ from typing import Optional
 
 import attr
 
-from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
@@ -318,13 +317,16 @@ class CodeContext:
         self, query: str, max_results: int | None = None
     ) -> list[tuple[CodeFile, float]]:
         """Return the top n features that are most similar to the query."""
-        if not self.settings.use_embeddings:
-            raise UserError(
-                "Embeddings are disabled. To enable, restart with '--use-embeddings'."
-            )
-
         session_context = SESSION_CONTEXT.get()
         git_root = session_context.git_root
+        stream = session_context.stream
+
+        if not self.settings.use_embeddings:
+            stream.send(
+                "Embeddings are disabled. To enable, restart with '--use-embeddings'.",
+                color="light_red",
+            )
+            return []
 
         all_features = list[CodeFile]()
         for path in get_non_gitignored_files(git_root):

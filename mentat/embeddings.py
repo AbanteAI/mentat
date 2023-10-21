@@ -1,6 +1,7 @@
 import gzip
 import json
 import os
+import logging
 from pathlib import Path
 from timeit import default_timer
 
@@ -33,8 +34,12 @@ class EmbeddingsDatabase:
         os.makedirs(output_dir, exist_ok=True)
         self.path = Path(output_dir) / "embeddings.json.gz"
         if self.path.exists():
-            with gzip.open(self.path, "rt") as f:
-                self._dict = json.load(f)
+            try:
+                with gzip.open(self.path, "rt") as f:
+                    self._dict = json.load(f)
+            except gzip.BadGzipFile:
+                logging.warning(f"Could not load embeddings from {self.path}.")
+
 
     def save(self):
         with gzip.open(self.path, "wt") as f:

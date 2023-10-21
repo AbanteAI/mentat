@@ -167,7 +167,6 @@ class Conversation:
         conversation_history = "\n".join([m["content"] for m in messages_snapshot])
         tokens = count_tokens(conversation_history, self.model)
         response_buffer = 1000
-        print()
         code_message = await code_context.get_code_message(
             messages_snapshot[-1]["content"],
             self.model,

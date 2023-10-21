@@ -4,6 +4,7 @@ from textwrap import dedent
 
 import pytest
 
+from mentat.code_file import CodeFile
 from mentat.commands import Command, ContextCommand, HelpCommand, InvalidCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
@@ -192,6 +193,34 @@ async def test_clear_command(
 
     conversation = SESSION_CONTEXT.get().conversation
     assert len(conversation.messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_search_command(
+    mocker, temp_testbed, mock_setup_api_key, mock_call_llm_api, mock_collect_user_input
+):
+    mock_collect_user_input.set_stream_messages(
+        [
+            "Request",
+            "/search Query",
+            "q",
+        ]
+    )
+    mock_call_llm_api.set_generator_values(["Answer"])
+    mock_feature = CodeFile(
+        Path(temp_testbed) / "multifile_calculator" / "calculator.py"
+    )
+    mock_score = 1.0
+    mocker.patch(
+        "mentat.code_context.CodeContext.search",
+        return_value=[(mock_feature, mock_score)],
+    )
+    session = Session()
+    await session.start()
+    session.stream.stop()
+
+    assert str(mock_feature.path) in session.stream.messages[-2].data
+    assert "cost" in session.stream.messages[-1].data
 
 
 @pytest.mark.asyncio

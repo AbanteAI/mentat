@@ -281,18 +281,15 @@ class SearchCommand(Command, command_name="search"):
             stream.send(str(e), color="red")
             return
 
-        for i, (feature, score) in enumerate(results):
-            _i = f"{i}: " if i < 10 else f"{i}:"
-            stream.send(f"{_i} {score:.3f} | {feature.path}")
-            if i > 0 and i % SEARCH_RESULT_BATCH_SIZE == 0:
-
+        for i, (feature, score) in enumerate(results, start=1):
+            stream.send(f"{i:2} {score:.3f} | {feature.path}")
+            if i > 1 and i % SEARCH_RESULT_BATCH_SIZE == 0:
                 # TODO: Required to avoid circular imports, but not ideal.
                 from mentat.session_input import ask_yes_no
 
                 stream.send("\nShow More results? ")
                 if not await ask_yes_no(default_yes=True):
                     break
-        stream.send("Search complete", color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:
