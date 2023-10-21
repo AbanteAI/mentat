@@ -321,12 +321,8 @@ async def test_auto_tokens(temp_testbed, mock_session_context):
         )
         return count_tokens(code_message, "gpt-4")
 
-    # TODO: Install ctags on GHA
-    # Github Actions doesn't have ctags, so we need this
-    if not code_context.settings.no_code_map:
-        # If max_tokens is None, include the full auto-context
-        assert await _count_auto_tokens_where(None) == 65  # Cmap w/ signatures
-        assert await _count_auto_tokens_where(60) == 57  # Cmap
+    assert await _count_auto_tokens_where(None) == 65  # Cmap w/ signatures
+    assert await _count_auto_tokens_where(60) == 57  # Cmap
     assert await _count_auto_tokens_where(52) == 47  # fnames
     # Always return include_files, regardless of max
     assert await _count_auto_tokens_where(0) == 42  # Include_files only
