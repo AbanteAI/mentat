@@ -1,7 +1,7 @@
 import gzip
 import json
-import os
 import logging
+import os
 from pathlib import Path
 from timeit import default_timer
 
@@ -39,7 +39,6 @@ class EmbeddingsDatabase:
                     self._dict = json.load(f)
             except gzip.BadGzipFile:
                 logging.warning(f"Could not load embeddings from {self.path}.")
-
 
     def save(self):
         with gzip.open(self.path, "wt") as f:

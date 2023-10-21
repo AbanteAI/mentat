@@ -33,7 +33,7 @@ import pytest
 
 from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_file import CodeFile, CodeMessageLevel
-from mentat.git_handler import GIT_ROOT, get_non_gitignored_files
+from mentat.git_handler import get_non_gitignored_files
 from mentat.llm_api import setup_api_key
 
 from .utils import clone_repo
@@ -70,9 +70,7 @@ tests = [
 
 
 @pytest.mark.asyncio
-async def test_code_context_performance(
-    mock_stream, mock_config, mock_code_file_manager, mock_parser
-):
+async def test_code_context_performance(mock_session_context):
     setup_api_key()
 
     for test in tests:
@@ -83,11 +81,13 @@ async def test_code_context_performance(
         if test["commit"]:
             subprocess.run(["git", "checkout", test["commit"]])
 
-        GIT_ROOT.set(code_dir)
+        mock_session_context.git_root = code_dir
+        code_context = mock_session_context.code_context
 
         # Create a context and run get_code_message to set the features
-        settings = CodeContextSettings(use_embedding=True)
-        code_context = CodeContext(["mentat/__init__.py"], [], settings)
+        code_context.include_file("mentat/__init__.py")
+        code_context.settings.use_embeddings = True
+        code_context.settings.auto_tokens = 7000
         _ = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)
 
         # Calculate y_pred and y_true
