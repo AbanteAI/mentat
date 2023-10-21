@@ -7,23 +7,22 @@ from typing import Optional
 
 import attr
 
-from mentat.session_context import SESSION_CONTEXT
-from mentat.session_stream import SessionStream
-
-from .code_file import CodeFile, CodeMessageLevel, count_feature_tokens
-from .code_map import check_ctags_disabled
-from .diff_context import DiffContext
-from .embeddings import get_feature_similarity_scores
-from .git_handler import get_non_gitignored_files, get_paths_with_git_diffs
-from .include_files import (
+from mentat.code_file import CodeFile, CodeMessageLevel, count_feature_tokens
+from mentat.code_map import check_ctags_disabled
+from mentat.diff_context import DiffContext
+from mentat.embeddings import get_feature_similarity_scores
+from mentat.git_handler import get_non_gitignored_files, get_paths_with_git_diffs
+from mentat.include_files import (
     build_path_tree,
     get_include_files,
     is_file_text_encoded,
     print_invalid_path,
     print_path_tree,
 )
-from .llm_api import count_tokens
-from .utils import sha256
+from mentat.llm_api import count_tokens
+from mentat.session_context import SESSION_CONTEXT
+from mentat.session_stream import SessionStream
+from mentat.utils import sha256
 
 
 @attr.define

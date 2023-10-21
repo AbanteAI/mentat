@@ -34,8 +34,7 @@ import pytest
 from mentat.code_file import CodeFile, CodeMessageLevel
 from mentat.git_handler import get_non_gitignored_files
 from mentat.llm_api import setup_api_key
-
-from .utils import clone_repo
+from tests.benchmarks.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 

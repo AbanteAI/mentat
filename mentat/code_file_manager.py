@@ -12,16 +12,15 @@ from mentat.edit_history import (
     EditHistory,
     RenameAction,
 )
+from mentat.errors import MentatError
 from mentat.session_context import SESSION_CONTEXT
-
-from .errors import MentatError
-from .session_input import ask_yes_no
-from .utils import sha256
+from mentat.session_input import ask_yes_no
+from mentat.utils import sha256
 
 if TYPE_CHECKING:
     # This normally will cause a circular import
-    from .code_context import CodeContext
-    from .parsers.file_edit import FileEdit
+    from mentat.code_context import CodeContext
+    from mentat.parsers.file_edit import FileEdit
 
 
 class CodeFileManager:

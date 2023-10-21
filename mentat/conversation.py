@@ -8,18 +8,17 @@ from typing import TYPE_CHECKING
 
 from openai.error import InvalidRequestError
 
-from mentat.session_context import SESSION_CONTEXT
-
-from .config_manager import ConfigManager, user_config_path
-from .errors import MentatError
-from .llm_api import (
+from mentat.config_manager import ConfigManager, user_config_path
+from mentat.errors import MentatError
+from mentat.llm_api import (
     call_llm_api,
     count_tokens,
     get_prompt_token_count,
     is_model_available,
     model_context_size,
 )
-from .session_stream import SessionStream
+from mentat.session_context import SESSION_CONTEXT
+from mentat.session_stream import SessionStream
 
 if TYPE_CHECKING:
     from mentat.parsers.file_edit import FileEdit
