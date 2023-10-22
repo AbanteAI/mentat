@@ -5,12 +5,11 @@ from pathlib import Path
 from typing import Any, Dict
 
 from mentat.code_file import CodeFile, parse_intervals
-from mentat.config_manager import CONFIG_MANAGER
-from mentat.git_handler import GIT_ROOT, get_non_gitignored_files
-from mentat.session_stream import SESSION_STREAM
+from mentat.git_handler import get_non_gitignored_files
+from mentat.session_context import SESSION_CONTEXT
 
 
-def expand_paths(paths: list[Path]) -> list[Path]:
+def expand_paths(paths: list[Path]) -> tuple[list[Path], list[str]]:
     """Expand paths/globs into a list of absolute paths."""
     globbed_paths = set[str]()
     invalid_paths = set[str]()
@@ -29,14 +28,14 @@ def expand_paths(paths: list[Path]) -> list[Path]:
                 globbed_paths.add(str(path))
             else:
                 invalid_paths.add(str(path))
-    return [Path(path).resolve() for path in globbed_paths]
+    return [Path(path).resolve() for path in globbed_paths], list(invalid_paths)
 
 
-def is_file_text_encoded(file_path: Path):
+def is_file_text_encoded(abs_path: Path):
     """Checks if a file is text encoded."""
     try:
         # The ultimate filetype test
-        with open(file_path, "r") as f:
+        with open(abs_path, "r") as f:
             f.read()
         return True
     except UnicodeDecodeError:
@@ -80,11 +79,12 @@ def get_include_files(
     paths: list[Path], exclude_paths: list[Path]
 ) -> tuple[Dict[Path, CodeFile], list[str]]:
     """Returns a complete list of text files in a given set of include/exclude Paths."""
-    git_root = GIT_ROOT.get()
-    config = CONFIG_MANAGER.get()
+    session_context = SESSION_CONTEXT.get()
+    git_root = session_context.git_root
+    config = session_context.config
 
-    paths = expand_paths(paths)
-    exclude_paths = expand_paths(exclude_paths)
+    paths, invalid_paths = expand_paths(paths)
+    exclude_paths, _ = expand_paths(exclude_paths)
 
     excluded_files_direct, excluded_files_from_dirs, _ = abs_files_from_list(
         exclude_paths, check_for_text=False
@@ -103,9 +103,10 @@ def get_include_files(
             recursive=True,
         )
     )
-    files_direct, files_from_dirs, invalid_paths = abs_files_from_list(
+    files_direct, files_from_dirs, non_text_paths = abs_files_from_list(
         paths, check_for_text=True
     )
+    invalid_paths.extend(non_text_paths)
 
     # config glob excluded files only apply to files added from directories
     files_from_dirs = [
@@ -137,19 +138,21 @@ def build_path_tree(files: list[CodeFile], git_root: Path):
     return tree
 
 
-async def print_path_tree(
+def print_path_tree(
     tree: dict[str, Any], changed_files: set[Path], cur_path: Path, prefix: str = ""
 ):
     """Prints a tree of paths, with changed files highlighted."""
-    stream = SESSION_STREAM.get()
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+
     keys = list(tree.keys())
     for i, key in enumerate(sorted(keys)):
         if i < len(keys) - 1:
             new_prefix = prefix + "│   "
-            await stream.send(f"{prefix}├── ", end="")
+            stream.send(f"{prefix}├── ", end="")
         else:
             new_prefix = prefix + "    "
-            await stream.send(f"{prefix}└── ", end="")
+            stream.send(f"{prefix}└── ", end="")
 
         cur = cur_path / key
         star = "* " if cur in changed_files else ""
@@ -159,6 +162,31 @@ async def print_path_tree(
             color = "green"
         else:
             color = None
-        await stream.send(f"{star}{key}", color=color)
+        stream.send(f"{star}{key}", color=color)
         if tree[key]:
-            await print_path_tree(tree[key], changed_files, cur, new_prefix)
+            print_path_tree(tree[key], changed_files, cur, new_prefix)
+
+
+def print_invalid_path(invalid_path: str):
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+    git_root = session_context.git_root
+
+    abs_path = Path(invalid_path).absolute()
+    if "*" in invalid_path:
+        stream.send(
+            f"The glob pattern {invalid_path} did not match any files",
+            color="light_red",
+        )
+    elif not abs_path.exists():
+        stream.send(
+            f"The path {invalid_path} does not exist and was skipped", color="light_red"
+        )
+    elif not is_file_text_encoded(abs_path):
+        rel_path = abs_path.relative_to(git_root)
+        stream.send(
+            f"The file {rel_path} is not text encoded and was skipped",
+            color="light_red",
+        )
+    else:
+        stream.send(f"The file {invalid_path} was skipped", color="light_red")

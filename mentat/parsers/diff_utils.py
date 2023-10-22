@@ -14,7 +14,7 @@ def matching_index(orig_lines: list[str], new_lines: list[str]) -> int:
                 new_orig_lines = [s for s in orig_lines if s]
                 new_new_lines = [s for s in new_lines if s]
                 index = _exact_match(new_orig_lines, new_new_lines)
-                if index != -1:
+                if new_orig_lines and index != -1:
                     index = orig_lines.index(new_orig_lines[index])
     return index
 

@@ -6,8 +6,9 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
 from mentat.parsers.file_edit import FileEdit, Replacement
-from mentat.parsers.parser import Parser
+from mentat.parsers.parser import ParsedLLMResponse, Parser
 from mentat.prompts.prompts import read_prompt
+from mentat.session_context import SESSION_CONTEXT
 
 replacement_parser_prompt_filename = Path("replacement_parser_prompt.txt")
 
@@ -92,7 +93,7 @@ class ReplacementParser(Parser):
             [],
             is_creation=file_action_type == FileActionType.CreateFile,
             is_deletion=file_action_type == FileActionType.DeleteFile,
-            rename_file_path=new_name,
+            rename_file_path=git_root / new_name if new_name else None,
         )
         has_code = file_action_type == FileActionType.UpdateFile
         return (display_information, file_edit, has_code)
@@ -119,3 +120,46 @@ class ReplacementParser(Parser):
             )
         )
         return ""
+
+    def file_edits_to_llm_message(self, parsedLLMResponse: ParsedLLMResponse) -> str:
+        """
+        Inverse of stream_and_parse_llm_response
+        """
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+
+        ans = parsedLLMResponse.conversation.strip() + "\n\n"
+        for file_edit in parsedLLMResponse.file_edits:
+            action_indicator = ""
+            if file_edit.is_creation:
+                action_indicator = "+"
+            elif file_edit.is_deletion:
+                action_indicator = "-"
+            elif file_edit.rename_file_path is not None:
+                action_indicator = file_edit.rename_file_path.relative_to(
+                    git_root
+                ).as_posix()
+
+            file_rel_path = file_edit.file_path.relative_to(git_root).as_posix()
+            if action_indicator != "":
+                ans += f"@ {file_rel_path} {action_indicator}\n"
+
+            for replacement in file_edit.replacements:
+                if (
+                    replacement.starting_line == replacement.ending_line
+                    and len(replacement.new_lines) != 0
+                ):
+                    ans += (
+                        f"@ {file_rel_path} insert_line={replacement.starting_line + 1}\n"
+                    )
+                else:
+                    ans += (
+                        f"@ {file_rel_path} starting_line={replacement.starting_line + 1} "
+                        f"ending_line={replacement.ending_line}\n"
+                    )
+
+                if len(replacement.new_lines) != 0:
+                    ans += "\n".join(replacement.new_lines) + "\n"
+                ans += "@\n"
+
+        return ans

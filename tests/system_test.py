@@ -42,9 +42,9 @@ async def test_system(mock_call_llm_api, mock_setup_api_key, mock_collect_user_i
         print("Hello, world!")
         @@end""".format(file_name=temp_file_name))])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -112,9 +112,9 @@ async def test_interactive_change_selection(
         print("Change 3")
         @@end""".format(file_name=temp_file_name))])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -156,11 +156,51 @@ async def test_without_os_join(
         @@code
         print("Hello, world!")
         @@end""".format(file_name=fake_file_path))])
-    session = await Session.create([temp_file_path])
+    session = Session([temp_file_path])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     mock_collect_user_input.reset_mock()
     with open(temp_file_path, "r") as f:
         content = f.read()
         expected_content = 'print("Hello, world!")'
     assert content == expected_content
+
+
+@pytest.mark.asyncio
+async def test_sub_directory(
+    mock_call_llm_api, mock_setup_api_key, mock_collect_user_input, monkeypatch
+):
+    with monkeypatch.context() as m:
+        m.chdir("scripts")
+        file_name = "calculator.py"
+        mock_collect_user_input.set_stream_messages(
+            [
+                "Add changes to the file",
+                "y",
+                "q",
+            ]
+        )
+
+        mock_call_llm_api.set_generator_values([dedent(f"""\
+            Conversation
+
+            @@start
+            {{
+                "file": "scripts/{file_name}",
+                "action": "replace",
+                "start-line": 1,
+                "end-line": 50
+            }}
+            @@code
+            print("Hello, world!")
+            @@end""")])
+
+        session = Session([file_name])
+        await session.start()
+        session.stream.stop()
+
+        # Check if the temporary file is modified as expected
+        with open(file_name, "r") as f:
+            content = f.read()
+            expected_content = 'print("Hello, world!")'
+        assert content == expected_content

@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 import signal
+from asyncio import Event
 from pathlib import Path
 from types import FrameType
 from typing import Any, Coroutine, List, Set
@@ -10,8 +11,8 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.styles import Style
 
-from mentat.config_manager import CONFIG_MANAGER
 from mentat.session import Session
+from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
@@ -26,7 +27,7 @@ class TerminalClient:
         diff: str | None = None,
         pr_diff: str | None = None,
         no_code_map: bool = False,
-        use_embedding: bool = False,
+        use_embeddings: bool = False,
         auto_tokens: int | None = 0,
     ):
         self.paths = [Path(path) for path in paths]
@@ -34,14 +35,11 @@ class TerminalClient:
         self.diff = diff
         self.pr_diff = pr_diff
         self.no_code_map = no_code_map
-        self.use_embedding = use_embedding
+        self.use_embeddings = use_embeddings
         self.auto_tokens = auto_tokens
 
-        self.session: Session | None = None
-
         self._tasks: Set[asyncio.Task[None]] = set()
-        self._should_exit = False
-        self._force_exit = False
+        self._should_exit = Event()
 
     def _create_task(self, coro: Coroutine[None, None, Any]):
         """Utility method for running a Task in the background"""
@@ -56,12 +54,10 @@ class TerminalClient:
         return task
 
     async def _cprint_session_stream(self):
-        assert isinstance(self.session, Session), "TerminalClient is not running"
         async for message in self.session.stream.listen():
             print_stream_message(message)
 
     async def _handle_input_requests(self):
-        assert isinstance(self.session, Session), "TerminalClient is not running"
         while True:
             input_request_message = await self.session.stream.recv("input_request")
             # TODO: Make extra kwargs like plain constants
@@ -72,57 +68,58 @@ class TerminalClient:
                 prompt_session = self._plain_session
             else:
                 prompt_session = self._prompt_session
+
             user_input = await prompt_session.prompt_async(handle_sigint=False)
-            assert isinstance(user_input, str)
             if user_input == "q":
-                self._should_exit = True
+                self._should_exit.set()
                 return
 
-            await self.session.stream.send(
+            self.session.stream.send(
                 user_input,
                 source=StreamMessageSource.CLIENT,
                 channel=f"input_request:{input_request_message.id}",
             )
 
+    async def _listen_for_exit(self):
+        await self.session.stream.recv("exit")
+        self._should_exit.set()
+
     async def _send_session_stream_interrupt(self):
-        assert isinstance(self.session, Session), "TerminalClient is not running"
-        await self.session.stream.send(
+        logging.debug("Sending interrupt to session stream")
+        self.session.stream.send(
             "", source=StreamMessageSource.CLIENT, channel="interrupt"
         )
 
     # Be careful editing this function; since we use signal.signal instead of asyncio's
     # add signal handler (which isn't available on Windows), this function can interrupt
     # asyncio coroutines, potentially causing race conditions.
-    def _handle_exit(self, sig: int, frame: FrameType | None):
-        assert isinstance(self.session, Session), "TerminalClient is not running"
+    def _handle_sig_int(self, sig: int, frame: FrameType | None):
         if (
-            self.session.is_stopped
+            # If session is still starting up we want to quit without an error
+            not self.session
             or self.session.stream.interrupt_lock.locked() is False
         ):
-            if self._should_exit:
+            if self._should_exit.is_set():
                 logging.debug("Force exiting client...")
-                self._force_exit = True
+                exit(0)
             else:
                 logging.debug("Should exit client...")
-                self._should_exit = True
-
+                self._should_exit.set()
         else:
-            logging.debug("Sending interrupt to session stream")
+            # We create a task here in order to avoid race conditions
             self._create_task(self._send_session_stream_interrupt())
 
     def _init_signal_handlers(self):
-        signal.signal(signal.SIGINT, self._handle_exit)
+        signal.signal(signal.SIGINT, self._handle_sig_int)
 
     async def _startup(self):
-        assert self.session is None, "TerminalClient already running"
-
-        self.session = await Session.create(
+        self.session = Session(
             self.paths,
             self.exclude_paths,
             self.diff,
             self.pr_diff,
             self.no_code_map,
-            self.use_embedding,
+            self.use_embeddings,
             self.auto_tokens,
         )
         self.session.start()
@@ -144,7 +141,7 @@ class TerminalClient:
 
         self._plain_session = PromptSession[str](
             message=[("class:prompt", ">>> ")],
-            style=Style(CONFIG_MANAGER.get().input_style()),
+            style=Style(SESSION_CONTEXT.get().config.input_style()),
             completer=None,
             key_bindings=plain_bindings,
         )
@@ -152,35 +149,23 @@ class TerminalClient:
         self._create_task(mentat_completer.refresh_completions())
         self._create_task(self._cprint_session_stream())
         self._create_task(self._handle_input_requests())
+        self._create_task(self._listen_for_exit())
 
         logging.debug("Completed startup")
 
     async def _shutdown(self):
-        assert isinstance(self.session, Session), "TerminalClient is not running"
-
         logging.debug("Running shutdown")
 
         # Stop session
-        self.session.stop()
-        while not self._force_exit and not self.session.is_stopped:
-            await asyncio.sleep(0.01)
-        self.session = None
-        # Logging is shutdown by session stop
+        await self.session.stop()
 
         # Stop all background tasks
         for task in self._tasks:
             task.cancel()
-        while not self._force_exit:
-            if all([task.cancelled() for task in self._tasks]):
-                break
-            await asyncio.sleep(0.01)
 
     async def _main(self):
-        assert isinstance(self.session, Session), "TerminalClient is not running"
         logging.debug("Running main loop")
-
-        while not self._should_exit and not self.session.is_stopped:
-            await asyncio.sleep(0.01)
+        await self._should_exit.wait()
 
     async def _run(self):
         self._init_signal_handlers()
@@ -229,7 +214,7 @@ def run_cli():
         help="Exclude the file structure/syntax map from the system prompt",
     )
     parser.add_argument(
-        "--embedding",
+        "--use-embeddings",
         action="store_true",
         help="Fetch/compare embeddings to auto-generate code context",
     )
@@ -237,7 +222,7 @@ def run_cli():
         "--auto-tokens",
         "-a",
         type=int,
-        default=None,
+        default=0,
         help="Maximum number of auto-generated tokens to include in the prompt context",
     )
     args = parser.parse_args()
@@ -246,7 +231,7 @@ def run_cli():
     diff = args.diff
     pr_diff = args.pr_diff
     no_code_map = args.no_code_map
-    use_embedding = not args.embedding
+    use_embeddings = args.use_embeddings
     auto_tokens = args.auto_tokens
 
     terminal_client = TerminalClient(
@@ -255,7 +240,7 @@ def run_cli():
         diff,
         pr_diff,
         no_code_map,
-        use_embedding,
+        use_embeddings,
         auto_tokens,
     )
     terminal_client.run()

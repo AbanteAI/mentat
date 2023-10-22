@@ -1,3 +1,4 @@
+backoff==2.2.1
 fire==0.5.0
 # numpy==1.26.0
 openai==0.27.8

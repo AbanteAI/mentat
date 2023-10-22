@@ -5,16 +5,14 @@ import logging
 from abc import ABC, abstractmethod
 from asyncio import Event
 from contextlib import asynccontextmanager
-from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
 import attr
 from termcolor import colored
 
-from mentat.code_file_manager import CODE_FILE_MANAGER, CodeFileManager
+from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
-from mentat.git_handler import GIT_ROOT
 from mentat.llm_api import chunk_to_lines
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
@@ -26,10 +24,8 @@ from mentat.parsers.change_display_helper import (
     get_removed_lines,
 )
 from mentat.parsers.file_edit import FileEdit
-from mentat.session_stream import SESSION_STREAM
+from mentat.session_context import SESSION_CONTEXT
 from mentat.streaming_printer import StreamingPrinter
-
-PARSER: ContextVar[Parser] = ContextVar("mentat:parser")
 
 
 @attr.define
@@ -45,7 +41,9 @@ class Parser(ABC):
         self._interrupt_task = None
 
     async def listen_for_interrupt(self):
-        stream = SESSION_STREAM.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+
         async with stream.interrupt_lock:
             await stream.recv("interrupt")
             logging.info("User interrupted response.")
@@ -79,10 +77,10 @@ class Parser(ABC):
         3. 'code' lines, which are the actual code written and are shown to the user in a special format
         To make a parser that differs from these assumptions, make this functionality a subclass of Parser
         """
-
-        stream = SESSION_STREAM.get()
-        code_file_manager = CODE_FILE_MANAGER.get()
-        git_root = GIT_ROOT.get()
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        code_file_manager = session_context.code_file_manager
+        git_root = session_context.git_root
 
         printer = StreamingPrinter()
         printer_task = asyncio.create_task(printer.print_lines())
@@ -105,7 +103,7 @@ class Parser(ABC):
             if self.shutdown.is_set():
                 printer.shutdown_printer()
                 await printer_task
-                await stream.send(
+                stream.send(
                     colored("")  # Reset ANSI codes
                     + "\n\nInterrupted by user. Using the response up to this point."
                 )
@@ -235,6 +233,7 @@ class Parser(ABC):
                                 cur_file_edit.rename_file_path = (
                                     file_edit.rename_file_path
                                 )
+                            cur_file_edit.replacements.extend(file_edit.replacements)
                             file_edit = cur_file_edit
 
                         # Print file header

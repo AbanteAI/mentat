@@ -3,10 +3,10 @@ from textwrap import dedent
 
 import pytest
 
+from mentat.config_manager import ConfigManager
 from mentat.parsers.block_parser import BlockParser
 from mentat.session import Session
-from mentat.utils import convert_string_to_asyncgen
-from tests.conftest import ConfigManager
+from tests.parser_tests.inverse import verify_inverse
 
 
 @pytest.fixture(autouse=True)
@@ -50,9 +50,9 @@ async def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -98,9 +98,9 @@ async def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -144,9 +144,9 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -185,9 +185,9 @@ async def test_create_file(
         # I created this file
         @@end""".format(file_name=temp_file_name))])
 
-    session = await Session.create(["."])
+    session = Session(["."])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -228,9 +228,9 @@ async def test_delete_file(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     assert not os.path.exists(temp_file_name)
@@ -266,9 +266,9 @@ async def test_rename_file(
         }}
         @@end""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_2_file_name) as new_file:
         content = new_file.read()
         expected_content = "# Move me!"
@@ -319,9 +319,9 @@ async def test_change_then_rename_file(
         }}
         @@end""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_2_file_name) as new_file:
         content = new_file.read()
         expected_content = "# I inserted this comment!\n# Move me!"
@@ -372,9 +372,9 @@ async def test_rename_file_then_change(
         # I inserted this comment!
         @@end""")])
 
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
     with open(temp_2_file_name) as new_file:
         content = new_file.read()
         expected_content = "# I inserted this comment!\n# Move me!"
@@ -433,9 +433,9 @@ async def test_multiple_blocks(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -451,95 +451,9 @@ async def test_multiple_blocks(
 
 @pytest.mark.asyncio
 async def test_inverse(
-    mock_stream,
-    mock_call_llm_api,
-    mock_collect_user_input,
-    mock_setup_api_key,
-    mock_code_file_manager,
-    mock_git_root,
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, mock_session_context
 ):
-    # This test verifies that the inverse is a left inverse to stream_and_parse_llm_response. That is we can go:
-    #                               llm_message -> file_edits -> llm_message
-    # and get back where we started. Actually what we care about is that it's a right inverse. That if we go:
-    #                               file_edits -> llm_message -> file_edits
-    # we get back where we started. So this test verifies things we don't necessarily care about like the order of the
-    # edits and white space.
-    llm_response = dedent("""\
-        I will insert a comment between the first two lines
-        and then replace the last line with 'better measure'
-        Steps: 1. Insert a comment
-               2. Replace last line
-        @@start
-        {
-            "file": "test.txt",
-            "action": "insert",
-            "insert-after-line": 1,
-            "insert-before-line": 2
-        }
-        @@code
-        # I inserted this comment
-        @@end
-        @@start
-        {
-            "file": "test.txt",
-            "action": "replace",
-            "start-line": 4,
-            "end-line": 4
-        }
-        @@code
-        # better measure
-        @@end
-        @@start
-        {
-            "file": "delete.txt",
-            "action": "delete",
-            "start-line": 2,
-            "end-line": 3
-        }
-        @@end
-        @@start
-        {
-            "file": "create.txt",
-            "action": "create-file"
-        }
-        @@code
-        # I created this file
-        @@end
-        @@start
-        {
-            "file": "file1.txt",
-            "action": "rename-file",
-            "name": "file2.txt"
-        }
-        @@end
-        @@start
-        {
-            "file": "file1.txt",
-            "action": "insert",
-            "insert-after-line": 1,
-            "insert-before-line": 2
-        }
-        @@code
-        # I inserted this comment in a replacement
-        @@end
-        @@start
-        {
-            "file": "file1.txt",
-            "action": "replace",
-            "start-line": 4,
-            "end-line": 4
-        }
-        @@code
-        # better measure in a replacement
-        @@end
-                          """)
-
-    generator = convert_string_to_asyncgen(llm_response, 10)
-    parser = BlockParser()
-    parsedLLMResponse = await parser.stream_and_parse_llm_response(generator)
-    inverse = parser.file_edits_to_llm_message(parsedLLMResponse)
-
-    assert llm_response == inverse
+    await verify_inverse(BlockParser())
 
 
 @pytest.mark.asyncio
@@ -585,9 +499,9 @@ async def test_json_strings(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = await Session.create([temp_file_name])
+    session = Session([temp_file_name])
     await session.start()
-    await session.stream.stop()
+    session.stream.stop()
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:

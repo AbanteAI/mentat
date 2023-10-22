@@ -11,7 +11,7 @@ from mentat.llm_api import count_tokens
 
 
 @pytest.mark.asyncio
-async def test_path_gitignoring(temp_testbed, mock_git_root, mock_stream, mock_config):
+async def test_path_gitignoring(temp_testbed, mock_session_context):
     gitignore_path = ".gitignore"
     testing_dir_path = "git_testing_dir"
     os.makedirs(testing_dir_path)
@@ -31,7 +31,12 @@ async def test_path_gitignoring(temp_testbed, mock_git_root, mock_stream, mock_c
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
     paths = [Path(testing_dir_path), Path(ignored_file_path_2)]
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(paths, [], code_context_settings)
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
+    )
+    code_context.set_paths(paths, [])
 
     expected_file_paths = [
         os.path.join(temp_testbed, ignored_file_path_2),
@@ -44,9 +49,7 @@ async def test_path_gitignoring(temp_testbed, mock_git_root, mock_stream, mock_c
 
 
 @pytest.mark.asyncio
-async def test_config_glob_exclude(
-    mocker, temp_testbed, mock_git_root, mock_stream, mock_config
-):
+async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
     # Makes sure glob exclude config works
     mock_glob_exclude = mocker.MagicMock()
     mocker.patch.object(ConfigManager, "file_exclude_glob_list", new=mock_glob_exclude)
@@ -70,9 +73,12 @@ async def test_config_glob_exclude(
         )
 
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(
-        [Path("."), directly_added_glob_excluded_path], [], code_context_settings
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
     )
+    code_context.set_paths([Path("."), directly_added_glob_excluded_path], [])
 
     file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
@@ -81,7 +87,7 @@ async def test_config_glob_exclude(
 
 
 @pytest.mark.asyncio
-async def test_glob_include(temp_testbed, mock_git_root, mock_stream, mock_config):
+async def test_glob_include(temp_testbed, mock_session_context):
     # Make sure glob include works
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.py")
     glob_include_path2 = os.path.join("glob_test", "bagel", "apple", "include_me2.py")
@@ -99,7 +105,12 @@ async def test_glob_include(temp_testbed, mock_git_root, mock_stream, mock_confi
 
     file_paths = ["**/*.py"]
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(file_paths, [], code_context_settings)
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
+    )
+    code_context.set_paths(file_paths, [])
 
     file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
@@ -108,7 +119,7 @@ async def test_glob_include(temp_testbed, mock_git_root, mock_stream, mock_confi
 
 
 @pytest.mark.asyncio
-async def test_cli_glob_exclude(temp_testbed, mock_git_root, mock_stream, mock_config):
+async def test_cli_glob_exclude(temp_testbed, mock_session_context):
     # Make sure cli glob exclude works and overrides regular include
     glob_include_then_exclude_path = os.path.join(
         "glob_test", "bagel", "apple", "include_then_exclude_me.py"
@@ -125,9 +136,12 @@ async def test_cli_glob_exclude(temp_testbed, mock_git_root, mock_stream, mock_c
     file_paths = ["**/*.py"]
     exclude_paths = ["**/*.py", "**/*.ts"]
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(
-        file_paths, exclude_paths, code_context_settings
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
     )
+    code_context.set_paths(file_paths, exclude_paths)
 
     file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_include_then_exclude_path) not in file_paths
@@ -135,9 +149,7 @@ async def test_cli_glob_exclude(temp_testbed, mock_git_root, mock_stream, mock_c
 
 
 @pytest.mark.asyncio
-async def test_text_encoding_checking(
-    temp_testbed, mock_git_root, mock_stream, mock_config
-):
+async def test_text_encoding_checking(temp_testbed, mock_session_context):
     # Makes sure we don't include non text encoded files, and we quit if user gives us one
     nontext_path = "iamnottext.py"
     with open(nontext_path, "wb") as f:
@@ -145,7 +157,12 @@ async def test_text_encoding_checking(
         f.write(bytearray([0x81]))
 
     code_context_settings = CodeContextSettings()
-    code_context = await CodeContext.create(["./"], [], code_context_settings)
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
+    )
+    code_context.set_paths(["./"], [])
     file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, nontext_path) not in file_paths
 
@@ -153,9 +170,12 @@ async def test_text_encoding_checking(
     with open(nontext_path_requested, "wb") as f:
         # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
         f.write(bytearray([0x81]))
-    code_context = await CodeContext.create(
-        [Path(nontext_path_requested)], [], code_context_settings
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
     )
+    code_context.set_paths([Path(nontext_path_requested)], [])
     assert not code_context.include_files
 
 
@@ -179,21 +199,17 @@ def features(mocker):
 
 
 @pytest.mark.asyncio
-async def test_get_code_message_cache(
-    mocker,
-    temp_testbed,
-    mock_config,
-    mock_stream,
-    mock_parser,
-    mock_git_root,
-    mock_code_file_manager,
-):
+async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context):
     code_context_settings = CodeContextSettings(auto_tokens=10)
-    code_context = await CodeContext.create(
-        ["multifile_calculator"],
-        ["multifile_calculator/calculator.py"],
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
         code_context_settings,
     )
+    code_context.set_paths(
+        ["multifile_calculator"], ["multifile_calculator/calculator.py"]
+    )
+
     file = Path("multifile_calculator/operations.py")
     feature = mocker.MagicMock()
     feature.path = file
@@ -232,19 +248,15 @@ async def test_get_code_message_cache(
 
 
 @pytest.mark.asyncio
-async def test_get_code_message_include(
-    temp_testbed,
-    mock_config,
-    mock_parser,
-    mock_git_root,
-    mock_code_file_manager,
-    mock_stream,
-):
+async def test_get_code_message_include(temp_testbed, mock_session_context):
     code_context_settings = CodeContextSettings(auto_tokens=0)
-    code_context = await CodeContext.create(
-        ["multifile_calculator"],
-        ["multifile_calculator/calculator.py"],
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
         code_context_settings,
+    )
+    code_context.set_paths(
+        ["multifile_calculator"], ["multifile_calculator/calculator.py"]
     )
 
     # If max tokens is less than include_files, return include_files without
@@ -276,10 +288,11 @@ async def test_get_code_message_include(
         )
         return count_tokens(code_message, "gpt-4")
 
-    # If max_tokens is None, include the full auto-context
+    # Github Actions doesn't have ctags, so we need this
     if not code_context.settings.no_code_map:
-        assert await _count_auto_tokens_where(None) == 288  # Cmap w/ signatures
-        assert await _count_auto_tokens_where(250) == 220  # Cmap
-    assert await _count_auto_tokens_where(200) == 153  # fnames
+        # If max_tokens is None, include the full auto-context
+        assert await _count_auto_tokens_where(None) == 253  # Cmap w/ signatures
+        assert await _count_auto_tokens_where(230) == 201  # Cmap
+    assert await _count_auto_tokens_where(170) == 151  # fnames
     # Always return include_files, regardless of max
     assert await _count_auto_tokens_where(0) == 102  # Include_files only
