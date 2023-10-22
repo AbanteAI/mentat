@@ -4,6 +4,7 @@ import inspect
 import logging
 import signal
 import threading
+from functools import partial
 from typing import Any, Coroutine, Set
 
 import debugpy
@@ -74,11 +75,8 @@ class MentatLanguageServer(LanguageServer):
             lsp_feature = getattr(function, "lsp_feature", None)
             if lsp_feature is not None:
                 logger.debug(f"registering LSP feature '{lsp_feature}' to {name}")
-                set_trace()
-                self.feature(lsp_feature)(lsp_method)
-
-                self.lsp.fm.feature(lsp_feature, None)(lsp_method)
-                pass
+                # NOTE: this is super hacky
+                self.feature(lsp_feature)(partial(lsp_method))
 
     @property
     def is_serving(self):
@@ -132,7 +130,7 @@ class MentatLanguageServer(LanguageServer):
             self._server = None
 
     @lsp_feature(INITIALIZED)
-    async def on_initalized(params: Any):
+    async def on_initalized(self, params: Any):
         # breakpoint()
         print("INITALIZED")
 
