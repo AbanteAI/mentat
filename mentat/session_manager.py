@@ -40,3 +40,17 @@ class SessionManager:
             self._create_task(on_output(session))
 
         return session
+
+    async def shutdown(self):
+        # Stop all background tasks
+        for task in self._tasks:
+            task.cancel()
+        await asyncio.gather(*self._tasks, return_exceptions=True)
+
+        # Stop all sessions
+        session_stop_tasks: List[asyncio.Task[None]] = []
+        for session in self.sessions.values():
+            session_stop_task = session.stop()
+            if session_stop_task is not None:
+                session_stop_tasks.append(session_stop_task)
+        await asyncio.gather(*session_stop_tasks, return_exceptions=True)

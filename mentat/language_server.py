@@ -5,11 +5,11 @@ import logging
 import signal
 import threading
 from functools import partial
-from typing import Any, Coroutine, Set
+from typing import Any
 
 import debugpy
+import lsprotocol.types as lsp
 from ipdb import set_trace
-from lsprotocol.types import EXIT, INITIALIZED
 from pygls.protocol import LanguageServerProtocol
 from pygls.server import LanguageServer
 from typing_extensions import override
@@ -27,8 +27,8 @@ logger = logging.getLogger("mentat:server")
 class MentatLanguageServerProtocol(LanguageServerProtocol):
     @override
     def connection_lost(self, exc: Exception):
+        """Shutdown the LanguageServer on lost client connection"""
         if not isinstance(self._server, MentatLanguageServer):
-            set_trace()
             super().connection_lost(exc)
         else:
             if self._server._should_exit_on_lost_connection:
@@ -135,15 +135,16 @@ class MentatLanguageServer(LanguageServer):
             await self._server.wait_closed()
             self._server = None
 
-    @lsp_feature(INITIALIZED)
+    @lsp_feature(lsp.INITIALIZED)
     async def on_initalized(self, params: Any):
         # breakpoint()
         print("INITALIZED")
 
-    @lsp_feature("mentat/getInput")
-    async def get_input(self, params):
-        set_trace()
-        pass
+    @lsp_feature(lsp.TEXT_DOCUMENT_DID_OPEN)
+    async def handle_text_document_did_open(
+        self, params: lsp.DidOpenTextDocumentParams
+    ):
+        logger.debug(f"Opened: {params.text_document.uri}")
 
     @lsp_feature("mentat/createSession")
     async def create_session(self, params):
@@ -163,7 +164,7 @@ class MentatLanguageServer(LanguageServer):
                     params=input_request_message.model_dump(mode="json"),
                 )
                 logger.debug(
-                    "Got input response:", language_client_res[0]["data"]["content"]
+                    f"Got input response: {language_client_res[0]['data']['content']}"
                 )
                 await session.stream.send(
                     data=language_client_res[0]["data"]["content"],
@@ -174,11 +175,6 @@ class MentatLanguageServer(LanguageServer):
         await self.session_manager.create_session(
             on_output=handle_session_output, on_input_request=handle_input_request
         )
-
-    @lsp_feature("mentat/streamSession")
-    async def stream_session(self, params):
-        set_trace()
-        pass
 
 
 class Server:
@@ -191,7 +187,6 @@ class Server:
         self.language_server: MentatLanguageServer | None = None
         self.session_manager = SessionManager()
 
-        self._tasks: Set[asyncio.Task[None]] = set()
         self._should_exit = False
         self._force_exit = False
 
@@ -224,13 +219,8 @@ class Server:
         logger.debug("Running shutdown")
         assert isinstance(self.language_server, MentatLanguageServer)
 
-        # Stop all background tasks
-        for task in self._tasks:
-            task.cancel()
-        while not self._force_exit:
-            if all([task.cancelled() for task in self._tasks]):
-                break
-            await asyncio.sleep(0.01)
+        # Stop Session manager
+        await self.session_manager.shutdown()
 
         # Stop language server
         await self.language_server.shutdown()
