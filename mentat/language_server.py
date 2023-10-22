@@ -14,9 +14,10 @@ from pygls.protocol import LanguageServerProtocol
 from pygls.server import LanguageServer
 from typing_extensions import override
 
-from mentat.logging_config import setup_logging
-from mentat.session import Session
-from mentat.session_stream import StreamMessageSource
+from .logging_config import setup_logging
+from .session import Session
+from .session_manager import SessionManager
+from .session_stream import StreamMessageSource
 
 setup_logging()
 
@@ -50,7 +51,13 @@ def lsp_feature(name: str):
 
 
 class MentatLanguageServer(LanguageServer):
-    def __init__(self, should_exit_on_lost_connection: bool = True):
+    def __init__(
+        self,
+        session_manager: SessionManager,
+        should_exit_on_lost_connection: bool = True,
+    ):
+        self.session_manager = session_manager
+
         self._should_exit_on_lost_connection = should_exit_on_lost_connection
         self._should_exit_event = asyncio.Event()
 
@@ -111,7 +118,6 @@ class MentatLanguageServer(LanguageServer):
 
     @override
     async def shutdown(self):
-        """Shutdown server."""
         logger.info("Shutting down the server")
 
         if self._stop_event is not None:
@@ -141,11 +147,33 @@ class MentatLanguageServer(LanguageServer):
 
     @lsp_feature("mentat/createSession")
     async def create_session(self, params):
-        set_trace()
-        pass
-        # print("mentat/createSession")
-        # server._create_task(server._handle_session_output())
-        # server._create_task(server._handle_input_requests())
+        async def handle_session_output(session: Session):
+            async for message in session.stream.listen():
+                self.send_notification(
+                    method="mentat/streamSession",
+                    params=message.model_dump(mode="json"),
+                )
+
+        async def handle_input_request(session: Session):
+            while True:
+                input_request_message = await session.stream.recv("input_request")
+                logger.debug("sending input request to client")
+                language_client_res = await self.lsp.send_request_async(
+                    method="mentat/getInput",
+                    params=input_request_message.model_dump(mode="json"),
+                )
+                logger.debug(
+                    "Got input response:", language_client_res[0]["data"]["content"]
+                )
+                await session.stream.send(
+                    data=language_client_res[0]["data"]["content"],
+                    source=StreamMessageSource.CLIENT,
+                    channel=f"input_request:{str(input_request_message.id)}",
+                )
+
+        await self.session_manager.create_session(
+            on_output=handle_session_output, on_input_request=handle_input_request
+        )
 
     @lsp_feature("mentat/streamSession")
     async def stream_session(self, params):
@@ -161,52 +189,11 @@ class Server:
         self.language_server_port = language_server_port
 
         self.language_server: MentatLanguageServer | None = None
-        self.session: Session | None = None
+        self.session_manager = SessionManager()
 
         self._tasks: Set[asyncio.Task[None]] = set()
         self._should_exit = False
         self._force_exit = False
-
-    def _create_task(self, coro: Coroutine[None, None, Any]):
-        """Utility method for running a Task in the background"""
-
-        def task_cleanup(task: asyncio.Task[None]):
-            self._tasks.remove(task)
-
-        task = asyncio.create_task(coro)
-        task.add_done_callback(task_cleanup)
-        self._tasks.add(task)
-
-        return task
-
-    async def _handle_session_output(self):
-        assert isinstance(self.language_server, LanguageServer)
-        assert isinstance(self.session, Session)
-        async for message in self.session.stream.listen():
-            self.language_server.send_notification(
-                method="mentat/streamSession", params=message.model_dump(mode="json")
-            )
-
-    async def _handle_input_requests(self):
-        assert isinstance(self.language_server, LanguageServer)
-        assert isinstance(self.session, Session)
-        while True:
-            input_request_message = await self.session.stream.recv("input_request")
-
-            logger.debug("sending input request to client")
-            language_client_res = await self.language_server.lsp.send_request_async(
-                method="mentat/getInput",
-                params=input_request_message.model_dump(mode="json"),
-            )
-            logger.debug(
-                "Got input response:", language_client_res[0]["data"]["content"]
-            )
-
-            await self.session.stream.send(
-                data=language_client_res[0]["data"]["content"],
-                source=StreamMessageSource.CLIENT,
-                channel=f"input_request:{str(input_request_message.id)}",
-            )
 
     def _handle_exit(self):
         if self._should_exit:
@@ -222,13 +209,11 @@ class Server:
 
     async def _startup(self):
         logger.debug("Running startup")
-        assert self.session is None
         assert self.language_server is None
 
-        self.session = await Session.create(paths=[], exclude_paths=[])
-        self.session.start()
-
-        self.language_server = MentatLanguageServer()
+        self.language_server = MentatLanguageServer(
+            session_manager=self.session_manager, should_exit_on_lost_connection=False
+        )
         self.language_server.start_tcp(
             host=self.language_server_host, port=self.language_server_port
         )
@@ -237,7 +222,6 @@ class Server:
 
     async def _shutdown(self):
         logger.debug("Running shutdown")
-        assert isinstance(self.session, Session)
         assert isinstance(self.language_server, MentatLanguageServer)
 
         # Stop all background tasks
@@ -248,12 +232,6 @@ class Server:
                 break
             await asyncio.sleep(0.01)
 
-        # Stop session
-        session_stop_task = self.session.stop()
-        if isinstance(session_stop_task, asyncio.Task):
-            await session_stop_task
-        self.session = None
-
         # Stop language server
         await self.language_server.shutdown()
 
@@ -261,7 +239,6 @@ class Server:
 
     async def _main(self):
         logger.debug("Running main loop")
-        assert isinstance(self.session, Session)
         assert isinstance(self.language_server, MentatLanguageServer)
 
         while not self._should_exit and not self.language_server.should_sys_exit:
