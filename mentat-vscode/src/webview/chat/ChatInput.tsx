@@ -68,7 +68,7 @@ function ChatInput(props: Props) {
   }
 
   return (
-    <div className="flex flex-row border border-red-500 bg-[var(--vscode-input-background)] p-2">
+    <div className="flex flex-row bg-[var(--vscode-input-background)] p-2">
       <textarea
         className="flex-1 focus:outline-none resize-none bg-[var(--vscode-input-background)]"
         placeholder="What can I do for you?"

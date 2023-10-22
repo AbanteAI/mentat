@@ -33,7 +33,7 @@ const fakeMessages: ChatMessage[] = [
 ];
 
 function Chat() {
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(fakeMessages);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [inputRequestId, setInputRequestId] = useState<string | null>(null);
 
   function handleLanguageServerMessage(
@@ -49,16 +49,16 @@ function Chat() {
         setInputRequestId(message.data.id);
         break;
       case LanguageServerMethod.StreamSession:
-        if (chatMessages.length === 0) {
-          const newChatMessage: ChatMessage = {
-            id: "0",
-            orderId: 0,
-            content: message.data.data,
-            createdBy: ChatMessageSender.Server,
-          };
-          setChatMessages([newChatMessage]);
-        } else {
-          setChatMessages((prevChatMessages) => {
+        setChatMessages((prevChatMessages) => {
+          if (prevChatMessages.length === 0) {
+            const newChatMessage: ChatMessage = {
+              id: "0",
+              orderId: 0,
+              content: message.data.data,
+              createdBy: ChatMessageSender.Server,
+            };
+            return [newChatMessage];
+          } else {
             const lastIndex = prevChatMessages.length - 1;
             const lastMessage = { ...prevChatMessages[lastIndex] }; // Create a copy of the last message
             if (lastMessage.createdBy === ChatMessageSender.Server) {
@@ -75,8 +75,8 @@ function Chat() {
               };
               return [...prevChatMessages, newChatMessage];
             }
-          });
-        }
+          }
+        });
         break;
       default:
         console.log(`Unhandled LanguageServerMethod ${message.method}`);
@@ -97,8 +97,8 @@ function Chat() {
   }, []);
 
   return (
-    <div className="border border-red-500 h-screen">
-      <div className="flex flex-col border border-green-500 p-1 h-full">
+    <div className="h-screen">
+      <div className="flex flex-col p-1 h-full">
         <ChatHistory chatMessages={chatMessages} />
         <ChatInput
           chatMessages={chatMessages}
