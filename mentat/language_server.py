@@ -1,10 +1,13 @@
 import argparse
 import asyncio
 import inspect
+import json
 import logging
 import signal
 import threading
+import urllib.parse as urlparse
 from functools import partial
+from pathlib import Path
 from typing import Any
 
 import debugpy
@@ -57,6 +60,8 @@ class MentatLanguageServer(LanguageServer):
         should_exit_on_lost_connection: bool = True,
     ):
         self.session_manager = session_manager
+
+        self.selected_file: Path | None = None
 
         self._should_exit_on_lost_connection = should_exit_on_lost_connection
         self._should_exit_event = asyncio.Event()
@@ -144,7 +149,21 @@ class MentatLanguageServer(LanguageServer):
     async def handle_text_document_did_open(
         self, params: lsp.DidOpenTextDocumentParams
     ):
-        logger.debug(f"Opened: {params.text_document.uri}")
+        parsed_uri = urlparse.urlparse(params.text_document.uri)
+        if parsed_uri.scheme == "file":
+            file_path = Path(parsed_uri.path)
+        elif parsed_uri.scheme == "git":
+            decoded_query_params = json.loads(urlparse.unquote(parsed_uri.query))
+            file_path = Path(decoded_query_params["path"])
+        else:
+            logger.warning(f"Unhandled file uri scheme '{parsed_uri.scheme}'")
+            return
+
+        if file_path == self.selected_file:
+            return
+        self.selected_file = file_path
+
+        logger.debug(f"Opened: {self.selected_file}")
 
     @lsp_feature("mentat/createSession")
     async def create_session(self, params):
@@ -158,21 +177,26 @@ class MentatLanguageServer(LanguageServer):
         async def handle_input_request(session: Session):
             while True:
                 input_request_message = await session.stream.recv("input_request")
+
                 logger.debug("sending input request to client")
                 language_client_res = await self.lsp.send_request_async(
                     method="mentat/getInput",
                     params=input_request_message.model_dump(mode="json"),
                 )
+
                 logger.debug(
                     f"Got input response: {language_client_res[0]['data']['content']}"
                 )
-                await session.stream.send(
+                if self.selected_file is not None:
+                    session.code_context.set_paths([self.selected_file], [])
+
+                session.stream.send(
                     data=language_client_res[0]["data"]["content"],
                     source=StreamMessageSource.CLIENT,
                     channel=f"input_request:{str(input_request_message.id)}",
                 )
 
-        await self.session_manager.create_session(
+        self.session_manager.create_session(
             on_output=handle_session_output, on_input_request=handle_input_request
         )
 

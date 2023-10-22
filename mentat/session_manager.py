@@ -24,14 +24,14 @@ class SessionManager:
 
         return task
 
-    async def create_session(
+    def create_session(
         self,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
         on_input_request: Callable | None = None,
         on_output: Callable | None = None,
     ):
-        session = await Session.create(paths, exclude_paths)
+        session = Session(paths, exclude_paths)
         session.start()
         self.sessions[session.id] = session
         if on_input_request is not None:

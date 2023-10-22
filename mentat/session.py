@@ -52,41 +52,40 @@ class Session:
         # any singletons used in the constructor of another singleton must be passed in
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
 
-        stream = SessionStream()
-        stream.start()
-        self.stream = stream
+        self.stream = SessionStream()
+        self.stream.start()
 
         cost_tracker = CostTracker()
 
         # TODO: Part of config should be retrieved in client (i.e., to get vscode settings) and passed to server
-        config = ConfigManager(git_root, stream)
+        config = ConfigManager(git_root, self.stream)
 
         parser = parser_map[config.parser()]
 
         code_context_settings = CodeContextSettings(
             diff, pr_diff, no_code_map, use_embeddings, auto_tokens
         )
-        code_context = CodeContext(stream, git_root, code_context_settings)
+        self.code_context = CodeContext(self.stream, git_root, code_context_settings)
 
         code_file_manager = CodeFileManager()
 
         conversation = Conversation(config, parser)
 
         session_context = SessionContext(
-            stream,
+            self.stream,
             cost_tracker,
             git_root,
             config,
             parser,
-            code_context,
+            self.code_context,
             code_file_manager,
             conversation,
         )
         SESSION_CONTEXT.set(session_context)
 
         # Functions that require session_context
-        code_context.set_paths(paths, exclude_paths)
-        code_context.set_code_map()
+        self.code_context.set_paths(paths, exclude_paths)
+        self.code_context.set_code_map()
 
     async def _main(self):
         session_context = SESSION_CONTEXT.get()
