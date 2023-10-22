@@ -6,12 +6,11 @@ from pathlib import Path
 from typing import List
 
 from mentat.conversation import MessageRole
+from mentat.errors import MentatError, UserError
+from mentat.git_handler import commit
 from mentat.include_files import print_invalid_path
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import create_viewer
-
-from .errors import MentatError, UserError
-from .git_handler import commit
 
 
 class Command(ABC):

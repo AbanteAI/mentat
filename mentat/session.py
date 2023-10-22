@@ -7,24 +7,23 @@ from uuid import uuid4
 
 from openai.error import RateLimitError, Timeout
 
+from mentat.code_context import CodeContext, CodeContextSettings
+from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
 from mentat.config_manager import ConfigManager
 from mentat.conversation import Conversation
+from mentat.errors import MentatError, SessionExit
 from mentat.git_handler import get_shared_git_root_for_paths
+from mentat.llm_api import CostTracker, setup_api_key
 from mentat.logging_config import setup_logging
+from mentat.parsers.block_parser import BlockParser
+from mentat.parsers.parser import Parser
+from mentat.parsers.replacement_parser import ReplacementParser
+from mentat.parsers.split_diff_parser import SplitDiffParser
+from mentat.parsers.unified_diff_parser import UnifiedDiffParser
 from mentat.session_context import SESSION_CONTEXT, SessionContext
-
-from .code_context import CodeContext, CodeContextSettings
-from .code_edit_feedback import get_user_feedback_on_edits
-from .errors import MentatError, SessionExit
-from .llm_api import CostTracker, setup_api_key
-from .parsers.block_parser import BlockParser
-from .parsers.parser import Parser
-from .parsers.replacement_parser import ReplacementParser
-from .parsers.split_diff_parser import SplitDiffParser
-from .parsers.unified_diff_parser import UnifiedDiffParser
-from .session_input import collect_user_input
-from .session_stream import SessionStream
+from mentat.session_input import collect_user_input
+from mentat.session_stream import SessionStream
 
 parser_map: dict[str, Parser] = {
     "block": BlockParser(),

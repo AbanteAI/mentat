@@ -4,13 +4,12 @@ import os
 from enum import Enum
 from pathlib import Path
 
+from mentat.code_map import get_code_map
+from mentat.diff_context import annotate_file_message, parse_diff
+from mentat.git_handler import get_diff_for_file
+from mentat.llm_api import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import sha256
-
-from .code_map import get_code_map
-from .diff_context import annotate_file_message, parse_diff
-from .git_handler import get_diff_for_file
-from .llm_api import count_tokens
 
 
 class Interval:
@@ -53,7 +52,7 @@ class CodeMessageLevel(Enum):
         self.description = description
 
 
-class CodeFile:
+class CodeFeature:
     """
     Represents a section of the code_message which is included with the prompt.
     Includes a section of code and an annotation method.
@@ -91,7 +90,7 @@ class CodeFile:
 
     def __repr__(self):
         return (
-            f"CodeFile(fname={self.path.name}, intervals={self.intervals},"
+            f"CodeFeature(fname={self.path.name}, intervals={self.intervals},"
             f" level={self.level}, diff={self.diff})"
         )
 
@@ -166,11 +165,11 @@ class CodeFile:
         return count_tokens("\n".join(code_message), model)
 
 
-async def count_feature_tokens(features: list[CodeFile], model: str) -> list[int]:
+async def count_feature_tokens(features: list[CodeFeature], model: str) -> list[int]:
     """Return the number of tokens in each feature."""
     sem = asyncio.Semaphore(10)
 
-    async def _count_tokens(feature: CodeFile) -> int:
+    async def _count_tokens(feature: CodeFeature) -> int:
         async with sem:
             return feature.count_tokens(model)
 

@@ -1,6 +1,6 @@
 import pytest
 
-from mentat.code_file import CodeFile
+from mentat.code_feature import CodeFeature
 from mentat.embeddings import _batch_ffd, get_feature_similarity_scores
 
 
@@ -12,16 +12,16 @@ def test_batch_ffd():
     assert result == expected
 
 
-def _make_code_file(path, text):
+def _make_code_feature(path, text):
     with open(path, "w") as f:
         f.write(text)
-    return CodeFile(path)
+    return CodeFeature(path)
 
 
 @pytest.mark.asyncio
 async def test_get_feature_similarity_scores(mocker, mock_session_context):
     prompt = "example prompt"
-    features = [_make_code_file(f"file{i}.txt", f"File {i}") for i in range(3)]
+    features = [_make_code_feature(f"file{i}.txt", f"File {i}") for i in range(3)]
     mocker.patch(
         "mentat.embeddings.call_embedding_api",
         return_value=[

@@ -1,8 +1,7 @@
+from mentat.conversation import MessageRole
 from mentat.parsers.file_edit import FileEdit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import collect_user_input
-
-from .conversation import MessageRole
 
 
 async def get_user_feedback_on_edits(

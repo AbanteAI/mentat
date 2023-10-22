@@ -7,7 +7,7 @@ from timeit import default_timer
 
 import numpy as np
 
-from mentat.code_file import CodeFile, count_feature_tokens
+from mentat.code_feature import CodeFeature, count_feature_tokens
 from mentat.config_manager import mentat_dir_path
 from mentat.errors import MentatError
 from mentat.llm_api import (
@@ -84,7 +84,7 @@ def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
 
 
 async def get_feature_similarity_scores(
-    prompt: str, features: list[CodeFile]
+    prompt: str, features: list[CodeFeature]
 ) -> list[float]:
     """Return the similarity scores for a given prompt and list of features."""
     global database

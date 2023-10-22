@@ -3,16 +3,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
-from mentat.session_context import SESSION_CONTEXT
-from mentat.session_stream import SessionStream
-
-from .errors import UserError
-from .git_handler import (
+from mentat.errors import UserError
+from mentat.git_handler import (
     check_head_exists,
     get_diff_for_file,
     get_files_in_diff,
     get_treeish_metadata,
 )
+from mentat.session_context import SESSION_CONTEXT
+from mentat.session_stream import SessionStream
 
 
 @dataclass
