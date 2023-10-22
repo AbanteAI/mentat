@@ -10,7 +10,7 @@ import attr
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
-from .code_file import CodeFile, CodeMessageLevel, count_feature_tokens
+from .code_feature import CodeFeature, CodeMessageLevel, count_feature_tokens
 from .code_map import check_ctags_disabled
 from .diff_context import DiffContext
 from .embeddings import get_feature_similarity_scores
@@ -37,10 +37,10 @@ class CodeContextSettings:
 
 class CodeContext:
     settings: CodeContextSettings
-    include_files: dict[Path, CodeFile]
+    include_files: dict[Path, CodeFeature]
     diff_context: DiffContext
     code_map: bool = True
-    features: list[CodeFile] = []
+    features: list[CodeFeature] = []
 
     def __init__(
         self,
@@ -200,11 +200,11 @@ class CodeContext:
             code_message += f.get_code_message()
         return "\n".join(code_message)
 
-    def _get_include_features(self) -> list[CodeFile]:
+    def _get_include_features(self) -> list[CodeFeature]:
         session_context = SESSION_CONTEXT.get()
         git_root = session_context.git_root
 
-        include_features = list[CodeFile]()
+        include_features = list[CodeFeature]()
         for path, feature in self.include_files.items():
             if feature.level == CodeMessageLevel.INTERVAL:
                 interval_str = ",".join(f"{i.start}-{i.end}" for i in feature.intervals)
@@ -212,10 +212,10 @@ class CodeContext:
             diff_target = (
                 self.diff_context.target if path in self.diff_context.files else None
             )
-            feature = CodeFile(path, feature.level, diff=diff_target)
+            feature = CodeFeature(path, feature.level, diff=diff_target)
             include_features.append(feature)
 
-        def _feature_relative_path(f: CodeFile) -> str:
+        def _feature_relative_path(f: CodeFeature) -> str:
             return os.path.relpath(f.path, git_root)
 
         return sorted(include_features, key=_feature_relative_path)
@@ -224,9 +224,9 @@ class CodeContext:
         self,
         prompt: str,
         model: str,
-        include_features: list[CodeFile],
+        include_features: list[CodeFeature],
         max_tokens: int,
-    ) -> list[CodeFile]:
+    ) -> list[CodeFeature]:
         session_context = SESSION_CONTEXT.get()
         git_root = session_context.git_root
 
@@ -240,7 +240,7 @@ class CodeContext:
         if not self.settings.no_code_map:
             levels = [CodeMessageLevel.CMAP_FULL, CodeMessageLevel.CMAP] + levels
         for level in levels:
-            _features = list[CodeFile]()
+            _features = list[CodeFeature]()
             for path in get_non_gitignored_files(git_root):
                 abs_path = git_root / path
                 if (
@@ -254,7 +254,7 @@ class CodeContext:
                     if abs_path in self.diff_context.files
                     else None
                 )
-                feature = CodeFile(abs_path, level=level, diff=diff_target)
+                feature = CodeFeature(abs_path, level=level, diff=diff_target)
                 _features.append(feature)
             level_length = sum(await count_feature_tokens(_features, model))
             if level_length < max_auto_tokens:
@@ -262,7 +262,7 @@ class CodeContext:
                 break
 
         # Sort by relative path
-        def _feature_relative_path(f: CodeFile) -> str:
+        def _feature_relative_path(f: CodeFeature) -> str:
             return os.path.relpath(f.path, git_root)
 
         all_features = sorted(all_features, key=_feature_relative_path)
@@ -315,7 +315,7 @@ class CodeContext:
 
     async def search(
         self, query: str, max_results: int | None = None
-    ) -> list[tuple[CodeFile, float]]:
+    ) -> list[tuple[CodeFeature, float]]:
         """Return the top n features that are most similar to the query."""
         session_context = SESSION_CONTEXT.get()
         git_root = session_context.git_root
@@ -328,14 +328,14 @@ class CodeContext:
             )
             return []
 
-        all_features = list[CodeFile]()
+        all_features = list[CodeFeature]()
         for path in get_non_gitignored_files(git_root):
             if not is_file_text_encoded(path):
                 continue
             level = CodeMessageLevel.CODE
             diff = self.diff_context.target if path in self.diff_context.files else None
             user_included = path in self.include_files
-            all_features.append(CodeFile(path, level, diff, user_included))
+            all_features.append(CodeFeature(path, level, diff, user_included))
 
         sim_scores = await get_feature_similarity_scores(query, all_features)
         all_features_scored = zip(all_features, sim_scores)

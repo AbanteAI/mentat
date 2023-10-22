@@ -4,7 +4,7 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.code_file import CodeFile
+from mentat.code_feature import CodeFeature
 from mentat.commands import Command, ContextCommand, HelpCommand, InvalidCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
@@ -207,7 +207,7 @@ async def test_search_command(
         ]
     )
     mock_call_llm_api.set_generator_values(["Answer"])
-    mock_feature = CodeFile(
+    mock_feature = CodeFeature(
         Path(temp_testbed) / "multifile_calculator" / "calculator.py"
     )
     mock_score = 1.0
