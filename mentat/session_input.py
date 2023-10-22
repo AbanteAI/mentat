@@ -4,10 +4,9 @@ import shlex
 from typing import Any, Coroutine
 
 from mentat.commands import Command
+from mentat.errors import RemoteKeyboardInterrupt, SessionExit
 from mentat.session_context import SESSION_CONTEXT
-
-from .errors import RemoteKeyboardInterrupt, SessionExit
-from .session_stream import StreamMessage
+from mentat.session_stream import StreamMessage
 
 
 async def _get_input_request(**kwargs: Any) -> StreamMessage:

@@ -15,10 +15,9 @@ from backoff.types import Details
 from dotenv import load_dotenv
 from openai.error import AuthenticationError, RateLimitError, Timeout
 
+from mentat.config_manager import mentat_dir_path
+from mentat.errors import MentatError, UserError
 from mentat.session_context import SESSION_CONTEXT
-
-from .config_manager import mentat_dir_path
-from .errors import MentatError, UserError
 
 package_name = __name__.split(".")[0]
 

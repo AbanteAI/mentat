@@ -4,13 +4,12 @@ import os
 from enum import Enum
 from pathlib import Path
 
+from mentat.code_map import get_code_map
+from mentat.diff_context import annotate_file_message, parse_diff
+from mentat.git_handler import get_diff_for_file
+from mentat.llm_api import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import sha256
-
-from .code_map import get_code_map
-from .diff_context import annotate_file_message, parse_diff
-from .git_handler import get_diff_for_file
-from .llm_api import count_tokens
 
 
 class Interval:

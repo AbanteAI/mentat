@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Any, AsyncGenerator, Dict, List, cast
 from uuid import UUID, uuid4
 
-from .broadcast import Broadcast
+from mentat.broadcast import Broadcast
 
 
 class StreamMessageSource(Enum):

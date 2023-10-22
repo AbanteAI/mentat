@@ -12,9 +12,10 @@ from openai import InvalidRequestError
 from mentat.llm_api import call_llm_api, setup_api_key
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
-
-from .exercise_runners.exercise_runner_factory import ExerciseRunnerFactory
-from .utils import clone_repo
+from tests.benchmarks.exercise_runners.exercise_runner_factory import (
+    ExerciseRunnerFactory,
+)
+from tests.benchmarks.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
