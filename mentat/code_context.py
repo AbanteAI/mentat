@@ -34,6 +34,29 @@ class CodeContextSettings:
     auto_tokens: Optional[int] = None
 
 
+def _get_all_features(
+    git_root: Path,
+    include_files: dict[Path, CodeFeature],
+    diff_context: DiffContext,
+    level: Optional[CodeMessageLevel],
+) -> list[CodeFeature]:
+    _features = list[CodeFeature]()
+    for path in get_non_gitignored_files(git_root):
+        abs_path = git_root / path
+        if (
+            abs_path in include_files
+            or abs_path.is_dir()
+            or not is_file_text_encoded(abs_path)
+        ):
+            continue
+        diff_target = diff_context.target if abs_path in diff_context.files else None
+        # TODO: Try to get function-level
+        level = CodeMessageLevel.CODE if level is None else level
+        feature = CodeFeature(abs_path, level=level, diff=diff_target)
+        _features.append(feature)
+    return _features
+
+
 class CodeContext:
     settings: CodeContextSettings
     include_files: dict[Path, CodeFeature]
@@ -239,22 +262,9 @@ class CodeContext:
         if not self.settings.no_code_map:
             levels = [CodeMessageLevel.CMAP_FULL, CodeMessageLevel.CMAP] + levels
         for level in levels:
-            _features = list[CodeFeature]()
-            for path in get_non_gitignored_files(git_root):
-                abs_path = git_root / path
-                if (
-                    abs_path in self.include_files
-                    or abs_path.is_dir()
-                    or not is_file_text_encoded(abs_path)
-                ):
-                    continue
-                diff_target = (
-                    self.diff_context.target
-                    if abs_path in self.diff_context.files
-                    else None
-                )
-                feature = CodeFeature(abs_path, level=level, diff=diff_target)
-                _features.append(feature)
+            _features = _get_all_features(
+                git_root, self.include_files, self.diff_context, level
+            )
             level_length = sum(await count_feature_tokens(_features, model))
             if level_length < max_auto_tokens:
                 all_features += _features
@@ -327,15 +337,9 @@ class CodeContext:
             )
             return []
 
-        all_features = list[CodeFeature]()
-        for path in get_non_gitignored_files(git_root):
-            if not is_file_text_encoded(path):
-                continue
-            level = CodeMessageLevel.CODE
-            diff = self.diff_context.target if path in self.diff_context.files else None
-            user_included = path in self.include_files
-            all_features.append(CodeFeature(path, level, diff, user_included))
-
+        all_features = _get_all_features(
+            git_root, self.include_files, self.diff_context, CodeMessageLevel.CODE
+        )
         sim_scores = await get_feature_similarity_scores(query, all_features)
         all_features_scored = zip(all_features, sim_scores)
         all_features_sorted = sorted(
