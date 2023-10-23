@@ -7,8 +7,13 @@ from typing import Optional
 
 import attr
 
-from mentat.code_feature import CodeFeature, CodeMessageLevel, count_feature_tokens
-from mentat.code_map import check_ctags_disabled, get_ctags
+from mentat.code_feature import (
+    CodeFeature,
+    CodeMessageLevel,
+    count_feature_tokens,
+    split_file_into_intervals,
+)
+from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.embeddings import get_feature_similarity_scores
 from mentat.git_handler import get_non_gitignored_files, get_paths_with_git_diffs
@@ -32,54 +37,6 @@ class CodeContextSettings:
     no_code_map: bool = False
     use_embeddings: bool = False
     auto_tokens: Optional[int] = None
-
-
-def _split_file_into_intervals(
-    git_root: Path, feature: CodeFeature
-) -> list[CodeFeature]:
-    if feature.level != CodeMessageLevel.CODE:
-        return [feature]
-
-    # Get ctags data (name and start line) and determine end line
-    ctags = list(get_ctags(git_root, feature.path))
-    ctags = sorted(ctags, key=lambda x: int(x[4]))  # type: ignore
-    named_intervals = list[tuple[str, int, int]]()  # Name, Start, End
-    _last_item = tuple[str, int]()
-    for tag in ctags:
-        (scope, _, name, _, line_number) = tag  # Kind and Signature ignored
-        if name is None or line_number is None:
-            continue
-        key = name
-        if scope is not None:
-            key = f"{scope}.{name}"
-        if _last_item:
-            named_intervals.append((
-                _last_item[0], _last_item[1], int(line_number) - 1 # type: ignore
-            ))
-        else:
-            line_number = 0
-        _last_item = (key, int(line_number))
-    if _last_item:
-        named_intervals.append((
-            _last_item[0], _last_item[1], -1 # type: ignore
-        ))        
-    
-    if len(named_intervals) <= 1:
-        return [feature]
-
-    # Create and return separate features for each interval
-    _features = list[CodeFeature]()
-    for name, start, end in named_intervals:
-        feature_string = f"{feature.path}:{start}-{end}"
-        _feature = CodeFeature(
-            feature_string,
-            level=CodeMessageLevel.INTERVAL,
-            diff=feature.diff,
-            user_included=feature.user_included,
-        )
-        _features.append(_feature)
-    return _features
-    
 
 
 def _get_all_features(
@@ -110,7 +67,7 @@ def _get_all_features(
                 abs_path, level=level, diff=diff_target, user_included=user_included
             )
             if code_map:
-                _split_features = _split_file_into_intervals(git_root, _feature)
+                _split_features = split_file_into_intervals(git_root, _feature)
                 _features += _split_features
             else:
                 _features.append(_feature)
@@ -140,6 +97,8 @@ class CodeContext:
         self.diff_context = DiffContext(
             stream, git_root, self.settings.diff, self.settings.pr_diff
         )
+        # TODO: This is a dict so we can quickly reference either a path (key)
+        # or the CodeFeature (value) and its interval. Redundant.
         self.include_files = {}
 
     def set_paths(self, paths: list[Path], exclude_paths: list[Path]):
@@ -294,13 +253,16 @@ class CodeContext:
 
         include_features = list[CodeFeature]()
         for path, feature in self.include_files.items():
-            if feature.level == CodeMessageLevel.INTERVAL:
-                interval_str = ",".join(f"{i.start}-{i.end}" for i in feature.intervals)
-                path = f"{path}:{interval_str}"
-            diff_target = (
-                self.diff_context.target if path in self.diff_context.files else None
+            annotations = self.diff_context.get_annotations(path)
+            has_diff = any(
+                a.intersects(i) for a in annotations for i in feature.intervals
             )
-            feature = CodeFeature(path, feature.level, diff=diff_target)
+            feature = CodeFeature(
+                feature.ref(),
+                feature.level,
+                diff=self.diff_context.target if has_diff else None,
+                user_included=True,
+            )
             include_features.append(feature)
 
         def _feature_relative_path(f: CodeFeature) -> str:

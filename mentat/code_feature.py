@@ -1,42 +1,63 @@
+from __future__ import annotations
+
 import asyncio
 import math
 import os
 from enum import Enum
 from pathlib import Path
 
-from mentat.code_map import get_code_map
+from mentat.code_map import get_code_map, get_ctags
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.git_handler import get_diff_for_file
+from mentat.interval import Interval, parse_intervals
 from mentat.llm_api import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import sha256
 
 
-class Interval:
-    def __init__(
-        self,
-        start: int | float,
-        end: int | float,
-    ):
-        self.start = start
-        self.end = end
+def split_file_into_intervals(
+    git_root: Path, feature: CodeFeature
+) -> list[CodeFeature]:
+    if feature.level != CodeMessageLevel.CODE:
+        return [feature]
 
-    def contains(self, line_number: int):
-        return self.start <= line_number <= self.end
+    # Get ctags data (name and start line) and determine end line
+    ctags = list(get_ctags(git_root, feature.path))
+    ctags = sorted(ctags, key=lambda x: int(x[4]))  # type: ignore
+    named_intervals = list[tuple[str, int, int]]()  # Name, Start, End
+    _last_item = tuple[str, int]()
+    for tag in ctags:
+        (scope, _, name, _, line_number) = tag  # Kind and Signature ignored
+        if name is None or line_number is None:
+            continue
+        key = name
+        if scope is not None:
+            key = f"{scope}.{name}"
+        if _last_item:
+            named_intervals.append(
+                (_last_item[0], _last_item[1], int(line_number) - 1)  # type: ignore
+            )
+        else:
+            line_number = 0
+        _last_item = (key, int(line_number))
+    if _last_item:
+        named_intervals.append((_last_item[0], _last_item[1], -1))  # type: ignore
 
+    if len(named_intervals) <= 1:
+        return [feature]
 
-def parse_intervals(interval_string: str) -> list[Interval]:
-    try:
-        intervals = list[Interval]()
-        for interval in interval_string.split(","):
-            interval = interval.split("-", 1)
-            if len(interval) == 1:
-                intervals += [Interval(int(interval[0]), int(interval[0]))]
-            else:
-                intervals += [Interval(int(interval[0]), int(interval[1]))]
-        return intervals
-    except (ValueError, IndexError):
-        return []
+    # Create and return separate features for each interval
+    _features = list[CodeFeature]()
+    for name, start, end in named_intervals:
+        feature_string = f"{feature.path}:{start}-{end}"
+        _feature = CodeFeature(
+            feature_string,
+            level=CodeMessageLevel.INTERVAL,
+            diff=feature.diff,
+            user_included=feature.user_included,
+        )
+        _features.append(_feature)
+    return _features
 
 
 class CodeMessageLevel(Enum):
@@ -94,6 +115,12 @@ class CodeFeature:
             f" level={self.level}, diff={self.diff})"
         )
 
+    def ref(self):
+        if self.level == CodeMessageLevel.INTERVAL:
+            intervals_string = ",".join(f"{i.start}-{i.end}" for i in self.intervals)
+            return f"{self.path}:{intervals_string}"
+        return str(self.path)
+
     def contains_line(self, line_number: int):
         return any([interval.contains(line_number) for interval in self.intervals])
 
@@ -109,10 +136,7 @@ class CodeFeature:
         abs_path = Path(git_root / self.path)
         rel_path = Path(os.path.relpath(abs_path, git_root))
         posix_rel_path = Path(rel_path).as_posix()
-        if self.user_included:
-            filename = f"USER INCLUDED: {posix_rel_path}"
-        else:
-            filename = f"{posix_rel_path}"
+        filename = f"{posix_rel_path}"
         code_message.append(filename)
 
         if self.level in {CodeMessageLevel.CODE, CodeMessageLevel.INTERVAL}:

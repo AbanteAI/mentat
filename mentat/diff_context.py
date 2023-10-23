@@ -1,5 +1,4 @@
 import subprocess
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -10,18 +9,18 @@ from mentat.git_handler import (
     get_files_in_diff,
     get_treeish_metadata,
 )
+from mentat.interval import Interval
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
 
-@dataclass
-class DiffAnnotation:
-    start: int
+class DiffAnnotation(Interval):
     message: list[str]
 
-    @property
-    def length(self):
-        return sum(bool(line.startswith("+")) for line in self.message)
+    def __init__(self, start: int, message: list[str]):
+        self.message = message
+        self.length = sum(bool(line.startswith("+")) for line in self.message)
+        super().__init__(start, start + self.length)
 
 
 def parse_diff(diff: str) -> list[DiffAnnotation]:
@@ -151,6 +150,16 @@ class DiffContext:
             self._files_cache = [git_root / f for f in get_files_in_diff(self.target)]
         return self._files_cache
 
+    _annotations_cache: dict[Path, list[DiffAnnotation]] = {}
+
+    def get_annotations(self, rel_path: Path) -> list[DiffAnnotation]:
+        if rel_path not in self.files:
+            return []
+        if rel_path not in self._annotations_cache:
+            diff = get_diff_for_file(self.target, rel_path)
+            self._annotations_cache[rel_path] = parse_diff(diff)
+        return self._annotations_cache[rel_path]
+
     def get_display_context(self) -> str:
         if not self.files:
             return ""
@@ -168,11 +177,7 @@ class DiffContext:
         self, rel_path: Path, file_message: list[str]
     ) -> list[str]:
         """Return file_message annotated with active diff."""
-        if not self.files:
-            return file_message
-
-        diff = get_diff_for_file(self.target, rel_path)
-        annotations = parse_diff(diff)
+        annotations = self.get_annotations(rel_path)
         return annotate_file_message(file_message, annotations)
 
     def clear_cache(self):

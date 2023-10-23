@@ -9,7 +9,7 @@ from mentat.session_context import SESSION_CONTEXT
 
 def get_ctags(
     root: Path, file_path: Path, exclude_signatures: bool = False
-) -> set[tuple[str|int|None, ...]]:
+) -> set[tuple[str | int | None, ...]]:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
@@ -32,7 +32,7 @@ def get_ctags(
     output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
-    ctags = set[tuple[str|int|None, ...]]()
+    ctags = set[tuple[str | int | None, ...]]()
     for output_line in output_lines:
         try:
             tag = json.loads(output_line)
