@@ -21,8 +21,7 @@ from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from tests.benchmarks.utils import clone_repo
 
-system_prompt = dedent(
-    """\
+system_prompt = dedent("""\
         You are part of an automated system for making synthetic data. You will be given the \
         output of `git show` for a commit. Your job is to write down what could have been a \
         user request that would lead to this commit. Focus more on the feature added or bug \
@@ -30,8 +29,7 @@ system_prompt = dedent(
         END. Then write a step by step plan which if followed would lead to this commit. \
         Please respond with only those two things separated by END. Do not prepend either \
         one with additional labels such as "User Request:" or "Plan:". Don't surround either \
-        with quotes or other delimiters."""
-)
+        with quotes or other delimiters.""")
 
 
 def ask_gpt_for_prompt_and_plan(hexsha, diff):
