@@ -19,7 +19,10 @@ MIN_INTERVAL_LINES = 10
 
 
 def split_file_into_intervals(
-    git_root: Path, feature: CodeFeature, min_lines: int | None = None
+    git_root: Path,
+    feature: CodeFeature,
+    min_lines: int | None = None,
+    user_features: list[CodeFeature] = [],
 ) -> list[CodeFeature]:
     session_context = SESSION_CONTEXT.get()
     code_file_manager = session_context.code_file_manager
@@ -62,12 +65,15 @@ def split_file_into_intervals(
     # Create and return separate features for each interval
     _features = list[CodeFeature]()
     for name, start, end in named_intervals:
+        _user_included = any(
+            u.contains_line(i) for u in user_features for i in range(start, end + 1)
+        )
         feature_string = f"{feature.path}:{start}-{end}"
         _feature = CodeFeature(
             feature_string,
             level=CodeMessageLevel.INTERVAL,
             diff=feature.diff,
-            user_included=feature.user_included,
+            user_included=_user_included,
             name=name,
         )
         _features.append(_feature)

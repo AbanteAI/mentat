@@ -62,17 +62,20 @@ def _get_all_features(
         user_included = path in include_files
         if level == CodeMessageLevel.INTERVAL:
             # Return intervals if code_map is enabled, otherwise return the full file
-            _feature = CodeFeature(
+            full_feature = CodeFeature(
                 abs_path,
                 level=CodeMessageLevel.CODE,
                 diff=diff_target,
                 user_included=user_included,
             )
             if not code_map:
-                _features.append(_feature)
+                _features.append(full_feature)
             else:
-                # TODO: Apply user_included using Interval.intersects
-                _split_features = split_file_into_intervals(git_root, _feature)
+                _split_features = split_file_into_intervals(
+                    git_root,
+                    full_feature,
+                    user_features=[f for f in include_files.values() if f.path == path],
+                )
                 _features += _split_features
         else:
             _feature = CodeFeature(
