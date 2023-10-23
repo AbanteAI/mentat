@@ -6,7 +6,7 @@ from unittest import TestCase
 import pytest
 
 from mentat.code_context import CodeContext, CodeContextSettings
-from mentat.code_feature import CodeFeature, CodeMessageLevel, Interval
+from mentat.code_feature import CodeMessageLevel
 from mentat.config_manager import ConfigManager
 from mentat.llm_api import count_tokens
 from tests.conftest import run_git_command

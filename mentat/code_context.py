@@ -319,8 +319,8 @@ class CodeContext:
 
             # Get embedding-similarity scores for all files
             all_code_features_sorted = await self.search(
-                query=prompt, 
-                level=CodeMessageLevel.CODE  
+                query=prompt,
+                level=CodeMessageLevel.CODE,
                 # TODO: Change to INTERVAL after update get_code_message
             )
             for code_feature, _ in all_code_features_sorted:
@@ -358,9 +358,9 @@ class CodeContext:
         return removed_paths, invalid_paths
 
     async def search(
-        self, 
-        query: str, 
-        max_results: int | None = None, 
+        self,
+        query: str,
+        max_results: int | None = None,
         level: CodeMessageLevel = CodeMessageLevel.INTERVAL,
     ) -> list[tuple[CodeFeature, float]]:
         """Return the top n features that are most similar to the query."""

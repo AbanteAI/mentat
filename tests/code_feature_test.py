@@ -1,10 +1,7 @@
 from pathlib import Path
 from textwrap import dedent
 
-import pytest
-
 from mentat.code_feature import CodeFeature, CodeMessageLevel, split_file_into_intervals
-from mentat.interval import Interval
 
 
 def test_split_file_into_intervals(temp_testbed, mock_session_context):
