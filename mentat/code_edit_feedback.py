@@ -35,11 +35,12 @@ async def get_user_feedback_on_edits(
                 MessageRole.User, "User chose not to apply any of your changes."
             )
         case "i":
+            suggested_edits_count = sum([len(fe.replacements) for fe in file_edits])
             edits_to_apply = await _user_filter_changes(file_edits)
             conversation.add_message(
                 MessageRole.User,
                 "User chose to apply"
-                f" {len(edits_to_apply)}/{len(file_edits)} of your suggested"
+                f" {len(edits_to_apply)}/{suggested_edits_count} of your suggested"
                 " changes.",
             )
         case _:
