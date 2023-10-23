@@ -75,14 +75,6 @@ def _batch_ffd(data: dict[str, int], batch_size: int) -> list[list[str]]:
     return batches
 
 
-# def _cosine_similarity(v1: List[float], v2: List[float]) -> float:
-#     """Calculate the cosine similarity between two vectors."""
-#     dot_product = sum(i * j for i, j in zip(v1, v2))
-#     norm_v1 = math.sqrt(sum(i * i for i in v1))
-#     norm_v2 = math.sqrt(sum(j * j for j in v2))
-#     return dot_product / (norm_v1 * norm_v2)
-
-
 def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
     """Calculate the cosine similarity between two vectors."""
     dot_product = np.dot(v1, v2)
