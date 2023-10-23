@@ -31,7 +31,7 @@ system_prompt = dedent("""\
         one with additional labels such as "User Request:" or "Plan:". Don't surround either \
         with quotes or other delimiters. Don't mention mechanical details like what tools you \
         might use or the need to open files in your step by step guide. Focus on the changes \
-        themselves. Number your steps 1,2,3...""")
+        themselves. Number your steps 1,2,3... Put each step on its own line.""")
 
 
 def ask_gpt_for_prompt_and_plan(hexsha, diff):
