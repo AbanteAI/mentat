@@ -12,7 +12,7 @@ async function buildServer(
     const options = await getLanguageServerOptions(7798);
 
     const mentatClient = new MentatClient(context, options);
-    await mentatClient.startLanguageClient();
+    mentatClient.startLanguageClient();
 
     const chatWebviewProvider = new WebviewProvider(context.extensionUri, mentatClient);
 

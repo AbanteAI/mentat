@@ -1,4 +1,5 @@
 import { exec } from "child_process";
+import { spawn } from "child_process";
 import * as fs from "fs";
 import * as net from "net";
 import * as os from "os";
@@ -6,14 +7,9 @@ import * as path from "path";
 import * as semver from "semver";
 import * as util from "util";
 import * as vscode from "vscode";
-import {
-  Executable,
-  ServerOptions,
-  StreamInfo,
-  TransportKind,
-} from "vscode-languageclient/node";
+import { ServerOptions, StreamInfo } from "vscode-languageclient/node";
 
-import { isPortInUse } from "./tcp";
+import { isPortInUse, waitForPortToBeInUse } from "./tcp";
 
 const MENTAT_COMMIT = "main";
 const PIP_INSTALL_ARGS = `install --upgrade "git+https://github.com/AbanteAI/mentat.git@${MENTAT_COMMIT}"`;
@@ -88,27 +84,22 @@ async function installMentat(
   console.log("Installed Mentat");
 }
 
-// TODO: actually build an executable
-function getMentatExecutable(port: number): ServerOptions {
-  let mentatPath = vscode.workspace
-    .getConfiguration("mentat")
-    .get<string>("mentatPath");
-  if (mentatPath === undefined) {
-    mentatPath = path.join(os.homedir(), ".mentat/venv/bin/mentat");
-    if (!fs.existsSync(mentatPath)) {
-      throw new Error("Unable to find a Mentat install on your system.");
-    }
-  }
+function spawnMentatProcess(port: number) {
+  const mentatPath = "/Users/waydegg/ghq/github.com/AbanteAI/mentat/run-mentat.sh";
 
-  const args = ["--port", `${port}`];
-  const transport = { kind: TransportKind.socket, port: port } as const;
-  const executable: Executable = {
-    command: mentatPath,
-    transport: transport,
-    args: args,
-  };
+  const ls = spawn(mentatPath);
 
-  return executable;
+  ls.stdout.on("data", (data: any) => {
+    console.log(`stdout: ${data}`);
+  });
+
+  ls.stderr.on("data", (data: any) => {
+    console.error(`stderr: ${data}`);
+  });
+
+  ls.on("close", (code: number) => {
+    console.log(`child process exited with code ${code}`);
+  });
 }
 
 function getMentatSocket(port: number): ServerOptions {
@@ -126,13 +117,9 @@ function getMentatSocket(port: number): ServerOptions {
 }
 
 async function getLanguageServerOptions(port: number) {
+  // spawnMentatProcess(port);
+  // await waitForPortToBeInUse(port, 5000);
   return getMentatSocket(port);
-  // if (await isPortInUse(port)) {
-  //   console.log("Using Mentat on running port");
-  //   return getMentatSocket(port);
-  // }
-  // console.log("Using Mentat executable");
-  // return getMentatExecutable(port);
 }
 
 export { installMentat, getLanguageServerOptions };

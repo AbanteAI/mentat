@@ -7,12 +7,17 @@ import {
   LanguageServerRequest,
 } from "types";
 import * as vscode from "vscode";
-import { LanguageClient, ServerOptions, State } from "vscode-languageclient/node";
+import {
+  LanguageClient,
+  LanguageClientOptions,
+  ServerOptions,
+  State,
+} from "vscode-languageclient/node";
 
 class MentatClient {
   context: vscode.ExtensionContext;
   languageServerOptions: ServerOptions;
-  private languageClient?: LanguageClient;
+  languageClient?: LanguageClient;
   private restartCount: number;
 
   constructor(context: vscode.ExtensionContext, serverOptions: ServerOptions) {
@@ -34,16 +39,18 @@ class MentatClient {
     );
   }
 
-  // Lifecylce methods
+  // Lifecycle methods
 
   async startLanguageClient() {
+    const languageClientOptions: LanguageClientOptions = {
+      documentSelector: [{ language: "*" }],
+    };
+
     this.languageClient = new LanguageClient(
       "mentat-server",
       "mentat-server",
       this.languageServerOptions,
-      {
-        documentSelector: [{ language: "*" }],
-      }
+      languageClientOptions
     );
 
     // Handle requests/notifications from the Webview
@@ -74,8 +81,6 @@ class MentatClient {
     this.languageClient.onDidChangeState(async (e) => {
       console.log(`language client state changed: ${e.oldState} ▸ ${e.newState} `);
       if (e.newState === State.Stopped) {
-        console.log("language client stopped, restarting...");
-        await this.languageClient?.dispose();
         console.log("language client disposed");
         vscode.window.withProgress(
           { location: vscode.ProgressLocation.Notification },
@@ -96,7 +101,9 @@ class MentatClient {
       { location: vscode.ProgressLocation.Notification },
       async (progress) => {
         progress.report({ message: "Mentat: Launching server..." });
+        console.log("STARTING LANGUAGE CLIENT");
         await this.languageClient?.start();
+        console.log("FINSHED STARTING LANGUAGE CLIENT");
       }
     );
   }

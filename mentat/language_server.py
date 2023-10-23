@@ -12,15 +12,14 @@ from typing import Any
 
 import debugpy
 import lsprotocol.types as lsp
-from ipdb import set_trace
 from pygls.protocol import LanguageServerProtocol
 from pygls.server import LanguageServer
 from typing_extensions import override
 
-from .logging_config import setup_logging
-from .session import Session
-from .session_manager import SessionManager
-from .session_stream import StreamMessageSource
+from mentat.logging_config import setup_logging
+from mentat.session import Session
+from mentat.session_manager import SessionManager
+from mentat.session_stream import StreamMessageSource
 
 setup_logging()
 
@@ -109,17 +108,22 @@ class MentatLanguageServer(LanguageServer):
             try:
                 await self._server.serve_forever()
             except (KeyboardInterrupt, SystemExit):
-                set_trace()
+                logger.debug("Got an exception")
                 pass
             finally:
+                logger.debug("Killing server")
                 if self._server:
                     await self.shutdown()
 
         def _start_cleanup(_: asyncio.Task):
             self._server_task = None
 
+        logger.debug("Creating start_tcp task")
+
         self._server_task = asyncio.create_task(_start())
         self._server_task.add_done_callback(_start_cleanup)
+
+        logger.debug("Created start_tcp task")
 
     @override
     async def shutdown(self):
@@ -139,11 +143,6 @@ class MentatLanguageServer(LanguageServer):
             self._server.close()
             await self._server.wait_closed()
             self._server = None
-
-    @lsp_feature(lsp.INITIALIZED)
-    async def on_initalized(self, params: Any):
-        # breakpoint()
-        print("INITALIZED")
 
     @lsp_feature(lsp.TEXT_DOCUMENT_DID_OPEN)
     async def handle_text_document_did_open(
@@ -203,10 +202,18 @@ class MentatLanguageServer(LanguageServer):
 
 class Server:
     def __init__(
-        self, language_server_host: str = "127.0.0.1", language_server_port: int = 7798
+        self,
+        language_server_host: str = "127.0.0.1",
+        language_server_port: int = 7798,
+        debugpy: bool = False,
+        debugpy_host: str = "localhost",
+        debugpy_port: int = 5678,
     ):
         self.language_server_host = language_server_host
         self.language_server_port = language_server_port
+        self.debugpy = debugpy
+        self.debugpy_host = debugpy_host
+        self.debugpy_port = debugpy_port
 
         self.language_server: MentatLanguageServer | None = None
         self.session_manager = SessionManager()
@@ -267,9 +274,10 @@ class Server:
         await self._shutdown()
 
     def run(self):
-        # debugpy.listen(("localhost", 5678))
-        # print("Waiting for client to connect to debugpy")
-        # debugpy.wait_for_client()
+        if self.debugpy:
+            debugpy.listen((self.debugpy_host, self.debugpy_port))
+            logger.debug("Waiting for client to connect to debugpy")
+            debugpy.wait_for_client()
         asyncio.run(self._run())
 
 
@@ -279,5 +287,11 @@ def run_cli():
     parser.add_argument("--port", default=7798, type=int)
     args = parser.parse_args()
 
-    server = Server(language_server_host=args.host, language_server_port=args.port)
+    server = Server(
+        language_server_host=args.host, language_server_port=args.port, debugpy=False
+    )
     server.run()
+
+
+if __name__ == "__main__":
+    run_cli()

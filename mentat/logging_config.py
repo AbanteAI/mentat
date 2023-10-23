@@ -79,4 +79,14 @@ def setup_logging():
     server_formatter = logging.Formatter("%(levelname)s - %(message)s")
     server_console_handler.setFormatter(server_formatter)
     server_logger.addHandler(server_console_handler)
+
+    # File handler
+    server_file_handler = logging.FileHandler(
+        "/Users/waydegg/ghq/github.com/AbanteAI/mentat/server.log", mode="w"
+    )  # Adjust the filename and mode as needed
+    server_file_handler.setFormatter(
+        server_formatter
+    )  # You can create a new formatter if needed
+    server_logger.addHandler(server_file_handler)
+
     server_logger.propagate = False
