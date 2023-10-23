@@ -9,10 +9,11 @@ import * as util from "util";
 import * as vscode from "vscode";
 import { ServerOptions, StreamInfo } from "vscode-languageclient/node";
 
+import { getGitRoot } from "./git";
 import { isPortInUse, waitForPortToBeInUse } from "./tcp";
 
-const MENTAT_COMMIT = "main";
-const PIP_INSTALL_ARGS = `install --upgrade "git+https://github.com/AbanteAI/mentat.git@${MENTAT_COMMIT}"`;
+// const PIP_INSTALL_ARGS = `install --upgrade "git+https://github.com/AbanteAI/mentat.git@main"`;
+const PIP_INSTALL_ARGS = `install "/Users/waydegg/ghq/github.com/AbanteAI/mentat"`;
 
 const aexec = util.promisify(exec);
 
@@ -79,13 +80,15 @@ async function installMentat(
   await aexec(activateVenvAndInstallMentatCommand);
   await vscode.workspace
     .getConfiguration("mentat")
-    .update("mentatPath", venvPath + "mentat", true);
+    .update("mentatPath", venvPath + "mentat-server", true);
 
   console.log("Installed Mentat");
 }
 
-function spawnMentatProcess(port: number) {
-  const mentatPath = "/Users/waydegg/ghq/github.com/AbanteAI/mentat/run-mentat.sh";
+async function spawnMentatProcess(port: number) {
+  const mentatPath: string = await vscode.workspace
+    .getConfiguration("mentat")
+    .get("mentatPath")!;
 
   const ls = spawn(mentatPath);
 
@@ -117,8 +120,8 @@ function getMentatSocket(port: number): ServerOptions {
 }
 
 async function getLanguageServerOptions(port: number) {
-  // spawnMentatProcess(port);
-  // await waitForPortToBeInUse(port, 5000);
+  // await spawnMentatProcess(port);
+  await waitForPortToBeInUse(port, 5000);
   return getMentatSocket(port);
 }
 

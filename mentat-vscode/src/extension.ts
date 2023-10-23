@@ -23,7 +23,8 @@ async function buildServer(
     );
   } catch (e) {
     vscode.window.showErrorMessage(
-      `${(e as any).message
+      `${
+        (e as any).message
       }\nEnsure that python3.10 is available and try installing Mentat manually: https://github.com/AbanteAI/mentat`,
       "Close"
     );

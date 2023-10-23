@@ -12,6 +12,18 @@ These instructions will run through the workflow of running the project locally 
 
 ### Steps
 
+#### Mentat (Server)
+
+1. Create a virtual environment and install mentat
+
+2. Run the Mentat Server
+
+```
+mentat-server
+```
+
+#### Extension
+
 1. Install the project
 
 ```
