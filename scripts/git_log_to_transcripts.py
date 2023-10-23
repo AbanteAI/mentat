@@ -114,7 +114,7 @@ async def translate_commits_to_transcripts(repo, count=10, skip=[]):
                 continue
 
             code_context_settings = CodeContextSettings(False, False, False, False, 0)
-            code_context = CodeContext(AsyncMock, os.getcwd(), code_context_settings)
+            code_context = CodeContext(AsyncMock(), os.getcwd(), code_context_settings)
             code_context.set_paths(bound_files(parsedLLMResponse.file_edits), [])
 
             code_message = await code_context.get_code_message("", "gpt-4-0314", 0)
