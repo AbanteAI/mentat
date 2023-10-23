@@ -8,7 +8,7 @@ from typing import Optional
 import attr
 
 from mentat.code_feature import CodeFeature, CodeMessageLevel, count_feature_tokens
-from mentat.code_map import check_ctags_disabled
+from mentat.code_map import check_ctags_disabled, get_ctags
 from mentat.diff_context import DiffContext
 from mentat.embeddings import get_feature_similarity_scores
 from mentat.git_handler import get_non_gitignored_files, get_paths_with_git_diffs
@@ -34,12 +34,63 @@ class CodeContextSettings:
     auto_tokens: Optional[int] = None
 
 
+def _split_file_into_intervals(
+    git_root: Path, feature: CodeFeature
+) -> list[CodeFeature]:
+    if feature.level != CodeMessageLevel.CODE:
+        return [feature]
+
+    # Get ctags data (name and start line) and determine end line
+    ctags = list(get_ctags(git_root, feature.path))
+    ctags = sorted(ctags, key=lambda x: int(x[4]))  # type: ignore
+    named_intervals = list[tuple[str, int, int]]()  # Name, Start, End
+    _last_item = tuple[str, int]()
+    for tag in ctags:
+        (scope, _, name, _, line_number) = tag  # Kind and Signature ignored
+        if name is None or line_number is None:
+            continue
+        key = name
+        if scope is not None:
+            key = f"{scope}.{name}"
+        if _last_item:
+            named_intervals.append((
+                _last_item[0], _last_item[1], int(line_number) - 1 # type: ignore
+            ))
+        else:
+            line_number = 0
+        _last_item = (key, int(line_number))
+    if _last_item:
+        named_intervals.append((
+            _last_item[0], _last_item[1], -1 # type: ignore
+        ))        
+    
+    if len(named_intervals) <= 1:
+        return [feature]
+
+    # Create and return separate features for each interval
+    _features = list[CodeFeature]()
+    for name, start, end in named_intervals:
+        feature_string = f"{feature.path}:{start}-{end}"
+        _feature = CodeFeature(
+            feature_string,
+            level=CodeMessageLevel.INTERVAL,
+            diff=feature.diff,
+            user_included=feature.user_included,
+        )
+        _features.append(_feature)
+    return _features
+    
+
+
 def _get_all_features(
     git_root: Path,
     include_files: dict[Path, CodeFeature],
     diff_context: DiffContext,
-    level: Optional[CodeMessageLevel],
+    code_map: bool,
+    level: Optional[CodeMessageLevel] = None,
 ) -> list[CodeFeature]:
+    """Return a list of all features in the git root, optionally filtered by level."""
+
     _features = list[CodeFeature]()
     for path in get_non_gitignored_files(git_root):
         abs_path = git_root / path
@@ -49,11 +100,26 @@ def _get_all_features(
             or not is_file_text_encoded(abs_path)
         ):
             continue
+
         diff_target = diff_context.target if abs_path in diff_context.files else None
-        # TODO: Try to get function-level
-        level = CodeMessageLevel.CODE if level is None else level
-        feature = CodeFeature(abs_path, level=level, diff=diff_target)
-        _features.append(feature)
+        user_included = path in include_files
+        if level is None:
+            # Return intervals if code_map is enabled, otherwise return the full file
+            level = CodeMessageLevel.CODE
+            _feature = CodeFeature(
+                abs_path, level=level, diff=diff_target, user_included=user_included
+            )
+            if code_map:
+                _split_features = _split_file_into_intervals(git_root, _feature)
+                _features += _split_features
+            else:
+                _features.append(_feature)
+        else:
+            _feature = CodeFeature(
+                abs_path, level=level, diff=diff_target, user_included=user_included
+            )
+            _features.append(_feature)
+
     return _features
 
 
@@ -263,7 +329,7 @@ class CodeContext:
             levels = [CodeMessageLevel.CMAP_FULL, CodeMessageLevel.CMAP] + levels
         for level in levels:
             _features = _get_all_features(
-                git_root, self.include_files, self.diff_context, level
+                git_root, self.include_files, self.diff_context, self.code_map, level
             )
             level_length = sum(await count_feature_tokens(_features, model))
             if level_length < max_auto_tokens:
@@ -338,7 +404,7 @@ class CodeContext:
             return []
 
         all_features = _get_all_features(
-            git_root, self.include_files, self.diff_context, CodeMessageLevel.CODE
+            git_root, self.include_files, self.diff_context, self.code_map
         )
         sim_scores = await get_feature_similarity_scores(query, all_features)
         all_features_scored = zip(all_features, sim_scores)

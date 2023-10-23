@@ -5,8 +5,8 @@ from unittest import TestCase
 
 import pytest
 
-from mentat.code_context import CodeContext, CodeContextSettings
-from mentat.code_feature import CodeMessageLevel
+from mentat.code_context import CodeContext, CodeContextSettings, _split_file_into_intervals
+from mentat.code_feature import CodeFeature, CodeMessageLevel, Interval
 from mentat.config_manager import ConfigManager
 from mentat.llm_api import count_tokens
 from tests.conftest import run_git_command
@@ -326,3 +326,23 @@ async def test_auto_tokens(temp_testbed, mock_session_context):
     assert await _count_auto_tokens_where(52) == 47  # fnames
     # Always return include_files, regardless of max
     assert await _count_auto_tokens_where(0) == 42  # Include_files only
+
+
+@pytest.mark.clear_testbed
+def test_split_file_into_intervals(temp_testbed, mock_session_context):
+    with open("file_1.py", "w") as f:
+        f.write(dedent("""\
+            def func_1(x, y):
+                return x + y
+            
+            def func_2():
+                return 3
+            """))
+    code_feature = CodeFeature(Path("file_1.py"), CodeMessageLevel.CODE)
+    interval_features = _split_file_into_intervals(temp_testbed, code_feature)
+    assert len(interval_features) == 2
+
+    interval_1 = interval_features[0].intervals[0]
+    interval_2 = interval_features[1].intervals[0]
+    assert (interval_1.start, interval_1.end) == (0, 3)
+    assert (interval_2.start, interval_2.end) == (4, -1)

@@ -7,9 +7,9 @@ from typing import Any
 from mentat.session_context import SESSION_CONTEXT
 
 
-def _get_ctags(
+def get_ctags(
     root: Path, file_path: Path, exclude_signatures: bool = False
-) -> set[tuple[Path, ...]]:
+) -> set[tuple[str|int|None, ...]]:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
@@ -32,7 +32,7 @@ def _get_ctags(
     output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
-    ctags = set[tuple[Path, ...]]()
+    ctags = set[tuple[str|int|None, ...]]()
     for output_line in output_lines:
         try:
             tag = json.loads(output_line)
@@ -98,7 +98,7 @@ def _make_ctags_human_readable(ctags: set[tuple[Any, ...]]) -> list[str]:
 def get_code_map(
     root: Path, file_path: Path, exclude_signatures: bool = False
 ) -> list[str]:
-    ctags = _get_ctags(root, file_path, exclude_signatures)
+    ctags = get_ctags(root, file_path, exclude_signatures)
     if not ctags:
         return []
     return _make_ctags_human_readable(ctags)
