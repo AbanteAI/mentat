@@ -21,7 +21,8 @@ from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from tests.benchmarks.utils import clone_repo
 
-system_prompt = dedent("""\
+system_prompt = dedent(
+    """\
         You are part of an automated system for making synthetic data. You will be given the \
         output of `git show` for a commit. Your job is to write down what could have been a \
         user request that would lead to this commit. Focus more on the feature added or bug \
@@ -29,7 +30,8 @@ system_prompt = dedent("""\
         END. Then write a step by step plan which if followed would lead to this commit. \
         Please respond with only those two things separated by END. Do not prepend either \
         one with additional labels such as "User Request:" or "Plan:". Don't surround either \
-        with quotes or other delimiters.""")
+        with quotes or other delimiters."""
+)
 
 
 def ask_gpt_for_prompt_and_plan(hexsha, diff):
@@ -68,16 +70,22 @@ def ask_gpt_for_prompt_and_plan(hexsha, diff):
 def bound_files(file_edits, padding=5):
     files = []
     for file_edit in file_edits:
-        if len(file_edit.replacements) == 0:
+        if file_edit.is_creation:
+            continue
+        if len(file_edit.replacements) != 0:
             min_line = 10000
-            max_line = 0
+            max_line = 1
             for replacement in file_edit.replacements:
                 min_line = min(min_line, replacement.starting_line)
                 max_line = max(max_line, replacement.ending_line)
             files.append(
                 Path(
                     "%s:%d-%d"
-                    % (file_edit.file_path, min_line - padding, max_line + padding)
+                    % (
+                        file_edit.file_path,
+                        max(1, min_line - padding),
+                        max_line + padding,
+                    )
                 )
             )
         else:
@@ -92,6 +100,8 @@ async def translate_commits_to_transcripts(repo, count=10, skip=[]):
         try:
             sha = commit.hexsha
             print("SHA:", sha)
+            # Necessary for CodeContext to work
+            repo.git.checkout(commit.parents[0].hexsha)
             if sha in skip:
                 continue
             shown = subprocess.check_output(["git", "show", sha]).decode("utf-8")
@@ -99,14 +109,15 @@ async def translate_commits_to_transcripts(repo, count=10, skip=[]):
                 print("Skipping because too long")
                 continue
 
-            # Necessary for CodeContext to work
-            repo.git.checkout(commit.parents[0].hexsha)
-
             parsedLLMResponse = GitParser().parse_string(shown)
+            # There are a lot of empty commits because they are created when another
+            # author merges a PR without squashing.
+            if len(parsedLLMResponse.file_edits) == 0:
+                continue
 
-            SESSION_CONTEXT.get().code_context.set_paths(
-                bound_files(parsedLLMResponse.file_edits), []
-            )
+            code_context_settings = CodeContextSettings(False, False, False, False, 0)
+            code_context = CodeContext(AsyncMock, os.getcwd(), code_context_settings)
+            code_context.set_paths(bound_files(parsedLLMResponse.file_edits), [])
 
             code_message = await code_context.get_code_message("", "gpt-4-0314", 0)
             prompt_and_plan = ask_gpt_for_prompt_and_plan(sha, shown)
@@ -199,3 +210,4 @@ if __name__ == "__main__":
     with open("transcripts_gpt4.jsonl", "a") as f:
         for transcript in gpt_4_examples:
             f.write(transcript + "\n")
+    repo.git.checkout(args.commit)
