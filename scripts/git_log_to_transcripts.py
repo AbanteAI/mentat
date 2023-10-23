@@ -116,7 +116,7 @@ async def translate_commits_to_transcripts(repo, count=10, skip=[]):
                 parsedLLMResponse
             )
             conversation = {
-                "message": [
+                "messages": [
                     {"role": "user", "content": prompt_and_plan["request"]},
                     {"role": "system", "content": code_message},
                     {"role": "assistant", "content": llmResponse},
