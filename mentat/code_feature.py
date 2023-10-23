@@ -5,6 +5,7 @@ import math
 import os
 from enum import Enum
 from pathlib import Path
+from typing import Optional
 
 from mentat.code_map import get_code_map, get_ctags
 from mentat.diff_context import annotate_file_message, parse_diff
@@ -14,10 +15,16 @@ from mentat.llm_api import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import sha256
 
+MIN_INTERVAL_LINES = 10
+
 
 def split_file_into_intervals(
-    git_root: Path, feature: CodeFeature
+    git_root: Path, feature: CodeFeature, min_lines: int | None = None
 ) -> list[CodeFeature]:
+    session_context = SESSION_CONTEXT.get()
+    code_file_manager = session_context.code_file_manager
+    n_lines = len(code_file_manager.read_file(feature.path))
+
     if feature.level != CodeMessageLevel.CODE:
         return [feature]
 
@@ -26,7 +33,7 @@ def split_file_into_intervals(
     ctags = sorted(ctags, key=lambda x: int(x[4]))  # type: ignore
     named_intervals = list[tuple[str, int, int]]()  # Name, Start, End
     _last_item = tuple[str, int]()
-    for tag in ctags:
+    for i, tag in enumerate(ctags):
         (scope, _, name, _, line_number) = tag  # Kind and Signature ignored
         if name is None or line_number is None:
             continue
@@ -34,14 +41,20 @@ def split_file_into_intervals(
         if scope is not None:
             key = f"{scope}.{name}"
         if _last_item:
-            named_intervals.append(
-                (_last_item[0], _last_item[1], int(line_number) - 1)  # type: ignore
-            )
+            _last_item_length = int(line_number) - _last_item[1]
+            min_lines = min_lines or MIN_INTERVAL_LINES
+            if _last_item_length < min_lines:
+                line_number = _last_item[1]
+            else:
+                named_intervals.append(
+                    (_last_item[0], _last_item[1], int(line_number) - 1)  # type: ignore
+                )
         else:
             line_number = 0
-        _last_item = (key, int(line_number))
-    if _last_item:
-        named_intervals.append((_last_item[0], _last_item[1], -1))  # type: ignore
+        if i == len(ctags) - 1:
+            named_intervals.append((str(key), int(line_number), n_lines))
+        else:
+            _last_item = (key, int(line_number))
 
     if len(named_intervals) <= 1:
         return [feature]
@@ -55,6 +68,7 @@ def split_file_into_intervals(
             level=CodeMessageLevel.INTERVAL,
             diff=feature.diff,
             user_included=feature.user_included,
+            name=name,
         )
         _features.append(_feature)
     return _features
@@ -91,6 +105,7 @@ class CodeFeature:
         level: CodeMessageLevel = CodeMessageLevel.CODE,
         diff: str | None = None,
         user_included: bool = False,
+        name: Optional[str] = None,
     ):
         if Path(path).exists():
             self.path = Path(path)
@@ -108,6 +123,7 @@ class CodeFeature:
         self.level = level
         self.diff = diff
         self.user_included = user_included
+        self.name = name
 
     def __repr__(self):
         return (
@@ -171,7 +187,9 @@ class CodeFeature:
         git_root = session_context.git_root
 
         abs_path = git_root / self.path
-        file_checksum = code_file_manager.get_file_checksum(Path(abs_path))
+        file_checksum = code_file_manager.get_file_checksum(
+            Path(abs_path), self.intervals
+        )
         return sha256(f"{file_checksum}{self.level.key}{self.diff}")
 
     _feature_checksum: str | None = None

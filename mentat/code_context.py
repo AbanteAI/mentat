@@ -44,9 +44,9 @@ def _get_all_features(
     include_files: dict[Path, CodeFeature],
     diff_context: DiffContext,
     code_map: bool,
-    level: Optional[CodeMessageLevel] = None,
+    level: CodeMessageLevel,
 ) -> list[CodeFeature]:
-    """Return a list of all features in the git root, optionally filtered by level."""
+    """Return a list of all features in the git root with given properties."""
 
     _features = list[CodeFeature]()
     for path in get_non_gitignored_files(git_root):
@@ -60,17 +60,20 @@ def _get_all_features(
 
         diff_target = diff_context.target if abs_path in diff_context.files else None
         user_included = path in include_files
-        if level is None:
+        if level == CodeMessageLevel.INTERVAL:
             # Return intervals if code_map is enabled, otherwise return the full file
-            level = CodeMessageLevel.CODE
             _feature = CodeFeature(
-                abs_path, level=level, diff=diff_target, user_included=user_included
+                abs_path,
+                level=CodeMessageLevel.CODE,
+                diff=diff_target,
+                user_included=user_included,
             )
-            if code_map:
+            if not code_map:
+                _features.append(_feature)
+            else:
+                # TODO: Apply user_included using Interval.intersects
                 _split_features = split_file_into_intervals(git_root, _feature)
                 _features += _split_features
-            else:
-                _features.append(_feature)
         else:
             _feature = CodeFeature(
                 abs_path, level=level, diff=diff_target, user_included=user_included
@@ -366,7 +369,11 @@ class CodeContext:
             return []
 
         all_features = _get_all_features(
-            git_root, self.include_files, self.diff_context, self.code_map
+            git_root,
+            self.include_files,
+            self.diff_context,
+            self.code_map,
+            CodeMessageLevel.INTERVAL,
         )
         sim_scores = await get_feature_similarity_scores(query, all_features)
         all_features_scored = zip(all_features, sim_scores)

@@ -13,6 +13,7 @@ from mentat.edit_history import (
     RenameAction,
 )
 from mentat.errors import MentatError
+from mentat.interval import Interval
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
 from mentat.utils import sha256
@@ -148,7 +149,18 @@ class CodeFileManager:
                     f.write("\n".join(new_lines))
         self.history.push_edits()
 
-    def get_file_checksum(self, path: Path) -> str:
+    def get_file_checksum(
+        self, path: Path, intervals: list[Interval] | None = None
+    ) -> str:
         if path.is_dir():
             return ""  # TODO: Build and maintain a hash tree for git_root
-        return sha256(path.read_text())
+        text = path.read_text()
+        if intervals is not None:
+            lines = text.splitlines()
+            filtered_lines = [
+                line
+                for i, line in enumerate(lines, start=1)
+                if any([interval.contains(i) for interval in intervals])
+            ]
+            text = "\n".join(filtered_lines)
+        return sha256(text)
