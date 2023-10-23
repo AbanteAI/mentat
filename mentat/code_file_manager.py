@@ -86,7 +86,15 @@ class CodeFileManager:
                     raise MentatError(
                         f"Attempted to edit non-existent file {file_edit.file_path}"
                     )
-                elif file_edit.file_path not in code_context.include_files:
+                context_features = (
+                    code_context.features or code_context.include_files.values()
+                )
+                missing_lines = False
+                for r in file_edit.replacements:
+                    for i in range(r.starting_line, r.ending_line):
+                        if not any(f.contains_line(i) for f in context_features):
+                            missing_lines = True
+                if not context_features or missing_lines:
                     stream.send(
                         f"Attempted to edit file {file_edit.file_path} not in context",
                         color="yellow",
