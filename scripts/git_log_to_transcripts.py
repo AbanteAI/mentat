@@ -29,7 +29,9 @@ system_prompt = dedent("""\
         END. Then write a step by step plan which if followed would lead to this commit. \
         Please respond with only those two things separated by END. Do not prepend either \
         one with additional labels such as "User Request:" or "Plan:". Don't surround either \
-        with quotes or other delimiters.""")
+        with quotes or other delimiters. Don't mention mechanical details like what tools you \
+        might use or the need to open files in your step by step guide. Focus on the changes \
+        themselves. Number your steps 1,2,3...""")
 
 
 def ask_gpt_for_prompt_and_plan(hexsha, diff):
