@@ -7,9 +7,9 @@ from typing import Any
 from mentat.session_context import SESSION_CONTEXT
 
 
-def get_code_map(
+def get_ctags(
     root: Path, file_path: Path, exclude_signatures: bool = False
-) -> list[str]:
+) -> set[tuple[str | int | None, ...]]:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
@@ -19,7 +19,7 @@ def get_code_map(
         "--input-encoding=utf-8",
         "--output-format=json",
         "--output-encoding=utf-8",
-        # "--fields=+n",
+        "--fields=+n",
     ]
     if exclude_signatures:
         ctags_cmd_args.append("--fields=-s")
@@ -32,7 +32,7 @@ def get_code_map(
     output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
-    ctags = set[tuple[Path, ...]]()
+    ctags = set[tuple[str | int | None, ...]]()
     for output_line in output_lines:
         try:
             tag = json.loads(output_line)
@@ -47,7 +47,17 @@ def get_code_map(
         kind = tag.get("kind")
         name = tag.get("name")
         signature = tag.get("signature")
-        # line_number = tag.get("line")  # TODO: Use to split CodeFeatures in CodeContext
+        line_number = tag.get("line")
+
+        ctags.add((scope, kind, name, signature, line_number))
+
+    return ctags
+
+
+def _make_ctags_human_readable(ctags: set[tuple[Any, ...]]) -> list[str]:
+    cleaned_tags = set[tuple[str, ...]]()
+    for tag in ctags:
+        (scope, kind, name, signature, _) = tag  # Line number currently unused
 
         last = name
         if signature:
@@ -58,13 +68,9 @@ def get_code_map(
             res.append(scope)
         res += [kind, last]
 
-        ctags.add(tuple(res))
+        cleaned_tags.add(tuple(res))
 
-    if len(ctags) == 0:
-        return []
-
-    # Build LLM-readable string representation of ctag objects
-    sorted_tags = sorted(ctags)
+    sorted_tags = sorted(cleaned_tags)
     output = ""
     last = [None] * len(sorted_tags[0])
     tab = "\t"
@@ -87,6 +93,15 @@ def get_code_map(
             indent += tab
         last = tag
     return output.splitlines()
+
+
+def get_code_map(
+    root: Path, file_path: Path, exclude_signatures: bool = False
+) -> list[str]:
+    ctags = get_ctags(root, file_path, exclude_signatures)
+    if not ctags:
+        return []
+    return _make_ctags_human_readable(ctags)
 
 
 def check_ctags_disabled() -> str | None:

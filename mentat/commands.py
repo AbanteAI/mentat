@@ -269,6 +269,7 @@ class SearchCommand(Command, command_name="search"):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
+        git_root = session_context.git_root
 
         if len(args) == 0:
             stream.send("No search query specified\n", color="yellow")
@@ -281,7 +282,12 @@ class SearchCommand(Command, command_name="search"):
             return
 
         for i, (feature, score) in enumerate(results, start=1):
-            stream.send(f"{i:2} {score:.3f} | {feature.path}")
+            label = feature.ref()
+            if label.startswith(str(git_root)):
+                label = label[len(str(git_root)) + 1 :]
+            if feature.name:
+                label += f' "{feature.name}"'
+            stream.send(f"{i:3} | {score:.3f} | {label}")
             if i > 1 and i % SEARCH_RESULT_BATCH_SIZE == 0:
                 # TODO: Required to avoid circular imports, but not ideal.
                 from mentat.session_input import ask_yes_no

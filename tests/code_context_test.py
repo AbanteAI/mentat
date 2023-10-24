@@ -5,9 +5,10 @@ from unittest import TestCase
 
 import pytest
 
-from mentat.code_context import CodeContext, CodeContextSettings
+from mentat.code_context import CodeContext, CodeContextSettings, _get_all_features
 from mentat.code_feature import CodeMessageLevel
 from mentat.config_manager import ConfigManager
+from mentat.diff_context import DiffContext
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
 from mentat.llm_api import count_tokens
@@ -328,6 +329,59 @@ async def test_auto_tokens(temp_testbed, mock_session_context):
     assert await _count_auto_tokens_where(52) == 47  # fnames
     # Always return include_files, regardless of max
     assert await _count_auto_tokens_where(0) == 42  # Include_files only
+
+
+@pytest.mark.clear_testbed
+def test_get_all_features(temp_testbed, mock_session_context):
+    # Create a sample file
+    path1 = Path(temp_testbed) / "sample_path1.py"
+    path2 = Path(temp_testbed) / "sample_path2.py"
+    with open(path1, "w") as file1:
+        file1.write("def sample_function():\n    pass\n")
+    with open(path2, "w") as file2:
+        file2.write("def sample_function():\n    pass\n")
+
+    # Test without include_files
+    diff_context = DiffContext(
+        mock_session_context.stream, mock_session_context.git_root
+    )
+    features = _get_all_features(
+        git_root=mock_session_context.git_root,
+        include_files={},
+        ignore_files=set(),
+        diff_context=diff_context,
+        code_map=False,
+        level=CodeMessageLevel.CODE,
+    )
+    assert len(features) == 2
+    feature1 = next(f for f in features if f.path == path1)
+    feature2 = next(f for f in features if f.path == path2)
+    for _f, _p in zip((feature1, feature2), (path1, path2)):
+        feature = next(f for f in features if f.path == _p)
+        assert feature.path == _p
+        assert feature.level == CodeMessageLevel.CODE
+        assert feature.diff is None
+        assert feature.user_included is False
+
+    # Test with include_files argument matching one file
+    include_files = {
+        path1: feature1,
+    }
+    features = _get_all_features(
+        git_root=mock_session_context.git_root,
+        include_files=include_files,
+        ignore_files=set(),
+        diff_context=diff_context,
+        code_map=False,
+        level=CodeMessageLevel.FILE_NAME,
+    )
+    assert len(features) == 2
+    feature1b = next(f for f in features if f.path == path1)
+    feature2b = next(f for f in features if f.path == path2)
+    assert feature1b.user_included is True
+    assert feature1b.level == CodeMessageLevel.FILE_NAME
+    assert feature2b.user_included is False
+    assert feature2b.level == CodeMessageLevel.FILE_NAME
 
 
 @pytest.mark.asyncio
