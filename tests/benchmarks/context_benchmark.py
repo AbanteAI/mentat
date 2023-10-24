@@ -28,9 +28,11 @@ a lot higher.
 """
 import os
 import subprocess
+from pathlib import Path
 
 import pytest
 
+from mentat.code_context import CodeContext, CodeContextSettings
 from mentat.code_feature import CodeFeature, CodeMessageLevel
 from mentat.git_handler import get_non_gitignored_files
 from mentat.llm_api import setup_api_key
@@ -44,6 +46,7 @@ tests = [
         "codebase_url": "http://github.com/AbanteAI/mentat",
         "codebase_name": "mentat",
         "commit": "a9f055e",
+        "args": {"paths": ["mentat/__init__.py"]},
         "prompt": (
             "I want to update all the files in git_handler to use the 'Repo' class from"
             " GitPython instead of calling subprocess. Update each function in"
@@ -64,6 +67,26 @@ tests = [
             # for other benchmarks
         ],
     },
+    {
+        "name": "simoc-abm: Change 'Lamp' to 'Electric Light'",
+        "codebase_url": "http://github.com/overthesun/simoc-abm",
+        "codebase_name": "simoc-abm",
+        "commit": "d77f44f",
+        "args": {"ignore_paths": ["src/simoc_abm/data_files", "test/*"]},
+        "prompt": (
+            "Rename 'lamp' to 'electric light' throughout the code. Update "
+            "instances of 'lamp' to 'electric_light', and 'Lamp' to 'Electric "
+            "Light', and if there's a class Lamp, should be class ElectricLight."
+        ),
+        "expected_features": [
+            "docs/api.rst:21-22",
+            "src/simoc_abm/agent_model.py:129-230",
+            "src/simoc_abm/agents/__init__.py",
+            "src/simoc_abm/agents/lamp.py",
+            "src/simoc_abm/agents/plant.py:135-197",
+        ],
+        "expected_edits": [],
+    },
 ]
 
 
@@ -72,20 +95,37 @@ async def test_code_context_performance(mock_session_context):
     setup_api_key()
 
     for test in tests:
-        print(f"\n\n{test['codebase_name']}/ \t '{test['prompt'][:50]}...'")
+        print(f"\n\n{test['name']}\n{test['prompt']}")
 
         code_dir = clone_repo(test["codebase_url"], test["codebase_name"])
         os.chdir(code_dir)
         if test["commit"]:
-            subprocess.run(["git", "checkout", test["commit"]])
-
+            subprocess.run(
+                ["git", "checkout", test["commit"]],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
         mock_session_context.git_root = code_dir
-        code_context = mock_session_context.code_context
 
-        # Create a context and run get_code_message to set the features
-        code_context.include_file("mentat/__init__.py")
-        code_context.settings.use_embeddings = True
-        code_context.settings.auto_tokens = 7000
+        paths = test["args"].get("paths", [])
+        exclude_paths = test["args"].get("exclude_paths", [])
+        ignore_paths = test["args"].get("ignore_paths", [])
+        rest = {
+            k: v
+            for k, v in test["args"].items()
+            if k not in ["paths", "exclude_paths", "ignore_paths"]
+        }
+        settings = CodeContextSettings(
+            use_embeddings=True,
+            auto_tokens=7000,
+            **rest,
+        )
+        code_context = CodeContext(
+            stream=mock_session_context.stream,
+            git_root=code_dir,
+            settings=settings,
+        )
+        code_context.set_paths(paths, exclude_paths, ignore_paths)
         _ = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)
 
         # Calculate y_pred and y_true
@@ -95,8 +135,9 @@ async def test_code_context_performance(mock_session_context):
         expected_features = {
             CodeFeature(f).path for f in test["expected_features"]
         }  # Ignore line numbers for now
-        y_pred = [f in actual for f in get_non_gitignored_files(code_dir)]
-        y_true = [f in expected_features for f in get_non_gitignored_files(code_dir)]
+        all_files = [Path(f) for f in get_non_gitignored_files(code_dir)]
+        y_pred = [f in actual for f in all_files]
+        y_true = [f in expected_features for f in all_files]
 
         _TP = sum([1 for p, t in zip(y_pred, y_true) if p and t])
         _TN = sum([1 for p, t in zip(y_pred, y_true) if not p and not t])

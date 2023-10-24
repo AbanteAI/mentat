@@ -75,6 +75,17 @@ def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
     return files_direct, files_from_dirs, invalid_paths
 
 
+def get_ignore_files(ignore_paths: list[Path]) -> set[Path]:
+    """Returns a set of files to ignore from a list of ignore paths."""
+
+    ignore_paths, _ = expand_paths(ignore_paths)
+
+    files_direct, files_from_dirs, _ = abs_files_from_list(
+        ignore_paths, check_for_text=False
+    )
+    return {f.path for f in files_direct | files_from_dirs}
+
+
 def get_include_files(
     paths: list[Path], exclude_paths: list[Path]
 ) -> tuple[Dict[Path, CodeFeature], list[str]]:
