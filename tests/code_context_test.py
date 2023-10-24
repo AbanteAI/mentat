@@ -359,7 +359,7 @@ def test_get_all_features(temp_testbed, mock_session_context):
         assert feature.level == CodeMessageLevel.CODE
         assert feature.diff is None
         assert feature.user_included is False
-        
+
     # Test with include_files argument matching one file
     include_files = {
         path1: feature1,
