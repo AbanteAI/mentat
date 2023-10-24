@@ -1,6 +1,7 @@
 [tool.isort]
 profile = "black"
 known_first_party = "mentat"
+skip = ["vscode/bundled", "tests/benchmarks/repos"]
 
 [tool.ruff]
 line-length = 120

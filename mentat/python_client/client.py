@@ -13,6 +13,7 @@ class PythonClient:
         self,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
+        ignore_paths: List[Path] = [],
         diff: str | None = None,
         pr_diff: str | None = None,
         no_code_map: bool = False,
@@ -21,6 +22,7 @@ class PythonClient:
     ):
         self.paths = paths
         self.exclude_paths = exclude_paths
+        self.ignore_paths = ignore_paths
         self.diff = diff
         self.pr_diff = pr_diff
         self.no_code_map = no_code_map
@@ -66,6 +68,7 @@ class PythonClient:
         self.session = Session(
             self.paths,
             self.exclude_paths,
+            self.ignore_paths,
             self.diff,
             self.pr_diff,
             self.no_code_map,

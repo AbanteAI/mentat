@@ -9,6 +9,8 @@ from mentat.code_context import CodeContext, CodeContextSettings, _get_all_featu
 from mentat.code_feature import CodeMessageLevel
 from mentat.config_manager import ConfigManager
 from mentat.diff_context import DiffContext
+from mentat.git_handler import get_non_gitignored_files
+from mentat.include_files import is_file_text_encoded
 from mentat.llm_api import count_tokens
 from tests.conftest import run_git_command
 
@@ -56,7 +58,7 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
     # Makes sure glob exclude config works
     mock_glob_exclude = mocker.MagicMock()
     mocker.patch.object(ConfigManager, "file_exclude_glob_list", new=mock_glob_exclude)
-    mock_glob_exclude.side_effect = [[os.path.join("glob_test", "**", "*.py")]]
+    mock_glob_exclude.return_value = [os.path.join("glob_test", "**", "*.py")]
 
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
@@ -346,6 +348,7 @@ def test_get_all_features(temp_testbed, mock_session_context):
     features = _get_all_features(
         git_root=mock_session_context.git_root,
         include_files={},
+        ignore_files=set(),
         diff_context=diff_context,
         code_map=False,
         level=CodeMessageLevel.CODE,
@@ -367,6 +370,7 @@ def test_get_all_features(temp_testbed, mock_session_context):
     features = _get_all_features(
         git_root=mock_session_context.git_root,
         include_files=include_files,
+        ignore_files=set(),
         diff_context=diff_context,
         code_map=False,
         level=CodeMessageLevel.FILE_NAME,
@@ -378,3 +382,29 @@ def test_get_all_features(temp_testbed, mock_session_context):
     assert feature1b.level == CodeMessageLevel.FILE_NAME
     assert feature2b.user_included is False
     assert feature2b.level == CodeMessageLevel.FILE_NAME
+
+
+@pytest.mark.asyncio
+async def test_get_code_message_ignore(temp_testbed, mock_session_context):
+    code_context_settings = CodeContextSettings(auto_tokens=7000)
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        code_context_settings,
+    )
+    code_context.set_paths([], [], ["scripts", "**/*.txt"])
+    code_message = await code_context.get_code_message("", "gpt-4", 1e6)
+
+    # Iterate through all files in temp_testbed; if they're not in the ignore
+    # list, they should be in the code message.
+    for file in get_non_gitignored_files(temp_testbed):
+        abs_path = temp_testbed / file
+        rel_path = abs_path.relative_to(temp_testbed).as_posix()
+        if (
+            not is_file_text_encoded(abs_path)
+            or "scripts" in rel_path
+            or rel_path.endswith(".txt")
+        ):
+            assert rel_path not in code_message
+        else:
+            assert rel_path in code_message

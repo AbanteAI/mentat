@@ -19,6 +19,7 @@ from mentat.embeddings import get_feature_similarity_scores
 from mentat.git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from mentat.include_files import (
     build_path_tree,
+    get_ignore_files,
     get_include_files,
     is_file_text_encoded,
     print_invalid_path,
@@ -42,6 +43,7 @@ class CodeContextSettings:
 def _get_all_features(
     git_root: Path,
     include_files: dict[Path, CodeFeature],
+    ignore_files: set[Path],
     diff_context: DiffContext,
     code_map: bool,
     level: CodeMessageLevel,
@@ -51,7 +53,11 @@ def _get_all_features(
     all_features = list[CodeFeature]()
     for path in get_non_gitignored_files(git_root):
         abs_path = git_root / path
-        if abs_path.is_dir() or not is_file_text_encoded(abs_path):
+        if (
+            abs_path.is_dir()
+            or not is_file_text_encoded(abs_path)
+            or abs_path in ignore_files
+        ):
             continue
 
         diff_target = diff_context.target if abs_path in diff_context.files else None
@@ -85,6 +91,7 @@ def _get_all_features(
 class CodeContext:
     settings: CodeContextSettings
     include_files: dict[Path, CodeFeature]
+    ignore_files: set[Path]
     diff_context: DiffContext
     code_map: bool = True
     features: list[CodeFeature] = []
@@ -102,11 +109,18 @@ class CodeContext:
         # TODO: This is a dict so we can quickly reference either a path (key)
         # or the CodeFeature (value) and its interval. Redundant.
         self.include_files = {}
+        self.ignore_files = set()
 
-    def set_paths(self, paths: list[Path], exclude_paths: list[Path]):
+    def set_paths(
+        self,
+        paths: list[Path],
+        exclude_paths: list[Path],
+        ignore_paths: list[Path] = [],
+    ):
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
             print_invalid_path(invalid_path)
+        self.ignore_files = get_ignore_files(ignore_paths)
 
     def set_code_map(self):
         session_context = SESSION_CONTEXT.get()
@@ -297,7 +311,12 @@ class CodeContext:
             levels = [CodeMessageLevel.CMAP_FULL, CodeMessageLevel.CMAP] + levels
         for level in levels:
             level_features = _get_all_features(
-                git_root, self.include_files, self.diff_context, self.code_map, level
+                git_root,
+                self.include_files,
+                self.ignore_files,
+                self.diff_context,
+                self.code_map,
+                level,
             )
             level_features = [
                 f for f in level_features if f.path not in self.include_files
@@ -384,6 +403,7 @@ class CodeContext:
         all_features = _get_all_features(
             git_root,
             self.include_files,
+            self.ignore_files,
             self.diff_context,
             self.code_map,
             level,
