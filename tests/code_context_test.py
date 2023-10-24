@@ -363,15 +363,18 @@ def test_get_all_features(temp_testbed, mock_session_context):
     # Test with include_files argument matching one file
     include_files = {
         path1: feature1,
-        path2: feature2,
     }
     features = _get_all_features(
         git_root=mock_session_context.git_root,
         include_files=include_files,
         diff_context=diff_context,
         code_map=False,
-        level=CodeMessageLevel.CODE,
+        level=CodeMessageLevel.FILE_NAME,
     )
     assert len(features) == 2
-    feature1 = next(f for f in features if f.path == path1)
-    assert feature1.user_included is True
+    feature1b = next(f for f in features if f.path == path1)
+    feature2b = next(f for f in features if f.path == path2)
+    assert feature1b.user_included is True
+    assert feature1b.level == CodeMessageLevel.FILE_NAME
+    assert feature2b.user_included is False
+    assert feature2b.level == CodeMessageLevel.FILE_NAME
