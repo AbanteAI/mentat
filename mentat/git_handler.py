@@ -6,6 +6,8 @@ from pathlib import Path
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
 
+logger = logging.getLogger()
+
 
 def get_git_diff_for_path(path: Path) -> str:
     session_context = SESSION_CONTEXT.get()

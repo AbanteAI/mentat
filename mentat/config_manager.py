@@ -15,7 +15,7 @@ user_config_path = mentat_dir_path / config_file_name
 
 
 class ConfigManager:
-    def __init__(self, git_root: Path, stream: SessionStream):
+    def __init__(self, root: Path, git_root: Optional[Path], stream: SessionStream):
         if user_config_path.exists():
             with open(user_config_path) as config_file:
                 try:
@@ -31,19 +31,32 @@ class ConfigManager:
         else:
             self.user_config = dict[str, str]()
 
-        project_config_path = git_root / config_file_name
-        if project_config_path.exists():
-            with open(project_config_path) as config_file:
+        root_project_config = root.joinpath(config_file_name)
+        if root_project_config.exists():
+            with open(root_project_config) as config_file:
                 try:
                     self.project_config = json.load(config_file)
                 except JSONDecodeError:
                     logging.info("Project config file contains invalid json")
                     stream.send(
-                        "Warning: Git project .mentat_config.json contains invalid"
-                        " json; ignoring project configuration file",
+                        "Warning: .mentat_config.json contains invalid json, ignoring project configuration file",
                         color="light_yellow",
                     )
                     self.project_config = dict[str, str]()
+        elif git_root is not None:
+            git_root_project_config = git_root.joinpath(config_file_name)
+            if git_root_project_config.exists():
+                with open(git_root_project_config) as config_file:
+                    try:
+                        self.project_config = json.load(config_file)
+                    except JSONDecodeError:
+                        logging.info("Project config file contains invalid json")
+                        stream.send(
+                            "Warning: Git project .mentat_config.json contains invalid"
+                            " json; ignoring project configuration file",
+                            color="light_yellow",
+                        )
+                        self.project_config = dict[str, str]()
         else:
             self.project_config = dict[str, str]()
 

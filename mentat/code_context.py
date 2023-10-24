@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
 import attr
+from ipdb import set_trace
 
 from mentat.code_feature import (
     CodeFeature,
@@ -30,6 +32,8 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import sha256
 
+logger = logging.getLogger()
+
 
 @attr.define
 class CodeContextSettings:
@@ -52,6 +56,7 @@ def _get_all_features(
 
     all_features = list[CodeFeature]()
     for path in get_non_gitignored_files(git_root):
+        set_trace()
         abs_path = git_root / path
         if (
             abs_path.is_dir()
@@ -99,7 +104,8 @@ class CodeContext:
     def __init__(
         self,
         stream: SessionStream,
-        git_root: Path,
+        root: Path,
+        git_root: Optional[Path],
         settings: CodeContextSettings,
     ):
         self.settings = settings
@@ -233,6 +239,8 @@ class CodeContext:
         model: str,
         max_tokens: int,
     ) -> str:
+        ctx = SESSION_CONTEXT.get()
+
         code_message = list[str]()
 
         self.diff_context.clear_cache()
@@ -253,10 +261,10 @@ class CodeContext:
         _max_user = self.settings.auto_tokens
         if _max_auto == 0 or _max_user == 0:
             self.features = features
-        else:
+        elif ctx.git_root is not None:
             auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
             self.features = await self._get_auto_features(
-                prompt, model, features, auto_tokens
+                ctx.git_root, prompt, model, features, auto_tokens
             )
 
         for f in self.features:
@@ -288,6 +296,7 @@ class CodeContext:
 
     async def _get_auto_features(
         self,
+        git_root: Path,
         prompt: str,
         model: str,
         include_features: list[CodeFeature],
@@ -297,9 +306,6 @@ class CodeContext:
 
         - user_features: excluded from auto-features process, added to return list
         """
-        session_context = SESSION_CONTEXT.get()
-        git_root = session_context.git_root
-
         # Find the first (longest) level that fits
         include_features_tokens = sum(
             await count_feature_tokens(include_features, model)

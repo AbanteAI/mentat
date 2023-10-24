@@ -154,6 +154,7 @@ def mock_setup_api_key(mocker):
 # Despite not using any awaits here, this has to be async or there won't be a running event loop
 @pytest_asyncio.fixture()
 async def _mock_session_context(temp_testbed):
+    root = Path(os.getcwd())
     git_root = temp_testbed
 
     stream = SessionStream()
@@ -161,7 +162,7 @@ async def _mock_session_context(temp_testbed):
 
     cost_tracker = CostTracker()
 
-    config = ConfigManager(git_root, stream)
+    config = ConfigManager(root=Path(os.getcwd()), git_root=git_root, stream)
 
     parser = parser_map[config.parser()]
 
@@ -175,6 +176,7 @@ async def _mock_session_context(temp_testbed):
     session_context = SessionContext(
         stream,
         cost_tracker,
+        root,
         git_root,
         config,
         parser,

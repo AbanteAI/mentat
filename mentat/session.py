@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from asyncio import Task
 from pathlib import Path
 from typing import List, Optional
@@ -50,6 +51,7 @@ class Session:
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
+        root = Path(os.getcwd())
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
 
         stream = SessionStream()
@@ -59,14 +61,14 @@ class Session:
         cost_tracker = CostTracker()
 
         # TODO: Part of config should be retrieved in client (i.e., to get vscode settings) and passed to server
-        config = ConfigManager(git_root, stream)
+        config = ConfigManager(root=root, git_root=git_root, stream=stream)
 
         parser = parser_map[config.parser()]
 
         code_context_settings = CodeContextSettings(
             diff, pr_diff, no_code_map, use_embeddings, auto_tokens
         )
-        code_context = CodeContext(stream, git_root, code_context_settings)
+        code_context = CodeContext(stream, root, git_root, code_context_settings)
 
         code_file_manager = CodeFileManager()
 
@@ -75,6 +77,7 @@ class Session:
         session_context = SessionContext(
             stream,
             cost_tracker,
+            root,
             git_root,
             config,
             parser,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import attr
 
@@ -22,7 +22,8 @@ SESSION_CONTEXT: ContextVar[SessionContext] = ContextVar("mentat:session_context
 class SessionContext:
     stream: SessionStream = attr.field()
     cost_tracker: CostTracker = attr.field()
-    git_root: Path = attr.field()
+    root: Path = attr.field()
+    git_root: Optional[Path] = attr.field()
     config: ConfigManager = attr.field()
     parser: Parser = attr.field()
     code_context: CodeContext = attr.field()

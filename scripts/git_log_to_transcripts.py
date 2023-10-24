@@ -172,7 +172,7 @@ if __name__ == "__main__":
         skip = list(old_transcripts.keys())
 
     stream = AsyncMock()
-    config = ConfigManager(os.getcwd(), stream)
+    config = ConfigManager(root=Path(os.getcwd()), git_root=Path(os.getcwd()), stream)
     code_context_settings = CodeContextSettings(False, False, False, False, 0)
     code_context = CodeContext(stream, os.getcwd(), code_context_settings)
     session_context = SessionContext(
