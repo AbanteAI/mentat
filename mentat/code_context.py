@@ -48,18 +48,14 @@ def _get_all_features(
 ) -> list[CodeFeature]:
     """Return a list of all features in the git root with given properties."""
 
-    _features = list[CodeFeature]()
+    all_features = list[CodeFeature]()
     for path in get_non_gitignored_files(git_root):
         abs_path = git_root / path
-        if (
-            abs_path in include_files
-            or abs_path.is_dir()
-            or not is_file_text_encoded(abs_path)
-        ):
+        if abs_path.is_dir() or not is_file_text_encoded(abs_path):
             continue
 
         diff_target = diff_context.target if abs_path in diff_context.files else None
-        user_included = path in include_files
+        user_included = abs_path in include_files
         if level == CodeMessageLevel.INTERVAL:
             # Return intervals if code_map is enabled, otherwise return the full file
             full_feature = CodeFeature(
@@ -69,21 +65,21 @@ def _get_all_features(
                 user_included=user_included,
             )
             if not code_map:
-                _features.append(full_feature)
+                all_features.append(full_feature)
             else:
                 _split_features = split_file_into_intervals(
                     git_root,
                     full_feature,
                     user_features=[f for f in include_files.values() if f.path == path],
                 )
-                _features += _split_features
+                all_features += _split_features
         else:
             _feature = CodeFeature(
                 abs_path, level=level, diff=diff_target, user_included=user_included
             )
-            _features.append(_feature)
+            all_features.append(_feature)
 
-    return _features
+    return all_features
 
 
 class CodeContext:
@@ -283,6 +279,10 @@ class CodeContext:
         include_features: list[CodeFeature],
         max_tokens: int,
     ) -> list[CodeFeature]:
+        """Return a list of features that fit within the max_tokens limit
+
+        - user_features: excluded from auto-features process, added to return list
+        """
         session_context = SESSION_CONTEXT.get()
         git_root = session_context.git_root
 
@@ -296,12 +296,15 @@ class CodeContext:
         if not self.settings.no_code_map:
             levels = [CodeMessageLevel.CMAP_FULL, CodeMessageLevel.CMAP] + levels
         for level in levels:
-            _features = _get_all_features(
+            level_features = _get_all_features(
                 git_root, self.include_files, self.diff_context, self.code_map, level
             )
-            level_length = sum(await count_feature_tokens(_features, model))
+            level_features = [
+                f for f in level_features if f.path not in self.include_files
+            ]
+            level_length = sum(await count_feature_tokens(level_features, model))
             if level_length < max_auto_tokens:
-                all_features += _features
+                all_features += level_features
                 break
 
         # Sort by relative path
