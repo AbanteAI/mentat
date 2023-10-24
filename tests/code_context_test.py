@@ -357,8 +357,8 @@ def test_get_all_features(temp_testbed, mock_session_context):
         feature = next(f for f in features if f.path == _p)
         assert feature.path == _p
         assert feature.level == CodeMessageLevel.CODE
-        assert feature.diff == None
-        assert feature.user_included == False
+        assert feature.diff is None
+        assert feature.user_included is False
         
     # Test with include_files argument matching one file
     include_files = {
@@ -374,4 +374,4 @@ def test_get_all_features(temp_testbed, mock_session_context):
     )
     assert len(features) == 2
     feature1 = next(f for f in features if f.path == path1)
-    assert feature1.user_included == True
+    assert feature1.user_included is True
