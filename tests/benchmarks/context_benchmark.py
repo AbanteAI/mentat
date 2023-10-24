@@ -87,14 +87,128 @@ tests = [
         ],
         "expected_edits": [],
     },
+    {
+        "name": "mentat: add warnings when include/exclude paths are invalid",
+        "codebase_url": "http://github.com/AbanteAI/mentat",
+        "codebase_name": "mentat",
+        "commit": "9ce6d78abf65725b2341d3c399184b1584e4bc20",
+        "args": {},
+        "prompt": (
+            "Improve handling of warnings for include and exclude commands for"
+            " text-encoded files and invalid paths."
+        ),
+        "expected_edits": (
+            "1. Modify the expand_paths function to return a tuple of valid paths and"
+            " invalid paths.\n2. Update the get_include_files function to handle"
+            " invalid_paths returned from expand_paths.\n3. Add a new function"
+            " print_invalid_path to handle different cases of invalid paths and print"
+            " appropriate warnings.\n4. Update the create method in CodeContext class"
+            " to use print_invalid_path function.\n5. Update the include_file and"
+            " exclude_file methods in CodeContext class to return included/excluded"
+            " paths along with invalid paths.\n6. Modify the IncludeCommand and"
+            " ExcludeCommand classes to handle and display the invalid paths and"
+            " added/removed paths using the new print_invalid_path function.\n\n@"
+            " mentat/code_context.py starting_line=22 ending_line=20\n   "
+            " print_invalid_path,\n@\n@ mentat/code_context.py starting_line=58"
+            " ending_line=58\n@\n@ mentat/code_context.py starting_line=67"
+            " ending_line=69\n            await print_invalid_path(invalid_path)\n@\n@"
+            " mentat/code_context.py starting_line=316 ending_line=321\n        return"
+            " list(paths.keys()), invalid_paths\n\n    def exclude_file(self, path:"
+            " Path):\n        # TODO: Using get_include_files here isn't ideal; if the"
+            " user puts in a glob that\n        # matches files but doesn't match any"
+            " files in context, we won't know what that glob is\n        # and can't"
+            " return it as an invalid path\n        paths, invalid_paths ="
+            " get_include_files([path], [])\n        removed_paths = list[Path]()\n    "
+            "    for new_path in paths.keys():\n            if new_path in"
+            " self.include_files:\n                removed_paths.append(new_path)\n    "
+            "            del self.include_files[new_path]\n        return"
+            " removed_paths, invalid_paths\n@\n@ mentat/commands.py starting_line=11"
+            " ending_line=15\nfrom mentat.include_files import print_invalid_path\nfrom"
+            " mentat.session_stream import SESSION_STREAM\nfrom mentat.utils import"
+            " create_viewer\n\nfrom .code_context import CODE_CONTEXT\nfrom .errors"
+            " import MentatError\nfrom .git_handler import GIT_ROOT, commit\n@\n@"
+            " mentat/commands.py starting_line=143 ending_line=154\n        git_root ="
+            " GIT_ROOT.get()\n\n        if len(args) == 0:\n            await"
+            ' stream.send("No files specified\\n", color="yellow")\n           '
+            " return\n        for file_path in args:\n            included_paths,"
+            " invalid_paths = code_context.include_file(\n               "
+            " Path(file_path).absolute()\n            )\n            for invalid_path"
+            " in invalid_paths:\n                await"
+            " print_invalid_path(invalid_path)\n            for included_path in"
+            " included_paths:\n                rel_path ="
+            " included_path.relative_to(git_root)\n                await"
+            ' stream.send(f"{rel_path} added to context", color="green")\n@\n@'
+            " mentat/commands.py starting_line=170 ending_line=175\n        git_root ="
+            " GIT_ROOT.get()\n\n        if len(args) == 0:\n            await"
+            ' stream.send("No files specified\\n", color="yellow")\n           '
+            " return\n        for file_path in args:\n            excluded_paths,"
+            " invalid_paths = code_context.exclude_file(\n               "
+            " Path(file_path).absolute()\n            )\n            for invalid_path"
+            " in invalid_paths:\n                await"
+            " print_invalid_path(invalid_path)\n            for excluded_path in"
+            " excluded_paths:\n                rel_path ="
+            " excluded_path.relative_to(git_root)\n                await"
+            ' stream.send(f"{rel_path} removed from context", color="red")\n@\n@'
+            " mentat/include_files.py insert_line=14\ndef expand_paths(paths:"
+            " list[Path]) -> tuple[list[Path], list[str]]:\n@\n@"
+            " mentat/include_files.py insert_line=33\n    return [Path(path).resolve()"
+            " for path in globbed_paths], list(invalid_paths)\n@\n@"
+            " mentat/include_files.py starting_line=87 ending_line=87\n    paths,"
+            " invalid_paths = expand_paths(paths)\n    exclude_paths, _ ="
+            " expand_paths(exclude_paths)\n@\n@ mentat/include_files.py"
+            " starting_line=107 ending_line=108\n    files_direct, files_from_dirs,"
+            " non_text_paths = abs_files_from_list(\n        paths,"
+            " check_for_text=True\n    )\n   "
+            " invalid_paths.extend(non_text_paths)\n@\n@ mentat/include_files.py"
+            " starting_line=166 ending_line=164\n\n\nasync def"
+            " print_invalid_path(invalid_path: str):\n    stream ="
+            " SESSION_STREAM.get()\n    git_root = GIT_ROOT.get()\n\n    abs_path ="
+            ' Path(invalid_path).absolute()\n    if "*" in invalid_path:\n        await'
+            ' stream.send(\n            f"The glob pattern {invalid_path} did not match'
+            ' any files",\n            color="light_red",\n        )\n    elif not'
+            ' abs_path.exists():\n        await stream.send(\n            f"The path'
+            ' {invalid_path} does not exist and was skipped", color="light_red"\n      '
+            "  )\n    elif not is_file_text_encoded(abs_path):\n        rel_path ="
+            " abs_path.relative_to(git_root)\n        await stream.send(\n           "
+            ' f"The file {rel_path} is not text encoded and was skipped",\n           '
+            ' color="light_red",\n        )\n    else:\n        await stream.send(f"The'
+            ' file {invalid_path} was skipped", color="light_red")\n@\n'
+        ),
+        "expected_features": [
+            "mentat/code_context.py:21-321",
+            "mentat/commands.py:10-175",
+            "mentat/include_files.py:13-164",
+        ],
+    },
 ]
 
 
+def matches(test, name):
+    prefix_length = min(len(test["commit"]), len(name))
+    if test["commit"][:prefix_length] == name[:prefix_length]:
+        return True
+    if name in test["name"]:
+        return True
+    return False
+
+
 @pytest.mark.asyncio
-async def test_code_context_performance(mock_session_context):
+async def test_code_context_performance(
+    mock_session_context, benchmarks, max_benchmarks
+):
     setup_api_key()
 
-    for test in tests:
+    if len(benchmarks) > 0:
+        tests_to_run = []
+        for test in tests:
+            for benchmark in benchmarks:
+                if matches(test, benchmark):
+                    tests_to_run.append(test)
+                    break
+    else:
+        tests_to_run = tests[:max_benchmarks]
+
+    for test in tests_to_run:
         print(f"\n\n{test['name']}\n{test['prompt']}")
 
         code_dir = clone_repo(test["codebase_url"], test["codebase_name"])

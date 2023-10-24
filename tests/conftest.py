@@ -39,7 +39,7 @@ def pytest_addoption(parser):
     parser.addoption("--uitest", action="store_true")
     # The following flags are used by benchmark tests
     parser.addoption(
-        "--max_exercises",
+        "--max_benchmarks",
         action="store",
         default="1",
         help="The maximum number of exercises to run",
@@ -69,12 +69,28 @@ def pytest_addoption(parser):
         help="When set local changes will be discarded.",
     )
     parser.addoption(
-        "--exercises",
+        "--benchmarks",
         action="append",
         nargs="*",
         default=[],
-        help="Which exercism exercises to run. max_exercises ignored when set.",
+        help=(
+            "Which benchmarks to run. max_benchmarks ignored when set. Exact meaning"
+            " depends on benchmark."
+        ),
     )
+
+
+@pytest.fixture
+def benchmarks(request):
+    benchmarks = request.config.getoption("--benchmarks")
+    if len(benchmarks) == 1:
+        return benchmarks[0]
+    return benchmarks
+
+
+@pytest.fixture
+def max_benchmarks(request):
+    return int(request.config.getoption("--max_benchmarks"))
 
 
 def pytest_configure(config):

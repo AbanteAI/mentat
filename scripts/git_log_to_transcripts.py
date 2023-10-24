@@ -93,8 +93,9 @@ def bound_files(file_edits, padding=5):
     return files
 
 
-async def translate_commits_to_transcripts(repo, count=10, skip=[]):
+async def translate_commits_to_transcripts(repo, count=10):
     transcripts = {}
+    benchmarks = {}
 
     for commit in repo.iter_commits("HEAD", max_count=count):
         try:
@@ -102,8 +103,6 @@ async def translate_commits_to_transcripts(repo, count=10, skip=[]):
             print("SHA:", sha)
             # Necessary for CodeContext to work
             repo.git.checkout(commit.parents[0].hexsha)
-            if sha in skip:
-                continue
             shown = subprocess.check_output(["git", "show", sha]).decode("utf-8")
             if count_tokens(shown, "gpt-4") > 6000:
                 print("Skipping because too long")
@@ -121,24 +120,38 @@ async def translate_commits_to_transcripts(repo, count=10, skip=[]):
 
             code_message = await code_context.get_code_message("", "gpt-4-0314", 0)
             prompt_and_plan = ask_gpt_for_prompt_and_plan(sha, shown)
-            parsedLLMResponse.conversation = prompt_and_plan["plan"]
+            prompt = prompt_and_plan["request"]
+            plan = prompt_and_plan["plan"]
+            parsedLLMResponse.conversation = plan
 
             llmResponse = ReplacementParser().file_edits_to_llm_message(
                 parsedLLMResponse
             )
             conversation = {
                 "messages": [
-                    {"role": "user", "content": prompt_and_plan["request"]},
+                    {"role": "user", "content": prompt},
                     {"role": "system", "content": code_message},
                     {"role": "assistant", "content": llmResponse},
                 ]
             }
             transcript = json.dumps(conversation)
             transcripts[sha] = transcript
+            benchmark = {
+                "name": plan[:100],
+                "commit": sha,
+                "args": {},
+                "prompt": prompt,
+                "expected_edits": llmResponse,
+                "expected_features": [
+                    str(f.relative_to(os.getcwd()))
+                    for f in bound_files(parsedLLMResponse.file_edits, padding=0)
+                ],
+            }
+            benchmarks[sha] = benchmark
         except Exception as e:
             print(e)
             continue
-    return transcripts
+    return transcripts, benchmarks
 
 
 if __name__ == "__main__":
@@ -164,12 +177,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
     clone_repo(args.repo, "for_transcripts")
     os.chdir("tests/benchmarks/repos/for_transcripts")
-    skip = []
     old_transcripts = {}
     if os.path.exists("transcripts.jsonl"):
         with open("transcripts.jsonl", "r") as f:
             old_transcripts = json.loads(f.read())
-        skip = list(old_transcripts.keys())
+    old_benchmarks = {}
+    if os.path.exists("benchmarks.json"):
+        with open("benchmarks.json", "r") as f:
+            old_benchmarks = json.loads(f.read())
 
     stream = AsyncMock()
     config = ConfigManager(os.getcwd(), stream)
@@ -188,9 +203,20 @@ if __name__ == "__main__":
     SESSION_CONTEXT.set(session_context)
     repo = Repo(".")
     repo.git.checkout(args.commit)
-    transcripts = asyncio.run(
-        translate_commits_to_transcripts(repo, count=args.count, skip=skip)
+    transcripts, benchmarks = asyncio.run(
+        translate_commits_to_transcripts(repo, count=args.count)
     )
+    # Everything is deterministic except for the gpt call which is cached. So transcripts
+    # and benchmarks won't change run to run unless the method is changes or the cache is
+    # removed.
+    old_transcripts.update(transcripts)
+    old_benchmarks.update(benchmarks)
+    transcripts = old_transcripts
+    benchmarks = old_benchmarks
+    for sha, benchmark in benchmarks.items():
+        benchmark["codebase_url"] = args.repo
+        benchmark["codebase_name"] = args.repo.split("/")[-1]
+
     gpt_3_examples = []
     gpt_4_examples = []
     for _, transcript in transcripts.items():
@@ -201,13 +227,12 @@ if __name__ == "__main__":
         if length4 < 8192:
             gpt_4_examples.append(transcript)
 
-    transcripts.update(old_transcripts)
     with open("transcripts.jsonl", "w") as f:
         json.dump(transcripts, f)
-    with open("transcripts_gpt3.jsonl", "a") as f:
-        for transcript in gpt_3_examples:
-            f.write(transcript + "\n")
-    with open("transcripts_gpt4.jsonl", "a") as f:
-        for transcript in gpt_4_examples:
-            f.write(transcript + "\n")
+    with open("transcripts_gpt3.jsonl", "w") as f:
+        f.write("\n".join(gpt_3_examples))
+    with open("transcripts_gpt4.jsonl", "w") as f:
+        f.write("\n".join(gpt_4_examples))
+    with open("benchmarks.json", "w") as f:
+        json.dump(benchmarks, f)
     repo.git.checkout(args.commit)
