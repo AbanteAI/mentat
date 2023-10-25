@@ -154,7 +154,7 @@ def mock_setup_api_key(mocker):
 # Despite not using any awaits here, this has to be async or there won't be a running event loop
 @pytest_asyncio.fixture()
 async def _mock_session_context(temp_testbed):
-    # TODO make this `None` if there's no git
+    # TODO make this `None` if there's no git (SessionContext needs to allow it)
     git_root = temp_testbed
 
     stream = SessionStream()
