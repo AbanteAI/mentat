@@ -399,7 +399,7 @@ class CodeContext:
 
         if not config.use_embeddings:
             stream.send(
-                "Embeddings are disabled. To enable, restart with '--use-embeddings'.",
+                "Embeddings are disabled. Enable with `/config use_embeddings true`",
                 color="light_red",
             )
             return []

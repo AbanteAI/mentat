@@ -47,7 +47,16 @@ class Config:
         },
         converter=int_or_none,
     )
-    format: str = attr.field(default="block")
+    format: str = attr.field(
+        default="block",
+        metadata={
+            "description": (
+                "The format for the LLM to write code in. You probably don't want to"
+                " mess with this setting."
+            ),
+            "no_midsession_change": True,
+        },
+    )
 
     # Context specific settings
     file_exclude_glob_list: list[str] = attr.field(
@@ -91,14 +100,15 @@ class Config:
         ],
         metadata={
             "description": "Styling information for the terminal.",
-            "only_config_file": True,
+            "no_flag": True,
+            "no_midsession_change": True,
         },
     )
 
     @classmethod
     def add_fields_to_argparse(cls, parser: ArgumentParser) -> None:
         for field in attr.fields(Config):
-            if "only_config_file" in field.metadata:
+            if "no_flag" in field.metadata:
                 continue
             name = [f"--{field.name.replace('_', '-')}"]
             if "abbreviation" in field.metadata:

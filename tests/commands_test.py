@@ -229,3 +229,21 @@ async def test_context_command(temp_testbed, mock_setup_api_key, mock_session_co
     command = Command.create_command("context")
     await command.apply()
     assert isinstance(command, ContextCommand)
+
+
+@pytest.mark.asyncio
+async def test_config_command(mock_session_context):
+    session_context = SESSION_CONTEXT.get()
+    config = session_context.config
+    stream = session_context.stream
+    command = Command.create_command("config")
+    await command.apply("test")
+    assert stream.messages[-1].data == "Unrecognized config option: test"
+    print(stream.messages)
+    await command.apply("model")
+    assert stream.messages[-1].data == "model: gpt-4-0314"
+    await command.apply("model", "test")
+    assert stream.messages[-1].data == "model set to test"
+    assert config.model == "test"
+    await command.apply("model", "test", "lol")
+    assert stream.messages[-1].data == "Too many arguments"

@@ -5,6 +5,9 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
 
+import attr
+
+from mentat.config import Config
 from mentat.conversation import MessageRole
 from mentat.errors import MentatError, UserError
 from mentat.git_handler import commit
@@ -147,7 +150,7 @@ class IncludeCommand(Command, command_name="include"):
         git_root = session_context.git_root
 
         if len(args) == 0:
-            stream.send("No files specified\n", color="yellow")
+            stream.send("No files specified", color="yellow")
             return
         for file_path in args:
             included_paths, invalid_paths = code_context.include_file(
@@ -176,7 +179,7 @@ class ExcludeCommand(Command, command_name="exclude"):
         git_root = session_context.git_root
 
         if len(args) == 0:
-            stream.send("No files specified\n", color="yellow")
+            stream.send("No files specified", color="yellow")
             return
         for file_path in args:
             excluded_paths, invalid_paths = code_context.exclude_file(
@@ -272,7 +275,7 @@ class SearchCommand(Command, command_name="search"):
         git_root = session_context.git_root
 
         if len(args) == 0:
-            stream.send("No search query specified\n", color="yellow")
+            stream.send("No search query specified", color="yellow")
             return
         try:
             query = " ".join(args)
@@ -338,3 +341,48 @@ class ContextCommand(Command, command_name="context"):
     @classmethod
     def help_message(cls) -> str:
         return "Shows all files currently in Mentat's context"
+
+
+class ConfigCommand(Command, command_name="config"):
+    async def apply(self, *args: str) -> None:
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        config = session_context.config
+        if len(args) == 0:
+            stream.send("No config option specified", color="yellow")
+        else:
+            setting = args[0]
+            if hasattr(config, setting):
+                if len(args) == 1:
+                    value = getattr(config, setting)
+                    description = attr.fields_dict(Config)[setting].metadata.get(
+                        "description"
+                    )
+                    stream.send(f"{setting}: {value}")
+                    if description:
+                        stream.send(f"Description: {description}")
+                elif len(args) == 2:
+                    value = args[1]
+                    if attr.fields_dict(Config)[setting].metadata.get(
+                        "no_midsession_change"
+                    ):
+                        stream.send(
+                            f"Cannot change {setting} mid-session. Please restart"
+                            " Mentat to change this setting.",
+                            color="yellow",
+                        )
+                        return
+                    setattr(config, setting, value)
+                    stream.send(f"{setting} set to {value}", color="green")
+                else:
+                    stream.send("Too many arguments", color="yellow")
+            else:
+                stream.send(f"Unrecognized config option: {setting}", color="red")
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return ["setting", "value"]
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Set a configuration option or omit value to see current value."

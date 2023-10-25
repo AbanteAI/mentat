@@ -171,7 +171,7 @@ async def _mock_session_context(temp_testbed):
 
     code_file_manager = CodeFileManager()
 
-    conversation = Conversation(config, parser)
+    conversation = Conversation(parser)
 
     session_context = SessionContext(
         stream,
