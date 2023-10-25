@@ -3,21 +3,21 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.config_manager import ConfigManager
+from mentat.config import Config
 from mentat.parsers.block_parser import BlockParser
 from mentat.session import Session
 from tests.parser_tests.inverse import verify_inverse
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def block_parser(mocker):
-    mock_method = mocker.MagicMock()
-    mocker.patch.object(ConfigManager, "parser", new=mock_method)
-    mock_method.return_value = "block"
+    mocker.patch.object(Config, "format", new="block")
 
 
 @pytest.mark.asyncio
-async def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+async def test_insert(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, block_parser
+):
     # Create a temporary file
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -65,7 +65,9 @@ async def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api
 
 
 @pytest.mark.asyncio
-async def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+async def test_replace(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, block_parser
+):
     # Create a temporary file
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -111,7 +113,9 @@ async def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
 
 
 @pytest.mark.asyncio
-async def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+async def test_delete(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, block_parser
+):
     # Create a temporary file
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -159,7 +163,7 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api
 
 @pytest.mark.asyncio
 async def test_create_file(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, block_parser
 ):
     # Create a temporary file
     temp_file_name = "new_dir/temp.py"
@@ -199,7 +203,7 @@ async def test_create_file(
 
 @pytest.mark.asyncio
 async def test_delete_file(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, block_parser
 ):
     # Create a temporary file
     temp_file_name = "incredibly_temp.py"
@@ -238,7 +242,7 @@ async def test_delete_file(
 
 @pytest.mark.asyncio
 async def test_rename_file(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, block_parser
 ):
     # Make sure rename-file works
     temp_file_name = "temp.py"
@@ -279,7 +283,7 @@ async def test_rename_file(
 
 @pytest.mark.asyncio
 async def test_change_then_rename_file(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, block_parser
 ):
     # Make sure a change made before a rename works
     temp_file_name = "temp.py"
@@ -332,7 +336,7 @@ async def test_change_then_rename_file(
 
 @pytest.mark.asyncio
 async def test_rename_file_then_change(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, block_parser
 ):
     # Make sure a change made after a rename works
     temp_file_name = "temp.py"
@@ -385,7 +389,7 @@ async def test_rename_file_then_change(
 
 @pytest.mark.asyncio
 async def test_multiple_blocks(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, block_parser
 ):
     # Create a temporary file
     temp_file_name = "temp.py"
@@ -458,7 +462,7 @@ async def test_inverse(
 
 @pytest.mark.asyncio
 async def test_json_strings(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, block_parser
 ):
     # Make sure we don't throw error if GPT gives us numbers in a string format
     temp_file_name = "temp.py"

@@ -11,8 +11,8 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.styles import Style
 
+from mentat.config import Config
 from mentat.session import Session
-from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
@@ -27,18 +27,14 @@ class TerminalClient:
         ignore_paths: List[str] = [],
         diff: str | None = None,
         pr_diff: str | None = None,
-        no_code_map: bool = False,
-        use_embeddings: bool = False,
-        auto_tokens: int | None = 0,
+        config: Config = Config(),
     ):
         self.paths = [Path(path) for path in paths]
         self.exclude_paths = [Path(path) for path in exclude_paths]
         self.ignore_paths = [Path(path) for path in ignore_paths]
         self.diff = diff
         self.pr_diff = pr_diff
-        self.no_code_map = no_code_map
-        self.use_embeddings = use_embeddings
-        self.auto_tokens = auto_tokens
+        self.config = config
 
         self._tasks: Set[asyncio.Task[None]] = set()
         self._should_exit = Event()
@@ -121,16 +117,16 @@ class TerminalClient:
             self.ignore_paths,
             self.diff,
             self.pr_diff,
-            self.no_code_map,
-            self.use_embeddings,
-            self.auto_tokens,
+            self.config,
         )
         self.session.start()
         # Logging is setup in session.start()
         logging.debug("Running startup")
 
         mentat_completer = MentatCompleter()
-        self._prompt_session = MentatPromptSession(completer=mentat_completer)
+        self._prompt_session = MentatPromptSession(
+            completer=mentat_completer, style=Style(self.config.input_style)
+        )
 
         plain_bindings = KeyBindings()
 
@@ -144,7 +140,7 @@ class TerminalClient:
 
         self._plain_session = PromptSession[str](
             message=[("class:prompt", ">>> ")],
-            style=Style(SESSION_CONTEXT.get().config.input_style()),
+            style=Style(self.config.input_style),
             completer=None,
             key_bindings=plain_bindings,
         )
@@ -221,32 +217,16 @@ def run_cli():
         default=None,
         help="A git tree-ish to diff against the latest common ancestor of",
     )
-    parser.add_argument(
-        "--no-code-map",
-        action="store_true",
-        help="Exclude the file structure/syntax map from the system prompt",
-    )
-    parser.add_argument(
-        "--use-embeddings",
-        action="store_true",
-        help="Fetch/compare embeddings to auto-generate code context",
-    )
-    parser.add_argument(
-        "--auto-tokens",
-        "-a",
-        type=int,
-        default=0,
-        help="Maximum number of auto-generated tokens to include in the prompt context",
-    )
+
+    Config.add_fields_to_argparse(parser)
     args = parser.parse_args()
+
+    config = Config.create(args)
     paths = args.paths
     exclude_paths = args.exclude
     ignore_paths = args.ignore
     diff = args.diff
     pr_diff = args.pr_diff
-    no_code_map = args.no_code_map
-    use_embeddings = args.use_embeddings
-    auto_tokens = args.auto_tokens
 
     terminal_client = TerminalClient(
         paths,
@@ -254,8 +234,6 @@ def run_cli():
         ignore_paths,
         diff,
         pr_diff,
-        no_code_map,
-        use_embeddings,
-        auto_tokens,
+        config,
     )
     terminal_client.run()

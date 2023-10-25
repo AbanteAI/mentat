@@ -1,8 +1,8 @@
 import datetime
 import logging
 
-from mentat.config_manager import mentat_dir_path
 from mentat.llm_api import is_test_environment
+from mentat.utils import mentat_dir_path
 
 
 def setup_logging():

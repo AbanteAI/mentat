@@ -5,9 +5,9 @@ from unittest import TestCase
 
 import pytest
 
-from mentat.code_context import CodeContext, CodeContextSettings, _get_all_features
+from mentat.code_context import CodeContext, _get_all_features
 from mentat.code_feature import CodeMessageLevel
-from mentat.config_manager import ConfigManager
+from mentat.config import Config
 from mentat.diff_context import DiffContext
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
@@ -35,11 +35,9 @@ async def test_path_gitignoring(temp_testbed, mock_session_context):
 
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
     paths = [Path(testing_dir_path), Path(ignored_file_path_2)]
-    code_context_settings = CodeContextSettings()
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        code_context_settings,
     )
     code_context.set_paths(paths, [])
 
@@ -56,9 +54,9 @@ async def test_path_gitignoring(temp_testbed, mock_session_context):
 @pytest.mark.asyncio
 async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
     # Makes sure glob exclude config works
-    mock_glob_exclude = mocker.MagicMock()
-    mocker.patch.object(ConfigManager, "file_exclude_glob_list", new=mock_glob_exclude)
-    mock_glob_exclude.return_value = [os.path.join("glob_test", "**", "*.py")]
+    mocker.patch.object(
+        Config, "file_exclude_glob_list", new=[os.path.join("glob_test", "**", "*.py")]
+    )
 
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
@@ -77,11 +75,9 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
             "Config excludes me but I'm included if added directly"
         )
 
-    code_context_settings = CodeContextSettings()
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        code_context_settings,
     )
     code_context.set_paths([Path("."), directly_added_glob_excluded_path], [])
 
@@ -109,11 +105,9 @@ async def test_glob_include(temp_testbed, mock_session_context):
         glob_exclude_file.write("I am not included")
 
     file_paths = ["**/*.py"]
-    code_context_settings = CodeContextSettings()
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        code_context_settings,
     )
     code_context.set_paths(file_paths, [])
 
@@ -140,11 +134,9 @@ async def test_cli_glob_exclude(temp_testbed, mock_session_context):
 
     file_paths = ["**/*.py"]
     exclude_paths = ["**/*.py", "**/*.ts"]
-    code_context_settings = CodeContextSettings()
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        code_context_settings,
     )
     code_context.set_paths(file_paths, exclude_paths)
 
@@ -161,11 +153,9 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
         # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
         f.write(bytearray([0x81]))
 
-    code_context_settings = CodeContextSettings()
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        code_context_settings,
     )
     code_context.set_paths(["./"], [])
     file_paths = [file_path for file_path in code_context.include_files]
@@ -178,7 +168,6 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        code_context_settings,
     )
     code_context.set_paths([Path(nontext_path_requested)], [])
     assert not code_context.include_files
@@ -205,11 +194,10 @@ def features(mocker):
 
 @pytest.mark.asyncio
 async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context):
-    code_context_settings = CodeContextSettings(auto_tokens=10)
+    mocker.patch.object(Config, "auto_tokens", new=10)
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        code_context_settings,
     )
     code_context.set_paths(
         ["multifile_calculator"], ["multifile_calculator/calculator.py"]
@@ -235,7 +223,7 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
     assert value1 == value2
 
     # Regenerate if settings change
-    code_context.settings.auto_tokens = 11
+    mocker.patch.object(Config, "auto_tokens", new=11)
     value3 = await code_context.get_code_message(
         prompt="", model="gpt-4", max_tokens=1e6
     )
@@ -253,12 +241,11 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
 
 
 @pytest.mark.asyncio
-async def test_get_code_message_include(temp_testbed, mock_session_context):
-    code_context_settings = CodeContextSettings(auto_tokens=0)
+async def test_get_code_message_include(mocker, temp_testbed, mock_session_context):
+    mocker.patch.object(Config, "auto_tokens", new=0)
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        code_context_settings,
     )
     code_context.set_paths(
         ["multifile_calculator"], ["multifile_calculator/calculator.py"]
@@ -288,7 +275,7 @@ async def test_get_code_message_include(temp_testbed, mock_session_context):
 
 @pytest.mark.asyncio
 @pytest.mark.clear_testbed
-async def test_auto_tokens(temp_testbed, mock_session_context):
+async def test_auto_tokens(mocker, temp_testbed, mock_session_context):
     with open("file_1.py", "w") as f:
         f.write(dedent("""\
             def func_1(x, y):
@@ -309,16 +296,14 @@ async def test_auto_tokens(temp_testbed, mock_session_context):
     run_git_command(temp_testbed, "add", ".")
     run_git_command(temp_testbed, "commit", "-m", "initial commit")
 
-    code_context_settings = CodeContextSettings()
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        code_context_settings,
     )
     code_context.set_paths(["file_1.py"], [])
 
     async def _count_auto_tokens_where(limit: int) -> int:
-        code_context.settings.auto_tokens = limit
+        mocker.patch.object(Config, "auto_tokens", new=limit)
         code_message = await code_context.get_code_message(
             prompt="", model="gpt-4", max_tokens=1e6
         )
@@ -385,12 +370,11 @@ def test_get_all_features(temp_testbed, mock_session_context):
 
 
 @pytest.mark.asyncio
-async def test_get_code_message_ignore(temp_testbed, mock_session_context):
-    code_context_settings = CodeContextSettings(auto_tokens=7000)
+async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_context):
+    mocker.patch.object(Config, "auto_tokens", new=7000)
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        code_context_settings,
     )
     code_context.set_paths([], [], ["scripts", "**/*.txt"])
     code_message = await code_context.get_code_message("", "gpt-4", 1e6)

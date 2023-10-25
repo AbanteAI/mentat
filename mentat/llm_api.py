@@ -15,9 +15,9 @@ from backoff.types import Details
 from dotenv import load_dotenv
 from openai.error import AuthenticationError, RateLimitError, Timeout
 
-from mentat.config_manager import mentat_dir_path
 from mentat.errors import MentatError, UserError
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import mentat_dir_path
 
 package_name = __name__.split(".")[0]
 
@@ -107,13 +107,15 @@ async def call_llm_api(
     messages: list[dict[str, str]], model: str
 ) -> AsyncGenerator[Any, None]:
     raise_if_in_test_environment()
+    session_context = SESSION_CONTEXT.get()
+    config = session_context.config
 
     response: AsyncGenerator[Any, None] = cast(
         AsyncGenerator[Any, None],
         await openai.ChatCompletion.acreate(  # type: ignore
             model=model,
             messages=messages,
-            temperature=0.5,
+            temperature=config.temperature,
             stream=True,
         ),
     )

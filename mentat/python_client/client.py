@@ -4,6 +4,7 @@ from asyncio.tasks import Task
 from pathlib import Path
 from typing import List
 
+from mentat.config import Config
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 
@@ -16,18 +17,14 @@ class PythonClient:
         ignore_paths: List[Path] = [],
         diff: str | None = None,
         pr_diff: str | None = None,
-        no_code_map: bool = False,
-        use_embeddings: bool = True,
-        auto_tokens: int = 0,
+        config: Config = Config(),
     ):
         self.paths = paths
         self.exclude_paths = exclude_paths
         self.ignore_paths = ignore_paths
         self.diff = diff
         self.pr_diff = pr_diff
-        self.no_code_map = no_code_map
-        self.use_embeddings = use_embeddings
-        self.auto_tokens = auto_tokens
+        self.config = config
 
         self._accumulated_message = ""
         self.exited = Event()
@@ -71,9 +68,7 @@ class PythonClient:
             self.ignore_paths,
             self.diff,
             self.pr_diff,
-            self.no_code_map,
-            self.use_embeddings,
-            self.auto_tokens,
+            self.config,
         )
         self.session.start()
         self.acc_task = asyncio.create_task(self._accumulate_messages())

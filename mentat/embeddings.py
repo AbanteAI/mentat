@@ -8,7 +8,6 @@ from timeit import default_timer
 import numpy as np
 
 from mentat.code_feature import CodeFeature, count_feature_tokens
-from mentat.config_manager import mentat_dir_path
 from mentat.errors import MentatError
 from mentat.llm_api import (
     call_embedding_api,
@@ -18,7 +17,7 @@ from mentat.llm_api import (
 )
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
-from mentat.utils import sha256
+from mentat.utils import mentat_dir_path, sha256
 
 EMBEDDING_MODEL = "text-embedding-ada-002"
 EMBEDDING_DIM = 1536

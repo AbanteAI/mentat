@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from openai.error import InvalidRequestError
 
-from mentat.config_manager import ConfigManager, user_config_path
+from mentat.config import Config, user_config_path
 from mentat.errors import MentatError
 from mentat.llm_api import (
     call_llm_api,
@@ -34,8 +34,8 @@ class MessageRole(Enum):
 class Conversation:
     max_tokens: int
 
-    def __init__(self, config: ConfigManager, parser: Parser):
-        self.model = config.model()
+    def __init__(self, config: Config, parser: Parser):
+        self.model = config.model
         self.messages = list[dict[str, str]]()
 
         # This contain the messages the user actually sends and the messages the model output
@@ -72,7 +72,7 @@ class Conversation:
                 )
         prompt = parser.get_system_prompt()
         context_size = model_context_size(self.model)
-        maximum_context = config.maximum_context()
+        maximum_context = config.maximum_context
         if maximum_context:
             if context_size:
                 context_size = min(context_size, maximum_context)

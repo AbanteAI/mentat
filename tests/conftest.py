@@ -11,10 +11,10 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
-from mentat import config_manager
-from mentat.code_context import CodeContext, CodeContextSettings
+from mentat import config
+from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
-from mentat.config_manager import ConfigManager, config_file_name
+from mentat.config import Config, config_file_name
 from mentat.conversation import Conversation
 from mentat.llm_api import CostTracker
 from mentat.session import parser_map
@@ -163,12 +163,11 @@ async def _mock_session_context(temp_testbed):
 
     cost_tracker = CostTracker()
 
-    config = ConfigManager(git_root, stream)
+    config = Config()
 
-    parser = parser_map[config.parser()]
+    parser = parser_map[config.format]
 
-    code_context_settings = CodeContextSettings()
-    code_context = CodeContext(stream, git_root, code_context_settings)
+    code_context = CodeContext(stream, git_root)
 
     code_file_manager = CodeFileManager()
 
@@ -265,7 +264,7 @@ def temp_testbed(monkeypatch, get_marks):
 # it will be unset unless a specific test wants to make a config in the testbed
 @pytest.fixture(autouse=True)
 def mock_user_config(mocker):
-    config_manager.user_config_path = Path(config_file_name)
+    config.user_config_path = Path(config_file_name)
 
 
 @pytest.fixture(autouse=True)
