@@ -9,3 +9,6 @@ ignore = ["E731"]
 
 [tool.pytest.ini_options]
 addopts = "--ignore=vscode/bundled --ignore=tests/benchmarks/repos"
+
+[tool.black]
+preview = "true"
