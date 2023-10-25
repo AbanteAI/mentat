@@ -255,7 +255,7 @@ def temp_testbed(monkeypatch, get_marks, no_git):
     temp_testbed = os.path.join(temp_dir, "testbed")
     os.mkdir(temp_testbed)
 
-    if no_git != True:
+    if no_git is not True:
         # Initialize git repo
         run_git_command(temp_testbed, "init")
 
@@ -269,7 +269,7 @@ def temp_testbed(monkeypatch, get_marks, no_git):
         shutil.copytree("testbed", temp_testbed, dirs_exist_ok=True)
         shutil.copy(".gitignore", temp_testbed)
 
-        if no_git != True:
+        if no_git is not True:
             # Add all files and commit
             run_git_command(temp_testbed, "add", ".")
             run_git_command(temp_testbed, "commit", "-m", "add testbed")

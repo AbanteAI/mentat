@@ -39,4 +39,4 @@ def test_get_code_map(temp_testbed, mock_session_context):
 
 @pytest.mark.parametrize("no_git", [True, False])
 def test_check_ctags_disabled(temp_testbed):
-    assert check_ctags_disabled() == None
+    assert check_ctags_disabled() is None
