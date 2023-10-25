@@ -76,10 +76,8 @@ class Session:
         )
         SESSION_CONTEXT.set(session_context)
 
-        # Functions that require stream
-        config.send_errors_to_stream()
-
         # Functions that require session_context
+        config.send_errors_to_stream()
         code_context.set_paths(paths, exclude_paths, ignore_paths)
         code_context.set_code_map()
 
