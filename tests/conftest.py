@@ -10,7 +10,6 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from ipdb import set_trace
 
 from mentat import config_manager
 from mentat.code_context import CodeContext, CodeContextSettings
@@ -155,6 +154,7 @@ def mock_setup_api_key(mocker):
 # Despite not using any awaits here, this has to be async or there won't be a running event loop
 @pytest_asyncio.fixture()
 async def _mock_session_context(temp_testbed):
+    # TODO make this `None` if there's no git
     git_root = temp_testbed
 
     stream = SessionStream()
@@ -225,30 +225,54 @@ def add_permissions(func, path, exc_info):
         raise
 
 
+@pytest.fixture
+def no_git() -> bool:
+    """Give the `no_git` parameter for any fixtures that uses it a default value
+
+    By default, git wil always be enabled.
+
+    Some fixtures (like `temp_testbed`) have the option to run without doing any git
+    related actions. In tests that use these fixtures, git can be disabled like so:
+
+        @pytest.mark.parametrize("no_git", [True])
+        def test_some_filesystem_stuff(temp_testbed):
+            ...
+
+    If this pytest mark is omitted, git will be enabled for any fixtures that have
+    the `no_git` parameter:
+
+        def test_some_filesystem_stuff(temp_testbed):
+            ...
+    """
+    return False
+
+
 @pytest.fixture(autouse=True)
-def temp_testbed(monkeypatch, get_marks):
+def temp_testbed(monkeypatch, get_marks, no_git):
     # create temporary copy of testbed, complete with git repo
     # realpath() resolves symlinks, required for paths to match on macOS
     temp_dir = os.path.realpath(tempfile.mkdtemp())
     temp_testbed = os.path.join(temp_dir, "testbed")
     os.mkdir(temp_testbed)
 
-    # Initialize git repo
-    run_git_command(temp_testbed, "init")
+    if no_git != True:
+        # Initialize git repo
+        run_git_command(temp_testbed, "init")
 
-    # Set local config for user.name and user.email. Set automatically on
-    # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
-    run_git_command(temp_testbed, "config", "user.email", "test@example.com")
-    run_git_command(temp_testbed, "config", "user.name", "Test User")
+        # Set local config for user.name and user.email. Set automatically on
+        # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
+        run_git_command(temp_testbed, "config", "user.email", "test@example.com")
+        run_git_command(temp_testbed, "config", "user.name", "Test User")
 
     if "clear_testbed" not in get_marks:
         # Copy testbed
         shutil.copytree("testbed", temp_testbed, dirs_exist_ok=True)
         shutil.copy(".gitignore", temp_testbed)
 
-        # Add all files and commit
-        run_git_command(temp_testbed, "add", ".")
-        run_git_command(temp_testbed, "commit", "-m", "add testbed")
+        if no_git != True:
+            # Add all files and commit
+            run_git_command(temp_testbed, "add", ".")
+            run_git_command(temp_testbed, "commit", "-m", "add testbed")
 
     # necessary to undo chdir before calling rmtree, or it fails on windows
     with monkeypatch.context() as m:
