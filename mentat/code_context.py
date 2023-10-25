@@ -78,13 +78,13 @@ def _get_all_features(
 
 
 class CodeContext:
-    diff: Optional[str] = None
-    pr_diff: Optional[str] = None
     include_files: dict[Path, CodeFeature]
     ignore_files: set[Path]
     diff_context: DiffContext
     code_map: bool = True
     features: list[CodeFeature] = []
+    diff: Optional[str] = None
+    pr_diff: Optional[str] = None
 
     def __init__(
         self,

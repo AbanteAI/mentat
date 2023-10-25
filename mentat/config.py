@@ -147,8 +147,8 @@ class Config:
                     config = json.load(config_file)
                 except JSONDecodeError:
                     self.error(
-                        f"Warning: Config {str(path)} contains invalid"
-                        " json; ignoring user configuration file"
+                        f"Warning: Config {path} contains invalid json; ignoring user"
+                        " configuration file"
                     )
                     return
             for field in config:
@@ -156,8 +156,7 @@ class Config:
                     setattr(self, field, config[field])
                 else:
                     self.error(
-                        f"Warning: Config {str(path)} contains unrecognized setting:"
-                        f" {field}"
+                        f"Warning: Config {path} contains unrecognized setting: {field}"
                     )
 
     def error(self, message: str) -> None:
