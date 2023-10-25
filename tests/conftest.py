@@ -85,6 +85,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "clear_testbed: create a testbed without any existing files"
     )
+    config.addinivalue_line("markers", "no_git_testbed: create a testbed without git")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -225,37 +226,15 @@ def add_permissions(func, path, exc_info):
         raise
 
 
-@pytest.fixture
-def no_git() -> bool:
-    """Give the `no_git` parameter for any fixtures that uses it a default value
-
-    By default, git wil always be enabled.
-
-    Some fixtures (like `temp_testbed`) have the option to run without doing any git
-    related actions. In tests that use these fixtures, git can be disabled like so:
-
-        @pytest.mark.parametrize("no_git", [True])
-        def test_some_filesystem_stuff(temp_testbed):
-            ...
-
-    If this pytest mark is omitted, git will be enabled for any fixtures that have
-    the `no_git` parameter:
-
-        def test_some_filesystem_stuff(temp_testbed):
-            ...
-    """
-    return False
-
-
 @pytest.fixture(autouse=True)
-def temp_testbed(monkeypatch, get_marks, no_git):
+def temp_testbed(monkeypatch, get_marks):
     # create temporary copy of testbed, complete with git repo
     # realpath() resolves symlinks, required for paths to match on macOS
     temp_dir = os.path.realpath(tempfile.mkdtemp())
     temp_testbed = os.path.join(temp_dir, "testbed")
     os.mkdir(temp_testbed)
 
-    if no_git is not True:
+    if "no_git_testbed" not in get_marks:
         # Initialize git repo
         run_git_command(temp_testbed, "init")
 
@@ -269,7 +248,7 @@ def temp_testbed(monkeypatch, get_marks, no_git):
         shutil.copytree("testbed", temp_testbed, dirs_exist_ok=True)
         shutil.copy(".gitignore", temp_testbed)
 
-        if no_git is not True:
+        if "no_git_testbed" not in get_marks:
             # Add all files and commit
             run_git_command(temp_testbed, "add", ".")
             run_git_command(temp_testbed, "commit", "-m", "add testbed")

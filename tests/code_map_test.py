@@ -3,7 +3,7 @@ import pytest
 from mentat.code_map import check_ctags_disabled, get_code_map, get_ctags
 
 
-@pytest.mark.parametrize("no_git", [True, False])
+@pytest.mark.no_git_testbed
 def test_get_ctags(temp_testbed, mock_session_context):
     echo_py_abs_file_path = temp_testbed.joinpath("scripts/echo.py")
 
@@ -20,7 +20,7 @@ def test_get_ctags(temp_testbed, mock_session_context):
     }
 
 
-@pytest.mark.parametrize("no_git", [True, False])
+@pytest.mark.no_git_testbed
 def test_get_code_map(temp_testbed, mock_session_context):
     echo_py_abs_file_path = temp_testbed.joinpath("scripts/echo.py")
 
@@ -37,6 +37,6 @@ def test_get_code_map(temp_testbed, mock_session_context):
     assert code_map_without_signatures == ["function", "\techo", "\techo_hardcoded"]
 
 
-@pytest.mark.parametrize("no_git", [True, False])
+@pytest.mark.no_git_testbed
 def test_check_ctags_disabled(temp_testbed):
     assert check_ctags_disabled() is None
