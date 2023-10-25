@@ -8,7 +8,7 @@ from mentat.session_context import SESSION_CONTEXT
 
 
 def get_ctags(
-    root: Path, file_path: Path, exclude_signatures: bool = False
+    abs_file_path: Path, exclude_signatures: bool = False
 ) -> set[tuple[str | int | None, ...]]:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
@@ -25,7 +25,7 @@ def get_ctags(
         ctags_cmd_args.append("--fields=-s")
     else:
         ctags_cmd_args.append("--fields=+S")
-    ctags_cmd = ["ctags", *ctags_cmd_args, str(Path(root).joinpath(file_path))]
+    ctags_cmd = ["ctags", *ctags_cmd_args, str(abs_file_path)]
     output = subprocess.check_output(
         ctags_cmd, stderr=subprocess.DEVNULL, start_new_session=True, text=True
     ).strip()
@@ -95,10 +95,8 @@ def _make_ctags_human_readable(ctags: set[tuple[Any, ...]]) -> list[str]:
     return output.splitlines()
 
 
-def get_code_map(
-    root: Path, file_path: Path, exclude_signatures: bool = False
-) -> list[str]:
-    ctags = get_ctags(root, file_path, exclude_signatures)
+def get_code_map(abs_file_path: Path, exclude_signatures: bool = False) -> list[str]:
+    ctags = get_ctags(abs_file_path, exclude_signatures)
     if not ctags:
         return []
     return _make_ctags_human_readable(ctags)
@@ -120,7 +118,7 @@ def check_ctags_disabled() -> str | None:
             hello_py = Path(tempdir) / "hello.py"
             with open(hello_py, "w", encoding="utf-8") as f:
                 f.write("def hello():\n    print('Hello, world!')\n")
-            get_code_map(Path(tempdir), hello_py)
+            get_code_map(hello_py)
         return
     except FileNotFoundError:
         return "ctags executable not found"

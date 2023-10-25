@@ -10,6 +10,7 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+from ipdb import set_trace
 
 from mentat import config_manager
 from mentat.code_context import CodeContext, CodeContextSettings
@@ -252,7 +253,7 @@ def temp_testbed(monkeypatch, get_marks):
     # necessary to undo chdir before calling rmtree, or it fails on windows
     with monkeypatch.context() as m:
         m.chdir(temp_testbed)
-        yield temp_testbed
+        yield Path(temp_testbed)
 
     shutil.rmtree(temp_dir, onerror=add_permissions)
 
