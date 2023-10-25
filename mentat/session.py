@@ -7,10 +7,10 @@ from uuid import uuid4
 
 from openai.error import RateLimitError, Timeout
 
-from mentat.code_context import CodeContext, CodeContextSettings
+from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
-from mentat.config_manager import ConfigManager
+from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.errors import MentatError, SessionExit
 from mentat.git_handler import get_shared_git_root_for_paths
@@ -41,9 +41,7 @@ class Session:
         ignore_paths: List[Path] = [],
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
-        no_code_map: bool = False,
-        use_embeddings: bool = False,
-        auto_tokens: Optional[int] = None,
+        config: Config = Config(),
     ):
         self.id = uuid4()
         setup_api_key()
@@ -58,15 +56,9 @@ class Session:
 
         cost_tracker = CostTracker()
 
-        # TODO: Part of config should be retrieved in client (i.e., to get vscode settings) and passed to server
-        config = ConfigManager(git_root, stream)
+        parser = parser_map[config.format]
 
-        parser = parser_map[config.parser()]
-
-        code_context_settings = CodeContextSettings(
-            diff, pr_diff, no_code_map, use_embeddings, auto_tokens
-        )
-        code_context = CodeContext(stream, git_root, code_context_settings)
+        code_context = CodeContext(stream, git_root, diff, pr_diff)
 
         code_file_manager = CodeFileManager()
 
@@ -83,6 +75,9 @@ class Session:
             conversation,
         )
         SESSION_CONTEXT.set(session_context)
+
+        # Functions that require stream
+        config.send_errors_to_stream()
 
         # Functions that require session_context
         code_context.set_paths(paths, exclude_paths, ignore_paths)

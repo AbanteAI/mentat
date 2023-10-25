@@ -9,6 +9,7 @@ import pytest
 import tqdm
 from openai import InvalidRequestError
 
+from mentat.config import Config
 from mentat.llm_api import call_llm_api, setup_api_key
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
@@ -125,7 +126,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
     client = PythonClient(
         paths=exercise_runner.include_files(),
         exclude_paths=exercise_runner.exclude_files(),
-        no_code_map=True,
+        config=Config(no_code_map=True),
     )
     await client.startup()
 

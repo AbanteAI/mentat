@@ -2,15 +2,13 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.config_manager import ConfigManager
+from mentat.config import Config
 from mentat.session import Session
 
 
 @pytest.fixture(autouse=True)
 def replacement_parser(mocker):
-    mock_method = mocker.MagicMock()
-    mocker.patch.object(ConfigManager, "parser", new=mock_method)
-    mock_method.return_value = "replacement"
+    mocker.patch.object(Config, "format", new="replacement")
 
 
 @pytest.mark.asyncio

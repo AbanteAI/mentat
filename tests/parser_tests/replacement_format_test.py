@@ -3,21 +3,21 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.config_manager import ConfigManager
+from mentat.config import Config
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session import Session
 from tests.parser_tests.inverse import verify_inverse
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def replacement_parser(mocker):
-    mock_method = mocker.MagicMock()
-    mocker.patch.object(ConfigManager, "parser", new=mock_method)
-    mock_method.return_value = "replacement"
+    mocker.patch.object(Config, "format", new="replacement")
 
 
 @pytest.mark.asyncio
-async def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+async def test_insert(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
+):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
@@ -51,7 +51,9 @@ async def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api
 
 
 @pytest.mark.asyncio
-async def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+async def test_delete(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
+):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
@@ -82,7 +84,9 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api
 
 
 @pytest.mark.asyncio
-async def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+async def test_replace(
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
+):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
@@ -116,7 +120,7 @@ async def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_ap
 
 @pytest.mark.asyncio
 async def test_create_file(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
 ):
     temp_file_name = "temp.py"
     mock_collect_user_input.set_stream_messages(
@@ -146,7 +150,7 @@ async def test_create_file(
 
 @pytest.mark.asyncio
 async def test_delete_file(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -175,7 +179,7 @@ async def test_delete_file(
 
 @pytest.mark.asyncio
 async def test_rename_file(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
 ):
     temp_file_name = "temp.py"
     temp_file_name_2 = "temp2.py"
@@ -210,7 +214,7 @@ async def test_rename_file(
 
 @pytest.mark.asyncio
 async def test_change_then_rename_then_change(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
 ):
     temp_file_name = "temp.py"
     temp_file_name_2 = "temp2.py"

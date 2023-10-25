@@ -9,7 +9,7 @@ import attr
 if TYPE_CHECKING:
     from mentat.code_context import CodeContext
     from mentat.code_file_manager import CodeFileManager
-    from mentat.config_manager import ConfigManager
+    from mentat.config import Config
     from mentat.conversation import Conversation
     from mentat.llm_api import CostTracker
     from mentat.parsers.parser import Parser
@@ -23,7 +23,7 @@ class SessionContext:
     stream: SessionStream = attr.field()
     cost_tracker: CostTracker = attr.field()
     git_root: Path = attr.field()
-    config: ConfigManager = attr.field()
+    config: Config = attr.field()
     parser: Parser = attr.field()
     code_context: CodeContext = attr.field()
     code_file_manager: CodeFileManager = attr.field()

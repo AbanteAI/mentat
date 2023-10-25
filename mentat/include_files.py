@@ -106,7 +106,7 @@ def get_include_files(
 
     glob_excluded_files = set(
         Path(os.path.join(git_root, file))
-        for glob_path in config.file_exclude_glob_list()
+        for glob_path in config.file_exclude_glob_list
         # If the user puts a / at the beginning, it will try to look in root directory
         for file in glob.glob(
             pathname=glob_path,

@@ -4,6 +4,7 @@ from textwrap import dedent
 
 import pytest
 
+from mentat.config import Config
 from mentat.include_files import get_include_files
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.session import Session
@@ -23,13 +24,13 @@ async def test_posix_paths(mock_session_context):
     )
 
     code_message = await mock_session_context.code_context.get_code_message(
-        "", mock_session_context.config.model(), 1e6
+        "", mock_session_context.config.model, 1e6
     )
     assert dir_name + "/" + file_name in code_message.split("\n")
 
 
 @pytest.mark.asyncio
-async def test_partial_files(mock_session_context):
+async def test_partial_files(mocker, mock_session_context):
     dir_name = "dir"
     file_name = "file.txt"
     file_path = os.path.join(dir_name, file_name)
@@ -46,11 +47,11 @@ async def test_partial_files(mock_session_context):
     mock_session_context.code_context.include_files, _ = get_include_files(
         [file_path_partial], []
     )
-    mock_session_context.code_context.settings.auto_tokens = 0
+    mocker.patch.object(Config, "auto_tokens", new=0)
     mock_session_context.code_context.code_map = False
 
     code_message = await mock_session_context.code_context.get_code_message(
-        "", mock_session_context.config.model(), max_tokens=1e6
+        "", mock_session_context.config.model, max_tokens=1e6
     )
     assert code_message == dedent("""\
             Code Files:
@@ -104,7 +105,7 @@ async def test_run_from_subdirectory(
         # Hello
         @@end""")])
 
-    session = Session([Path("calculator.py"), Path("../scripts")], auto_tokens=0)
+    session = Session([Path("calculator.py"), Path("../scripts")])
     await session.start()
     session.stream.stop()
 

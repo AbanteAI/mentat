@@ -2,14 +2,12 @@ from pathlib import Path
 from textwrap import dedent
 
 from mentat.session import Session
-from tests.conftest import ConfigManager, pytest
+from tests.conftest import Config, pytest
 
 
 @pytest.fixture(autouse=True)
 def unified_diff_parser(mocker):
-    mock_method = mocker.MagicMock()
-    mocker.patch.object(ConfigManager, "parser", new=mock_method)
-    mock_method.return_value = "unified-diff"
+    mocker.patch.object(Config, "format", new="unified-diff")
 
 
 @pytest.mark.asyncio
