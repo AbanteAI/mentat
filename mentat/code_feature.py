@@ -32,7 +32,7 @@ def split_file_into_intervals(
         return [feature]
 
     # Get ctags data (name and start line) and determine end line
-    ctags = list(get_ctags(git_root, feature.path))
+    ctags = list(get_ctags(git_root.joinpath(feature.path)))
     ctags = sorted(ctags, key=lambda x: int(x[4]))  # type: ignore
     named_intervals = list[tuple[str, int, int]]()  # Name, Start, End
     _last_item = tuple[str, int]()
@@ -170,10 +170,10 @@ class CodeFeature:
                     else:
                         code_message.append(f"{line}")
         elif self.level == CodeMessageLevel.CMAP_FULL:
-            cmap = get_code_map(git_root, self.path)
+            cmap = get_code_map(git_root.joinpath(self.path))
             code_message += cmap
         elif self.level == CodeMessageLevel.CMAP:
-            cmap = get_code_map(git_root, self.path, exclude_signatures=True)
+            cmap = get_code_map(git_root.joinpath(self.path), exclude_signatures=True)
             code_message += cmap
         code_message.append("")
 

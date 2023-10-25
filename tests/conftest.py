@@ -85,6 +85,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "clear_testbed: create a testbed without any existing files"
     )
+    config.addinivalue_line("markers", "no_git_testbed: create a testbed without git")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -154,6 +155,7 @@ def mock_setup_api_key(mocker):
 # Despite not using any awaits here, this has to be async or there won't be a running event loop
 @pytest_asyncio.fixture()
 async def _mock_session_context(temp_testbed):
+    # TODO make this `None` if there's no git (SessionContext needs to allow it)
     git_root = temp_testbed
 
     stream = SessionStream()
@@ -232,27 +234,29 @@ def temp_testbed(monkeypatch, get_marks):
     temp_testbed = os.path.join(temp_dir, "testbed")
     os.mkdir(temp_testbed)
 
-    # Initialize git repo
-    run_git_command(temp_testbed, "init")
+    if "no_git_testbed" not in get_marks:
+        # Initialize git repo
+        run_git_command(temp_testbed, "init")
 
-    # Set local config for user.name and user.email. Set automatically on
-    # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
-    run_git_command(temp_testbed, "config", "user.email", "test@example.com")
-    run_git_command(temp_testbed, "config", "user.name", "Test User")
+        # Set local config for user.name and user.email. Set automatically on
+        # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
+        run_git_command(temp_testbed, "config", "user.email", "test@example.com")
+        run_git_command(temp_testbed, "config", "user.name", "Test User")
 
     if "clear_testbed" not in get_marks:
         # Copy testbed
         shutil.copytree("testbed", temp_testbed, dirs_exist_ok=True)
         shutil.copy(".gitignore", temp_testbed)
 
-        # Add all files and commit
-        run_git_command(temp_testbed, "add", ".")
-        run_git_command(temp_testbed, "commit", "-m", "add testbed")
+        if "no_git_testbed" not in get_marks:
+            # Add all files and commit
+            run_git_command(temp_testbed, "add", ".")
+            run_git_command(temp_testbed, "commit", "-m", "add testbed")
 
     # necessary to undo chdir before calling rmtree, or it fails on windows
     with monkeypatch.context() as m:
         m.chdir(temp_testbed)
-        yield temp_testbed
+        yield Path(temp_testbed)
 
     shutil.rmtree(temp_dir, onerror=add_permissions)
 
