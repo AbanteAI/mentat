@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.parsers.git_parser import GitParser
-from mentat.parsers.parser_map import parser_map
 from mentat.parsers.parser import Parser
+from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.utils import convert_string_to_asyncgen
 
