@@ -9,7 +9,7 @@ import attr
 from attr import validators
 
 from mentat.git_handler import get_shared_git_root_for_paths
-from mentat.parsers.parser_list import parser_map
+from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
