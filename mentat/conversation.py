@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 
 from openai.error import InvalidRequestError
 
-from mentat.config import user_config_path
 from mentat.errors import MentatError
 from mentat.llm_api import (
     call_llm_api,
@@ -85,7 +84,7 @@ class Conversation:
         if not context_size:
             raise MentatError(
                 f"Context size for {config.model} is not known. Please set"
-                f" maximum-context in {user_config_path}."
+                " maximum-context with `/config maximum_context value`."
             )
         else:
             self.max_tokens = context_size

@@ -7,7 +7,6 @@ from typing import List
 
 import attr
 
-from mentat.config import Config
 from mentat.conversation import MessageRole
 from mentat.errors import MentatError, UserError
 from mentat.git_handler import commit
@@ -355,7 +354,7 @@ class ConfigCommand(Command, command_name="config"):
             if hasattr(config, setting):
                 if len(args) == 1:
                     value = getattr(config, setting)
-                    description = attr.fields_dict(Config)[setting].metadata.get(
+                    description = attr.fields_dict(type(config))[setting].metadata.get(
                         "description"
                     )
                     stream.send(f"{setting}: {value}")
@@ -363,7 +362,7 @@ class ConfigCommand(Command, command_name="config"):
                         stream.send(f"Description: {description}")
                 elif len(args) == 2:
                     value = args[1]
-                    if attr.fields_dict(Config)[setting].metadata.get(
+                    if attr.fields_dict(type(config))[setting].metadata.get(
                         "no_midsession_change"
                     ):
                         stream.send(
