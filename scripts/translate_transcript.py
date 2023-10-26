@@ -6,22 +6,13 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 from mentat.code_file_manager import CodeFileManager
-from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
 from mentat.parsers.parser import Parser
-from mentat.parsers.replacement_parser import ReplacementParser
-from mentat.parsers.split_diff_parser import SplitDiffParser
-from mentat.parsers.unified_diff_parser import UnifiedDiffParser
+from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.utils import convert_string_to_asyncgen
 
-parser_map: dict[str, Parser | GitParser] = {
-    "block": BlockParser(),
-    "replacement": ReplacementParser(),
-    "split-diff": SplitDiffParser(),
-    "unified-diff": UnifiedDiffParser(),
-    "git": GitParser(),
-}
+parser_map["git"] = GitParser()
 
 
 def translate_message(

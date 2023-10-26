@@ -6,8 +6,10 @@ from json import JSONDecodeError
 from pathlib import Path
 
 import attr
+from attr import validators
 
 from mentat.git_handler import get_shared_git_root_for_paths
+from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -35,7 +37,10 @@ class Config:
 
     # Model specific settings
     model: str = attr.field(default="gpt-4-0314")
-    temperature: float = attr.field(default=0.5, converter=float)
+    temperature: float = attr.field(
+        default=0.5, converter=float, validator=[validators.le(1), validators.ge(0)]
+    )
+
     maximum_context: int | None = attr.field(
         default=None,
         metadata={
@@ -46,8 +51,19 @@ class Config:
             )
         },
         converter=int_or_none,
+        validator=validators.optional(validators.ge(0)),
     )
-    format: str = attr.field(default="block")
+    format: str = attr.field(
+        default="block",
+        metadata={
+            "description": (
+                "The format for the LLM to write code in. You probably don't want to"
+                " mess with this setting."
+            ),
+            "no_midsession_change": True,
+        },
+        validator=validators.optional(validators.in_(parser_map)),
+    )
 
     # Context specific settings
     file_exclude_glob_list: list[str] = attr.field(
@@ -80,6 +96,7 @@ class Config:
             "abbreviation": "a",
         },
         converter=int_or_none,
+        validator=validators.optional(validators.ge(0)),
     )
 
     # Only settable by config file
@@ -91,14 +108,15 @@ class Config:
         ],
         metadata={
             "description": "Styling information for the terminal.",
-            "only_config_file": True,
+            "no_flag": True,
+            "no_midsession_change": True,
         },
     )
 
     @classmethod
     def add_fields_to_argparse(cls, parser: ArgumentParser) -> None:
         for field in attr.fields(Config):
-            if "only_config_file" in field.metadata:
+            if "no_flag" in field.metadata:
                 continue
             name = [f"--{field.name.replace('_', '-')}"]
             if "abbreviation" in field.metadata:
@@ -138,7 +156,10 @@ class Config:
     def load_namespace(self, args: Namespace) -> None:
         for field in vars(args):
             if hasattr(self, field) and getattr(args, field) is not None:
-                setattr(self, field, getattr(args, field))
+                try:
+                    setattr(self, field, getattr(args, field))
+                except (ValueError, TypeError) as e:
+                    self.error(f"Warning: Illegal value for {field}: {e}")
 
     def load_file(self, path: Path) -> None:
         if path.exists():
@@ -153,7 +174,13 @@ class Config:
                     return
             for field in config:
                 if hasattr(self, field):
-                    setattr(self, field, config[field])
+                    try:
+                        setattr(self, field, config[field])
+                    except (ValueError, TypeError) as e:
+                        self.error(
+                            f"Warning: Config {path} contains invalid value for"
+                            f" setting: {field}\n{e}"
+                        )
                 else:
                     self.error(
                         f"Warning: Config {path} contains unrecognized setting: {field}"

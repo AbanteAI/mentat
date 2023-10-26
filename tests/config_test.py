@@ -46,7 +46,7 @@ async def test_config_creation():
         user_config_file.write(dedent("""\
         {
             "model": "test",
-            "format": "format",
+            "format": "replacement",
             "input_style": [[ "user", "yes" ]]
         }"""))
 
@@ -55,7 +55,7 @@ async def test_config_creation():
     assert config.model == "model"
     assert config.temperature == 0.2
     assert config.maximum_context == 1
-    assert config.format == "format"
+    assert config.format == "replacement"
     assert config.use_embeddings
     assert not config.no_code_map
     assert config.auto_tokens == 2
