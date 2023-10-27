@@ -12,9 +12,9 @@ from unittest.mock import AsyncMock
 import openai
 from git import Repo
 
-from mentat.code_context import CodeContext, CodeContextSettings
+from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
-from mentat.config_manager import ConfigManager
+from mentat.config import Config
 from mentat.llm_api import count_tokens
 from mentat.parsers.git_parser import GitParser
 from mentat.parsers.replacement_parser import ReplacementParser
@@ -114,8 +114,7 @@ async def translate_commits_to_transcripts(repo, count=10):
             if len(parsedLLMResponse.file_edits) == 0:
                 continue
 
-            code_context_settings = CodeContextSettings(False, False, False, False, 0)
-            code_context = CodeContext(AsyncMock(), os.getcwd(), code_context_settings)
+            code_context = CodeContext(AsyncMock(), os.getcwd())
             code_context.set_paths(bound_files(parsedLLMResponse.file_edits), [])
 
             code_message = await code_context.get_code_message("", "gpt-4-0314", 0)
@@ -137,11 +136,11 @@ async def translate_commits_to_transcripts(repo, count=10):
             transcript = json.dumps(conversation)
             transcripts[sha] = transcript
             benchmark = {
-                "name": plan[:100],
+                "name": commit.summary,
                 "commit": sha,
                 "args": {},
                 "prompt": prompt,
-                "expected_edits": llmResponse,
+                "expected_edits": shown,
                 "expected_features": [
                     str(f.relative_to(os.getcwd()))
                     for f in bound_files(parsedLLMResponse.file_edits, padding=0)
@@ -187,9 +186,8 @@ if __name__ == "__main__":
             old_benchmarks = json.loads(f.read())
 
     stream = AsyncMock()
-    config = ConfigManager(os.getcwd(), stream)
-    code_context_settings = CodeContextSettings(False, False, False, False, 0)
-    code_context = CodeContext(stream, os.getcwd(), code_context_settings)
+    config = Config()
+    code_context = CodeContext(stream, os.getcwd())
     session_context = SessionContext(
         stream,
         None,
@@ -219,13 +217,20 @@ if __name__ == "__main__":
 
     gpt_3_examples = []
     gpt_4_examples = []
+    gpt_3_16k_examples = []
+    gpt_4_32k_examples = []
     for _, transcript in transcripts.items():
         length3 = count_tokens(transcript, "gpt-3.5-turbo-0613")
         length4 = count_tokens(transcript, "gpt-4-0613")
-        if length3 < 4097:
+        padding = 100  # Our count_tokens method isn't exactly right because chat annotations take tokens.
+        if length3 < 4097 - padding:
             gpt_3_examples.append(transcript)
-        if length4 < 8192:
+        if length4 < 8192 - padding:
             gpt_4_examples.append(transcript)
+        if length3 < 16385 - padding:
+            gpt_3_16k_examples.append(transcript)
+        if length4 < 32768 - padding:
+            gpt_4_32k_examples.append(transcript)
 
     with open("transcripts.jsonl", "w") as f:
         json.dump(transcripts, f)
@@ -233,6 +238,10 @@ if __name__ == "__main__":
         f.write("\n".join(gpt_3_examples))
     with open("transcripts_gpt4.jsonl", "w") as f:
         f.write("\n".join(gpt_4_examples))
+    with open("transcripts_gpt3_16k.jsonl", "w") as f:
+        f.write("\n".join(gpt_3_16k_examples))
+    with open("transcripts_gpt4_32k.jsonl", "w") as f:
+        f.write("\n".join(gpt_4_32k_examples))
     with open("benchmarks.json", "w") as f:
         json.dump(benchmarks, f)
     repo.git.checkout(args.commit)
