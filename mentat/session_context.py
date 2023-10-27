@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from mentat.config import Config
     from mentat.conversation import Conversation
     from mentat.llm_api import CostTracker
-    from mentat.parsers.parser import Parser
     from mentat.session_stream import SessionStream
 
 SESSION_CONTEXT: ContextVar[SessionContext] = ContextVar("mentat:session_context")
@@ -24,7 +23,6 @@ class SessionContext:
     cost_tracker: CostTracker = attr.field()
     git_root: Path = attr.field()
     config: Config = attr.field()
-    parser: Parser = attr.field()
     code_context: CodeContext = attr.field()
     code_file_manager: CodeFileManager = attr.field()
     conversation: Conversation = attr.field()

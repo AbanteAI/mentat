@@ -371,8 +371,13 @@ class ConfigCommand(Command, command_name="config"):
                             color="yellow",
                         )
                         return
-                    setattr(config, setting, value)
-                    stream.send(f"{setting} set to {value}", color="green")
+                    try:
+                        setattr(config, setting, value)
+                        stream.send(f"{setting} set to {value}", color="green")
+                    except (TypeError, ValueError):
+                        stream.send(
+                            f"Illegal value for {setting}: {value}", color="red"
+                        )
                 else:
                     stream.send("Too many arguments", color="yellow")
             else:

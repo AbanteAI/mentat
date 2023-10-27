@@ -13,7 +13,7 @@ from mentat.llm_api import (
     call_embedding_api,
     count_tokens,
     model_context_size,
-    model_price_per_1000_tokens,
+    price_per_1000_tokens,
 )
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
@@ -96,7 +96,7 @@ async def get_feature_similarity_scores(
 
     # Keep things in the same order
     checksums: list[str] = [f.get_checksum() for f in features]
-    tokens: list[int] = await count_feature_tokens(features, EMBEDDING_MODEL)
+    tokens: list[int] = await count_feature_tokens(features, model=EMBEDDING_MODEL)
 
     # Make a checksum:content dict of all items that need to be embedded
     items_to_embed = dict[str, str]()
@@ -117,7 +117,7 @@ async def get_feature_similarity_scores(
             num_prompt_tokens += token
 
     # If it costs more than $1, get confirmation from user.
-    cost = model_price_per_1000_tokens(EMBEDDING_MODEL)
+    cost = price_per_1000_tokens(EMBEDDING_MODEL)
     if cost is None:
         stream.send(
             "Warning: Could not determine cost of embeddings. Continuing anyway.",
@@ -148,8 +148,8 @@ async def get_feature_similarity_scores(
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             0,
-            EMBEDDING_MODEL,
             default_timer() - _start_time,
+            model=EMBEDDING_MODEL,
             decimal_places=4,
         )
 

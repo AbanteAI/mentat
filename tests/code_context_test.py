@@ -213,20 +213,14 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
         "mentat.code_context.CodeContext._get_code_message"
     )
     mock_get_code_message.return_value = "test1"
-    value1 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value1 = await code_context.get_code_message(prompt="", max_tokens=1e6)
     mock_get_code_message.return_value = "test2"
-    value2 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value2 = await code_context.get_code_message(prompt="", max_tokens=1e6)
     assert value1 == value2
 
     # Regenerate if settings change
     mocker.patch.object(Config, "auto_tokens", new=11)
-    value3 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value3 = await code_context.get_code_message(prompt="", max_tokens=1e6)
     assert value1 != value3
 
     # Regenerate if feature files change
@@ -234,9 +228,7 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
     lines = file.read_text().splitlines()
     lines[0] = "something different"
     file.write_text("\n".join(lines))
-    value4 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value4 = await code_context.get_code_message(prompt="", max_tokens=1e6)
     assert value3 != value4
 
 
@@ -253,9 +245,7 @@ async def test_get_code_message_include(mocker, temp_testbed, mock_session_conte
 
     # If max tokens is less than include_files, return include_files without
     # raising and Exception (that's handled elsewhere)
-    code_message = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    code_message = await code_context.get_code_message(prompt="", max_tokens=1e6)
     expected = [
         "Code Files:",
         "",
@@ -304,10 +294,8 @@ async def test_auto_tokens(mocker, temp_testbed, mock_session_context):
 
     async def _count_auto_tokens_where(limit: int) -> int:
         mocker.patch.object(Config, "auto_tokens", new=limit)
-        code_message = await code_context.get_code_message(
-            prompt="", model="gpt-4", max_tokens=1e6
-        )
-        return count_tokens(code_message, "gpt-4")
+        code_message = await code_context.get_code_message(prompt="", max_tokens=1e6)
+        return count_tokens(code_message)
 
     assert await _count_auto_tokens_where(None) == 65  # Cmap w/ signatures
     assert await _count_auto_tokens_where(60) == 57  # Cmap
@@ -377,7 +365,7 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
         mock_session_context.git_root,
     )
     code_context.set_paths([], [], ["scripts", "**/*.txt"])
-    code_message = await code_context.get_code_message("", "gpt-4", 1e6)
+    code_message = await code_context.get_code_message("", 1e6)
 
     # Iterate through all files in temp_testbed; if they're not in the ignore
     # list, they should be in the code message.

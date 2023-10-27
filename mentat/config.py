@@ -6,23 +6,16 @@ from json import JSONDecodeError
 from pathlib import Path
 
 import attr
-from attr import validators
+from attr import converters, validators
 
 from mentat.git_handler import get_shared_git_root_for_paths
+from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
 config_file_name = Path(".mentat_config.json")
 user_config_path = mentat_dir_path / config_file_name
-
-
-def parse_bool(s: str | bool | None) -> bool:
-    if isinstance(s, bool):
-        return s
-    if s is None:
-        return False
-    return s.lower() in ("true", "1", "t", "y", "yes")
 
 
 def int_or_none(s: str | None) -> int | None:
@@ -53,16 +46,26 @@ class Config:
         converter=int_or_none,
         validator=validators.optional(validators.ge(0)),
     )
-    format: str = attr.field(
+    parser: Parser = attr.field(  # pyright: ignore
         default="block",
         metadata={
             "description": (
                 "The format for the LLM to write code in. You probably don't want to"
                 " mess with this setting."
             ),
-            "no_midsession_change": True,
         },
-        validator=validators.optional(validators.in_(parser_map)),
+        converter=parser_map.get,  # pyright: ignore
+        validator=validators.instance_of(Parser),  # pyright: ignore
+    )
+    no_parser_prompt: bool = attr.field(
+        default=False,
+        metadata={
+            "description": (
+                "Whether to include the parser prompt in the system message. Only set"
+                " to true for fine tuned models"
+            )
+        },
+        converter=converters.optional(converters.to_bool),
     )
 
     # Context specific settings
@@ -75,7 +78,7 @@ class Config:
         metadata={
             "description": "Fetch/compare embeddings to auto-generate code context"
         },
-        converter=parse_bool,
+        converter=converters.optional(converters.to_bool),
     )
     no_code_map: bool = attr.field(
         default=False,
@@ -84,7 +87,7 @@ class Config:
                 "Exclude the file structure/syntax map from the system prompt"
             )
         },
-        converter=parse_bool,
+        converter=converters.optional(converters.to_bool),
     )
     auto_tokens: int | None = attr.field(
         default=None,
@@ -127,7 +130,7 @@ class Config:
             }
 
             if field.type == "bool":
-                if arguments.get("default", False):
+                if field.default is True:
                     arguments["action"] = "store_false"
                 else:
                     arguments["action"] = "store_true"

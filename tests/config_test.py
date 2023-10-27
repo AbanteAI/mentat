@@ -6,6 +6,7 @@ import pytest
 
 import mentat.config
 from mentat.config import Config, config_file_name
+from mentat.parsers.replacement_parser import ReplacementParser
 
 
 @pytest.mark.asyncio
@@ -31,7 +32,7 @@ async def test_config_creation():
     assert args.model == "model"
     assert args.temperature == 0.2
     assert args.maximum_context == "1"
-    assert args.format is None
+    assert args.parser is None
     assert args.use_embeddings
     assert args.auto_tokens == "2"
 
@@ -46,7 +47,7 @@ async def test_config_creation():
         user_config_file.write(dedent("""\
         {
             "model": "test",
-            "format": "replacement",
+            "parser": "replacement",
             "input_style": [[ "user", "yes" ]]
         }"""))
 
@@ -55,7 +56,7 @@ async def test_config_creation():
     assert config.model == "model"
     assert config.temperature == 0.2
     assert config.maximum_context == 1
-    assert config.format == "replacement"
+    assert type(config.parser) == ReplacementParser
     assert config.use_embeddings
     assert not config.no_code_map
     assert config.auto_tokens == 2
@@ -69,7 +70,7 @@ async def test_invalid_config():
         project_config_file.write(dedent("""\
         {
             "model": "project",
-            "format": "I have a trailing comma",
+            "parser": "I have a trailing comma",
         }"""))
 
     mentat.config.user_config_path = Path(str(config_file_name) + "1")

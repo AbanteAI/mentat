@@ -55,6 +55,12 @@ def is_test_environment():
     )
 
 
+def get_model():
+    session_context = SESSION_CONTEXT.get()
+    config = session_context.config
+    return config.model
+
+
 async def _add_newline(response: AsyncGenerator[Any, None]):
     """
     The model normally ends it's response without a newline,
@@ -104,11 +110,31 @@ def warn_user(message: str, max_tries: int, details: Details):
     on_backoff=partial(warn_user, "Rate limit recieved from OpenAI's servers", 3),
 )
 async def call_llm_api(
-    messages: list[dict[str, str]], model: str
+    messages: list[dict[str, str]], model: str | None = None
 ) -> AsyncGenerator[Any, None]:
     raise_if_in_test_environment()
     session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
     config = session_context.config
+    if model is None:
+        model = config.model
+    if not is_model_available(model):
+        raise MentatError(
+            f"Model {model} is not available. Please try again with a different model."
+        )
+    if "gpt-4" not in model:
+        stream.send(
+            "Warning: Mentat has only been tested on GPT-4. You may experience"
+            " issues with quality. This model may not be able to respond in"
+            " mentat's edit format.",
+            color="yellow",
+        )
+        if "gpt-3.5" not in model:
+            stream.send(
+                "Warning: Mentat does not know how to calculate costs or context"
+                " size for this model.",
+                color="yellow",
+            )
 
     response: AsyncGenerator[Any, None] = cast(
         AsyncGenerator[Any, None],
@@ -140,7 +166,10 @@ def chunk_to_lines(chunk: Any) -> list[str]:
 # NOTE: We may be calculating the length of Conversation messages incorrectly,
 # but the difference should be negligible (<5 tokens per message):
 # https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
-def count_tokens(message: str, model: str) -> int:
+def count_tokens(message: str, model: str | None = None) -> int:
+    if model is None:
+        model = get_model()
+
     try:
         return len(
             tiktoken.encoding_for_model(model).encode(message, disallowed_special=())
@@ -151,15 +180,19 @@ def count_tokens(message: str, model: str) -> int:
         )
 
 
-def is_model_available(model: str) -> bool:
-    available_models: list[str] = cast(
+def available_models() -> list[str]:
+    return cast(
         list[str], [x["id"] for x in openai.Model.list()["data"]]  # type: ignore
     )
 
-    return model in available_models
+
+def is_model_available(model: str) -> bool:
+    return model in available_models()
 
 
-def model_context_size(model: str) -> Optional[int]:
+def model_context_size(model: str | None = None) -> Optional[int]:
+    if model is None:
+        model = get_model()
     if "gpt-4" in model:
         if "32k" in model:
             return 32768
@@ -176,8 +209,31 @@ def model_context_size(model: str) -> Optional[int]:
         return None
 
 
-def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
+def maximum_context_size() -> int:
+    session_context = SESSION_CONTEXT.get()
+    config = session_context.config
+    model = config.model
+    model_maximum = model_context_size(model)
+    maximum_context = config.maximum_context
+    if maximum_context is None:
+        if model_maximum is None:
+            raise MentatError(
+                f"Context size for {config.model} is not known. Please set"
+                " maximum-context with `/config maximum_context value`."
+            )
+        else:
+            return model_maximum
+    else:
+        if model_maximum is None:
+            return maximum_context
+        else:
+            return min(model_maximum, maximum_context)
+
+
+def price_per_1000_tokens(model: str | None = None) -> Optional[tuple[float, float]]:
     """Returns (input, output) cost per 1000 tokens in USD"""
+    if model is None:
+        model = get_model()
     if "gpt-4" in model:
         if "32k" in model:
             return (0.06, 0.12)
@@ -194,9 +250,13 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
         return None
 
 
-def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
+def get_prompt_token_count(
+    messages: list[dict[str, str]], model: str | None = None
+) -> int:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
+    if model is None:
+        model = get_model()
 
     prompt_token_count = 0
     for message in messages:
@@ -224,12 +284,14 @@ class CostTracker:
         self,
         num_prompt_tokens: int,
         num_sampled_tokens: int,
-        model: str,
         call_time: float,
+        model: str | None = None,
         decimal_places: int = 2,
     ) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
+        if model is None:
+            model = get_model()
 
         speed_and_cost_string = ""
         self.total_tokens += num_prompt_tokens + num_sampled_tokens
@@ -238,7 +300,7 @@ class CostTracker:
             speed_and_cost_string += (
                 f"Speed: {tokens_per_second:.{decimal_places}f} tkns/s"
             )
-        cost = model_price_per_1000_tokens(model)
+        cost = price_per_1000_tokens(model)
         if cost:
             prompt_cost = (num_prompt_tokens / 1000) * cost[0]
             sampled_cost = (num_sampled_tokens / 1000) * cost[1]

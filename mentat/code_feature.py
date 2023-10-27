@@ -150,7 +150,7 @@ class CodeFeature:
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
         git_root = session_context.git_root
-        parser = session_context.parser
+        parser = session_context.config.parser
 
         code_message: list[str] = []
 
@@ -208,12 +208,14 @@ class CodeFeature:
             self._code_message = self._get_code_message()
         return self._code_message
 
-    def count_tokens(self, model: str) -> int:
+    def count_tokens(self, model: str | None = None) -> int:
         code_message = self.get_code_message()
-        return count_tokens("\n".join(code_message), model)
+        return count_tokens("\n".join(code_message), model=model)
 
 
-async def count_feature_tokens(features: list[CodeFeature], model: str) -> list[int]:
+async def count_feature_tokens(
+    features: list[CodeFeature], model: str | None = None
+) -> list[int]:
     """Return the number of tokens in each feature."""
     sem = asyncio.Semaphore(10)
 

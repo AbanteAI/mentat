@@ -214,7 +214,6 @@ class CodeContext:
     async def get_code_message(
         self,
         prompt: str,
-        model: str,
         max_tokens: int,
     ) -> str:
         code_message_checksum = self._get_code_message_checksum(max_tokens)
@@ -222,14 +221,13 @@ class CodeContext:
             self._code_message is None
             or code_message_checksum != self._code_message_checksum
         ):
-            self._code_message = await self._get_code_message(prompt, model, max_tokens)
+            self._code_message = await self._get_code_message(prompt, max_tokens)
             self._code_message_checksum = self._get_code_message_checksum(max_tokens)
         return self._code_message
 
     async def _get_code_message(
         self,
         prompt: str,
-        model: str,
         max_tokens: int,
     ) -> str:
         session_context = SESSION_CONTEXT.get()
@@ -249,17 +247,15 @@ class CodeContext:
         code_message += ["Code Files:\n"]
 
         features = self._get_include_features()
-        meta_tokens = count_tokens("\n".join(code_message), model)
-        include_feature_tokens = sum(await count_feature_tokens(features, model))
+        meta_tokens = count_tokens("\n".join(code_message))
+        include_feature_tokens = sum(await count_feature_tokens(features))
         _max_auto = max(0, max_tokens - meta_tokens - include_feature_tokens)
         _max_user = config.auto_tokens
         if _max_auto == 0 or _max_user == 0:
             self.features = features
         else:
             auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
-            self.features = await self._get_auto_features(
-                prompt, model, features, auto_tokens
-            )
+            self.features = await self._get_auto_features(prompt, features, auto_tokens)
 
         for f in self.features:
             code_message += f.get_code_message()
@@ -291,7 +287,6 @@ class CodeContext:
     async def _get_auto_features(
         self,
         prompt: str,
-        model: str,
         include_features: list[CodeFeature],
         max_tokens: int,
     ) -> list[CodeFeature]:
@@ -304,9 +299,7 @@ class CodeContext:
         git_root = session_context.git_root
 
         # Find the first (longest) level that fits
-        include_features_tokens = sum(
-            await count_feature_tokens(include_features, model)
-        )
+        include_features_tokens = sum(await count_feature_tokens(include_features))
         max_auto_tokens = max_tokens - include_features_tokens
         all_features = include_features.copy()
         levels = [CodeMessageLevel.FILE_NAME]
@@ -324,7 +317,7 @@ class CodeContext:
             level_features = [
                 f for f in level_features if f.path not in self.include_files
             ]
-            level_length = sum(await count_feature_tokens(level_features, model))
+            level_length = sum(await count_feature_tokens(level_features))
             if level_length < max_auto_tokens:
                 all_features += level_features
                 break
@@ -337,7 +330,7 @@ class CodeContext:
 
         # If there's room, convert cmap features to code features (full text)
         # starting with the highest-scoring.
-        cmap_features_tokens = sum(await count_feature_tokens(all_features, model))
+        cmap_features_tokens = sum(await count_feature_tokens(all_features))
         max_sim_tokens = max_tokens - cmap_features_tokens
         if config.auto_tokens is not None:
             max_sim_tokens = min(max_sim_tokens, config.auto_tokens)
@@ -357,8 +350,8 @@ class CodeContext:
                 i_cmap, cmap_feature = next(
                     (i, f) for i, f in enumerate(all_features) if f.path == abs_path
                 )
-                recovered_tokens = cmap_feature.count_tokens(model)
-                new_tokens = code_feature.count_tokens(model)
+                recovered_tokens = cmap_feature.count_tokens()
+                new_tokens = code_feature.count_tokens()
                 forecast = max_sim_tokens - sim_tokens + recovered_tokens - new_tokens
                 if forecast > 0:
                     sim_tokens = sim_tokens + new_tokens - recovered_tokens

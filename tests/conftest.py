@@ -17,7 +17,6 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config, config_file_name
 from mentat.conversation import Conversation
 from mentat.llm_api import CostTracker
-from mentat.session import parser_map
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
 from mentat.streaming_printer import StreamingPrinter
@@ -159,7 +158,7 @@ def mock_collect_user_input(mocker):
 @pytest.fixture(scope="function")
 def mock_setup_api_key(mocker):
     mocker.patch("mentat.session.setup_api_key")
-    mocker.patch("mentat.conversation.is_model_available")
+    mocker.patch("mentat.llm_api.is_model_available")
     return
 
 
@@ -181,20 +180,17 @@ async def _mock_session_context(temp_testbed):
 
     config = Config()
 
-    parser = parser_map[config.format]
-
     code_context = CodeContext(stream, git_root)
 
     code_file_manager = CodeFileManager()
 
-    conversation = Conversation(parser)
+    conversation = Conversation()
 
     session_context = SessionContext(
         stream,
         cost_tracker,
         git_root,
         config,
-        parser,
         code_context,
         code_file_manager,
         conversation,
