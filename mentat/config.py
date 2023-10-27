@@ -157,12 +157,14 @@ class Config:
         return config
 
     def load_namespace(self, args: Namespace) -> None:
-        for field in vars(args):
-            if hasattr(self, field) and getattr(args, field) is not None:
-                try:
-                    setattr(self, field, getattr(args, field))
-                except (ValueError, TypeError) as e:
-                    self.error(f"Warning: Illegal value for {field}: {e}")
+        for field in attr.fields(Config):
+            if field.name in args and field.name != "_errors":
+                value = getattr(args, field.name)
+                if value is not None and value != field.default:
+                    try:
+                        setattr(self, field.name, value)
+                    except (ValueError, TypeError) as e:
+                        self.error(f"Warning: Illegal value for {field}: {e}")
 
     def load_file(self, path: Path) -> None:
         if path.exists():
