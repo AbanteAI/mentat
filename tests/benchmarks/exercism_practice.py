@@ -29,19 +29,6 @@ def clone_exercism_repo(refresh_repo, language):
 
 
 @pytest.fixture
-def exercises(request):
-    exercises = request.config.getoption("--exercises")
-    if len(exercises) == 1:
-        return exercises[0]
-    return exercises
-
-
-@pytest.fixture
-def max_exercises(request):
-    return int(request.config.getoption("--max_exercises"))
-
-
-@pytest.fixture
 def max_iterations(request):
     return int(request.config.getoption("--max_iterations"))
 
@@ -211,17 +198,17 @@ def summarize_results(results):
 
 def test_practice_directory_performance(
     clone_exercism_repo,
-    exercises,
-    max_exercises,
+    benchmarks,
+    max_benchmarks,
     max_iterations,
     max_workers,
     language,
 ):
     all_exercises = os.listdir("exercises/practice")
-    if len(exercises) > 0:
-        exercises = set(exercises) & set(all_exercises)
+    if len(benchmarks) > 0:
+        exercises = set(benchmarks) & set(all_exercises)
     else:
-        exercises = all_exercises[:max_exercises]
+        exercises = all_exercises[:max_benchmarks]
     num_exercises = len(exercises)
 
     # TODO: aiomultiprocessing would be faster with fewer workers; setup a Manager in a parent process

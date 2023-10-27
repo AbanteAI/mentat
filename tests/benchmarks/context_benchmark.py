@@ -92,11 +92,32 @@ tests = [
 ]
 
 
+def matches(test, name):
+    prefix_length = min(len(test["commit"]), len(name))
+    if test["commit"][:prefix_length] == name[:prefix_length]:
+        return True
+    if name in test["name"]:
+        return True
+    return False
+
+
 @pytest.mark.asyncio
-async def test_code_context_performance(mock_session_context):
+async def test_code_context_performance(
+    mock_session_context, benchmarks, max_benchmarks
+):
     setup_api_key()
 
-    for test in tests:
+    if len(benchmarks) > 0:
+        tests_to_run = []
+        for test in tests:
+            for benchmark in benchmarks:
+                if matches(test, benchmark):
+                    tests_to_run.append(test)
+                    break
+    else:
+        tests_to_run = tests[:max_benchmarks]
+
+    for test in tests_to_run:
         print(f"\n\n{test['name']}\n{test['prompt']}")
 
         code_dir = clone_repo(test["codebase_url"], test["codebase_name"])
