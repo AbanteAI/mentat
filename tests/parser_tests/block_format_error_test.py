@@ -2,15 +2,13 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.config_manager import ConfigManager
+from mentat.config import Config
 from mentat.session import Session
 
 
 @pytest.fixture(autouse=True)
 def block_parser(mocker):
-    mock_method = mocker.MagicMock()
-    mocker.patch.object(ConfigManager, "parser", new=mock_method)
-    mock_method.return_value = "block"
+    mocker.patch.object(Config, "format", new="block")
 
 
 temp_file_name = "temp.py"

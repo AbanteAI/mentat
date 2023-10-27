@@ -26,16 +26,18 @@ An auto-context process might look like this:
 These tests can be used to train/score #1 or #2, but we'd expect #2 to score 
 a lot higher.
 """
+
 import os
 import subprocess
 from pathlib import Path
 
 import pytest
 
-from mentat.code_context import CodeContext, CodeContextSettings
+from mentat.code_context import CodeContext
 from mentat.code_feature import CodeFeature, CodeMessageLevel
 from mentat.git_handler import get_non_gitignored_files
 from mentat.llm_api import setup_api_key
+from mentat.session_context import SESSION_CONTEXT
 from tests.benchmarks.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
@@ -229,15 +231,16 @@ async def test_code_context_performance(
             for k, v in test["args"].items()
             if k not in ["paths", "exclude_paths", "ignore_paths"]
         }
-        settings = CodeContextSettings(
-            use_embeddings=True,
-            auto_tokens=7000,
-            **rest,
-        )
+        session_context = SESSION_CONTEXT.get()
+        config = session_context.config
+        config.use_embeddings = True
+        config.auto_tokens = 7000
+        for k in rest:
+            if hasattr(config, k):
+                setattr(config, k, rest[k])
         code_context = CodeContext(
             stream=mock_session_context.stream,
             git_root=code_dir,
-            settings=settings,
         )
         code_context.set_paths(paths, exclude_paths, ignore_paths)
         _ = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)

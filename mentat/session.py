@@ -7,30 +7,19 @@ from uuid import uuid4
 
 from openai.error import RateLimitError, Timeout
 
-from mentat.code_context import CodeContext, CodeContextSettings
+from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
-from mentat.config_manager import ConfigManager
+from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.errors import MentatError, SessionExit
 from mentat.git_handler import get_shared_git_root_for_paths
 from mentat.llm_api import CostTracker, setup_api_key
 from mentat.logging_config import setup_logging
-from mentat.parsers.block_parser import BlockParser
-from mentat.parsers.parser import Parser
-from mentat.parsers.replacement_parser import ReplacementParser
-from mentat.parsers.split_diff_parser import SplitDiffParser
-from mentat.parsers.unified_diff_parser import UnifiedDiffParser
+from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_input import collect_user_input
 from mentat.session_stream import SessionStream
-
-parser_map: dict[str, Parser] = {
-    "block": BlockParser(),
-    "replacement": ReplacementParser(),
-    "split-diff": SplitDiffParser(),
-    "unified-diff": UnifiedDiffParser(),
-}
 
 
 class Session:
@@ -41,9 +30,7 @@ class Session:
         ignore_paths: List[Path] = [],
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
-        no_code_map: bool = False,
-        use_embeddings: bool = False,
-        auto_tokens: Optional[int] = None,
+        config: Config = Config(),
     ):
         self.id = uuid4()
         setup_api_key()
@@ -58,19 +45,13 @@ class Session:
 
         cost_tracker = CostTracker()
 
-        # TODO: Part of config should be retrieved in client (i.e., to get vscode settings) and passed to server
-        config = ConfigManager(git_root, stream)
+        parser = parser_map[config.format]
 
-        parser = parser_map[config.parser()]
-
-        code_context_settings = CodeContextSettings(
-            diff, pr_diff, no_code_map, use_embeddings, auto_tokens
-        )
-        code_context = CodeContext(stream, git_root, code_context_settings)
+        code_context = CodeContext(stream, git_root, diff, pr_diff)
 
         code_file_manager = CodeFileManager()
 
-        conversation = Conversation(config, parser)
+        conversation = Conversation(parser)
 
         session_context = SessionContext(
             stream,
@@ -85,6 +66,7 @@ class Session:
         SESSION_CONTEXT.set(session_context)
 
         # Functions that require session_context
+        config.send_errors_to_stream()
         code_context.set_paths(paths, exclude_paths, ignore_paths)
         code_context.set_code_map()
 

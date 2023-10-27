@@ -15,6 +15,7 @@ def test_split_file_into_intervals(temp_testbed, mock_session_context):
             """))
     code_feature = CodeFeature(Path("file_1.py"), CodeMessageLevel.CODE)
     interval_features = split_file_into_intervals(temp_testbed, code_feature, 1)
+
     assert len(interval_features) == 2
 
     interval_1 = interval_features[0].intervals[0]

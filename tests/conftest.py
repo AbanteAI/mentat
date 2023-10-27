@@ -11,10 +11,10 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
-from mentat import config_manager
-from mentat.code_context import CodeContext, CodeContextSettings
+from mentat import config
+from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
-from mentat.config_manager import ConfigManager, config_file_name
+from mentat.config import Config, config_file_name
 from mentat.conversation import Conversation
 from mentat.llm_api import CostTracker
 from mentat.session import parser_map
@@ -101,6 +101,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "clear_testbed: create a testbed without any existing files"
     )
+    config.addinivalue_line("markers", "no_git_testbed: create a testbed without git")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -170,6 +171,7 @@ def mock_setup_api_key(mocker):
 # Despite not using any awaits here, this has to be async or there won't be a running event loop
 @pytest_asyncio.fixture()
 async def _mock_session_context(temp_testbed):
+    # TODO make this `None` if there's no git (SessionContext needs to allow it)
     git_root = temp_testbed
 
     stream = SessionStream()
@@ -177,16 +179,15 @@ async def _mock_session_context(temp_testbed):
 
     cost_tracker = CostTracker()
 
-    config = ConfigManager(git_root, stream)
+    config = Config()
 
-    parser = parser_map[config.parser()]
+    parser = parser_map[config.format]
 
-    code_context_settings = CodeContextSettings()
-    code_context = CodeContext(stream, git_root, code_context_settings)
+    code_context = CodeContext(stream, git_root)
 
     code_file_manager = CodeFileManager()
 
-    conversation = Conversation(config, parser)
+    conversation = Conversation(parser)
 
     session_context = SessionContext(
         stream,
@@ -248,27 +249,29 @@ def temp_testbed(monkeypatch, get_marks):
     temp_testbed = os.path.join(temp_dir, "testbed")
     os.mkdir(temp_testbed)
 
-    # Initialize git repo
-    run_git_command(temp_testbed, "init")
+    if "no_git_testbed" not in get_marks:
+        # Initialize git repo
+        run_git_command(temp_testbed, "init")
 
-    # Set local config for user.name and user.email. Set automatically on
-    # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
-    run_git_command(temp_testbed, "config", "user.email", "test@example.com")
-    run_git_command(temp_testbed, "config", "user.name", "Test User")
+        # Set local config for user.name and user.email. Set automatically on
+        # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
+        run_git_command(temp_testbed, "config", "user.email", "test@example.com")
+        run_git_command(temp_testbed, "config", "user.name", "Test User")
 
     if "clear_testbed" not in get_marks:
         # Copy testbed
         shutil.copytree("testbed", temp_testbed, dirs_exist_ok=True)
         shutil.copy(".gitignore", temp_testbed)
 
-        # Add all files and commit
-        run_git_command(temp_testbed, "add", ".")
-        run_git_command(temp_testbed, "commit", "-m", "add testbed")
+        if "no_git_testbed" not in get_marks:
+            # Add all files and commit
+            run_git_command(temp_testbed, "add", ".")
+            run_git_command(temp_testbed, "commit", "-m", "add testbed")
 
     # necessary to undo chdir before calling rmtree, or it fails on windows
     with monkeypatch.context() as m:
         m.chdir(temp_testbed)
-        yield temp_testbed
+        yield Path(temp_testbed)
 
     shutil.rmtree(temp_dir, onerror=add_permissions)
 
@@ -277,7 +280,7 @@ def temp_testbed(monkeypatch, get_marks):
 # it will be unset unless a specific test wants to make a config in the testbed
 @pytest.fixture(autouse=True)
 def mock_user_config(mocker):
-    config_manager.user_config_path = Path(config_file_name)
+    config.user_config_path = Path(config_file_name)
 
 
 @pytest.fixture(autouse=True)
