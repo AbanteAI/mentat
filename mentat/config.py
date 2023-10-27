@@ -87,7 +87,7 @@ class Config:
         converter=parse_bool,
     )
     auto_tokens: int | None = attr.field(
-        default=None,
+        default=0,
         metadata={
             "description": (
                 "Maximum number of auto-generated tokens to include in the prompt"
