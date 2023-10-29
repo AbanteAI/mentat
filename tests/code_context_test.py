@@ -275,7 +275,7 @@ async def test_get_code_message_include(mocker, temp_testbed, mock_session_conte
 
 @pytest.mark.asyncio
 @pytest.mark.clear_testbed
-async def test_auto_tokens(mocker, temp_testbed, mock_session_context):
+async def test_max_tokens(mocker, temp_testbed, mock_session_context):
     with open("file_1.py", "w") as f:
         f.write(dedent("""\
             def func_1(x, y):
@@ -302,18 +302,19 @@ async def test_auto_tokens(mocker, temp_testbed, mock_session_context):
     )
     code_context.set_paths(["file_1.py"], [])
 
-    async def _count_auto_tokens_where(limit: int) -> int:
-        mocker.patch.object(Config, "auto_tokens", new=limit)
+    mocker.patch.object(Config, "auto_tokens", new=1e6)
+
+    async def _count_tokens_with_max(limit: int) -> int:
         code_message = await code_context.get_code_message(
-            prompt="", model="gpt-4", max_tokens=1e6
+            prompt="", model="gpt-4", max_tokens=limit
         )
         return count_tokens(code_message, "gpt-4")
 
-    assert await _count_auto_tokens_where(None) == 65  # Cmap w/ signatures
-    assert await _count_auto_tokens_where(60) == 57  # Cmap
-    assert await _count_auto_tokens_where(52) == 47  # fnames
+    assert await _count_tokens_with_max(1e6) == 65  # Cmap w/ signatures
+    assert await _count_tokens_with_max(60) == 57  # Cmap
+    assert await _count_tokens_with_max(52) == 47  # fnames
     # Always return include_files, regardless of max
-    assert await _count_auto_tokens_where(0) == 42  # Include_files only
+    assert await _count_tokens_with_max(0) == 42  # Include_files only
 
 
 @pytest.mark.clear_testbed

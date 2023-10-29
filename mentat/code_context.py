@@ -5,6 +5,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
+from mentat.auto_context import select_features_greedy, select_features_llm
 from mentat.code_feature import (
     CodeFeature,
     CodeMessageLevel,
@@ -23,6 +24,7 @@ from mentat.include_files import (
     print_invalid_path,
     print_path_tree,
 )
+from mentat.interval import Interval
 from mentat.llm_api import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
@@ -75,6 +77,46 @@ def _get_all_features(
             all_features.append(_feature)
 
     return all_features
+
+
+def _merge_features(a: list[CodeFeature], b: list[CodeFeature]) -> list[CodeFeature]:
+    output = list[CodeFeature]()
+    for feature in a + b:
+        matching = [f for f in output if f.path == feature.path]
+        intersects = (
+            False
+            if not matching
+            else any(
+                i_feat.intersects(i_match)
+                for i_feat in feature.intervals
+                for i_match in matching[0].intervals
+            )
+        )
+        if not matching or not intersects:
+            output.append(feature)
+            continue
+
+        # Replace matching feature's intervals with a single interval covering
+        # the entire range of both features.
+        # TODO: Our features currently support multiple intervals so this step
+        # could add additional lines, but it would be better to make all features
+        # single-interval than build-out this.
+        feature_start = min(feature.intervals, key=lambda i: i.start)
+        feature_end = max(feature.intervals, key=lambda i: i.end)
+        matching_start = min(matching[0].intervals, key=lambda i: i.start)
+        matching_end = max(matching[0].intervals, key=lambda i: i.end)
+        matching[0].intervals = [
+            Interval(
+                min(feature_start.start, matching_start.start),
+                max(feature_end.end, matching_end.end),
+            )
+        ]
+        if feature.diff and not matching[0].diff:
+            matching[0].diff = feature.diff
+        if feature.user_included and not matching[0].user_included:
+            matching[0].user_included = feature.user_included
+
+    return output
 
 
 class CodeContext:
@@ -216,24 +258,32 @@ class CodeContext:
         prompt: str,
         model: str,
         max_tokens: int,
+        expected_edits: Optional[list[str]] = None,  # for training/benchmarking
     ) -> str:
         code_message_checksum = self._get_code_message_checksum(max_tokens)
         if (
             self._code_message is None
             or code_message_checksum != self._code_message_checksum
         ):
-            self._code_message = await self._get_code_message(prompt, model, max_tokens)
+            self._code_message = await self._get_code_message(
+                prompt, model, max_tokens, expected_edits
+            )
             self._code_message_checksum = self._get_code_message_checksum(max_tokens)
         return self._code_message
+
+    use_llm: bool = False
+    auto_threshold: float = 0.0
 
     async def _get_code_message(
         self,
         prompt: str,
         model: str,
         max_tokens: int,
+        expected_edits: Optional[list[str]] = None,
     ) -> str:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
+        git_root = session_context.git_root
 
         code_message = list[str]()
 
@@ -257,11 +307,50 @@ class CodeContext:
             self.features = features
         else:
             auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
-            self.features = await self._get_auto_features(
-                prompt, model, features, auto_tokens
-            )
+            auto_levels = sorted(CodeMessageLevel, key=lambda l: l.rank)
+            if not self.code_map:
+                auto_levels = [l for l in auto_levels if "cmap" not in l.key]
+            if not self.use_llm:
+                auto_levels = [
+                    l for l in auto_levels if l.key not in ("code", "interval")
+                ]
+
+            if prompt and config.use_embeddings:
+                auto_features = await self.search(prompt, level=auto_levels[0])
+                auto_features = [
+                    f[0] for f in auto_features
+                ]  # Drop scores, rely on order
+            else:
+                auto_features = _get_all_features(
+                    git_root,
+                    self.include_files,
+                    self.ignore_files,
+                    self.diff_context,
+                    self.code_map,
+                    auto_levels[0],
+                )
+
+            if self.use_llm:
+                auto_features = await select_features_llm(
+                    auto_features,
+                    auto_tokens,
+                    model,
+                    auto_levels,
+                    prompt,
+                    expected_edits,
+                )
+                self.features = _merge_features(features, auto_features)
+            else:
+                auto_features = [
+                    f for f in auto_features if f.path not in self.include_files
+                ]
+                auto_features = select_features_greedy(
+                    auto_features, auto_tokens, model, auto_levels
+                )
+                self.features = features + auto_features
 
         for f in self.features:
+            # TODO: Join features of same file with ellipses and a single fname
             code_message += f.get_code_message()
         return "\n".join(code_message)
 
@@ -287,84 +376,6 @@ class CodeContext:
             return os.path.relpath(f.path, git_root)
 
         return sorted(include_features, key=_feature_relative_path)
-
-    async def _get_auto_features(
-        self,
-        prompt: str,
-        model: str,
-        include_features: list[CodeFeature],
-        max_tokens: int,
-    ) -> list[CodeFeature]:
-        """Return a list of features that fit within the max_tokens limit
-
-        - user_features: excluded from auto-features process, added to return list
-        """
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        git_root = session_context.git_root
-
-        # Find the first (longest) level that fits
-        include_features_tokens = sum(
-            await count_feature_tokens(include_features, model)
-        )
-        max_auto_tokens = max_tokens - include_features_tokens
-        all_features = include_features.copy()
-        levels = [CodeMessageLevel.FILE_NAME]
-        if not config.no_code_map:
-            levels = [CodeMessageLevel.CMAP_FULL, CodeMessageLevel.CMAP] + levels
-        for level in levels:
-            level_features = _get_all_features(
-                git_root,
-                self.include_files,
-                self.ignore_files,
-                self.diff_context,
-                self.code_map,
-                level,
-            )
-            level_features = [
-                f for f in level_features if f.path not in self.include_files
-            ]
-            level_length = sum(await count_feature_tokens(level_features, model))
-            if level_length < max_auto_tokens:
-                all_features += level_features
-                break
-
-        # Sort by relative path
-        def _feature_relative_path(f: CodeFeature) -> str:
-            return os.path.relpath(f.path, git_root)
-
-        all_features = sorted(all_features, key=_feature_relative_path)
-
-        # If there's room, convert cmap features to code features (full text)
-        # starting with the highest-scoring.
-        cmap_features_tokens = sum(await count_feature_tokens(all_features, model))
-        max_sim_tokens = max_tokens - cmap_features_tokens
-        if config.auto_tokens is not None:
-            max_sim_tokens = min(max_sim_tokens, config.auto_tokens)
-
-        if config.use_embeddings and max_sim_tokens > 0 and prompt != "":
-            sim_tokens = 0
-
-            # Get embedding-similarity scores for all files
-            all_code_features_sorted = await self.search(
-                query=prompt,
-                level=CodeMessageLevel.CODE,
-                # TODO: Change to INTERVAL after update get_code_message
-            )
-            for code_feature, _ in all_code_features_sorted:
-                abs_path = git_root / code_feature.path
-                # Calculate the total change in length
-                i_cmap, cmap_feature = next(
-                    (i, f) for i, f in enumerate(all_features) if f.path == abs_path
-                )
-                recovered_tokens = cmap_feature.count_tokens(model)
-                new_tokens = code_feature.count_tokens(model)
-                forecast = max_sim_tokens - sim_tokens + recovered_tokens - new_tokens
-                if forecast > 0:
-                    sim_tokens = sim_tokens + new_tokens - recovered_tokens
-                    all_features[i_cmap] = code_feature
-
-        return sorted(all_features, key=_feature_relative_path)
 
     def include_file(self, path: Path):
         paths, invalid_paths = get_include_files([path], [])
