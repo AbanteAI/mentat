@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 
 from mentat.diff_context import DiffContext
+from mentat.python_client.client import PythonClient
+from mentat.session_context import SESSION_CONTEXT
 
 
 def _update_ops(temp_testbed, last_line, commit_message=None):
@@ -159,3 +161,26 @@ async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
     assert diff_context.name.startswith("Merge-base Branch master:")
     assert diff_context.name.endswith(": commit2")  # NOT the latest
     assert diff_context.files == [abs_path]
+
+
+@pytest.mark.asyncio
+async def test_diff_context_end_to_end(temp_testbed, git_history, mock_call_llm_api):
+    abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
+
+    # SESSION_CONTEXT isn't reset between tests
+    SESSION_CONTEXT.set(None)
+    mock_call_llm_api.set_generator_values([""])
+    python_client = PythonClient(["."], diff="HEAD~2")
+    await python_client.startup()
+
+    session_context = SESSION_CONTEXT.get()
+    code_context = session_context.code_context
+    diff_context = code_context.diff_context
+
+    assert diff_context.target == "HEAD~2"
+    assert diff_context.name.startswith("HEAD~2: ")
+    assert diff_context.name.endswith(": add testbed")
+    assert diff_context.files == [abs_path]
+
+    await python_client.call_mentat("Conversation")
+    await python_client.stop()
