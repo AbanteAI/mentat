@@ -164,7 +164,9 @@ async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
 
 
 @pytest.mark.asyncio
-async def test_diff_context_end_to_end(temp_testbed, git_history, mock_call_llm_api):
+async def test_diff_context_end_to_end(
+    temp_testbed, git_history, mock_call_llm_api, mock_setup_api_key
+):
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     # SESSION_CONTEXT isn't reset between tests
