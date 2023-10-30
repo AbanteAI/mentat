@@ -305,7 +305,7 @@ async def test_auto_tokens(mocker, temp_testbed, mock_session_context):
     async def _count_auto_tokens_where(limit: int) -> int:
         mocker.patch.object(Config, "auto_tokens", new=limit)
         code_message = await code_context.get_code_message(
-            prompt="", model="gpt-4", max_tokens=1e6
+            prompt="", model="gpt-4", max_tokens=limit or 1e6
         )
         return count_tokens(code_message, "gpt-4")
 

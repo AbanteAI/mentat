@@ -6,7 +6,7 @@ from git import Repo
 CLONE_TO_DIR = Path(__file__).parent / "repos"
 
 
-def clone_repo(url: str, local_dir_name: str, refresh: bool = False) -> None:
+def clone_repo(url: str, local_dir_name: str, refresh: bool = False) -> Path:
     local_dir = CLONE_TO_DIR / local_dir_name
     if os.path.exists(local_dir):
         if refresh:
