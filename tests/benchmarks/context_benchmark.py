@@ -29,7 +29,6 @@ a lot higher.
 
 import json
 import os
-import subprocess
 from collections import defaultdict
 from itertools import islice
 from pathlib import Path
@@ -42,7 +41,6 @@ from mentat.code_context import CodeContext
 from mentat.code_feature import CodeFeature, CodeMessageLevel
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
-from mentat.git_handler import get_non_gitignored_files
 from mentat.llm_api import CostTracker, setup_api_key
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session_context import SESSION_CONTEXT, SessionContext
