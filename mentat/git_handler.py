@@ -124,10 +124,7 @@ def get_diff_for_file(target: str, path: Path) -> str:
         raise UserError()
 
 
-def get_treeish_metadata(target: str) -> dict[str, str]:
-    session_context = SESSION_CONTEXT.get()
-    git_root = session_context.git_root
-
+def get_treeish_metadata(git_root: Path, target: str) -> dict[str, str]:
     try:
         commit_info = subprocess.check_output(
             ["git", "log", target, "-n", "1", "--pretty=format:%H %s"],
