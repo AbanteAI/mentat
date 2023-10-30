@@ -142,6 +142,10 @@ async def translate_commits_to_transcripts(repo, count=10):
                 "prompt": prompt,
                 "expected_edits": llmResponse,
             }
+            edited_files = {
+                str(f.relative_to(git_root))
+                for f in bound_files(parsedLLMResponse.file_edits, padding=0)
+            }
 
             # The longest context that could have been included to generate expected_edits
             model = config.model
@@ -159,10 +163,19 @@ async def translate_commits_to_transcripts(repo, count=10):
             )
 
             git_root_length = len(str(git_root)) + 1
-            expected_features = [
+            selected_features = [
                 f.ref()[git_root_length:] for f in code_context.features
             ]
-            benchmark["expected_features"] = expected_features
+            selected_files = {f.split(":")[0] for f in selected_features}
+            if not edited_files.issubset(selected_files):
+                print(
+                    "Auto-context missing required files:",
+                    edited_files - selected_files,
+                )
+                print("Using edited_files instead")
+                benchmark["expected_features"] = edited_files
+            else:
+                benchmark["expected_features"] = selected_features
 
             benchmarks[sha] = benchmark
         except Exception as e:

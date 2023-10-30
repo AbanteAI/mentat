@@ -42,54 +42,65 @@ from tests.benchmarks.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
-tests = [
-    {
-        "name": "Mentat: replace subprocess/git with GitPython",
-        "codebase_url": "http://github.com/AbanteAI/mentat",
-        "codebase_name": "mentat",
-        "commit": "a9f055e",
-        "args": {"paths": ["mentat/__init__.py"]},
-        "prompt": (
-            "I want to update all the files in git_handler to use the 'Repo' class from"
-            " GitPython instead of calling subprocess. Update each function in"
-            " mentat/git_handler.py that calls subprocess to use Repo instead. If git"
-            " is run with subprocess anywhere in the code, update those as well."
-        ),
-        "expected_features": [
-            "mentat/git_handler.py",
-            "mentat/diff_context.py:173-179",
-            "tests/benchmark_test.py:118-139",
-            "tests/commands_test.py:26-34",
-            "tests/conftest.py:259-266",
-            "tests/diff_context_test.py",
-            "tests/git_handler_test.py:23-30",
-            "tests/clients/terminal_client_test.py:62-93",
-        ],
-        "expected_edits": [
-            # for other benchmarks
-        ],
-    },
-    {
-        "name": "simoc-abm: Change 'Lamp' to 'Electric Light'",
-        "codebase_url": "http://github.com/overthesun/simoc-abm",
-        "codebase_name": "simoc-abm",
-        "commit": "d77f44f",
-        "args": {"ignore_paths": ["src/simoc_abm/data_files", "test/*"]},
-        "prompt": (
-            "Rename 'lamp' to 'electric light' throughout the code. Update "
-            "instances of 'lamp' to 'electric_light', and 'Lamp' to 'Electric "
-            "Light', and if there's a class Lamp, should be class ElectricLight."
-        ),
-        "expected_features": [
-            "docs/api.rst:21-22",
-            "src/simoc_abm/agent_model.py:129-230",
-            "src/simoc_abm/agents/__init__.py",
-            "src/simoc_abm/agents/lamp.py",
-            "src/simoc_abm/agents/plant.py:135-197",
-        ],
-        "expected_edits": [],
-    },
-]
+benchmarks_dir = Path(__file__).parent / "repo/for_transcripts"
+
+
+def load_tests():
+    benchmarks_path = benchmarks_dir / "benchmarks.json"
+    if benchmarks_path.exists():
+        with open(benchmarks_path, "r") as f:
+            tests = json.load(f)
+    return []
+
+
+# tests = [
+#     {
+#         "name": "Mentat: replace subprocess/git with GitPython",
+#         "codebase_url": "http://github.com/AbanteAI/mentat",
+#         "codebase_name": "mentat",
+#         "commit": "a9f055e",
+#         "args": {"paths": ["mentat/__init__.py"]},
+#         "prompt": (
+#             "I want to update all the files in git_handler to use the 'Repo' class from"
+#             " GitPython instead of calling subprocess. Update each function in"
+#             " mentat/git_handler.py that calls subprocess to use Repo instead. If git"
+#             " is run with subprocess anywhere in the code, update those as well."
+#         ),
+#         "expected_features": [
+#             "mentat/git_handler.py",
+#             "mentat/diff_context.py:173-179",
+#             "tests/benchmark_test.py:118-139",
+#             "tests/commands_test.py:26-34",
+#             "tests/conftest.py:259-266",
+#             "tests/diff_context_test.py",
+#             "tests/git_handler_test.py:23-30",
+#             "tests/clients/terminal_client_test.py:62-93",
+#         ],
+#         "expected_edits": [
+#             # for other benchmarks
+#         ],
+#     },
+#     {
+#         "name": "simoc-abm: Change 'Lamp' to 'Electric Light'",
+#         "codebase_url": "http://github.com/overthesun/simoc-abm",
+#         "codebase_name": "simoc-abm",
+#         "commit": "d77f44f",
+#         "args": {"ignore_paths": ["src/simoc_abm/data_files", "test/*"]},
+#         "prompt": (
+#             "Rename 'lamp' to 'electric light' throughout the code. Update "
+#             "instances of 'lamp' to 'electric_light', and 'Lamp' to 'Electric "
+#             "Light', and if there's a class Lamp, should be class ElectricLight."
+#         ),
+#         "expected_features": [
+#             "docs/api.rst:21-22",
+#             "src/simoc_abm/agent_model.py:129-230",
+#             "src/simoc_abm/agents/__init__.py",
+#             "src/simoc_abm/agents/lamp.py",
+#             "src/simoc_abm/agents/plant.py:135-197",
+#         ],
+#         "expected_edits": [],
+#     },
+# ]
 
 
 def matches(test, name):
@@ -106,6 +117,7 @@ async def test_code_context_performance(
     mock_session_context, benchmarks, max_benchmarks
 ):
     setup_api_key()
+    tests = load_tests()
 
     if len(benchmarks) > 0:
         tests_to_run = []
