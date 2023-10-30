@@ -339,15 +339,11 @@ class CodeContext:
                     prompt,
                     expected_edits,
                 )
-                self.features = _merge_features(features, auto_features)
             else:
-                auto_features = [
-                    f for f in auto_features if f.path not in self.include_files
-                ]
                 auto_features = select_features_greedy(
                     auto_features, auto_tokens, model, auto_levels
                 )
-                self.features = features + auto_features
+            self.features = _merge_features(features, auto_features)
 
         for f in self.features:
             # TODO: Join features of same file with ellipses and a single fname

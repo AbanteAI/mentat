@@ -15,7 +15,7 @@ from git import Repo
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
-from mentat.llm_api import count_tokens
+from mentat.llm_api import CostTracker, count_tokens, model_context_size
 from mentat.parsers.git_parser import GitParser
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session_context import SESSION_CONTEXT, SessionContext
@@ -96,6 +96,11 @@ def bound_files(file_edits, padding=5):
 async def translate_commits_to_transcripts(repo, count=10):
     transcripts = {}
     benchmarks = {}
+    session_context = SESSION_CONTEXT.get()
+    code_context = session_context.code_context
+    config = session_context.config
+    git_root = session_context.git_root
+    parser = session_context.parser
 
     for commit in repo.iter_commits("HEAD", max_count=count):
         try:
@@ -114,18 +119,14 @@ async def translate_commits_to_transcripts(repo, count=10):
             if len(parsedLLMResponse.file_edits) == 0:
                 continue
 
-            code_context = CodeContext(AsyncMock(), os.getcwd())
             code_context.set_paths(bound_files(parsedLLMResponse.file_edits), [])
-
             code_message = await code_context.get_code_message("", "gpt-4-0314", 0)
             prompt_and_plan = ask_gpt_for_prompt_and_plan(sha, shown)
             prompt = prompt_and_plan["request"]
             plan = prompt_and_plan["plan"]
             parsedLLMResponse.conversation = plan
 
-            llmResponse = ReplacementParser().file_edits_to_llm_message(
-                parsedLLMResponse
-            )
+            llmResponse = parser.file_edits_to_llm_message(parsedLLMResponse)
             conversation = {
                 "messages": [
                     {"role": "user", "content": prompt},
@@ -140,17 +141,41 @@ async def translate_commits_to_transcripts(repo, count=10):
                 "commit": sha,
                 "args": {},
                 "prompt": prompt,
-                "expected_edits": shown,
-                "expected_features": [
-                    str(f.relative_to(os.getcwd()))
-                    for f in bound_files(parsedLLMResponse.file_edits, padding=0)
-                ],
+                "expected_edits": llmResponse,
             }
+
+            # The longest context that could have been included to generate expected_edits
+            model = config.model
+            mentat_prompt_tokens = count_tokens(parser.get_system_prompt(), model)
+            expected_edits_tokens = count_tokens(benchmark["expected_edits"], model)
+            max_context_tokens = (
+                model_context_size(model) - mentat_prompt_tokens - expected_edits_tokens
+            )
+            # Fill-in available context
+            config.auto_tokens = 1e6
+            config.use_embeddings = True
+            code_context.use_llm = True
+            await code_context.get_code_message(
+                prompt, model, max_context_tokens, benchmark["expected_edits"]
+            )
+
+            git_root_length = len(str(git_root)) + 1
+            expected_features = [
+                f.ref()[git_root_length:] for f in code_context.features
+            ]
+            benchmark["expected_features"] = expected_features
+
             benchmarks[sha] = benchmark
         except Exception as e:
             print(e)
             continue
     return transcripts, benchmarks
+
+
+class MockStream:
+    def send(self, message, **kwargs):
+        end = kwargs.get("end", "\n")
+        print(message, end=end)
 
 
 if __name__ == "__main__":
@@ -185,13 +210,13 @@ if __name__ == "__main__":
         with open("benchmarks.json", "r") as f:
             old_benchmarks = json.loads(f.read())
 
-    stream = AsyncMock()
+    stream = MockStream()
     config = Config()
     code_context = CodeContext(stream, os.getcwd())
     session_context = SessionContext(
         stream,
-        None,
-        os.getcwd(),
+        CostTracker(),
+        Path.cwd(),
         config,
         ReplacementParser(),
         code_context,
