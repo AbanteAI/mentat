@@ -9,7 +9,7 @@ env:
 
 jobs:
   ruff-black-isort:
-    if: env.SHOULD_RUN_JOB
+    if: $SHOULD_RUN_JOB
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
