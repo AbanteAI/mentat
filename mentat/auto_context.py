@@ -40,7 +40,7 @@ def select_features_greedy(
     remaining_tokens = max_tokens
     for feature in features:
         _levels = list(set(levels) | {feature.level})
-        _levels = sorted(list(_levels), key=lambda l: l.rank)
+        _levels = sorted(list(_levels), key=lambda v: v.rank)
         for level in _levels:
             feature.level = level
             if feature.count_tokens(model) <= remaining_tokens:

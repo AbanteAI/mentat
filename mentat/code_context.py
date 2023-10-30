@@ -307,12 +307,12 @@ class CodeContext:
             self.features = features
         else:
             auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
-            auto_levels = sorted(CodeMessageLevel, key=lambda l: l.rank)
+            auto_levels = sorted(CodeMessageLevel, key=lambda v: v.rank)
             if not self.code_map:
-                auto_levels = [l for l in auto_levels if "cmap" not in l.key]
+                auto_levels = [v for v in auto_levels if "cmap" not in v.key]
             if not self.use_llm:
                 auto_levels = [
-                    l for l in auto_levels if l.key not in ("code", "interval")
+                    v for v in auto_levels if v.key not in ("code", "interval")
                 ]
 
             if prompt and config.use_embeddings:
