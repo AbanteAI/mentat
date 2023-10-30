@@ -4,10 +4,12 @@
 name: lint and test
 
 on: [push, pull_request]
+env:
+  SHOULD_RUN_JOB: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name }}
 
 jobs:
   ruff-black-isort:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    if: env.SHOULD_RUN_JOB
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -22,7 +24,7 @@ jobs:
         run: isort --profile black --check .
 
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    if: env.SHOULD_RUN_JOB
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -58,7 +60,7 @@ jobs:
           pytest
 
   license-check:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    if: env.SHOULD_RUN_JOB
     runs-on: ubuntu-latest
 
     steps:
