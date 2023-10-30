@@ -9,7 +9,7 @@ env:
 
 jobs:
   ruff-black-isort:
-    if: ${{ env.SHOULD_RUN_JOB }}
+    if: env.SHOULD_RUN_JOB
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -24,7 +24,7 @@ jobs:
         run: isort --profile black --check .
 
   build:
-    if: ${{ env.SHOULD_RUN_JOB }}
+    if: env.SHOULD_RUN_JOB
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -60,7 +60,7 @@ jobs:
           pytest
 
   license-check:
-    if: ${{ env.SHOULD_RUN_JOB }}
+    if: env.SHOULD_RUN_JOB
     runs-on: ubuntu-latest
 
     steps:
