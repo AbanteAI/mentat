@@ -34,11 +34,6 @@ def max_iterations(request):
 
 
 @pytest.fixture
-def refresh_repo(request):
-    return request.config.getoption("--refresh_repo")
-
-
-@pytest.fixture
 def max_workers(request):
     return int(request.config.getoption("--max_workers"))
 
