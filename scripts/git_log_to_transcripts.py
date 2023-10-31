@@ -21,7 +21,6 @@ from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from tests.benchmarks.utils import clone_repo
 
-
 system_prompt = dedent("""\
         You are part of an automated system for making synthetic data. You will be given the \
         output of `git show` for a commit. Please respond only in json. The json should have \
