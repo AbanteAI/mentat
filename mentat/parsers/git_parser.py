@@ -62,8 +62,17 @@ class GitParser:
             if not is_deletion:
                 for change in diff_split[1:]:
                     line_info = change.split("@@")[0]
-                    start_line = int(line_info.split()[0].split(",")[0][1:]) - 1
-                    end_line = start_line + int(line_info.split()[0].split(",")[1])
+                    # Git diff line represents line number information:
+                    # @@ -a,b +c,d @@
+                    # a is the original starting line number and b is the original number of lines.
+                    # c and d are the new values.
+                    # Both b and d are omitted when 1.
+                    a_b = line_info.split()[0].split(",")
+                    start_line = int(a_b[0][1:]) - 1
+                    if len(a_b) == 1:
+                        end_line = start_line + 1
+                    else:
+                        end_line = start_line + int(a_b[1])
                     line_changes = change.split("@@")[1]
                     code_lines = line_changes.split("\n")
                     # This check is necessary because new code sometimes starts on the same line
