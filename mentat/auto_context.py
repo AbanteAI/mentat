@@ -1,11 +1,13 @@
 import json
-from textwrap import dedent
+from pathlib import Path
 from typing import Optional, cast
 
 import openai
 
 from mentat.code_feature import CodeFeature, CodeMessageLevel
-from mentat.llm_api import count_tokens
+from mentat.errors import UserError
+from mentat.llm_api import count_tokens, model_context_size
+from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
 """
@@ -43,32 +45,9 @@ def select_features_greedy(
     return output
 
 
-feature_selection_model = "gpt-4"
-feature_selection_max_tokens = 8192
-feature_selection_temperature = 0.5
+feature_selection_prompt_path = Path("feature_selection_prompt.txt")
+feature_selection_prompt_training_path = Path("feature_selection_prompt_training.txt")
 feature_selection_response_buffer = 500
-feature_selection_prompt = dedent("""\
-    You are part of an automated coding system. 
-    Below you will see the line 'User Query:', followed by a user query, followed by the line 'Code Files:' and then a pre-selected subset of a codebase.
-    Your job is to select portions of the code which are relevant to answering that query.
-    The process after you will read the lines code you select, and then return a plaintext plan of action and a list of Code Edits.
-    {{training_prompt}}
-    Each item in the Code Files below will include a relative path and line numbers.
-    Identify lines of code which are relevant to the query.
-    Return a json-serializable list of relevant items following the same format you receive: <rel_path>:<start_line>-<end_line>,<start_line>-<end_line>.
-    It's important to include lines which would be edited in order to generate the answer as well as lines which are required to understand the context.
-    It's equally important to exclude irrelevant code, as it has a negative impact on the system performance and cost.
-    For example: if a question requires creating a new method related to a class, and the method uses an attribute of that
-    class, include the location for the edit as well as where the attribute is defined. If a typing system is used, include
-    the type definition as well, and the location of the expected import.
-    Make sure your response is valid json, for example:
-    ["path/to/file1.py:1-10,53-60", "path/to/file2.py:10-20"]
-    """)
-training_prompt = (
-    "You are currently being used to generate benchmarking data, so you'll be shown"
-    " those Code Edits as well in order to maximize your performance."
-)
-
 
 async def select_features_llm(
     features: list[CodeFeature],
@@ -79,22 +58,31 @@ async def select_features_llm(
     expected_edits: Optional[list[str]] = None,  # For benchmarks/training
 ) -> list[CodeFeature]:
     session_context = SESSION_CONTEXT.get()
+    config = session_context.config
     git_root = session_context.git_root
 
     # Preselect as many features as fit in the context window
+    model = config.feature_selection_model
+    context_size = model_context_size(model)
+    if context_size is None:
+        raise UserError(
+            f"Unknown context size for feature selection model: {config.feature_selection_model}"
+        )
+    system_prompt = read_prompt(feature_selection_prompt_path)
+    training_prompt = read_prompt(feature_selection_prompt_training_path)
     user_prompt_tokens = count_tokens(user_prompt, model)
-    system_prompt = feature_selection_prompt.format(
+    system_prompt = system_prompt.format(
         training_prompt=training_prompt if expected_edits else ""
     )
-    system_prompt_tokens = count_tokens(system_prompt, feature_selection_model)
+    system_prompt_tokens = count_tokens(system_prompt, config.feature_selection_model)
     preselect_max_tokens = (
-        feature_selection_max_tokens
+        context_size
         - system_prompt_tokens
         - user_prompt_tokens
         - feature_selection_response_buffer
     )
     preselected_features = select_features_greedy(
-        features, preselect_max_tokens, feature_selection_model, levels
+        features, preselect_max_tokens, model, levels
     )
 
     # Ask the model to return only relevant features
@@ -113,7 +101,7 @@ async def select_features_llm(
     response = await openai.ChatCompletion.acreate(  # type: ignore
         model=model,
         messages=messages,
-        temperature=feature_selection_temperature,
+        temperature=config.temperature,
     )
 
     # Create output features from the response

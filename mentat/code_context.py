@@ -15,6 +15,7 @@ from mentat.code_feature import (
 from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.embeddings import get_feature_similarity_scores
+from mentat.errors import MentatError
 from mentat.git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from mentat.include_files import (
     build_path_tree,
@@ -115,8 +116,28 @@ def _merge_features(a: list[CodeFeature], b: list[CodeFeature]) -> list[CodeFeat
             matching[0].diff = feature.diff
         if feature.user_included and not matching[0].user_included:
             matching[0].user_included = feature.user_included
+        output.append(matching[0])
 
     return output
+
+
+def _merge_code_message(features: list[CodeFeature]) -> list[str]:
+    """Merge multiple features for the same file into a single code message"""
+    features_sorted = sorted(
+        features, key=lambda f: min(f.intervals, key=lambda i: i.start).start
+    )
+    posix_path = features_sorted[0].get_code_message()[0]
+    code_message = [posix_path]
+    next_line = 1
+    for feature in features_sorted:
+        starting_line = min(feature.intervals, key=lambda i: i.start).start
+        if starting_line < next_line:
+            raise MentatError("Features overlap")
+        elif starting_line > next_line:
+            code_message += ["..."]
+        code_message += feature.get_code_message()[1:]
+        next_line = max(feature.intervals, key=lambda i: i.end).end
+    return code_message
 
 
 class CodeContext:
@@ -349,9 +370,15 @@ class CodeContext:
                 )
             self.features = _merge_features(features, auto_features)
 
+        # Group intervals by file, separated by ellipses if there are gaps
+        features_by_path = {path: list[CodeFeature]() for path in {f.path for f in self.features}}
         for f in self.features:
-            # TODO: Join features of same file with ellipses and a single fname
-            code_message += f.get_code_message()
+            features_by_path[f.path].append(f)
+        for path_features in features_by_path.values():
+            if len(path_features) == 1:
+                code_message += path_features[0].get_code_message()
+            else:
+                code_message += _merge_code_message(path_features)
         return "\n".join(code_message)
 
     def _get_include_features(self) -> list[CodeFeature]:

@@ -173,9 +173,9 @@ async def translate_commits_to_transcripts(repo, count=10):
                     edited_files - selected_files,
                 )
                 print("Using edited_files instead")
-                benchmark["expected_features"] = edited_files
+                benchmark["expected_features"] = list(edited_files)
             else:
-                benchmark["expected_features"] = selected_features
+                benchmark["expected_features"] = list(selected_features)
 
             benchmarks[sha] = benchmark
         except Exception as e:

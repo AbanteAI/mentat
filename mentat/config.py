@@ -37,6 +37,7 @@ class Config:
 
     # Model specific settings
     model: str = attr.field(default="gpt-4-0314")
+    feature_selection_model: str = attr.field(default="gpt-4-0314")
     temperature: float = attr.field(
         default=0.5, converter=float, validator=[validators.le(1), validators.ge(0)]
     )
