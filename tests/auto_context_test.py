@@ -74,7 +74,7 @@ async def test_llm_feature_selector(
 
     # Both files send to llm
     assert all(
-        str(f.path.relative_to(temp_testbed)) in messages[1]["content"]
+        f.path.relative_to(temp_testbed).as_posix() in messages[1]["content"]
         for f in all_features
     )
 
