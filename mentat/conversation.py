@@ -48,7 +48,7 @@ class Conversation:
         stream = session_context.stream
         config = session_context.config
         code_context = session_context.code_context
-        parser = session_context.parser
+        parser = config.parser
 
         if not is_model_available(config.model):
             raise MentatError(
@@ -158,7 +158,7 @@ class Conversation:
         stream = session_context.stream
         config = session_context.config
         code_context = session_context.code_context
-        parser = session_context.parser
+        parser = config.parser
         cost_tracker = session_context.cost_tracker
 
         messages_snapshot = self.messages.copy()

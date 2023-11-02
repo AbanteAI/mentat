@@ -150,7 +150,7 @@ class CodeFeature:
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
         git_root = session_context.git_root
-        parser = session_context.parser
+        parser = session_context.config.parser
 
         code_message: list[str] = []
 

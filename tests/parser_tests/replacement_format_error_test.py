@@ -3,12 +3,13 @@ from textwrap import dedent
 import pytest
 
 from mentat.config import Config
+from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session import Session
 
 
 @pytest.fixture(autouse=True)
 def replacement_parser(mocker):
-    mocker.patch.object(Config, "format", new="replacement")
+    mocker.patch.object(Config, "parser", new=ReplacementParser())
 
 
 @pytest.mark.asyncio

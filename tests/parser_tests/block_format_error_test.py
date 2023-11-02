@@ -3,12 +3,13 @@ from textwrap import dedent
 import pytest
 
 from mentat.config import Config
+from mentat.parsers.block_parser import BlockParser
 from mentat.session import Session
 
 
 @pytest.fixture(autouse=True)
 def block_parser(mocker):
-    mocker.patch.object(Config, "format", new="block")
+    mocker.patch.object(Config, "parser", new=BlockParser())
 
 
 temp_file_name = "temp.py"

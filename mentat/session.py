@@ -16,7 +16,6 @@ from mentat.errors import MentatError, SessionExit
 from mentat.git_handler import get_shared_git_root_for_paths
 from mentat.llm_api import CostTracker, setup_api_key
 from mentat.logging_config import setup_logging
-from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_input import collect_user_input
 from mentat.session_stream import SessionStream
@@ -45,20 +44,17 @@ class Session:
 
         cost_tracker = CostTracker()
 
-        parser = parser_map[config.format]
-
         code_context = CodeContext(stream, git_root, diff, pr_diff)
 
         code_file_manager = CodeFileManager()
 
-        conversation = Conversation(parser)
+        conversation = Conversation(config.parser)
 
         session_context = SessionContext(
             stream,
             cost_tracker,
             git_root,
             config,
-            parser,
             code_context,
             code_file_manager,
             conversation,
