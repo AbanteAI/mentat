@@ -6,7 +6,7 @@ from json import JSONDecodeError
 from pathlib import Path
 
 import attr
-from attr import validators
+from attr import converters, validators
 
 from mentat.git_handler import get_shared_git_root_for_paths
 from mentat.parsers.parser_map import parser_map
@@ -15,14 +15,6 @@ from mentat.utils import mentat_dir_path
 
 config_file_name = Path(".mentat_config.json")
 user_config_path = mentat_dir_path / config_file_name
-
-
-def parse_bool(s: str | bool | None) -> bool:
-    if isinstance(s, bool):
-        return s
-    if s is None:
-        return False
-    return s.lower() in ("true", "1", "t", "y", "yes")
 
 
 def int_or_none(s: str | None) -> int | None:
@@ -75,7 +67,7 @@ class Config:
         metadata={
             "description": "Fetch/compare embeddings to auto-generate code context"
         },
-        converter=parse_bool,
+        converter=converters.optional(converters.to_bool),
     )
     no_code_map: bool = attr.field(
         default=False,
@@ -84,7 +76,7 @@ class Config:
                 "Exclude the file structure/syntax map from the system prompt"
             )
         },
-        converter=parse_bool,
+        converter=converters.optional(converters.to_bool),
     )
     auto_tokens: int | None = attr.field(
         default=0,
@@ -154,12 +146,14 @@ class Config:
         return config
 
     def load_namespace(self, args: Namespace) -> None:
-        for field in vars(args):
-            if hasattr(self, field) and getattr(args, field) is not None:
-                try:
-                    setattr(self, field, getattr(args, field))
-                except (ValueError, TypeError) as e:
-                    self.error(f"Warning: Illegal value for {field}: {e}")
+        for field in attr.fields(Config):
+            if field.name in args and field.name != "_errors":
+                value = getattr(args, field.name)
+                if value is not None and value != field.default:
+                    try:
+                        setattr(self, field.name, value)
+                    except (ValueError, TypeError) as e:
+                        self.error(f"Warning: Illegal value for {field}: {e}")
 
     def load_file(self, path: Path) -> None:
         if path.exists():
