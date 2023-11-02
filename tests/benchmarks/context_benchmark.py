@@ -76,12 +76,11 @@ def features_to_line_sets(
         # Otherwise match specific lines
         path = feature.path.relative_to(git_root)
         if feature.level == CodeMessageLevel.INTERVAL:
-            intervals = [(f.start, f.end) for f in feature.intervals]
+            interval = feature.interval
         else:
             n_lines = len(feature.get_code_message())
-            intervals = [(1, n_lines + 1)]
-        for start, end in intervals:
-            lines[path].update(range(start, end + 1))
+            interval = (1, n_lines + 1)
+        lines[path].update(range(interval.start, interval.end + 1))
     return lines
 
 

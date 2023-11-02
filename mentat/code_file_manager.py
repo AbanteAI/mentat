@@ -86,9 +86,11 @@ class CodeFileManager:
                     raise MentatError(
                         f"Attempted to edit non-existent file {file_edit.file_path}"
                     )
-                context_features = (
-                    code_context.features or code_context.include_files.values()
-                )
+                context_features = code_context.features or [
+                    feat
+                    for feats in code_context.include_files.values()
+                    for feat in feats
+                ]
                 missing_lines = False
                 for r in file_edit.replacements:
                     for i in range(r.starting_line, r.ending_line):
@@ -157,18 +159,14 @@ class CodeFileManager:
                     f.write("\n".join(new_lines))
         self.history.push_edits()
 
-    def get_file_checksum(
-        self, path: Path, intervals: list[Interval] | None = None
-    ) -> str:
+    def get_file_checksum(self, path: Path, interval: Interval | None = None) -> str:
         if path.is_dir():
             return ""  # TODO: Build and maintain a hash tree for git_root
         text = path.read_text()
-        if intervals is not None:
+        if interval is not None:
             lines = text.splitlines()
             filtered_lines = [
-                line
-                for i, line in enumerate(lines, start=1)
-                if any([interval.contains(i) for interval in intervals])
+                line for i, line in enumerate(lines, start=1) if interval.contains(i)
             ]
             text = "\n".join(filtered_lines)
         return sha256(text)

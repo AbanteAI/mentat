@@ -9,6 +9,7 @@ from typing import Optional
 
 from mentat.code_map import get_code_map, get_ctags
 from mentat.diff_context import annotate_file_message, parse_diff
+from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
 from mentat.interval import Interval, parse_intervals
 from mentat.llm_api import count_tokens
@@ -50,10 +51,10 @@ def split_file_into_intervals(
                 line_number = _last_item[1]
             else:
                 named_intervals.append(
-                    (_last_item[0], _last_item[1], int(line_number) - 1)  # type: ignore
+                    (_last_item[0], _last_item[1], int(line_number))  # type: ignore
                 )
         else:
-            line_number = 0
+            line_number = 1
         if i == len(ctags) - 1:
             named_intervals.append((str(key), int(line_number), n_lines))
         else:
@@ -100,7 +101,7 @@ class CodeFeature:
 
     Attributes:
         path: The absolute path to the file.
-        intervals: The lines in the file.
+        interval: The lines in the file.
         level: The level of information to include.
         diff: The diff annotations to include.
     """
@@ -115,16 +116,19 @@ class CodeFeature:
     ):
         if Path(path).exists():
             self.path = Path(path)
-            self.intervals = [Interval(0, math.inf)]
+            self.interval = Interval(0, math.inf)
         else:
             path = str(path)
             split = path.rsplit(":", 1)
             self.path = Path(split[0])
             if not self.path.exists():
                 self.path = Path(path)
-                self.intervals = [Interval(0, math.inf)]
+                self.interval = Interval(0, math.inf)
             else:
-                self.intervals = parse_intervals(split[1])
+                interval = parse_intervals(split[1])
+                if len(interval) > 1:
+                    raise MentatError(f"CodeFeatures should only have on interval.")
+                self.interval = interval[0]
                 level = CodeMessageLevel.INTERVAL
         self.level = level
         self.diff = diff
@@ -133,18 +137,18 @@ class CodeFeature:
 
     def __repr__(self):
         return (
-            f"CodeFeature(fname={self.path.name}, intervals={self.intervals},"
+            f"CodeFeature(fname={self.path.name}, interval={self.interval},"
             f" level={self.level}, diff={self.diff})"
         )
 
     def ref(self):
         if self.level == CodeMessageLevel.INTERVAL:
-            intervals_string = ",".join(f"{i.start}-{i.end}" for i in self.intervals)
-            return f"{self.path}:{intervals_string}"
+            interval_string = f"{self.interval.start}-{self.interval.end}"
+            return f"{self.path}:{interval_string}"
         return str(self.path)
 
     def contains_line(self, line_number: int):
-        return any([interval.contains(line_number) for interval in self.intervals])
+        return self.interval.contains(line_number)
 
     def _get_code_message(self) -> list[str]:
         session_context = SESSION_CONTEXT.get()
@@ -194,7 +198,7 @@ class CodeFeature:
 
         abs_path = git_root / self.path
         file_checksum = code_file_manager.get_file_checksum(
-            Path(abs_path), self.intervals
+            Path(abs_path), self.interval
         )
         return sha256(f"{file_checksum}{self.level.key}{self.diff}")
 

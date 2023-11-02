@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import os
+from collections import OrderedDict
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
-from mentat.auto_context import select_features_greedy, select_features_llm
+from mentat.auto_context import get_feature_selector
 from mentat.code_feature import (
     CodeFeature,
     CodeMessageLevel,
@@ -25,7 +26,6 @@ from mentat.include_files import (
     print_invalid_path,
     print_path_tree,
 )
-from mentat.interval import Interval
 from mentat.llm_api import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
@@ -34,7 +34,7 @@ from mentat.utils import sha256
 
 def _get_all_features(
     git_root: Path,
-    include_files: dict[Path, CodeFeature],
+    include_files: dict[Path, list[CodeFeature]],
     ignore_files: set[Path],
     diff_context: DiffContext,
     code_map: bool,
@@ -68,7 +68,7 @@ def _get_all_features(
                 _split_features = split_file_into_intervals(
                     git_root,
                     full_feature,
-                    user_features=[f for f in include_files.values() if f.path == path],
+                    user_features=include_files.get(path, []),
                 )
                 all_features += _split_features
         else:
@@ -80,68 +80,25 @@ def _get_all_features(
     return sorted(all_features, key=lambda f: f.path.relative_to(git_root))
 
 
-def _merge_features(a: list[CodeFeature], b: list[CodeFeature]) -> list[CodeFeature]:
-    output = list[CodeFeature]()
-    for feature in a + b:
-        matching = [f for f in output if f.path == feature.path]
-        intersects = (
-            False
-            if not matching
-            else any(
-                i_feat.intersects(i_match)
-                for i_feat in feature.intervals
-                for i_match in matching[0].intervals
-            )
-        )
-        if not matching or not intersects:
-            output.append(feature)
-            continue
-
-        # Replace matching feature's intervals with a single interval covering
-        # the entire range of both features.
-        # TODO: Our features currently support multiple intervals so this step
-        # could add additional lines, but it would be better to make all features
-        # single-interval than build-out this.
-        feature_start = min(feature.intervals, key=lambda i: i.start)
-        feature_end = max(feature.intervals, key=lambda i: i.end)
-        matching_start = min(matching[0].intervals, key=lambda i: i.start)
-        matching_end = max(matching[0].intervals, key=lambda i: i.end)
-        matching[0].intervals = [
-            Interval(
-                min(feature_start.start, matching_start.start),
-                max(feature_end.end, matching_end.end),
-            )
-        ]
-        if feature.diff and not matching[0].diff:
-            matching[0].diff = feature.diff
-        if feature.user_included and not matching[0].user_included:
-            matching[0].user_included = feature.user_included
-        output.append(matching[0])
-
-    return output
-
-
 def _merge_code_message(features: list[CodeFeature]) -> list[str]:
     """Merge multiple features for the same file into a single code message"""
-    features_sorted = sorted(
-        features, key=lambda f: min(f.intervals, key=lambda i: i.start).start
-    )
+    features_sorted = sorted(features, key=lambda f: f.interval.start)
     posix_path = features_sorted[0].get_code_message()[0]
     code_message = [posix_path]
     next_line = 1
     for feature in features_sorted:
-        starting_line = min(feature.intervals, key=lambda i: i.start).start
+        starting_line = feature.interval.start
         if starting_line < next_line:
             raise MentatError("Features overlap")
         elif starting_line > next_line:
             code_message += ["..."]
-        code_message += feature.get_code_message()[1:]
-        next_line = max(feature.intervals, key=lambda i: i.end).end
-    return code_message
+        code_message += feature.get_code_message()[1:-1]
+        next_line = feature.interval.end
+    return code_message + [""]
 
 
 class CodeContext:
-    include_files: dict[Path, CodeFeature]
+    include_files: dict[Path, list[CodeFeature]]
     ignore_files: set[Path]
     diff_context: DiffContext
     code_map: bool = True
@@ -160,7 +117,7 @@ class CodeContext:
         self.pr_diff = pr_diff
         self.diff_context = DiffContext(stream, git_root, self.diff, self.pr_diff)
         # TODO: This is a dict so we can quickly reference either a path (key)
-        # or the CodeFeature (value) and its interval. Redundant.
+        # or the CodeFeatures (value) and their intervals. Redundant.
         self.include_files = {}
         self.ignore_files = set()
 
@@ -213,7 +170,7 @@ class CodeContext:
             stream.send(f"{prefix}Included files:")
             stream.send(f"{prefix + prefix}{git_root.name}")
             print_path_tree(
-                build_path_tree(list(self.include_files.values()), git_root),
+                build_path_tree(list(self.include_files.keys()), git_root),
                 get_paths_with_git_diffs(),
                 git_root,
                 prefix + prefix,
@@ -307,8 +264,8 @@ class CodeContext:
         config = session_context.config
         git_root = session_context.git_root
 
+        # Setup code message metadata
         code_message = list[str]()
-
         self.diff_context.clear_cache()
         self.set_code_map()
         if self.diff_context.files:
@@ -319,29 +276,35 @@ class CodeContext:
                 "",
             ]
         code_message += ["Code Files:\n"]
-
-        features = self._get_include_features()
         meta_tokens = count_tokens("\n".join(code_message), model)
-        include_feature_tokens = sum(await count_feature_tokens(features, model))
-        _max_auto = max(0, max_tokens - meta_tokens - include_feature_tokens)
-        _max_user = config.auto_tokens
-        if _max_auto == 0 or _max_user == 0:
-            self.features = features
-        else:
-            auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
-            auto_levels = sorted(CodeMessageLevel, key=lambda v: v.rank)
-            if not self.code_map:
-                auto_levels = [v for v in auto_levels if "cmap" not in v.key]
-            if not self.use_llm:
-                auto_levels = [
-                    v for v in auto_levels if v.key not in ("code", "interval")
-                ]
 
+        # Add user-included features
+        included_features = self._get_include_features()
+        included_feature_tokens = sum(
+            await count_feature_tokens(included_features, model)
+        )
+        remaining_tokens = max(0, max_tokens - meta_tokens - included_feature_tokens)
+        auto_tokens = config.auto_tokens
+        if remaining_tokens == 0 or config.auto_tokens == 0:
+            self.features = sorted(
+                included_features, key=lambda f: f.path.relative_to(git_root)
+            )
+        else:
+            auto_tokens = (
+                remaining_tokens
+                if auto_tokens is None
+                else min(remaining_tokens, auto_tokens)
+            )
+            selectable_tokens = included_feature_tokens + auto_tokens
+
+            # Get a complete, sorted list of features to select from
             if prompt and config.use_embeddings:
-                candidate_features = await self.search(prompt, level=auto_levels[0])
+                candidate_features = await self.search(
+                    prompt, level=CodeMessageLevel.INTERVAL
+                )
                 candidate_features = [
                     f[0] for f in candidate_features
-                ]  # Drop scores, rely on order
+                ]  # Drop the score, keep sorted
             else:
                 candidate_features = _get_all_features(
                     git_root,
@@ -349,31 +312,35 @@ class CodeContext:
                     self.ignore_files,
                     self.diff_context,
                     self.code_map,
-                    auto_levels[0],
+                    CodeMessageLevel.INTERVAL,
                 )
+            _user = [f for f in candidate_features if f.user_included]
+            _non = [f for f in candidate_features if not f.user_included]
+            candidate_features = _user + _non  # Move included files to the front
 
-            if self.use_llm:
-                auto_features = await select_features_llm(
-                    candidate_features,
-                    auto_tokens,
-                    model,
-                    auto_levels,
-                    prompt,
-                    expected_edits,
-                )
-            else:
-                candidate_features = [
-                    f for f in candidate_features if f.path not in self.include_files
-                ]
-                auto_features = select_features_greedy(
-                    candidate_features, auto_tokens, model, auto_levels
-                )
-            self.features = _merge_features(features, auto_features)
+            alt_levels = [CodeMessageLevel.FILE_NAME]
+            if self.code_map:
+                alt_levels = [
+                    CodeMessageLevel.CMAP_FULL,
+                    CodeMessageLevel.CMAP,
+                ] + alt_levels
+
+            feature_selector = get_feature_selector(self.use_llm)
+            self.features = await feature_selector.select(
+                candidate_features,
+                selectable_tokens,
+                model,
+                alt_levels,
+                prompt,
+                expected_edits,
+            )
 
         # Group intervals by file, separated by ellipses if there are gaps
-        features_by_path = {path: list[CodeFeature]() for path in {f.path for f in self.features}}
-        for f in self.features:
-            features_by_path[f.path].append(f)
+        features_by_path: dict[Path, list[CodeFeature]] = OrderedDict()
+        for feature in self.features:
+            if feature.path not in features_by_path:
+                features_by_path[feature.path] = list[CodeFeature]()
+            features_by_path[feature.path].append(feature)
         for path_features in features_by_path.values():
             if len(path_features) == 1:
                 code_message += path_features[0].get_code_message()
@@ -386,18 +353,17 @@ class CodeContext:
         git_root = session_context.git_root
 
         include_features = list[CodeFeature]()
-        for path, feature in self.include_files.items():
+        for path, features in self.include_files.items():
             annotations = self.diff_context.get_annotations(path)
-            has_diff = any(
-                a.intersects(i) for a in annotations for i in feature.intervals
-            )
-            feature = CodeFeature(
-                feature.ref(),
-                feature.level,
-                diff=self.diff_context.target if has_diff else None,
-                user_included=True,
-            )
-            include_features.append(feature)
+            for feature in features:
+                has_diff = any(a.intersects(feature.interval) for a in annotations)
+                feature = CodeFeature(
+                    feature.ref(),
+                    feature.level,
+                    diff=self.diff_context.target if has_diff else None,
+                    user_included=True,
+                )
+                include_features.append(feature)
 
         def _feature_relative_path(f: CodeFeature) -> str:
             return os.path.relpath(f.path, git_root)
@@ -406,9 +372,11 @@ class CodeContext:
 
     def include_file(self, path: Path):
         paths, invalid_paths = get_include_files([path], [])
-        for new_path, new_file in paths.items():
+        for new_path, new_features in paths.items():
             if new_path not in self.include_files:
-                self.include_files[new_path] = new_file
+                self.include_files[new_path] = []
+            for feature in new_features:
+                self.include_files[new_path].append(feature)
         return list(paths.keys()), invalid_paths
 
     def exclude_file(self, path: Path):
