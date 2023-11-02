@@ -7,7 +7,11 @@ import openai
 
 from mentat.code_feature import CodeFeature, CodeMessageLevel
 from mentat.errors import UserError
-from mentat.llm_api import count_tokens, model_context_size
+from mentat.llm_api import (
+    count_tokens,
+    model_context_size,
+    raise_if_in_test_environment,
+)
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
@@ -77,6 +81,21 @@ class LLMFeatureSelector(FeatureSelector, selector_name="llm"):
     )
     feature_selection_response_buffer = 500
 
+    async def call_llm_api(self, model: str, messages: list[dict[str, str]]) -> str:
+        raise_if_in_test_environment()
+
+        session_context = SESSION_CONTEXT.get()
+        config = session_context.config
+
+        response = await openai.ChatCompletion.acreate(  # type: ignore
+            model=model,
+            messages=messages,
+            temperature=config.temperature,
+        )
+
+        # Create output features from the response
+        return cast(str, response["choices"][0]["message"]["content"])  # type: ignore
+
     async def select(
         self,
         features: list[CodeFeature],
@@ -133,14 +152,7 @@ class LLMFeatureSelector(FeatureSelector, selector_name="llm"):
             {"role": "system", "content": system_prompt},
             {"role": "system", "content": "\n".join(content_message)},
         ]
-        response = await openai.ChatCompletion.acreate(  # type: ignore
-            model=model,
-            messages=messages,
-            temperature=config.temperature,
-        )
-
-        # Create output features from the response
-        message = cast(str, response["choices"][0]["message"]["content"])  # type: ignore
+        message = await self.call_llm_api(model, messages)
         try:
             selected_refs = json.loads(message)
         except json.JSONDecodeError:
