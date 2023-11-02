@@ -78,6 +78,22 @@ def pytest_addoption(parser):
             " depends on benchmark."
         ),
     )
+    parser.addoption(
+        "--repo",
+        action="store",
+        default="mentat",
+        help="For benchmarks that are evaluated against a repo",
+    )
+    parser.addoption(
+        "--evaluate_baseline",
+        action="store_true",
+        help="Evaluate the baseline for the benchmark",
+    )
+
+
+@pytest.fixture
+def refresh_repo(request):
+    return request.config.getoption("--refresh_repo")
 
 
 @pytest.fixture

@@ -55,3 +55,10 @@ index ec588a0..720a0a7 100644
  9
  0
  
+diff --git a/f b/f
+index ec588a0..720a0a7 100644
+--- a/f
++++ b/f
+@@ -1 +1 @@
+-foo
++bar

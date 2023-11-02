@@ -14,3 +14,6 @@ Fifth commit
 @ c e
 @ c starting_line=8 ending_line=8
 @
+@ f starting_line=1 ending_line=1
+bar
+@

@@ -131,7 +131,7 @@ class DiffContext:
                 self.name = "HEAD (last commit)"
                 return
 
-        meta = get_treeish_metadata(target)
+        meta = get_treeish_metadata(git_root, target)
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
 
         self.target = target
