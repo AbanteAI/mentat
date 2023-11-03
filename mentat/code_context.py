@@ -107,6 +107,8 @@ class CodeContext:
         exclude_paths: list[Path],
         ignore_paths: list[Path] = [],
     ):
+        if not paths and (self.diff or self.pr_diff) and self.diff_context.files:
+            paths = self.diff_context.files
         self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
         for invalid_path in invalid_paths:
             print_invalid_path(invalid_path)

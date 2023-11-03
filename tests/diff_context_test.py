@@ -172,17 +172,20 @@ async def test_diff_context_end_to_end(
     # SESSION_CONTEXT isn't reset between tests
     SESSION_CONTEXT.set(None)
     mock_call_llm_api.set_generator_values([""])
-    python_client = PythonClient(["."], diff="HEAD~2")
+    python_client = PythonClient([], diff="HEAD~2")
     await python_client.startup()
 
     session_context = SESSION_CONTEXT.get()
     code_context = session_context.code_context
+    code_message = await code_context.get_code_message("test", "test", 1)
     diff_context = code_context.diff_context
 
     assert diff_context.target == "HEAD~2"
     assert diff_context.name.startswith("HEAD~2: ")
     assert diff_context.name.endswith(": add testbed")
     assert diff_context.files == [abs_path]
+
+    assert "multifile_calculator" in code_message
 
     await python_client.call_mentat("Conversation")
     await python_client.stop()
