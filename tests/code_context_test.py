@@ -97,7 +97,6 @@ async def test_glob_include(temp_testbed: Path, mock_session_context: SessionCon
     with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am not included")
 
-    file_paths = ["**/*.py"]
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
@@ -239,7 +238,7 @@ async def test_get_code_message_include(mocker: MockFixture, temp_testbed: Path,
         *[f"{i+1}:{line}" for i, line in enumerate(Path("multifile_calculator/operations.py").read_text().split("\n"))],
     ]
 
-    set_trace()
+    # set_trace()
 
     assert code_message.splitlines() == expected
 

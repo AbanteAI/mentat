@@ -28,7 +28,6 @@ class PathValidationException(Exception):
 
 def validate_and_format_path(path: Path, cwd: Path, check_for_text: bool = True) -> Path:
     """Validate and format a path.
-
     `path` can be a file path, file interval path, directory path, or a glob pattern.
     """
     # set_trace()
@@ -69,44 +68,63 @@ def validate_and_format_path(path: Path, cwd: Path, check_for_text: bool = True)
 
 def match_path_with_patterns(path: Path, patterns: Set[str]) -> bool:
     """Check if the given absolute path matches any of the patterns."""
-    if "glob_test" in str(path):
-        set_trace()
 
     if not path.is_absolute():
         raise PathValidationException(f"Path {path} is not absolute")
+
+    # if "glob_test" in str(path):
+    #     set_trace()
+
+    # if glob.globmatch(path, "|".join(patterns)):
+    #     return True
     for pattern in patterns:
-        # pattern match full path
-        if pattern in str(path):
-            return True
+        # Prepend '**' to relative patterns that are missing it
+        if not Path(pattern).is_absolute() and not pattern.startswith("**"):
+            pattern = str(Path("**").joinpath(pattern))
+
+        # # pattern match full path
+        # if pattern in str(path):
+        #     return True
         # wildcard match full path
         if fnmatch.fnmatch(str(path), pattern):
             return True
-        # wildcard match path parts
-        for part in path.parts:
-            if fnmatch.fnmatch(part, pattern):
-                return True
+        # # wildcard match path parts
+        # for part in path.parts:
+        #     if fnmatch.fnmatch(part, pattern):
+        #         return True
     return False
 
 
 def get_paths_for_directory(
-    abs_path: Path,
+    path: Path,
     include_patterns: Iterable[Path | str] = [],
     ignore_patterns: Iterable[Path | str] = [],
     recursive: bool = False,
 ) -> Set[Path]:
+    """Get all file paths in a directory.
+
+    Args:
+        `path` - An absolute path to a directory on the filesystem
+        `include_patterns` - An iterable of paths and/or glob patterns to include
+        `ignore_patterns` - An iterable of paths and/or glob patterns to exclude
+        `recursive` - A boolean flag to recursive traverse child directories
+
+    Return:
+        A set of absolute file paths
+    """
     paths: Set[Path] = set()
 
-    # set_trace()
-
-    if not abs_path.exists():
-        raise PathValidationException(f"Path {abs_path} does not exist")
-    if not abs_path.is_dir():
-        raise PathValidationException(f"Path {abs_path} is not a directory")
+    if not path.exists():
+        raise PathValidationException(f"Path {path} does not exist")
+    if not path.is_dir():
+        raise PathValidationException(f"Path {path} is not a directory")
+    if not path.is_absolute():
+        raise PathValidationException(f"Path {path} is not absolute")
 
     all_include_patterns = set(str(p) for p in include_patterns)
     all_ignore_patterns = set(str(p) for p in ignore_patterns)
 
-    for root, dirs, files in os.walk(abs_path, topdown=True):
+    for root, dirs, files in os.walk(path, topdown=True):
         root = Path(root)
 
         if check_is_git_repo(root):
@@ -173,20 +191,22 @@ def get_code_features_for_path(
         if pattern is None:
             raise PathValidationException(f"Unable to parse glob pattern {validated_path}")
         root = Path().joinpath(*root_parts)
-        set_trace()
+        all_include_patterns = [*include_patterns]
+        if pattern != "*":
+            all_include_patterns.append(pattern)
         paths = get_paths_for_directory(
-            root, include_patterns=[pattern, *include_patterns], ignore_patterns=ignore_patterns, recursive=True
+            root, include_patterns=all_include_patterns, ignore_patterns=ignore_patterns, recursive=True
         )
         code_features = set(CodeFeature(p) for p in paths)
 
     return code_features
 
 
-def build_path_tree(files: list[CodeFeature], git_root: Path):
-    """Builds a tree of paths from a list of CodeFiles."""
+def build_path_tree(code_features: List[CodeFeature], cwd: Path):
+    """Builds a tree of paths from a list of CodeFeatures."""
     tree = dict[str, Any]()
-    for file in files:
-        path = os.path.relpath(file.path, git_root)
+    for code_feature in code_features:
+        path = os.path.relpath(code_feature.path, cwd)
         parts = Path(path).parts
         current_level = tree
         for part in parts:

@@ -15,13 +15,12 @@ from mentat.code_feature import (
 from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.embeddings import get_feature_similarity_scores
-from mentat.git_handler import get_non_gitignored_files, get_paths_with_git_diffs
+from mentat.git_handler import get_paths_with_git_diffs
 from mentat.include_files import (
     PathValidationException,
     build_path_tree,
     get_code_features_for_path,
     get_paths_for_directory,
-    is_file_text_encoded,
     match_path_with_patterns,
     print_path_tree,
 )
@@ -121,9 +120,9 @@ class CodeContext:
             ctx.stream.send(f"{prefix}Included files:")
             ctx.stream.send(f"{prefix + prefix}{ctx.cwd.name}")
             print_path_tree(
-                build_path_tree(list(self.include_files.values()), git_root),
+                build_path_tree(list(self.include_files.values()), ctx.cwd),
                 get_paths_with_git_diffs(),
-                git_root,
+                ctx.cwd,
                 prefix + prefix,
             )
         else:
@@ -211,11 +210,11 @@ class CodeContext:
         self.features = features
 
         # NOTE: disabled aut features (for now)
-        # if _max_auto == 0 or _max_user == 0:
-        #     self.features = features
-        # else:
-        #     auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
-        #     self.features = await self._get_auto_features(prompt, model, features, auto_tokens)
+        if _max_auto == 0 or _max_user == 0:
+            self.features = features
+        else:
+            auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
+            self.features = await self._get_auto_features(prompt, model, features, auto_tokens)
 
         for f in self.features:
             code_message += f.get_code_message()
@@ -314,7 +313,7 @@ class CodeContext:
     def include(self, path: Path, ignore_patterns: Iterable[Path | str] = []) -> Set[Path]:
         """Add code to the context
 
-        '.' is replaced with '*' (recusively search the cwd)
+        '.' is replaced with '**' (recusively search the cwd)
 
         Args:
             `path`: can be a relative or absolute file path, file interval path, directory, or glob pattern.
