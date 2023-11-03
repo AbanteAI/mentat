@@ -67,6 +67,8 @@ class Session:
 
         # Functions that require session_context
         config.send_errors_to_stream()
+        if not paths and (diff or pr_diff) and code_context.diff_context.files:
+            paths = code_context.diff_context.files
         code_context.set_paths(paths, exclude_paths, ignore_paths)
         code_context.set_code_map()
 
