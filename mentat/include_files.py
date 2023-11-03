@@ -1,6 +1,7 @@
 import glob
 import logging
 import os
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict
 
@@ -25,7 +26,8 @@ def expand_paths(paths: list[Path]) -> tuple[list[Path], list[str]]:
             else:
                 intervals = None
             if Path(p).exists() and intervals:
-                globbed_paths.add(str(path))
+                for interval in intervals:
+                    globbed_paths.add(f"{p}:{interval.start}-{interval.end}")
             else:
                 invalid_paths.add(str(path))
     return [Path(path).resolve() for path in globbed_paths], list(invalid_paths)
@@ -88,7 +90,7 @@ def get_ignore_files(ignore_paths: list[Path]) -> set[Path]:
 
 def get_include_files(
     paths: list[Path], exclude_paths: list[Path]
-) -> tuple[Dict[Path, CodeFeature], list[str]]:
+) -> tuple[Dict[Path, list[CodeFeature]], list[str]]:
     """Returns a complete list of text files in a given set of include/exclude Paths."""
     session_context = SESSION_CONTEXT.get()
     git_root = session_context.git_root
@@ -127,19 +129,19 @@ def get_include_files(
     ]
     files_direct.update(files_from_dirs)
 
-    files = dict[Path, CodeFeature]()
+    files: defaultdict[Path, list[CodeFeature]] = defaultdict(list)
     for file in files_direct:
         if file.path not in excluded_files:
-            files[file.path.resolve()] = file
+            files[file.path.resolve()].append(file)
 
-    return files, invalid_paths
+    return dict(files), invalid_paths
 
 
-def build_path_tree(files: list[CodeFeature], git_root: Path):
+def build_path_tree(files: list[Path], git_root: Path):
     """Builds a tree of paths from a list of CodeFiles."""
     tree = dict[str, Any]()
     for file in files:
-        path = os.path.relpath(file.path, git_root)
+        path = os.path.relpath(file, git_root)
         parts = Path(path).parts
         current_level = tree
         for part in parts:

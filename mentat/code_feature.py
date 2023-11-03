@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import math
 import os
+from collections import OrderedDict, defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Set
 
 from mentat.code_map import get_code_map, get_ctags
 from mentat.diff_context import annotate_file_message, parse_diff
+from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
 from mentat.interval import Interval, parse_intervals
 from mentat.llm_api import count_tokens
@@ -50,10 +52,10 @@ def split_file_into_intervals(
                 line_number = _last_item[1]
             else:
                 named_intervals.append(
-                    (_last_item[0], _last_item[1], int(line_number) - 1)  # type: ignore
+                    (_last_item[0], _last_item[1], int(line_number))  # type: ignore
                 )
         else:
-            line_number = 0
+            line_number = 1
         if i == len(ctags) - 1:
             named_intervals.append((str(key), int(line_number), n_lines))
         else:
@@ -100,7 +102,7 @@ class CodeFeature:
 
     Attributes:
         path: The absolute path to the file.
-        intervals: The lines in the file.
+        interval: The lines in the file.
         level: The level of information to include.
         diff: The diff annotations to include.
     """
@@ -115,16 +117,19 @@ class CodeFeature:
     ):
         if Path(path).exists():
             self.path = Path(path)
-            self.intervals = [Interval(0, math.inf)]
+            self.interval = Interval(0, math.inf)
         else:
             path = str(path)
             split = path.rsplit(":", 1)
             self.path = Path(split[0])
             if not self.path.exists():
                 self.path = Path(path)
-                self.intervals = [Interval(0, math.inf)]
+                self.interval = Interval(0, math.inf)
             else:
-                self.intervals = parse_intervals(split[1])
+                interval = parse_intervals(split[1])
+                if len(interval) > 1:
+                    raise MentatError("CodeFeatures should only have on interval.")
+                self.interval = interval[0]
                 level = CodeMessageLevel.INTERVAL
         self.level = level
         self.diff = diff
@@ -133,18 +138,18 @@ class CodeFeature:
 
     def __repr__(self):
         return (
-            f"CodeFeature(fname={self.path.name}, intervals={self.intervals},"
+            f"CodeFeature(fname={self.path.name}, interval={self.interval},"
             f" level={self.level}, diff={self.diff})"
         )
 
     def ref(self):
         if self.level == CodeMessageLevel.INTERVAL:
-            intervals_string = ",".join(f"{i.start}-{i.end}" for i in self.intervals)
-            return f"{self.path}:{intervals_string}"
+            interval_string = f"{self.interval.start}-{self.interval.end}"
+            return f"{self.path}:{interval_string}"
         return str(self.path)
 
     def contains_line(self, line_number: int):
-        return any([interval.contains(line_number) for interval in self.intervals])
+        return self.interval.contains(line_number)
 
     def _get_code_message(self) -> list[str]:
         session_context = SESSION_CONTEXT.get()
@@ -194,7 +199,7 @@ class CodeFeature:
 
         abs_path = git_root / self.path
         file_checksum = code_file_manager.get_file_checksum(
-            Path(abs_path), self.intervals
+            Path(abs_path), self.interval
         )
         return sha256(f"{file_checksum}{self.level.key}{self.diff}")
 
@@ -223,3 +228,62 @@ async def count_feature_tokens(features: list[CodeFeature], model: str) -> list[
 
     tasks = [_count_tokens(f) for f in features]
     return await asyncio.gather(*tasks)
+
+
+def get_code_message_from_intervals(features: list[CodeFeature]) -> list[str]:
+    """Merge multiple features for the same file into a single code message"""
+    features_sorted = sorted(features, key=lambda f: f.interval.start)
+    posix_path = features_sorted[0].get_code_message()[0]
+    code_message = [posix_path]
+    next_line = 1
+    for feature in features_sorted:
+        starting_line = feature.interval.start
+        if starting_line < next_line:
+            raise MentatError("Features overlap")
+        elif starting_line > next_line:
+            code_message += ["..."]
+        code_message += feature.get_code_message()[1:-1]
+        next_line = feature.interval.end
+    return code_message + [""]
+
+
+def get_code_message_from_features(features: list[CodeFeature]) -> list[str]:
+    """Generate a code message from a list of features"""
+    code_message = list[str]()
+    features_by_path: dict[Path, list[CodeFeature]] = OrderedDict()
+    for feature in features:
+        if feature.path not in features_by_path:
+            features_by_path[feature.path] = list[CodeFeature]()
+        features_by_path[feature.path].append(feature)
+    for path_features in features_by_path.values():
+        if len(path_features) == 1:
+            code_message += path_features[0].get_code_message()
+        else:
+            code_message += get_code_message_from_intervals(path_features)
+    return code_message
+
+
+def code_features_difference(
+    a: list[CodeFeature], b: list[CodeFeature]
+) -> dict[Path, Set[int]]:
+    def _get_lines(features: list[CodeFeature]) -> dict[Path, Set[int]]:
+        lines: defaultdict[Path, Set[int]] = defaultdict(set)
+        for feature in features:
+            if feature.interval.end == math.inf:
+                n_lines = len(feature.path.read_text().splitlines())
+                start, end = 1, n_lines + 1
+            else:
+                start, end = feature.interval.start, feature.interval.end
+            for line in range(int(start), int(end)):
+                lines[feature.path].add(line)
+        return dict(lines)
+
+    a_lines = _get_lines(a)
+    b_lines = _get_lines(b)
+    differences: defaultdict[Path, Set[int]] = defaultdict(set)
+    for file in a_lines:
+        difference = a_lines[file] - b_lines[file]
+        if len(difference) > 0:
+            differences[file] = difference
+
+    return dict(differences)

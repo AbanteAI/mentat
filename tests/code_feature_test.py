@@ -18,18 +18,17 @@ def test_split_file_into_intervals(temp_testbed, mock_session_context):
 
     assert len(interval_features) == 2
 
-    interval_1 = interval_features[0].intervals[0]
-    interval_2 = interval_features[1].intervals[0]
-    assert (interval_1.start, interval_1.end) == (0, 3)
+    interval_1 = interval_features[0].interval
+    interval_2 = interval_features[1].interval
+    assert (interval_1.start, interval_1.end) == (1, 4)
     assert (interval_2.start, interval_2.end) == (4, 6)
 
 
 def test_ref_method(temp_testbed):
     test_file = Path(temp_testbed) / "test_file.py"
     test_file.write_text("\n".join([""] * 10))
-    expected = "test_file.py:2-4,6-8"
+    expected = "test_file.py:2-4"
     code_feature = CodeFeature(expected, CodeMessageLevel.INTERVAL)
-    assert (code_feature.intervals[0].start, code_feature.intervals[0].end) == (2, 4)
-    assert (code_feature.intervals[1].start, code_feature.intervals[1].end) == (6, 8)
+    assert (code_feature.interval.start, code_feature.interval.end) == (2, 4)
     ref_result = code_feature.ref()
     assert ref_result == expected
