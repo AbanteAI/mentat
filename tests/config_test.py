@@ -35,11 +35,13 @@ async def test_config_creation():
     assert args.parser is None
     assert args.use_embeddings
     assert args.auto_tokens == "2"
+    assert not args.no_code_map
 
     with open(config_file_name, "w") as project_config_file:
         project_config_file.write(dedent("""\
         {
-            "input_style": [[ "project", "yes" ]]
+            "input_style": [[ "project", "yes" ]],
+            "no_code_map": true
         }"""))
 
     mentat.config.user_config_path = Path(str(config_file_name) + "1")
@@ -58,9 +60,9 @@ async def test_config_creation():
     assert config.maximum_context == 1
     assert type(config.parser) == ReplacementParser
     assert config.use_embeddings
-    assert not config.no_code_map
     assert config.auto_tokens == 2
     assert config.input_style == [["project", "yes"]]
+    assert config.no_code_map
 
 
 @pytest.mark.asyncio
