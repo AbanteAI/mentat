@@ -112,7 +112,6 @@ class LLMFeatureSelector(FeatureSelector, selector_name="llm"):
     ) -> list[CodeFeature]:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
-        git_root = session_context.git_root
 
         # Preselect as many features as fit in the context window
         model = config.feature_selection_model
