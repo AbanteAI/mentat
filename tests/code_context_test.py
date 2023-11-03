@@ -4,6 +4,7 @@ from textwrap import dedent
 from unittest import TestCase
 
 import pytest
+from ipdb import set_trace
 
 from mentat.code_context import CodeContext, _get_all_features
 from mentat.code_feature import CodeMessageLevel
@@ -13,18 +14,19 @@ from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
 from mentat.llm_api import count_tokens
 from tests.conftest import run_git_command
+from mentat.session_context import SessionContext
 
 
 @pytest.mark.asyncio
-async def test_path_gitignoring(temp_testbed, mock_session_context):
-    gitignore_path = ".gitignore"
-    testing_dir_path = "git_testing_dir"
+async def test_path_gitignoring(temp_testbed: Path, mock_session_context: SessionContext):
+    gitignore_path = Path(".gitignore")
+    testing_dir_path = Path("git_testing_dir")
     os.makedirs(testing_dir_path)
 
     # create 3 files, 2 ignored in gitignore, 1 not
-    ignored_file_path_1 = Path(os.path.join(testing_dir_path, "ignored_file_1.txt"))
-    ignored_file_path_2 = Path(os.path.join(testing_dir_path, "ignored_file_2.txt"))
-    non_ignored_file_path = Path(os.path.join(testing_dir_path, "non_ignored_file.txt"))
+    ignored_file_path_1 = Path(testing_dir_path, "ignored_file_1.txt")
+    ignored_file_path_2 = testing_dir_path.joinpath("ignored_file_2.txt")
+    non_ignored_file_path = testing_dir_path.joinpath("non_ignored_file.txt")
 
     with open(gitignore_path, "w") as gitignore_file:
         gitignore_file.write("ignored_file_1.txt\nignored_file_2.txt")
@@ -34,29 +36,21 @@ async def test_path_gitignoring(temp_testbed, mock_session_context):
             file.write("I am a file")
 
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
-    paths = [Path(testing_dir_path), Path(ignored_file_path_2)]
-    code_context = CodeContext(
-        mock_session_context.stream,
-        mock_session_context.git_root,
-    )
-    code_context.set_paths(paths, [])
+    code_context = CodeContext(mock_session_context.stream, mock_session_context.git_root)
+    code_context.include(Path(testing_dir_path))
+    code_context.include(Path(ignored_file_path_2))
 
-    expected_file_paths = [
-        os.path.join(temp_testbed, ignored_file_path_2),
-        os.path.join(temp_testbed, non_ignored_file_path),
-    ]
+    expected_file_paths = [temp_testbed.joinpath(ignored_file_path_2), temp_testbed.joinpath(non_ignored_file_path)]
 
     case = TestCase()
-    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
+    file_paths = [file_path.resolve() for file_path in code_context.include_files]
     case.assertListEqual(sorted(expected_file_paths), sorted(file_paths))
 
 
 @pytest.mark.asyncio
 async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
     # Makes sure glob exclude config works
-    mocker.patch.object(
-        Config, "file_exclude_glob_list", new=[os.path.join("glob_test", "**", "*.py")]
-    )
+    mocker.patch.object(Config, "file_exclude_glob_list", new=[os.path.join("glob_test", "**", "*.py")])
 
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
@@ -68,12 +62,8 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
         glob_exclude_file.write("I am excluded")
     with open(glob_include_path, "w") as glob_include_file:
         glob_include_file.write("I am included")
-    with open(
-        directly_added_glob_excluded_path, "w"
-    ) as directly_added_glob_excluded_file:
-        directly_added_glob_excluded_file.write(
-            "Config excludes me but I'm included if added directly"
-        )
+    with open(directly_added_glob_excluded_path, "w") as directly_added_glob_excluded_file:
+        directly_added_glob_excluded_file.write("Config excludes me but I'm included if added directly")
 
     code_context = CodeContext(
         mock_session_context.stream,
@@ -120,9 +110,7 @@ async def test_glob_include(temp_testbed, mock_session_context):
 @pytest.mark.asyncio
 async def test_cli_glob_exclude(temp_testbed, mock_session_context):
     # Make sure cli glob exclude works and overrides regular include
-    glob_include_then_exclude_path = os.path.join(
-        "glob_test", "bagel", "apple", "include_then_exclude_me.py"
-    )
+    glob_include_then_exclude_path = os.path.join("glob_test", "bagel", "apple", "include_then_exclude_me.py")
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.ts")
 
     os.makedirs(os.path.dirname(glob_include_then_exclude_path), exist_ok=True)
@@ -199,9 +187,7 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths(
-        ["multifile_calculator"], ["multifile_calculator/calculator.py"]
-    )
+    code_context.set_paths(["multifile_calculator"], ["multifile_calculator/calculator.py"])
 
     file = Path("multifile_calculator/operations.py")
     feature = mocker.MagicMock()
@@ -209,24 +195,16 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
     code_context.features = [feature]
 
     # Return cached value if no changes to file or settings
-    mock_get_code_message = mocker.patch(
-        "mentat.code_context.CodeContext._get_code_message"
-    )
+    mock_get_code_message = mocker.patch("mentat.code_context.CodeContext._get_code_message")
     mock_get_code_message.return_value = "test1"
-    value1 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value1 = await code_context.get_code_message(prompt="", model="gpt-4", max_tokens=1e6)
     mock_get_code_message.return_value = "test2"
-    value2 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value2 = await code_context.get_code_message(prompt="", model="gpt-4", max_tokens=1e6)
     assert value1 == value2
 
     # Regenerate if settings change
     mocker.patch.object(Config, "auto_tokens", new=11)
-    value3 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value3 = await code_context.get_code_message(prompt="", model="gpt-4", max_tokens=1e6)
     assert value1 != value3
 
     # Regenerate if feature files change
@@ -234,9 +212,7 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
     lines = file.read_text().splitlines()
     lines[0] = "something different"
     file.write_text("\n".join(lines))
-    value4 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value4 = await code_context.get_code_message(prompt="", model="gpt-4", max_tokens=1e6)
     assert value3 != value4
 
 
@@ -247,15 +223,11 @@ async def test_get_code_message_include(mocker, temp_testbed, mock_session_conte
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths(
-        ["multifile_calculator"], ["multifile_calculator/calculator.py"]
-    )
+    code_context.set_paths(["multifile_calculator"], ["multifile_calculator/calculator.py"])
 
     # If max tokens is less than include_files, return include_files without
     # raising and Exception (that's handled elsewhere)
-    code_message = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    code_message = await code_context.get_code_message(prompt="", model="gpt-4", max_tokens=1e6)
     expected = [
         "Code Files:",
         "",
@@ -263,12 +235,7 @@ async def test_get_code_message_include(mocker, temp_testbed, mock_session_conte
         "1:",
         "",
         "multifile_calculator/operations.py",
-        *[
-            f"{i+1}:{line}"
-            for i, line in enumerate(
-                Path("multifile_calculator/operations.py").read_text().split("\n")
-            )
-        ],
+        *[f"{i+1}:{line}" for i, line in enumerate(Path("multifile_calculator/operations.py").read_text().split("\n"))],
     ]
     assert code_message.splitlines() == expected
 
@@ -277,22 +244,30 @@ async def test_get_code_message_include(mocker, temp_testbed, mock_session_conte
 @pytest.mark.clear_testbed
 async def test_auto_tokens(mocker, temp_testbed, mock_session_context):
     with open("file_1.py", "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             def func_1(x, y):
                 return x + y
             
             def func_2():
                 return 3
-            """))
+            """
+            )
+        )
 
     with open("file_2.py", "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             def func_3(a, b, c):
                 return a * b ** c
             
             def func_4(string):
                 print(string)
-            """))
+            """
+            )
+        )
     run_git_command(temp_testbed, "add", ".")
     run_git_command(temp_testbed, "commit", "-m", "initial commit")
 
@@ -304,9 +279,7 @@ async def test_auto_tokens(mocker, temp_testbed, mock_session_context):
 
     async def _count_auto_tokens_where(limit: int) -> int:
         mocker.patch.object(Config, "auto_tokens", new=limit)
-        code_message = await code_context.get_code_message(
-            prompt="", model="gpt-4", max_tokens=1e6
-        )
+        code_message = await code_context.get_code_message(prompt="", model="gpt-4", max_tokens=1e6)
         return count_tokens(code_message, "gpt-4")
 
     assert await _count_auto_tokens_where(None) == 65  # Cmap w/ signatures
@@ -327,9 +300,7 @@ def test_get_all_features(temp_testbed, mock_session_context):
         file2.write("def sample_function():\n    pass\n")
 
     # Test without include_files
-    diff_context = DiffContext(
-        mock_session_context.stream, mock_session_context.git_root
-    )
+    diff_context = DiffContext(mock_session_context.stream, mock_session_context.git_root)
     features = _get_all_features(
         git_root=mock_session_context.git_root,
         include_files={},
@@ -384,11 +355,7 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
     for file in get_non_gitignored_files(temp_testbed):
         abs_path = temp_testbed / file
         rel_path = abs_path.relative_to(temp_testbed).as_posix()
-        if (
-            not is_file_text_encoded(abs_path)
-            or "scripts" in rel_path
-            or rel_path.endswith(".txt")
-        ):
+        if not is_file_text_encoded(abs_path) or "scripts" in rel_path or rel_path.endswith(".txt"):
             assert rel_path not in code_message
         else:
             assert rel_path in code_message

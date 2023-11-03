@@ -1,9 +1,10 @@
 from __future__ import annotations
+from ipdb import set_trace
 
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from mentat.code_feature import (
     CodeFeature,
@@ -16,11 +17,11 @@ from mentat.diff_context import DiffContext
 from mentat.embeddings import get_feature_similarity_scores
 from mentat.git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from mentat.include_files import (
+    PathValidationException,
     build_path_tree,
-    get_ignore_files,
-    get_include_files,
+    get_code_features_for_path,
     is_file_text_encoded,
-    print_invalid_path,
+    match_path_with_patterns,
     print_path_tree,
 )
 from mentat.llm_api import count_tokens
@@ -31,8 +32,8 @@ from mentat.utils import sha256
 
 def _get_all_features(
     git_root: Path,
-    include_files: dict[Path, CodeFeature],
-    ignore_files: set[Path],
+    include_files: Dict[Path, CodeFeature],
+    ignore_paths: Set[Path],
     diff_context: DiffContext,
     code_map: bool,
     level: CodeMessageLevel,
@@ -42,11 +43,7 @@ def _get_all_features(
     all_features = list[CodeFeature]()
     for path in get_non_gitignored_files(git_root):
         abs_path = git_root / path
-        if (
-            abs_path.is_dir()
-            or not is_file_text_encoded(abs_path)
-            or abs_path in ignore_files
-        ):
+        if abs_path.is_dir() or not is_file_text_encoded(abs_path) or abs_path in ignore_paths:
             continue
 
         diff_target = diff_context.target if abs_path in diff_context.files else None
@@ -69,48 +66,41 @@ def _get_all_features(
                 )
                 all_features += _split_features
         else:
-            _feature = CodeFeature(
-                abs_path, level=level, diff=diff_target, user_included=user_included
-            )
+            _feature = CodeFeature(abs_path, level=level, diff=diff_target, user_included=user_included)
             all_features.append(_feature)
 
     return all_features
 
 
 class CodeContext:
-    include_files: dict[Path, CodeFeature]
-    ignore_files: set[Path]
-    diff_context: DiffContext
-    code_map: bool = True
-    features: list[CodeFeature] = []
-    diff: Optional[str] = None
-    pr_diff: Optional[str] = None
-
     def __init__(
         self,
         stream: SessionStream,
         git_root: Path,
-        diff: Optional[str] = None,
-        pr_diff: Optional[str] = None,
+        diff: str | None = None,
+        pr_diff: str | None = None,
+        ignore_paths: Iterable[Path] = [],
     ):
         self.diff = diff
         self.pr_diff = pr_diff
+
         self.diff_context = DiffContext(stream, git_root, self.diff, self.pr_diff)
         # TODO: This is a dict so we can quickly reference either a path (key)
         # or the CodeFeature (value) and its interval. Redundant.
-        self.include_files = {}
-        self.ignore_files = set()
+        self.include_files: Dict[Path, CodeFeature] = dict()
+        self.ignore_paths = set(p.resolve() for p in ignore_paths)
+        self.features: List[CodeFeature] = list()
+        self.code_map = True
 
-    def set_paths(
-        self,
-        paths: list[Path],
-        exclude_paths: list[Path],
-        ignore_paths: list[Path] = [],
-    ):
-        self.include_files, invalid_paths = get_include_files(paths, exclude_paths)
-        for invalid_path in invalid_paths:
-            print_invalid_path(invalid_path)
-        self.ignore_files = get_ignore_files(ignore_paths)
+    # def set_paths(
+    #     self,
+    #     paths: List[Path],
+    #     exclude_paths: List[Path],
+    #     ignore_paths: List[Path] = [],
+    # ):
+    #     for path in paths:
+    #         self.include(path)
+    #     self.ignore_paths = set(p.resolve() for p in ignore_paths)
 
     def set_code_map(self):
         session_context = SESSION_CONTEXT.get()
@@ -159,13 +149,8 @@ class CodeContext:
             stream.send(f"{prefix}Included files: None", color="yellow")
         auto = config.auto_tokens
         if auto != 0:
-            stream.send(
-                f"{prefix}Auto-token limit:"
-                f" {'Model max (default)' if auto is None else auto}"
-            )
-            stream.send(
-                f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
-            )
+            stream.send(f"{prefix}Auto-token limit:" f" {'Model max (default)' if auto is None else auto}")
+            stream.send(f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}")
 
     def display_features(self):
         """Display a summary of all active features"""
@@ -195,9 +180,7 @@ class CodeContext:
             features_checksum = ""
         else:
             feature_files = {Path(git_root / f.path) for f in self.features}
-            feature_file_checksums = [
-                code_file_manager.get_file_checksum(f) for f in feature_files
-            ]
+            feature_file_checksums = [code_file_manager.get_file_checksum(f) for f in feature_files]
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
             "code_map": self.code_map,
@@ -218,10 +201,7 @@ class CodeContext:
         max_tokens: int,
     ) -> str:
         code_message_checksum = self._get_code_message_checksum(max_tokens)
-        if (
-            self._code_message is None
-            or code_message_checksum != self._code_message_checksum
-        ):
+        if self._code_message is None or code_message_checksum != self._code_message_checksum:
             self._code_message = await self._get_code_message(prompt, model, max_tokens)
             self._code_message_checksum = self._get_code_message_checksum(max_tokens)
         return self._code_message
@@ -257,9 +237,7 @@ class CodeContext:
             self.features = features
         else:
             auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
-            self.features = await self._get_auto_features(
-                prompt, model, features, auto_tokens
-            )
+            self.features = await self._get_auto_features(prompt, model, features, auto_tokens)
 
         for f in self.features:
             code_message += f.get_code_message()
@@ -272,9 +250,7 @@ class CodeContext:
         include_features = list[CodeFeature]()
         for path, feature in self.include_files.items():
             annotations = self.diff_context.get_annotations(path)
-            has_diff = any(
-                a.intersects(i) for a in annotations for i in feature.intervals
-            )
+            has_diff = any(a.intersects(i) for a in annotations for i in feature.intervals)
             feature = CodeFeature(
                 feature.ref(),
                 feature.level,
@@ -304,9 +280,7 @@ class CodeContext:
         git_root = session_context.git_root
 
         # Find the first (longest) level that fits
-        include_features_tokens = sum(
-            await count_feature_tokens(include_features, model)
-        )
+        include_features_tokens = sum(await count_feature_tokens(include_features, model))
         max_auto_tokens = max_tokens - include_features_tokens
         all_features = include_features.copy()
         levels = [CodeMessageLevel.FILE_NAME]
@@ -316,14 +290,12 @@ class CodeContext:
             level_features = _get_all_features(
                 git_root,
                 self.include_files,
-                self.ignore_files,
+                self.ignore_paths,
                 self.diff_context,
                 self.code_map,
                 level,
             )
-            level_features = [
-                f for f in level_features if f.path not in self.include_files
-            ]
+            level_features = [f for f in level_features if f.path not in self.include_files]
             level_length = sum(await count_feature_tokens(level_features, model))
             if level_length < max_auto_tokens:
                 all_features += level_features
@@ -354,9 +326,7 @@ class CodeContext:
             for code_feature, _ in all_code_features_sorted:
                 abs_path = git_root / code_feature.path
                 # Calculate the total change in length
-                i_cmap, cmap_feature = next(
-                    (i, f) for i, f in enumerate(all_features) if f.path == abs_path
-                )
+                i_cmap, cmap_feature = next((i, f) for i, f in enumerate(all_features) if f.path == abs_path)
                 recovered_tokens = cmap_feature.count_tokens(model)
                 new_tokens = code_feature.count_tokens(model)
                 forecast = max_sim_tokens - sim_tokens + recovered_tokens - new_tokens
@@ -366,24 +336,76 @@ class CodeContext:
 
         return sorted(all_features, key=_feature_relative_path)
 
-    def include_file(self, path: Path):
-        paths, invalid_paths = get_include_files([path], [])
-        for new_path, new_file in paths.items():
-            if new_path not in self.include_files:
-                self.include_files[new_path] = new_file
-        return list(paths.keys()), invalid_paths
+    def include(self, path: Path) -> Set[Path]:
+        """Add code to the context
 
-    def exclude_file(self, path: Path):
-        # TODO: Using get_include_files here isn't ideal; if the user puts in a glob that
-        # matches files but doesn't match any files in context, we won't know what that glob is
-        # and can't return it as an invalid path
-        paths, invalid_paths = get_include_files([path], [])
-        removed_paths = list[Path]()
-        for new_path in paths.keys():
-            if new_path in self.include_files:
-                removed_paths.append(new_path)
-                del self.include_files[new_path]
-        return removed_paths, invalid_paths
+        Args:
+            `path`: can be a relative or absolute file path, file interval path, directory, or glob pattern.
+
+        Return:
+            A set of paths that have been successfully added to the context
+        """
+        session_context = SESSION_CONTEXT.get()
+
+        included_paths: Set[Path] = set()
+        try:
+            code_features = get_code_features_for_path(
+                path, ignore_patterns=session_context.config.file_exclude_glob_list
+            )
+        except PathValidationException as e:
+            session_context.stream.send(e, color="light_red")
+            return included_paths
+
+        for code_feature in code_features:
+            self.include_files[code_feature.path] = code_feature
+            included_paths.add(code_feature.path)
+
+        return included_paths
+
+    def exclude(self, path: Path) -> Set[Path]:
+        """Remove code from the context
+
+        Args:
+            `path`: can be a relative or absolute file path, file interval path, directory, or glob pattern.
+
+        Return:
+            A set of paths that have been successfully removed from the context
+        """
+        session_context = SESSION_CONTEXT.get()
+
+        excluded_paths: Set[Path] = set()
+        try:
+            # file
+            if path.is_file():
+                if path not in self.include_files:
+                    session_context.stream.send(f"Path {path} not in context", color="light_red")
+                    return excluded_paths
+                excluded_paths.add(path)
+                del self.include_files[path]
+            # file interval
+            elif ":" in str(path):
+                _interval_path, _ = str(path).split(":", 1)
+                interval_path = Path(_interval_path)
+                if interval_path not in self.include_files:
+                    session_context.stream.send(f"Path {path} not in context", color="light_red")
+                    return excluded_paths
+                excluded_paths.add(interval_path)
+                del self.include_files[interval_path]
+            # TODO: directory
+            elif path.is_dir():
+                raise NotImplementedError()
+            # glob
+            else:
+                for included_path in self.include_files.keys():
+                    if match_path_with_patterns(included_path, set(str(path))):
+                        excluded_paths.add(included_path)
+                        del self.include_files[included_path]
+
+        except PathValidationException as e:
+            session_context.stream.send(e, color="light_red")
+            return excluded_paths
+
+        return excluded_paths
 
     async def search(
         self,
@@ -407,16 +429,14 @@ class CodeContext:
         all_features = _get_all_features(
             git_root,
             self.include_files,
-            self.ignore_files,
+            self.ignore_paths,
             self.diff_context,
             self.code_map,
             level,
         )
         sim_scores = await get_feature_similarity_scores(query, all_features)
         all_features_scored = zip(all_features, sim_scores)
-        all_features_sorted = sorted(
-            all_features_scored, key=lambda x: x[1], reverse=True
-        )
+        all_features_sorted = sorted(all_features_scored, key=lambda x: x[1], reverse=True)
         if max_results is None:
             return all_features_sorted
         else:

@@ -10,7 +10,6 @@ import attr
 from mentat.conversation import MessageRole
 from mentat.errors import MentatError, UserError
 from mentat.git_handler import commit
-from mentat.include_files import print_invalid_path
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import create_viewer
 
@@ -34,11 +33,7 @@ class Command(ABC):
 
     @classmethod
     def get_command_names(cls) -> list[str]:
-        return [
-            name
-            for name, command in cls._registered_commands.items()
-            if not command.hidden
-        ]
+        return [name for name, command in cls._registered_commands.items() if not command.hidden]
 
     @classmethod
     def get_command_completions(cls) -> List[str]:
@@ -71,8 +66,7 @@ class InvalidCommand(Command, command_name=None):
         stream = session_context.stream
 
         stream.send(
-            f"{self.invalid_name} is not a valid command. Use /help to see a list of"
-            " all valid commands",
+            f"{self.invalid_name} is not a valid command. Use /help to see a list of" " all valid commands",
             color="light_yellow",
         )
 
@@ -99,17 +93,13 @@ class HelpCommand(Command, command_name="help"):
             commands = args
         for command_name in commands:
             if command_name not in Command._registered_commands:
-                stream.send(
-                    f"Error: Command {command_name} does not exist.", color="red"
-                )
+                stream.send(f"Error: Command {command_name} does not exist.", color="red")
             else:
                 command_class = Command._registered_commands[command_name]
                 argument_names = command_class.argument_names()
                 help_message = command_class.help_message()
                 message = (
-                    " ".join(
-                        [f"/{command_name}"] + [f"<{arg}>" for arg in argument_names]
-                    ).ljust(help_message_width)
+                    " ".join([f"/{command_name}"] + [f"<{arg}>" for arg in argument_names]).ljust(help_message_width)
                     + help_message
                 )
                 stream.send(message)
@@ -152,13 +142,9 @@ class IncludeCommand(Command, command_name="include"):
             stream.send("No files specified", color="yellow")
             return
         for file_path in args:
-            included_paths, invalid_paths = code_context.include_file(
-                Path(file_path).absolute()
-            )
-            for invalid_path in invalid_paths:
-                print_invalid_path(invalid_path)
-            for included_path in included_paths:
-                rel_path = included_path.relative_to(git_root)
+            code_feature = code_context.include(Path(file_path).absolute())
+            if code_feature:
+                rel_path = code_feature.path.relative_to(git_root)
                 stream.send(f"{rel_path} added to context", color="green")
 
     @classmethod
@@ -181,12 +167,8 @@ class ExcludeCommand(Command, command_name="exclude"):
             stream.send("No files specified", color="yellow")
             return
         for file_path in args:
-            excluded_paths, invalid_paths = code_context.exclude_file(
-                Path(file_path).absolute()
-            )
-            for invalid_path in invalid_paths:
-                print_invalid_path(invalid_path)
-            for excluded_path in excluded_paths:
+            excluded_path = code_context.exclude(Path(file_path).absolute())
+            if excluded_path:
                 rel_path = excluded_path.relative_to(git_root)
                 stream.send(f"{rel_path} removed from context", color="red")
 
@@ -247,9 +229,7 @@ class ClearCommand(Command, command_name="clear"):
 
         # Only keep system messages (for now just the prompt)
         conversation.messages = [
-            message
-            for message in conversation.messages
-            if message["role"] == MessageRole.System.value
+            message for message in conversation.messages if message["role"] == MessageRole.System.value
         ]
         message = "Message history cleared"
         stream.send(message, color="green")
@@ -354,20 +334,15 @@ class ConfigCommand(Command, command_name="config"):
             if hasattr(config, setting):
                 if len(args) == 1:
                     value = getattr(config, setting)
-                    description = attr.fields_dict(type(config))[setting].metadata.get(
-                        "description"
-                    )
+                    description = attr.fields_dict(type(config))[setting].metadata.get("description")
                     stream.send(f"{setting}: {value}")
                     if description:
                         stream.send(f"Description: {description}")
                 elif len(args) == 2:
                     value = args[1]
-                    if attr.fields_dict(type(config))[setting].metadata.get(
-                        "no_midsession_change"
-                    ):
+                    if attr.fields_dict(type(config))[setting].metadata.get("no_midsession_change"):
                         stream.send(
-                            f"Cannot change {setting} mid-session. Please restart"
-                            " Mentat to change this setting.",
+                            f"Cannot change {setting} mid-session. Please restart" " Mentat to change this setting.",
                             color="yellow",
                         )
                         return

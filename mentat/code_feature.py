@@ -65,9 +65,7 @@ def split_file_into_intervals(
     # Create and return separate features for each interval
     _features = list[CodeFeature]()
     for name, start, end in named_intervals:
-        _user_included = any(
-            u.contains_line(i) for u in user_features for i in range(start, end + 1)
-        )
+        _user_included = any(u.contains_line(i) for u in user_features for i in range(start, end + 1))
         feature_string = f"{feature.path}:{start}-{end}"
         _feature = CodeFeature(
             feature_string,
@@ -133,8 +131,7 @@ class CodeFeature:
 
     def __repr__(self):
         return (
-            f"CodeFeature(fname={self.path.name}, intervals={self.intervals},"
-            f" level={self.level}, diff={self.diff})"
+            f"CodeFeature(fname={self.path.name}, intervals={self.intervals}," f" level={self.level}, diff={self.diff})"
         )
 
     def ref(self):
@@ -193,9 +190,7 @@ class CodeFeature:
         git_root = session_context.git_root
 
         abs_path = git_root / self.path
-        file_checksum = code_file_manager.get_file_checksum(
-            Path(abs_path), self.intervals
-        )
+        file_checksum = code_file_manager.get_file_checksum(Path(abs_path), self.intervals)
         return sha256(f"{file_checksum}{self.level.key}{self.diff}")
 
     _feature_checksum: str | None = None
