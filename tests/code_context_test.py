@@ -73,8 +73,6 @@ async def test_config_glob_exclude(mocker: MockFixture, temp_testbed: Path, mock
     code_context.include(directly_added_glob_excluded_path)
     file_paths = list(code_context.include_files.keys())
 
-    set_trace()
-
     assert temp_testbed.joinpath(glob_exclude_path) not in file_paths
     assert temp_testbed.joinpath(glob_include_path) in file_paths
     assert temp_testbed.joinpath(directly_added_glob_excluded_path) in file_paths
@@ -227,7 +225,7 @@ async def test_get_code_message_include(mocker: MockFixture, temp_testbed: Path,
 
     # If max tokens is less than include_files, return include_files without
     # raising and Exception (that's handled elsewhere)
-    code_message = await code_context.get_code_message(prompt="", model="gpt-4", max_tokens=1e6)
+    code_message = await code_context.get_code_message(prompt="", model="gpt-4", max_tokens=1000000)
     expected = [
         "Code Files:",
         "",
@@ -313,7 +311,7 @@ def test_get_all_features(temp_testbed: Path, mock_session_context: SessionConte
         level=CodeMessageLevel.CODE,
     )
 
-    # set_trace()
+    set_trace()
 
     assert len(features) == 2
     feature1 = next(f for f in features if f.path == path1)

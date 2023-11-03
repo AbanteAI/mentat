@@ -1,3 +1,4 @@
+from ipdb import set_trace
 import os
 from pathlib import Path
 from textwrap import dedent
@@ -5,55 +6,61 @@ from textwrap import dedent
 import pytest
 
 from mentat.config import Config
-from mentat.include_files import get_include_files
+
+from pytest_mock import MockFixture
+
+# from mentat.include_files import get_include_files
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.session import Session
+from mentat.session_context import SessionContext
 
 
 # Make sure we always give posix paths to GPT
 @pytest.mark.asyncio
-async def test_posix_paths(mock_session_context):
+async def test_posix_paths(mock_session_context: SessionContext):
     dir_name = "dir"
     file_name = "file.txt"
     file_path = Path(os.path.join(dir_name, file_name))
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
         file_file.write("I am a file")
-    mock_session_context.code_context.include_files, _ = get_include_files(
-        [file_path], []
-    )
+    mock_session_context.code_context.include(file_path)
 
     code_message = await mock_session_context.code_context.get_code_message(
-        "", mock_session_context.config.model, 1e6
+        "", mock_session_context.config.model, 1000000
     )
     assert dir_name + "/" + file_name in code_message.split("\n")
 
 
 @pytest.mark.asyncio
-async def test_partial_files(mocker, mock_session_context):
+async def test_partial_files(mocker: MockFixture, mock_session_context: SessionContext):
     dir_name = "dir"
     file_name = "file.txt"
     file_path = os.path.join(dir_name, file_name)
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
-        file_file.write(dedent("""\
+        file_file.write(
+            dedent(
+                """\
              I am a file
              with 5 lines
              third
              fourth
-             fifth"""))
+             fifth"""
+            )
+        )
 
     file_path_partial = file_path + ":1,3-5"
-    mock_session_context.code_context.include_files, _ = get_include_files(
-        [file_path_partial], []
-    )
+    # mock_session_context.code_context.include_files, _ = get_include_files([file_path_partial], [])
+    mock_session_context.code_context.include(Path(file_path_partial))
     mocker.patch.object(Config, "auto_tokens", new=0)
     mock_session_context.code_context.code_map = False
 
     code_message = await mock_session_context.code_context.get_code_message(
-        "", mock_session_context.config.model, max_tokens=1e6
+        "", mock_session_context.config.model, max_tokens=1000000
     )
-    assert code_message == dedent("""\
+    assert code_message == dedent(
+        """\
             Code Files:
 
             dir/file.txt
@@ -61,16 +68,15 @@ async def test_partial_files(mocker, mock_session_context):
             3:third
             4:fourth
             5:fifth
-              """)
+              """
+    )
 
 
 @pytest.mark.asyncio
-async def test_run_from_subdirectory(
-    mock_collect_user_input, mock_call_llm_api, mock_setup_api_key
-):
+async def test_run_from_subdirectory(mock_collect_user_input, mock_call_llm_api, mock_setup_api_key):
     """Run mentat from a subdirectory of the git root"""
     # Change to the subdirectory
-    os.chdir("multifile_calculator")
+    # os.chdir("multifile_calculator")
     mock_collect_user_input.set_stream_messages(
         [
             (
@@ -81,7 +87,10 @@ async def test_run_from_subdirectory(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent("""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                """\
         I will insert a comment in both files.
 
         @@start
@@ -103,9 +112,17 @@ async def test_run_from_subdirectory(
         }
         @@code
         # Hello
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
-    session = Session([Path("calculator.py"), Path("../scripts")])
+    set_trace()
+
+    session = Session(
+        cwd=Path.cwd().joinpath("multifile_calculator"),
+        paths=[Path("calculator.py"), Path("../scripts")],
+    )
     await session.start()
     session.stream.stop()
 
@@ -114,14 +131,15 @@ async def test_run_from_subdirectory(
         calculator_output = f.readlines()
     with open("../scripts/echo.py") as f:
         echo_output = f.readlines()
+
+    set_trace()
+
     assert calculator_output[0].strip() == "# Hello"
     assert echo_output[0].strip() == "# Hello"
 
 
 @pytest.mark.asyncio
-async def test_change_after_creation(
-    mock_collect_user_input, mock_call_llm_api, mock_setup_api_key
-):
+async def test_change_after_creation(mock_collect_user_input, mock_call_llm_api, mock_setup_api_key):
     file_name = Path("hello_world.py")
     mock_collect_user_input.set_stream_messages(
         [
@@ -130,7 +148,10 @@ async def test_change_after_creation(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -149,7 +170,10 @@ async def test_change_after_creation(
         }}
         @@code
         print("Hello, World!")
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
     session = Session()
     await session.start()

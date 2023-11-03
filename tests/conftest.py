@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock
 from uuid import uuid4
+import git
 
 import pytest
 import pytest_asyncio
@@ -183,22 +184,22 @@ async def _mock_session_context(temp_testbed: Path):
     conversation = Conversation(parser)
 
     session_context = SessionContext(
-        stream,
-        cost_tracker,
-        git_root,
-        temp_testbed,
-        config,
-        parser,
-        code_context,
-        code_file_manager,
-        conversation,
+        stream=stream,
+        cost_tracker=cost_tracker,
+        git_root=git_root,
+        cwd=temp_testbed,
+        config=config,
+        parser=parser,
+        code_context=code_context,
+        code_file_manager=code_file_manager,
+        conversation=conversation,
     )
     yield session_context
     session_context.stream.stop()
 
 
 @pytest.fixture
-def mock_session_context(_mock_session_context):
+def mock_session_context(_mock_session_context: SessionContext):
     token = SESSION_CONTEXT.set(_mock_session_context)
     yield _mock_session_context
     SESSION_CONTEXT.reset(token)

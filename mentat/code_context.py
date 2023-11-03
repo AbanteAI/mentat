@@ -23,6 +23,7 @@ from mentat.include_files import (
     get_paths_for_directory,
     match_path_with_patterns,
     print_path_tree,
+    validate_and_format_path,
 )
 from mentat.llm_api import count_tokens
 from mentat.session_context import SESSION_CONTEXT
@@ -209,7 +210,6 @@ class CodeContext:
         _max_user = ctx.config.auto_tokens
         self.features = features
 
-        # NOTE: disabled aut features (for now)
         if _max_auto == 0 or _max_user == 0:
             self.features = features
         else:
@@ -262,7 +262,7 @@ class CodeContext:
             levels = [CodeMessageLevel.CMAP_FULL, CodeMessageLevel.CMAP] + levels
         for level in levels:
             level_features = _get_all_features(
-                git_root,
+                ctx.cwd,
                 self.include_files,
                 self.ignore_patterns,
                 self.diff_context,
@@ -277,7 +277,7 @@ class CodeContext:
 
         # Sort by relative path
         def _feature_relative_path(f: CodeFeature) -> str:
-            return os.path.relpath(f.path, git_root)
+            return os.path.relpath(f.path, ctx.cwd)
 
         all_features = sorted(all_features, key=_feature_relative_path)
 
@@ -285,10 +285,10 @@ class CodeContext:
         # starting with the highest-scoring.
         cmap_features_tokens = sum(await count_feature_tokens(all_features, model))
         max_sim_tokens = max_tokens - cmap_features_tokens
-        if config.auto_tokens is not None:
-            max_sim_tokens = min(max_sim_tokens, config.auto_tokens)
+        if ctx.config.auto_tokens is not None:
+            max_sim_tokens = min(max_sim_tokens, ctx.config.auto_tokens)
 
-        if config.use_embeddings and max_sim_tokens > 0 and prompt != "":
+        if ctx.config.use_embeddings and max_sim_tokens > 0 and prompt != "":
             sim_tokens = 0
 
             # Get embedding-similarity scores for all files
@@ -344,7 +344,7 @@ class CodeContext:
 
         return included_paths
 
-    def exclude(self, path: Path) -> Set[Path]:
+    def exclude(self, path_: Path) -> Set[Path]:
         """Remove code from the context
 
         Args:
@@ -355,31 +355,37 @@ class CodeContext:
         """
         ctx = SESSION_CONTEXT.get()
 
+        validated_path = validate_and_format_path(path_, ctx.cwd, check_for_text=False)
+
         excluded_paths: Set[Path] = set()
         try:
             # file
-            if path.is_file():
-                if path not in self.include_files:
-                    ctx.stream.send(f"Path {path} not in context", color="light_red")
+            if validated_path.is_file():
+                if validated_path not in self.include_files:
+                    ctx.stream.send(f"Path {validated_path} not in context", color="light_red")
                     return excluded_paths
-                excluded_paths.add(path)
-                del self.include_files[path]
+                excluded_paths.add(validated_path)
+                del self.include_files[validated_path]
             # file interval
-            elif ":" in str(path):
-                _interval_path, _ = str(path).split(":", 1)
+            elif ":" in str(validated_path):
+                _interval_path, _ = str(validated_path).split(":", 1)
                 interval_path = Path(_interval_path)
                 if interval_path not in self.include_files:
-                    ctx.stream.send(f"Path {path} not in context", color="light_red")
+                    ctx.stream.send(f"Path interval {validated_path} not in context", color="light_red")
                     return excluded_paths
                 excluded_paths.add(interval_path)
                 del self.include_files[interval_path]
-            # TODO: directory
-            elif path.is_dir():
-                raise NotImplementedError()
+            # directory
+            elif validated_path.is_dir():
+                if validated_path not in self.include_files:
+                    ctx.stream.send(f"Directory path {validated_path} not in context", color="light_red")
+                    return excluded_paths
+                excluded_paths.add(validated_path)
+                del self.include_files[validated_path]
             # glob
             else:
                 for included_path in self.include_files.keys():
-                    if match_path_with_patterns(included_path, set(str(path))):
+                    if match_path_with_patterns(included_path, set(str(validated_path))):
                         excluded_paths.add(included_path)
                         del self.include_files[included_path]
 

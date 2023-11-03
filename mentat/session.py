@@ -25,6 +25,7 @@ from mentat.session_stream import SessionStream
 class Session:
     def __init__(
         self,
+        cwd: Path,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
         ignore_paths: List[Path] = [],
@@ -47,7 +48,7 @@ class Session:
 
         parser = parser_map[config.format]
 
-        code_context = CodeContext(stream, git_root, diff, pr_diff)
+        code_context = CodeContext(stream, git_root, diff, pr_diff, ignore_paths)
 
         code_file_manager = CodeFileManager()
 
@@ -57,6 +58,7 @@ class Session:
             stream,
             cost_tracker,
             git_root,
+            cwd,
             config,
             parser,
             code_context,
@@ -67,7 +69,8 @@ class Session:
 
         # Functions that require session_context
         config.send_errors_to_stream()
-        code_context.set_paths(paths, exclude_paths, ignore_paths)
+        for path in paths:
+            code_context.include(path, exclude_paths)
         code_context.set_code_map()
 
     async def _main(self):
@@ -95,9 +98,7 @@ class Session:
                     conversation.add_user_message(message.data)
 
                 file_edits = await conversation.get_model_response()
-                file_edits = [
-                    file_edit for file_edit in file_edits if file_edit.is_valid()
-                ]
+                file_edits = [file_edit for file_edit in file_edits if file_edit.is_valid()]
                 if file_edits:
                     need_user_request = await get_user_feedback_on_edits(file_edits)
                 else:
