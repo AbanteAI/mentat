@@ -9,6 +9,7 @@ import attr
 from attr import validators
 
 from mentat.git_handler import get_shared_git_root_for_paths
+from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
@@ -53,16 +54,16 @@ class Config:
         converter=int_or_none,
         validator=validators.optional(validators.ge(0)),
     )
-    format: str = attr.field(
+    parser: Parser = attr.field(  # pyright: ignore
         default="block",
         metadata={
             "description": (
                 "The format for the LLM to write code in. You probably don't want to"
                 " mess with this setting."
             ),
-            "no_midsession_change": True,
         },
-        validator=validators.optional(validators.in_(parser_map)),
+        converter=parser_map.get,  # pyright: ignore
+        validator=validators.instance_of(Parser),  # pyright: ignore
     )
 
     # Context specific settings

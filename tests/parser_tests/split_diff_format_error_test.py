@@ -3,12 +3,13 @@ from textwrap import dedent
 import pytest
 
 from mentat.config import Config
+from mentat.parsers.split_diff_parser import SplitDiffParser
 from mentat.session import Session
 
 
 @pytest.fixture(autouse=True)
 def split_diff_parser(mocker):
-    mocker.patch.object(Config, "format", new="split-diff")
+    mocker.patch.object(Config, "parser", new=SplitDiffParser())
 
 
 @pytest.mark.asyncio

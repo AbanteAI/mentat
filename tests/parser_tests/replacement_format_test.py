@@ -11,7 +11,7 @@ from tests.parser_tests.inverse import verify_inverse
 
 @pytest.fixture
 def replacement_parser(mocker):
-    mocker.patch.object(Config, "format", new="replacement")
+    mocker.patch.object(Config, "parser", new=ReplacementParser())
 
 
 @pytest.mark.asyncio
