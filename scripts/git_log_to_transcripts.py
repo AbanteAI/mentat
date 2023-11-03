@@ -3,8 +3,10 @@
 import argparse
 import asyncio
 import json
+import math
 import os
 import subprocess
+from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent
 
@@ -12,6 +14,7 @@ import openai
 from git import Repo
 
 from mentat.code_context import CodeContext
+from mentat.code_feature import CodeFeature, code_features_difference
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.llm_api import CostTracker, count_tokens, model_context_size
@@ -160,11 +163,6 @@ async def translate_commits_to_transcripts(repo, count=10):
                 "prompt": prompt,
                 "expected_edits": llmResponse,
             }
-            edited_files = {
-                str(f.relative_to(git_root))
-                for f in bound_files(parsedLLMResponse.file_edits, padding=0)
-            }
-
             # The longest context that could have been included to generate expected_edits
             model = config.model
             mentat_prompt_tokens = count_tokens(parser.get_system_prompt(), model)
@@ -180,19 +178,33 @@ async def translate_commits_to_transcripts(repo, count=10):
                 prompt, model, max_context_tokens, benchmark["expected_edits"]
             )
 
-            git_root_length = len(str(git_root)) + 1
-            selected_features = [
-                f.ref()[git_root_length:] for f in code_context.features
-            ]
-            selected_files = {f.split(":")[0] for f in selected_features}
-            if not edited_files.issubset(selected_files):
+            # Compare auto-selected context against actual edits
+            edited_features = list[CodeFeature]()
+            for file_edit in parsedLLMResponse.file_edits:
+                if file_edit.is_creation or len(file_edit.replacements) == 0:
+                    continue
+                path = Path(file_edit.file_path)
+                for repl in file_edit.replacements:
+                    ref = f"{path}:{repl.starting_line}-{repl.ending_line}"
+                    edited_features.append(CodeFeature(ref, None, None))
+            missing_context = code_features_difference(
+                edited_features, code_context.features
+            )
+            if missing_context:
                 print(
-                    "Auto-context missing required files:",
-                    edited_files - selected_files,
+                    "Auto-context missing required files:", repr(dict(missing_context))
                 )
                 print("Using edited_files instead")
+                edited_files = {
+                    str(f.relative_to(git_root))
+                    for f in bound_files(parsedLLMResponse.file_edits, padding=0)
+                }
                 benchmark["expected_features"] = list(edited_files)
             else:
+                git_root_length = len(str(git_root)) + 1
+                selected_features = [
+                    f.ref()[git_root_length:] for f in code_context.features
+                ]
                 benchmark["expected_features"] = list(selected_features)
 
             benchmarks[sha] = benchmark

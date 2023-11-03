@@ -5,8 +5,13 @@ from typing import Optional, cast
 
 import openai
 
-from mentat.code_feature import CodeFeature, CodeMessageLevel
+from mentat.code_feature import (
+    CodeFeature,
+    CodeMessageLevel,
+    get_code_message_from_features,
+)
 from mentat.errors import UserError
+from mentat.include_files import get_include_files
 from mentat.llm_api import (
     count_tokens,
     model_context_size,
@@ -119,19 +124,23 @@ class LLMFeatureSelector(FeatureSelector, selector_name="llm"):
             )
         system_prompt = read_prompt(self.feature_selection_prompt_path)
         training_prompt = read_prompt(self.feature_selection_prompt_training_path)
-        if user_prompt is None:
-            user_prompt = ""
-        user_prompt_tokens = count_tokens(user_prompt, model)
         system_prompt = system_prompt.format(
             training_prompt=training_prompt if expected_edits else ""
         )
         system_prompt_tokens = count_tokens(
             system_prompt, config.feature_selection_model
         )
+        if user_prompt is None:
+            user_prompt = ""
+        user_prompt_tokens = count_tokens(user_prompt, model)
+        expected_edits_tokens = (
+            0 if not expected_edits else count_tokens("\n".join(expected_edits), model)
+        )
         preselect_max_tokens = (
             context_size
             - system_prompt_tokens
             - user_prompt_tokens
+            - expected_edits_tokens
             - self.feature_selection_response_buffer
         )
         greedy_selector = GreedyFeatureSelector()
@@ -146,18 +155,25 @@ class LLMFeatureSelector(FeatureSelector, selector_name="llm"):
             "",
             "Code Files:",
         ]
-        for feature in preselected_features:
-            content_message += feature.get_code_message()
+        content_message += get_code_message_from_features(preselected_features)
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "system", "content": "\n".join(content_message)},
         ]
+        if expected_edits:
+            messages.append(
+                {"role": "system", "content": f"Expected Edits:\n{expected_edits}"}
+            )
         message = await self.call_llm_api(model, messages)
         try:
             selected_refs = json.loads(message)
         except json.JSONDecodeError:
             raise ValueError(f"The response is not valid json: {message}")
-        postselected_features = [CodeFeature(git_root / p) for p in selected_refs]
+        parsed_features, _ = get_include_files(selected_refs, [])
+        postselected_features = [
+            feature for features in parsed_features.values() for feature in features
+        ]
+
         for out_feat in postselected_features:
             # Match with corresponding inputs
             matching_inputs = [

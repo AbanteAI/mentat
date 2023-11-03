@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from collections import OrderedDict
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional
@@ -11,12 +10,12 @@ from mentat.code_feature import (
     CodeFeature,
     CodeMessageLevel,
     count_feature_tokens,
+    get_code_message_from_features,
     split_file_into_intervals,
 )
 from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.embeddings import get_feature_similarity_scores
-from mentat.errors import MentatError
 from mentat.git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from mentat.include_files import (
     build_path_tree,
@@ -68,7 +67,7 @@ def _get_all_features(
                 _split_features = split_file_into_intervals(
                     git_root,
                     full_feature,
-                    user_features=include_files.get(path, []),
+                    user_features=include_files.get(abs_path, []),
                 )
                 all_features += _split_features
         else:
@@ -78,23 +77,6 @@ def _get_all_features(
             all_features.append(_feature)
 
     return sorted(all_features, key=lambda f: f.path.relative_to(git_root))
-
-
-def _merge_code_message(features: list[CodeFeature]) -> list[str]:
-    """Merge multiple features for the same file into a single code message"""
-    features_sorted = sorted(features, key=lambda f: f.interval.start)
-    posix_path = features_sorted[0].get_code_message()[0]
-    code_message = [posix_path]
-    next_line = 1
-    for feature in features_sorted:
-        starting_line = feature.interval.start
-        if starting_line < next_line:
-            raise MentatError("Features overlap")
-        elif starting_line > next_line:
-            code_message += ["..."]
-        code_message += feature.get_code_message()[1:-1]
-        next_line = feature.interval.end
-    return code_message + [""]
 
 
 class CodeContext:
@@ -336,16 +318,7 @@ class CodeContext:
             )
 
         # Group intervals by file, separated by ellipses if there are gaps
-        features_by_path: dict[Path, list[CodeFeature]] = OrderedDict()
-        for feature in self.features:
-            if feature.path not in features_by_path:
-                features_by_path[feature.path] = list[CodeFeature]()
-            features_by_path[feature.path].append(feature)
-        for path_features in features_by_path.values():
-            if len(path_features) == 1:
-                code_message += path_features[0].get_code_message()
-            else:
-                code_message += _merge_code_message(path_features)
+        code_message += get_code_message_from_features(self.features)
         return "\n".join(code_message)
 
     def _get_include_features(self) -> list[CodeFeature]:
