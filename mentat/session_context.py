@@ -22,7 +22,8 @@ SESSION_CONTEXT: ContextVar[SessionContext] = ContextVar("mentat:session_context
 class SessionContext:
     stream: SessionStream = attr.field()
     cost_tracker: CostTracker = attr.field()
-    git_root: Path = attr.field()
+    git_root: Path = attr.field()  # TODO: remove
+    cwd: Path = attr.field()
     config: Config = attr.field()
     parser: Parser = attr.field()
     code_context: CodeContext = attr.field()

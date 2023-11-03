@@ -4,7 +4,7 @@ from ipdb import set_trace
 import os
 from pathlib import Path
 from textwrap import dedent
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from mentat.code_feature import (
     CodeFeature,
@@ -37,7 +37,7 @@ def _get_all_features(
     diff_context: DiffContext,
     code_map: bool,
     level: CodeMessageLevel,
-) -> list[CodeFeature]:
+) -> List[CodeFeature]:
     """Return a list of all features in the git root with given properties."""
 
     all_features = list[CodeFeature]()
@@ -79,7 +79,7 @@ class CodeContext:
         git_root: Path,
         diff: str | None = None,
         pr_diff: str | None = None,
-        ignore_paths: Iterable[Path] = [],
+        ignore_patterns: Iterable[str | Path] = [],
     ):
         self.diff = diff
         self.pr_diff = pr_diff
@@ -88,26 +88,14 @@ class CodeContext:
         # TODO: This is a dict so we can quickly reference either a path (key)
         # or the CodeFeature (value) and its interval. Redundant.
         self.include_files: Dict[Path, CodeFeature] = dict()
-        self.ignore_paths = set(p.resolve() for p in ignore_paths)
+        self.ignore_patterns: Set[str | Path] = set(ignore_patterns)
         self.features: List[CodeFeature] = list()
         self.code_map = True
 
-    # def set_paths(
-    #     self,
-    #     paths: List[Path],
-    #     exclude_paths: List[Path],
-    #     ignore_paths: List[Path] = [],
-    # ):
-    #     for path in paths:
-    #         self.include(path)
-    #     self.ignore_paths = set(p.resolve() for p in ignore_paths)
-
     def set_code_map(self):
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        stream = session_context.stream
+        ctx = SESSION_CONTEXT.get()
 
-        if config.no_code_map:
+        if ctx.config.no_code_map:
             self.code_map = False
         else:
             disabled_reason = check_ctags_disabled()
@@ -117,28 +105,25 @@ class CodeContext:
                     Reason: {disabled_reason}
                 """
                 ctags_disabled_message = dedent(ctags_disabled_message)
-                stream.send(ctags_disabled_message, color="yellow")
-                config.no_code_map = True
+                ctx.stream.send(ctags_disabled_message, color="yellow")
+                ctx.config.no_code_map = True
                 self.code_map = False
             else:
                 self.code_map = True
 
     def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-        config = session_context.config
-        git_root = session_context.git_root
+        ctx = SESSION_CONTEXT.get()
 
-        stream.send("Code Context:", color="blue")
+        ctx.stream.send("Code Context:", color="blue")
         prefix = "  "
-        stream.send(f"{prefix}Directory: {git_root}")
+        ctx.stream.send(f"{prefix}Directory: {ctx.cwd}")
         if self.diff_context.name:
-            stream.send(f"{prefix}Diff:", end=" ")
-            stream.send(self.diff_context.get_display_context(), color="green")
+            ctx.stream.send(f"{prefix}Diff:", end=" ")
+            ctx.stream.send(self.diff_context.get_display_context(), color="green")
         if self.include_files:
-            stream.send(f"{prefix}Included files:")
-            stream.send(f"{prefix + prefix}{git_root.name}")
+            ctx.stream.send(f"{prefix}Included files:")
+            ctx.stream.send(f"{prefix + prefix}{ctx.cwd.name}")
             print_path_tree(
                 build_path_tree(list(self.include_files.values()), git_root),
                 get_paths_with_git_diffs(),
@@ -146,46 +131,42 @@ class CodeContext:
                 prefix + prefix,
             )
         else:
-            stream.send(f"{prefix}Included files: None", color="yellow")
-        auto = config.auto_tokens
+            ctx.stream.send(f"{prefix}Included files: None", color="yellow")
+        auto = ctx.config.auto_tokens
         if auto != 0:
-            stream.send(f"{prefix}Auto-token limit:" f" {'Model max (default)' if auto is None else auto}")
-            stream.send(f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}")
+            ctx.stream.send(f"{prefix}Auto-token limit:" f" {'Model max (default)' if auto is None else auto}")
+            ctx.stream.send(f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}")
 
     def display_features(self):
         """Display a summary of all active features"""
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
+        ctx = SESSION_CONTEXT.get()
 
         auto_features = {level: 0 for level in CodeMessageLevel}
         for f in self.features:
             if f.path not in self.include_files:
                 auto_features[f.level] += 1
         if any(auto_features.values()):
-            stream.send("Auto-Selected Features:", color="blue")
+            ctx.stream.send("Auto-Selected Features:", color="blue")
             for level, count in auto_features.items():
                 if count:
-                    stream.send(f"  {count} {level.description}")
+                    ctx.stream.send(f"  {count} {level.description}")
 
     _code_message: str | None = None
     _code_message_checksum: str | None = None
 
     def _get_code_message_checksum(self, max_tokens: Optional[int] = None) -> str:
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        git_root = session_context.git_root
-        code_file_manager = session_context.code_file_manager
+        ctx = SESSION_CONTEXT.get()
 
         if not self.features:
             features_checksum = ""
         else:
-            feature_files = {Path(git_root / f.path) for f in self.features}
-            feature_file_checksums = [code_file_manager.get_file_checksum(f) for f in feature_files]
+            feature_files = set(f.path for f in self.features)
+            feature_file_checksums = [ctx.code_file_manager.get_file_checksum(f) for f in feature_files]
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
             "code_map": self.code_map,
-            "auto_tokens": config.auto_tokens,
-            "use_embeddings": config.use_embeddings,
+            "auto_tokens": ctx.config.auto_tokens,
+            "use_embeddings": ctx.config.use_embeddings,
             "diff": self.diff,
             "pr_diff": self.pr_diff,
             "max_tokens": max_tokens,
@@ -212,10 +193,9 @@ class CodeContext:
         model: str,
         max_tokens: int,
     ) -> str:
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
+        ctx = SESSION_CONTEXT.get()
 
-        code_message = list[str]()
+        code_message: List[str] = []
 
         self.diff_context.clear_cache()
         self.set_code_map()
@@ -228,26 +208,35 @@ class CodeContext:
             ]
         code_message += ["Code Files:\n"]
 
+        set_trace()
+
         features = self._get_include_features()
-        meta_tokens = count_tokens("\n".join(code_message), model)
+
+        set_trace()
+
+        meta_tokens = count_tokens("\n".join(code_message), model)  # NOTE: why does this take so long to run?
         include_feature_tokens = sum(await count_feature_tokens(features, model))
         _max_auto = max(0, max_tokens - meta_tokens - include_feature_tokens)
-        _max_user = config.auto_tokens
-        if _max_auto == 0 or _max_user == 0:
-            self.features = features
-        else:
-            auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
-            self.features = await self._get_auto_features(prompt, model, features, auto_tokens)
+        _max_user = ctx.config.auto_tokens
+        self.features = features
+
+        set_trace()
+
+        # NOTE: disabled aut features (for now)
+        # if _max_auto == 0 or _max_user == 0:
+        #     self.features = features
+        # else:
+        #     auto_tokens = _max_auto if _max_user is None else min(_max_auto, _max_user)
+        #     self.features = await self._get_auto_features(prompt, model, features, auto_tokens)
 
         for f in self.features:
             code_message += f.get_code_message()
         return "\n".join(code_message)
 
     def _get_include_features(self) -> list[CodeFeature]:
-        session_context = SESSION_CONTEXT.get()
-        git_root = session_context.git_root
+        ctx = SESSION_CONTEXT.get()
 
-        include_features = list[CodeFeature]()
+        include_features: List[CodeFeature] = []
         for path, feature in self.include_files.items():
             annotations = self.diff_context.get_annotations(path)
             has_diff = any(a.intersects(i) for a in annotations for i in feature.intervals)
@@ -260,7 +249,7 @@ class CodeContext:
             include_features.append(feature)
 
         def _feature_relative_path(f: CodeFeature) -> str:
-            return os.path.relpath(f.path, git_root)
+            return os.path.relpath(f.path, ctx.cwd)
 
         return sorted(include_features, key=_feature_relative_path)
 
@@ -270,27 +259,25 @@ class CodeContext:
         model: str,
         include_features: list[CodeFeature],
         max_tokens: int,
-    ) -> list[CodeFeature]:
+    ) -> List[CodeFeature]:
         """Return a list of features that fit within the max_tokens limit
 
         - user_features: excluded from auto-features process, added to return list
         """
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        git_root = session_context.git_root
+        ctx = SESSION_CONTEXT.get()
 
         # Find the first (longest) level that fits
         include_features_tokens = sum(await count_feature_tokens(include_features, model))
         max_auto_tokens = max_tokens - include_features_tokens
         all_features = include_features.copy()
         levels = [CodeMessageLevel.FILE_NAME]
-        if not config.no_code_map:
+        if not ctx.config.no_code_map:
             levels = [CodeMessageLevel.CMAP_FULL, CodeMessageLevel.CMAP] + levels
         for level in levels:
             level_features = _get_all_features(
                 git_root,
                 self.include_files,
-                self.ignore_paths,
+                self.ignore_patterns,
                 self.diff_context,
                 self.code_map,
                 level,
@@ -336,18 +323,19 @@ class CodeContext:
 
         return sorted(all_features, key=_feature_relative_path)
 
-    def include(self, path: Path) -> Set[Path]:
+    def include(self, path: Path, ignore_patterns: Iterable[Path | str] = []) -> Set[Path]:
         """Add code to the context
 
         '.' is replaced with '*' (recusively search the cwd)
 
         Args:
             `path`: can be a relative or absolute file path, file interval path, directory, or glob pattern.
+            TODO: allow `str` and `Path`?
 
         Return:
             A set of paths that have been successfully added to the context
         """
-        session_context = SESSION_CONTEXT.get()
+        ctx = SESSION_CONTEXT.get()
 
         if str(path) == ".":
             path = Path("*")
@@ -355,10 +343,10 @@ class CodeContext:
         included_paths: Set[Path] = set()
         try:
             code_features = get_code_features_for_path(
-                path, ignore_patterns=session_context.config.file_exclude_glob_list
+                path, ignore_patterns=[*ignore_patterns, *self.ignore_patterns, *ctx.config.file_exclude_glob_list]
             )
         except PathValidationException as e:
-            session_context.stream.send(e, color="light_red")
+            ctx.stream.send(e, color="light_red")
             return included_paths
 
         for code_feature in code_features:
@@ -376,14 +364,14 @@ class CodeContext:
         Return:
             A set of paths that have been successfully removed from the context
         """
-        session_context = SESSION_CONTEXT.get()
+        ctx = SESSION_CONTEXT.get()
 
         excluded_paths: Set[Path] = set()
         try:
             # file
             if path.is_file():
                 if path not in self.include_files:
-                    session_context.stream.send(f"Path {path} not in context", color="light_red")
+                    ctx.stream.send(f"Path {path} not in context", color="light_red")
                     return excluded_paths
                 excluded_paths.add(path)
                 del self.include_files[path]
@@ -392,7 +380,7 @@ class CodeContext:
                 _interval_path, _ = str(path).split(":", 1)
                 interval_path = Path(_interval_path)
                 if interval_path not in self.include_files:
-                    session_context.stream.send(f"Path {path} not in context", color="light_red")
+                    ctx.stream.send(f"Path {path} not in context", color="light_red")
                     return excluded_paths
                 excluded_paths.add(interval_path)
                 del self.include_files[interval_path]
@@ -407,7 +395,7 @@ class CodeContext:
                         del self.include_files[included_path]
 
         except PathValidationException as e:
-            session_context.stream.send(e, color="light_red")
+            ctx.stream.send(e, color="light_red")
             return excluded_paths
 
         return excluded_paths
@@ -417,15 +405,12 @@ class CodeContext:
         query: str,
         max_results: int | None = None,
         level: CodeMessageLevel = CodeMessageLevel.INTERVAL,
-    ) -> list[tuple[CodeFeature, float]]:
+    ) -> List[Tuple[CodeFeature, float]]:
         """Return the top n features that are most similar to the query."""
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        git_root = session_context.git_root
-        stream = session_context.stream
+        ctx = SESSION_CONTEXT.get()
 
-        if not config.use_embeddings:
-            stream.send(
+        if not ctx.config.use_embeddings:
+            ctx.stream.send(
                 "Embeddings are disabled. Enable with `/config use_embeddings true`",
                 color="light_red",
             )

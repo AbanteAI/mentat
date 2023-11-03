@@ -3,7 +3,7 @@ from ipdb import set_trace
 import re
 import os
 from pathlib import Path
-from typing import Any, Iterable, Set
+from typing import Any, Iterable, Set, List
 
 from mentat.code_feature import CodeFeature
 from mentat.git_handler import check_is_git_repo, get_non_gitignored_files
@@ -129,7 +129,7 @@ def get_code_features_for_path(
         code_features = set([CodeFeature(interval_path)])
     # Glob pattern
     else:
-        root_parts: Iterable[str] = []
+        root_parts: List[str] = []
         pattern: str | None = None
         for i, part in enumerate(path.parts):
             if re.search(r"[\*\?\[\]]", str(path)):

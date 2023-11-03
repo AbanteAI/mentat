@@ -97,7 +97,7 @@ class CodeFeature:
     Includes a section of code and an annotation method.
 
     Attributes:
-        path: The absolute path to the file.
+        path: The absolute path to the file. # TODO: enforce this
         intervals: The lines in the file.
         level: The level of information to include.
         diff: The diff annotations to include.
