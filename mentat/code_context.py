@@ -20,6 +20,7 @@ from mentat.include_files import (
     PathValidationException,
     build_path_tree,
     get_code_features_for_path,
+    get_paths_for_directory,
     is_file_text_encoded,
     match_path_with_patterns,
     print_path_tree,
@@ -31,7 +32,7 @@ from mentat.utils import sha256
 
 
 def _get_all_features(
-    git_root: Path,
+    root: Path,
     include_files: Dict[Path, CodeFeature],
     ignore_paths: Set[Path],
     diff_context: DiffContext,
@@ -39,19 +40,14 @@ def _get_all_features(
     level: CodeMessageLevel,
 ) -> List[CodeFeature]:
     """Return a list of all features in the git root with given properties."""
-
-    all_features = list[CodeFeature]()
-    for path in get_non_gitignored_files(git_root):
-        abs_path = git_root / path
-        if abs_path.is_dir() or not is_file_text_encoded(abs_path) or abs_path in ignore_paths:
-            continue
-
-        diff_target = diff_context.target if abs_path in diff_context.files else None
-        user_included = abs_path in include_files
+    all_features: List[CodeFeature] = []
+    for path in get_paths_for_directory(root, ignore_patterns=ignore_paths):
+        diff_target = diff_context.target if path in diff_context.files else None
+        user_included = path in include_files
         if level == CodeMessageLevel.INTERVAL:
             # Return intervals if code_map is enabled, otherwise return the full file
             full_feature = CodeFeature(
-                abs_path,
+                path,
                 level=CodeMessageLevel.CODE,
                 diff=diff_target,
                 user_included=user_included,
@@ -60,13 +56,13 @@ def _get_all_features(
                 all_features.append(full_feature)
             else:
                 _split_features = split_file_into_intervals(
-                    git_root,
+                    path,
                     full_feature,
                     user_features=[f for f in include_files.values() if f.path == path],
                 )
                 all_features += _split_features
         else:
-            _feature = CodeFeature(abs_path, level=level, diff=diff_target, user_included=user_included)
+            _feature = CodeFeature(path, level=level, diff=diff_target, user_included=user_included)
             all_features.append(_feature)
 
     return all_features
@@ -207,20 +203,12 @@ class CodeContext:
                 "",
             ]
         code_message += ["Code Files:\n"]
-
-        set_trace()
-
         features = self._get_include_features()
-
-        set_trace()
-
         meta_tokens = count_tokens("\n".join(code_message), model)  # NOTE: why does this take so long to run?
         include_feature_tokens = sum(await count_feature_tokens(features, model))
         _max_auto = max(0, max_tokens - meta_tokens - include_feature_tokens)
         _max_user = ctx.config.auto_tokens
         self.features = features
-
-        set_trace()
 
         # NOTE: disabled aut features (for now)
         # if _max_auto == 0 or _max_user == 0:
@@ -343,7 +331,9 @@ class CodeContext:
         included_paths: Set[Path] = set()
         try:
             code_features = get_code_features_for_path(
-                path, ignore_patterns=[*ignore_patterns, *self.ignore_patterns, *ctx.config.file_exclude_glob_list]
+                path=path,
+                cwd=ctx.cwd,
+                ignore_patterns=[*ignore_patterns, *self.ignore_patterns, *ctx.config.file_exclude_glob_list],
             )
         except PathValidationException as e:
             ctx.stream.send(e, color="light_red")
@@ -417,9 +407,9 @@ class CodeContext:
             return []
 
         all_features = _get_all_features(
-            git_root,
+            ctx.cwd,
             self.include_files,
-            self.ignore_paths,
+            self.ignore_patterns,
             self.diff_context,
             self.code_map,
             level,
