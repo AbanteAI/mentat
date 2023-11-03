@@ -339,6 +339,8 @@ class CodeContext:
     def include(self, path: Path) -> Set[Path]:
         """Add code to the context
 
+        '.' is replaced with '*' (recusively search the cwd)
+
         Args:
             `path`: can be a relative or absolute file path, file interval path, directory, or glob pattern.
 
@@ -346,6 +348,9 @@ class CodeContext:
             A set of paths that have been successfully added to the context
         """
         session_context = SESSION_CONTEXT.get()
+
+        if str(path) == ".":
+            path = Path("*")
 
         included_paths: Set[Path] = set()
         try:

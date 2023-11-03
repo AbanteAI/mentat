@@ -1,4 +1,5 @@
 import fnmatch
+from ipdb import set_trace
 import re
 import os
 from pathlib import Path
@@ -28,11 +29,13 @@ class PathValidationException(Exception):
 def match_path_with_patterns(path: Path, patterns: Set[str]) -> bool:
     """Check if the given path matches any of the patterns."""
     for pattern in patterns:
+        # check entire path
+        if fnmatch.fnmatch(str(path), pattern):
+            return True
+        # check file parts
         for part in path.parts:
             if fnmatch.fnmatch(part, pattern):
                 return True
-        if path.name == pattern:
-            return True
     return False
 
 

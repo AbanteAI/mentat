@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from textwrap import dedent
 from unittest import TestCase
+from pytest_mock import MockFixture
 
 import pytest
 from ipdb import set_trace
@@ -48,15 +49,13 @@ async def test_path_gitignoring(temp_testbed: Path, mock_session_context: Sessio
 
 
 @pytest.mark.asyncio
-async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
+async def test_config_glob_exclude(mocker: MockFixture, temp_testbed: Path, mock_session_context: SessionContext):
     # Makes sure glob exclude config works
     mocker.patch.object(Config, "file_exclude_glob_list", new=[os.path.join("glob_test", "**", "*.py")])
 
-    glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
-    glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
-    directly_added_glob_excluded_path = Path(
-        os.path.join("glob_test", "bagel", "apple", "directly_added_glob_excluded.py")
-    )
+    glob_exclude_path = Path("glob_test/bagel/apple/exclude_me.py")
+    glob_include_path = Path("glob_test/bagel/apple/include_me.ts")
+    directly_added_glob_excluded_path = Path("glob_test/bagel/apple/directly_added_glob_excluded.py")
     os.makedirs(os.path.dirname(glob_exclude_path), exist_ok=True)
     with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am excluded")
@@ -69,12 +68,12 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths([Path("."), directly_added_glob_excluded_path], [])
-
-    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
-    assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
-    assert os.path.join(temp_testbed, glob_include_path) in file_paths
-    assert os.path.join(temp_testbed, directly_added_glob_excluded_path) in file_paths
+    code_context.include(Path("."))
+    code_context.include(directly_added_glob_excluded_path)
+    file_paths = [file_path.resolve() for file_path in code_context.include_files]
+    assert temp_testbed.joinpath(glob_exclude_path) not in file_paths
+    assert temp_testbed.joinpath(glob_include_path) in file_paths
+    assert temp_testbed.joinpath(directly_added_glob_excluded_path) in file_paths
 
 
 @pytest.mark.asyncio
