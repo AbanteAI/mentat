@@ -14,6 +14,7 @@ from mentat.interval import Interval, parse_intervals
 from mentat.llm_api import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import sha256
+from mentat.utils.path import validate_and_format_path
 
 MIN_INTERVAL_LINES = 10
 
@@ -105,25 +106,37 @@ class CodeFeature:
 
     def __init__(
         self,
-        path: str | Path,
+        path: str | Path,  # TODO: only allow Path type
         level: CodeMessageLevel = CodeMessageLevel.CODE,
         diff: str | None = None,
         user_included: bool = False,
         name: Optional[str] = None,
     ):
-        if Path(path).exists():
-            self.path = Path(path)
-            self.intervals = [Interval(0, math.inf)]
+        ctx = SESSION_CONTEXT.get()
+
+        validated_path = validate_and_format_path(path=Path(path), cwd=ctx.cwd, check_for_text=False)
+        if ":" in str(validated_path):
+            interval_path, interval_str = str(validated_path).split(":", 1)
+            self.path = Path(interval_path)
+            self.intervals = parse_intervals(interval_str)
         else:
-            path = str(path)
-            split = path.rsplit(":", 1)
-            self.path = Path(split[0])
-            if not self.path.exists():
-                self.path = Path(path)
-                self.intervals = [Interval(0, math.inf)]
-            else:
-                self.intervals = parse_intervals(split[1])
-                level = CodeMessageLevel.INTERVAL
+            self.path = validated_path
+            self.intervals = [Interval(0, math.inf)]
+
+        # if Path(path).exists():
+        #     self.path = Path(path)
+        #     self.intervals = [Interval(0, math.inf)]
+        # else:
+        #     path = str(path)
+        #     split = path.rsplit(":", 1)
+        #     self.path = Path(split[0])
+        #     if not self.path.exists():
+        #         self.path = Path(path)
+        #         self.intervals = [Interval(0, math.inf)]
+        #     else:
+        #         self.intervals = parse_intervals(split[1])
+        #         level = CodeMessageLevel.INTERVAL
+
         self.level = level
         self.diff = diff
         self.user_included = user_included
@@ -144,33 +157,29 @@ class CodeFeature:
         return any([interval.contains(line_number) for interval in self.intervals])
 
     def _get_code_message(self) -> list[str]:
-        session_context = SESSION_CONTEXT.get()
-        code_file_manager = session_context.code_file_manager
-        git_root = session_context.git_root
-        parser = session_context.parser
+        ctx = SESSION_CONTEXT.get()
 
         code_message: list[str] = []
 
         # We always want to give GPT posix paths
-        abs_path = Path(git_root / self.path)
-        rel_path = Path(os.path.relpath(abs_path, git_root))
+        rel_path = Path(os.path.relpath(self.path, ctx.cwd))
         posix_rel_path = Path(rel_path).as_posix()
         filename = f"{posix_rel_path}"
         code_message.append(filename)
 
         if self.level in {CodeMessageLevel.CODE, CodeMessageLevel.INTERVAL}:
-            file_lines = code_file_manager.read_file(abs_path)
+            file_lines = ctx.code_file_manager.read_file(self.path)
             for i, line in enumerate(file_lines, start=1):
                 if self.contains_line(i):
-                    if parser.provide_line_numbers():
+                    if ctx.parser.provide_line_numbers():
                         code_message.append(f"{i}:{line}")
                     else:
                         code_message.append(f"{line}")
         elif self.level == CodeMessageLevel.CMAP_FULL:
-            cmap = get_code_map(git_root.joinpath(self.path))
+            cmap = get_code_map(self.path)
             code_message += cmap
         elif self.level == CodeMessageLevel.CMAP:
-            cmap = get_code_map(git_root.joinpath(self.path), exclude_signatures=True)
+            cmap = get_code_map(self.path, exclude_signatures=True)
             code_message += cmap
         code_message.append("")
 
@@ -185,12 +194,9 @@ class CodeFeature:
         return code_message
 
     def get_checksum(self) -> str:
-        session_context = SESSION_CONTEXT.get()
-        code_file_manager = session_context.code_file_manager
-        git_root = session_context.git_root
+        ctx = SESSION_CONTEXT.get()
 
-        abs_path = git_root / self.path
-        file_checksum = code_file_manager.get_file_checksum(Path(abs_path), self.intervals)
+        file_checksum = ctx.code_file_manager.get_file_checksum(self.path, self.intervals)
         return sha256(f"{file_checksum}{self.level.key}{self.diff}")
 
     _feature_checksum: str | None = None

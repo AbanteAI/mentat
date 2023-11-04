@@ -20,3 +20,8 @@ class RemoteKeyboardInterrupt(Exception):
 
 class SessionExit(Exception):
     pass
+
+
+# Used to indicate an invalid path
+class PathValidationException(Exception):
+    pass

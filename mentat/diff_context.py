@@ -10,7 +10,6 @@ from mentat.git_handler import (
     get_treeish_metadata,
 )
 from mentat.interval import Interval
-from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
 
@@ -50,9 +49,7 @@ def parse_diff(diff: str) -> list[DiffAnnotation]:
     return annotations
 
 
-def annotate_file_message(
-    code_message: list[str], annotations: list[DiffAnnotation]
-) -> list[str]:
+def annotate_file_message(code_message: list[str], annotations: list[DiffAnnotation]) -> list[str]:
     """Return the code_message with annotations inserted."""
     active_index = 0
     annotated_message: list[str] = []
@@ -87,18 +84,15 @@ def annotate_file_message(
 
 class DiffContext:
     def __init__(
-        self,
-        stream: SessionStream,
-        git_root: Path,
-        diff: Optional[str] = None,
-        pr_diff: Optional[str] = None,
+        self, stream: SessionStream, git_root: Path, diff: Optional[str] = None, pr_diff: Optional[str] = None
     ):
+        self.git_root = git_root
+
         if diff and pr_diff:
             # TODO: Once broadcast queue's unread messages and/or config is moved to client,
             # determine if this should quit or not
             stream.send(
-                "Cannot specify more than one type of diff. Disabling diff and"
-                " pr-diff.",
+                "Cannot specify more than one type of diff. Disabling diff and" " pr-diff.",
                 color="light_yellow",
             )
             diff = None
@@ -111,7 +105,7 @@ class DiffContext:
             return
 
         name = ""
-        treeish_type = _get_treeish_type(git_root, target)
+        treeish_type = _get_treeish_type(self.git_root, target)
         if treeish_type == "branch":
             name += f"Branch {target}: "
         elif treeish_type == "relative":
@@ -119,19 +113,18 @@ class DiffContext:
 
         if pr_diff:
             name = f"Merge-base {name}"
-            target = _git_command(git_root, "merge-base", "HEAD", pr_diff)
+            target = _git_command(self.git_root, "merge-base", "HEAD", pr_diff)
             if not target:
                 # TODO: Same as above todo
                 stream.send(
-                    f"Cannot identify merge base between HEAD and {pr_diff}. Disabling"
-                    " pr-diff.",
+                    f"Cannot identify merge base between HEAD and {pr_diff}. Disabling" " pr-diff.",
                     color="light_yellow",
                 )
                 self.target = "HEAD"
                 self.name = "HEAD (last commit)"
                 return
 
-        meta = get_treeish_metadata(git_root, target)
+        meta = get_treeish_metadata(self.git_root, target)
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
 
         self.target = target
@@ -141,13 +134,10 @@ class DiffContext:
 
     @property
     def files(self) -> list[Path]:
-        session_context = SESSION_CONTEXT.get()
-        git_root = session_context.git_root
-
         if self._files_cache is None:
             if self.target == "HEAD" and not check_head_exists():
                 return []  # A new repo without any commits
-            self._files_cache = [git_root / f for f in get_files_in_diff(self.target)]
+            self._files_cache = [self.git_root / f for f in get_files_in_diff(self.target)]
         return self._files_cache
 
     _annotations_cache: dict[Path, list[DiffAnnotation]] = {}
@@ -168,14 +158,10 @@ class DiffContext:
         for file in self.files:
             diff = get_diff_for_file(self.target, file)
             diff_lines = diff.splitlines()
-            num_lines += len(
-                [line for line in diff_lines if line.startswith(("+ ", "- "))]
-            )
+            num_lines += len([line for line in diff_lines if line.startswith(("+ ", "- "))])
         return f" {self.name} | {num_files} files | {num_lines} lines"
 
-    def annotate_file_message(
-        self, rel_path: Path, file_message: list[str]
-    ) -> list[str]:
+    def annotate_file_message(self, rel_path: Path, file_message: list[str]) -> list[str]:
         """Return file_message annotated with active diff."""
         annotations = self.get_annotations(rel_path)
         return annotate_file_message(file_message, annotations)
@@ -189,9 +175,7 @@ TreeishType = Literal["commit", "branch", "relative"]
 
 def _git_command(git_root: Path, *args: str) -> str | None:
     try:
-        return subprocess.check_output(
-            ["git"] + list(args), cwd=git_root, stderr=subprocess.PIPE, text=True
-        ).strip()
+        return subprocess.check_output(["git"] + list(args), cwd=git_root, stderr=subprocess.PIPE, text=True).strip()
     except subprocess.CalledProcessError:
         return None
 

@@ -166,8 +166,6 @@ def mock_setup_api_key(mocker):
 @pytest_asyncio.fixture()
 async def _mock_session_context(temp_testbed: Path):
     # TODO make this `None` if there's no git (SessionContext needs to allow it)
-    git_root = temp_testbed
-
     stream = SessionStream()
     stream.start()
 
@@ -177,7 +175,7 @@ async def _mock_session_context(temp_testbed: Path):
 
     parser = parser_map[config.format]
 
-    code_context = CodeContext(stream, git_root)
+    code_context = CodeContext()
 
     code_file_manager = CodeFileManager()
 
@@ -186,7 +184,6 @@ async def _mock_session_context(temp_testbed: Path):
     session_context = SessionContext(
         stream=stream,
         cost_tracker=cost_tracker,
-        git_root=git_root,
         cwd=temp_testbed,
         config=config,
         parser=parser,

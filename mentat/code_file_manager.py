@@ -30,11 +30,10 @@ class CodeFileManager:
         self.history = EditHistory()
 
     def read_file(self, path: Path) -> list[str]:
-        session_context = SESSION_CONTEXT.get()
-        git_root = session_context.git_root
+        ctx = SESSION_CONTEXT.get()
 
-        abs_path = path if path.is_absolute() else Path(git_root / path)
-        rel_path = Path(os.path.relpath(abs_path, git_root))
+        abs_path = path if path.is_absolute() else ctx.cwd.joinpath(path)
+        rel_path = Path(os.path.relpath(abs_path, ctx.cwd))
         with open(abs_path, "r") as f:
             lines = f.read().split("\n")
         self.file_lines[rel_path] = lines
@@ -65,12 +64,10 @@ class CodeFileManager:
         file_edits: list[FileEdit],
         code_context: CodeContext,
     ):
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-        git_root = session_context.git_root
+        ctx = SESSION_CONTEXT.get()
 
         for file_edit in file_edits:
-            rel_path = Path(os.path.relpath(file_edit.file_path, git_root))
+            rel_path = Path(os.path.relpath(file_edit.file_path, ctx.cwd))
             if file_edit.is_creation:
                 if file_edit.file_path.exists():
                     raise MentatError(f"Model attempted to create file {file_edit.file_path} which" " already exists")
@@ -86,34 +83,34 @@ class CodeFileManager:
                         if not any(f.contains_line(i) for f in context_features):
                             missing_lines = True
                 if not context_features or missing_lines:
-                    stream.send(
+                    ctx.stream.send(
                         f"Attempted to edit file {file_edit.file_path} not in context",
                         color="yellow",
                     )
                     continue
 
             if file_edit.is_deletion:
-                stream.send(f"Are you sure you want to delete {rel_path}?", color="red")
+                ctx.stream.send(f"Are you sure you want to delete {rel_path}?", color="red")
                 if await ask_yes_no(default_yes=False):
-                    stream.send(f"Deleting {rel_path}...", color="red")
+                    ctx.stream.send(f"Deleting {rel_path}...", color="red")
                     # We use the current lines rather than the stored lines for undo
                     self.history.add_action(DeletionAction(file_edit.file_path, self.read_file(file_edit.file_path)))
                     self._delete_file(code_context, file_edit.file_path)
                     continue
                 else:
-                    stream.send(f"Not deleting {rel_path}", color="green")
+                    ctx.stream.send(f"Not deleting {rel_path}", color="green")
 
             if not file_edit.is_creation:
                 stored_lines = self.file_lines[rel_path]
                 if stored_lines != self.read_file(file_edit.file_path):
                     logging.info(f"File '{file_edit.file_path}' changed while generating changes")
-                    stream.send(
+                    ctx.stream.send(
                         f"File '{rel_path}' changed while generating; current"
                         " file changes will be erased. Continue?",
                         color="light_yellow",
                     )
                     if not await ask_yes_no(default_yes=False):
-                        stream.send(f"Not applying changes to file {rel_path}")
+                        ctx.stream.send(f"Not applying changes to file {rel_path}")
                         continue
             else:
                 stored_lines = []

@@ -1,8 +1,10 @@
 from __future__ import annotations
+from git import Diff
 from ipdb import set_trace
 
 import os
 from pathlib import Path
+import subprocess
 from textwrap import dedent
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
@@ -15,16 +17,10 @@ from mentat.code_feature import (
 from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.embeddings import get_feature_similarity_scores
+from mentat.errors import UserError, PathValidationException
 from mentat.git_handler import get_paths_with_git_diffs
-from mentat.include_files import (
-    PathValidationException,
-    build_path_tree,
-    get_code_features_for_path,
-    get_paths_for_directory,
-    match_path_with_patterns,
-    print_path_tree,
-    validate_and_format_path,
-)
+from mentat.include_files import build_path_tree, get_code_features_for_path, print_path_tree
+from mentat.utils.path import match_path_with_patterns, get_paths_for_directory, validate_and_format_path
 from mentat.llm_api import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
@@ -35,14 +31,17 @@ def _get_all_features(
     root: Path,
     include_files: Dict[Path, CodeFeature],
     ignore_paths: Set[Path],
-    diff_context: DiffContext,
+    diff_context: DiffContext | None,
     code_map: bool,
     level: CodeMessageLevel,
 ) -> List[CodeFeature]:
     """Return a list of all features in the git root with given properties."""
     all_features: List[CodeFeature] = []
     for path in get_paths_for_directory(root, ignore_patterns=ignore_paths):
-        diff_target = diff_context.target if path in diff_context.files else None
+        if diff_context:
+            diff_target = diff_context.target if path in diff_context.files else None
+        else:
+            diff_target = None
         user_included = path in include_files
         if level == CodeMessageLevel.INTERVAL:
             # Return intervals if code_map is enabled, otherwise return the full file
@@ -69,22 +68,19 @@ def _get_all_features(
 
 
 class CodeContext:
-    def __init__(
-        self,
-        stream: SessionStream,
-        git_root: Path,
-        diff: str | None = None,
-        pr_diff: str | None = None,
-        ignore_patterns: Iterable[str | Path] = [],
-    ):
-        self.diff = diff
-        self.pr_diff = pr_diff
+    def __init__(self, ignore_patterns: Iterable[Path] = [], diff_context: DiffContext | None = None):
+        self.ignore_patterns = set(ignore_patterns)
+        self.diff_context = diff_context
 
-        self.diff_context = DiffContext(stream, git_root, self.diff, self.pr_diff)
+        # try:
+        #     git_root = get_shared_git_root_for_paths(paths)
+        #     self.diff_context = DiffContext(stream, git_root, self.diff, self.pr_diff)
+        # except (UserError, subprocess.CalledProcessError):
+        #     self.diff_context = None
+
         # TODO: This is a dict so we can quickly reference either a path (key)
         # or the CodeFeature (value) and its interval. Redundant.
         self.include_files: Dict[Path, CodeFeature] = dict()
-        self.ignore_patterns: Set[str | Path] = set(ignore_patterns)
         self.features: List[CodeFeature] = list()
         self.code_map = True
 
@@ -114,7 +110,7 @@ class CodeContext:
         ctx.stream.send("Code Context:", color="blue")
         prefix = "  "
         ctx.stream.send(f"{prefix}Directory: {ctx.cwd}")
-        if self.diff_context.name:
+        if self.diff_context and self.diff_context.name:
             ctx.stream.send(f"{prefix}Diff:", end=" ")
             ctx.stream.send(self.diff_context.get_display_context(), color="green")
         if self.include_files:
@@ -163,8 +159,8 @@ class CodeContext:
             "code_map": self.code_map,
             "auto_tokens": ctx.config.auto_tokens,
             "use_embeddings": ctx.config.use_embeddings,
-            "diff": self.diff,
-            "pr_diff": self.pr_diff,
+            # "diff": self.diff_context,
+            # "pr_diff": self.pr_diff,
             "max_tokens": max_tokens,
             "include_files": self.include_files,
         }
@@ -193,9 +189,10 @@ class CodeContext:
 
         code_message: List[str] = []
 
-        self.diff_context.clear_cache()
+        if self.diff_context:
+            self.diff_context.clear_cache()
         self.set_code_map()
-        if self.diff_context.files:
+        if self.diff_context and self.diff_context.files:
             code_message += [
                 "Diff References:",
                 f' "-" = {self.diff_context.name}',
@@ -225,12 +222,17 @@ class CodeContext:
 
         include_features: List[CodeFeature] = []
         for path, feature in self.include_files.items():
-            annotations = self.diff_context.get_annotations(path)
-            has_diff = any(a.intersects(i) for a in annotations for i in feature.intervals)
+            if self.diff_context:
+                annotations = self.diff_context.get_annotations(path)
+                has_diff = any(a.intersects(i) for a in annotations for i in feature.intervals)
+                diff = self.diff_context.target if has_diff else None
+            else:
+                annotations = []
+                diff = None
             feature = CodeFeature(
                 feature.ref(),
                 feature.level,
-                diff=self.diff_context.target if has_diff else None,
+                diff=diff,
                 user_included=True,
             )
             include_features.append(feature)
@@ -313,11 +315,10 @@ class CodeContext:
     def include(self, path: Path, ignore_patterns: Iterable[Path | str] = []) -> Set[Path]:
         """Add code to the context
 
-        '.' is replaced with '**' (recusively search the cwd)
+        '.' is replaced with '*' (recusively search the cwd)
 
         Args:
             `path`: can be a relative or absolute file path, file interval path, directory, or glob pattern.
-            TODO: allow `str` and `Path`?
 
         Return:
             A set of paths that have been successfully added to the context

@@ -1,4 +1,3 @@
-import code
 import os
 from pathlib import Path
 from textwrap import dedent
@@ -6,14 +5,13 @@ from unittest import TestCase
 from pytest_mock import MockFixture
 
 import pytest
-from ipdb import set_trace
 
 from mentat.code_context import CodeContext, _get_all_features
 from mentat.code_feature import CodeMessageLevel
 from mentat.config import Config
 from mentat.diff_context import DiffContext
-from mentat.git_handler import get_non_gitignored_files
-from mentat.include_files import is_file_text_encoded
+from mentat.git_handler import get_non_gitignored_files, get_shared_git_root_for_paths
+from mentat.utils.path import is_file_text_encoded
 from mentat.llm_api import count_tokens
 from tests.conftest import run_git_command
 from mentat.session_context import SessionContext
@@ -38,9 +36,9 @@ async def test_path_gitignoring(temp_testbed: Path, mock_session_context: Sessio
             file.write("I am a file")
 
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
-    code_context = CodeContext(mock_session_context.stream, mock_session_context.git_root)
+    code_context = CodeContext()
     code_context.include(Path(testing_dir_path))
-    code_context.include(Path(ignored_file_path_2))
+    code_context.include(ignored_file_path_2)
 
     expected_file_paths = [temp_testbed.joinpath(ignored_file_path_2), temp_testbed.joinpath(non_ignored_file_path)]
 
@@ -65,10 +63,7 @@ async def test_config_glob_exclude(mocker: MockFixture, temp_testbed: Path, mock
     with open(directly_added_glob_excluded_path, "w") as directly_added_glob_excluded_file:
         directly_added_glob_excluded_file.write("Config excludes me but I'm included if added directly")
 
-    code_context = CodeContext(
-        mock_session_context.stream,
-        mock_session_context.git_root,
-    )
+    code_context = CodeContext()
     code_context.include(Path("."))
     code_context.include(directly_added_glob_excluded_path)
     file_paths = list(code_context.include_files.keys())
@@ -95,10 +90,7 @@ async def test_glob_include(temp_testbed: Path, mock_session_context: SessionCon
     with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am not included")
 
-    code_context = CodeContext(
-        mock_session_context.stream,
-        mock_session_context.git_root,
-    )
+    code_context = CodeContext()
     code_context.include(Path("**/*.py"))
 
     file_paths = [file_path.resolve() for file_path in code_context.include_files]
@@ -120,10 +112,7 @@ async def test_cli_glob_exclude(temp_testbed: Path, mock_session_context: Sessio
     with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am excluded")
 
-    code_context = CodeContext(
-        mock_session_context.stream,
-        mock_session_context.git_root,
-    )
+    code_context = CodeContext()
     code_context.include(Path("**/*.py", ignore_patterns=["**/*.py", "**/*.ts"]))
 
     file_paths = [file_path for file_path in code_context.include_files]
@@ -139,10 +128,7 @@ async def test_text_encoding_checking(temp_testbed: Path, mock_session_context: 
         # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
         f.write(bytearray([0x81]))
 
-    code_context = CodeContext(
-        mock_session_context.stream,
-        mock_session_context.git_root,
-    )
+    code_context = CodeContext()
     code_context.include(Path("./"))
     file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, nontext_path) not in file_paths
@@ -151,10 +137,7 @@ async def test_text_encoding_checking(temp_testbed: Path, mock_session_context: 
     with open(nontext_path_requested, "wb") as f:
         # 0x81 is invalid in UTF-8 (single byte > 127), and undefined in cp1252 and iso-8859-1
         f.write(bytearray([0x81]))
-    code_context = CodeContext(
-        mock_session_context.stream,
-        mock_session_context.git_root,
-    )
+    code_context = CodeContext()
     code_context.include(Path(nontext_path_requested))
     assert not code_context.include_files
 
@@ -181,10 +164,7 @@ def features(mocker: MockFixture):
 @pytest.mark.asyncio
 async def test_get_code_message_cache(mocker: MockFixture, temp_testbed: Path, mock_session_context: SessionContext):
     mocker.patch.object(Config, "auto_tokens", new=10)
-    code_context = CodeContext(
-        mock_session_context.stream,
-        mock_session_context.git_root,
-    )
+    code_context = CodeContext()
     code_context.include(Path("multifile_calculator"), ignore_patterns=["multifile_calculator/calculator.py"])
 
     file = Path("multifile_calculator/operations.py")
@@ -217,10 +197,7 @@ async def test_get_code_message_cache(mocker: MockFixture, temp_testbed: Path, m
 @pytest.mark.asyncio
 async def test_get_code_message_include(mocker: MockFixture, temp_testbed: Path, mock_session_context: SessionContext):
     mocker.patch.object(Config, "auto_tokens", new=0)
-    code_context = CodeContext(
-        mock_session_context.stream,
-        mock_session_context.git_root,
-    )
+    code_context = CodeContext()
     code_context.include(Path("multifile_calculator"), ignore_patterns=["multifile_calculator/calculator.py"])
 
     # If max tokens is less than include_files, return include_files without
@@ -235,8 +212,6 @@ async def test_get_code_message_include(mocker: MockFixture, temp_testbed: Path,
         "multifile_calculator/operations.py",
         *[f"{i+1}:{line}" for i, line in enumerate(Path("multifile_calculator/operations.py").read_text().split("\n"))],
     ]
-
-    # set_trace()
 
     assert code_message.splitlines() == expected
 
@@ -272,10 +247,7 @@ async def test_auto_tokens(mocker: MockFixture, temp_testbed: Path, mock_session
     run_git_command(temp_testbed, "add", ".")
     run_git_command(temp_testbed, "commit", "-m", "initial commit")
 
-    code_context = CodeContext(
-        mock_session_context.stream,
-        mock_session_context.git_root,
-    )
+    code_context = CodeContext()
     code_context.include(Path("file_1.py"))
 
     async def _count_auto_tokens_where(limit: int) -> int:
@@ -301,7 +273,8 @@ def test_get_all_features(temp_testbed: Path, mock_session_context: SessionConte
         file2.write("def sample_function():\n    pass\n")
 
     # Test without include_files
-    diff_context = DiffContext(mock_session_context.stream, mock_session_context.git_root)
+    git_root = get_shared_git_root_for_paths([path1, path2])
+    diff_context = DiffContext(mock_session_context.stream, git_root)
     features = _get_all_features(
         root=mock_session_context.cwd,
         include_files={},
@@ -310,8 +283,6 @@ def test_get_all_features(temp_testbed: Path, mock_session_context: SessionConte
         code_map=False,
         level=CodeMessageLevel.CODE,
     )
-
-    set_trace()
 
     assert len(features) == 2
     feature1 = next(f for f in features if f.path == path1)
@@ -347,9 +318,7 @@ def test_get_all_features(temp_testbed: Path, mock_session_context: SessionConte
 @pytest.mark.asyncio
 async def test_get_code_message_ignore(mocker: MockFixture, temp_testbed: Path, mock_session_context: SessionContext):
     mocker.patch.object(Config, "auto_tokens", new=7000)
-    code_context = CodeContext(
-        mock_session_context.stream, mock_session_context.git_root, ignore_patterns=["scripts", "*.txt"]
-    )
+    code_context = CodeContext(ignore_patterns=[Path("scripts"), Path("*.txt")])
     code_context.include(Path("."))
     code_message = await code_context.get_code_message("", "gpt-4", 1000000)
 

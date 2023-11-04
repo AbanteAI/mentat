@@ -2,14 +2,13 @@ import json
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, List
 
+from mentat.errors import PathValidationException
 from mentat.session_context import SESSION_CONTEXT
 
 
-def get_ctags(
-    abs_file_path: Path, exclude_signatures: bool = False
-) -> set[tuple[str | int | None, ...]]:
+def get_ctags(abs_file_path: Path, exclude_signatures: bool = False) -> set[tuple[str | int | None, ...]]:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
@@ -26,9 +25,7 @@ def get_ctags(
     else:
         ctags_cmd_args.append("--fields=+S")
     ctags_cmd = ["ctags", *ctags_cmd_args, str(abs_file_path)]
-    output = subprocess.check_output(
-        ctags_cmd, stderr=subprocess.DEVNULL, start_new_session=True, text=True
-    ).strip()
+    output = subprocess.check_output(ctags_cmd, stderr=subprocess.DEVNULL, start_new_session=True, text=True).strip()
     output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
@@ -95,8 +92,19 @@ def _make_ctags_human_readable(ctags: set[tuple[Any, ...]]) -> list[str]:
     return output.splitlines()
 
 
-def get_code_map(abs_file_path: Path, exclude_signatures: bool = False) -> list[str]:
-    ctags = get_ctags(abs_file_path, exclude_signatures)
+def get_code_map(path: Path, exclude_signatures: bool = False) -> List[str]:
+    """Create a tree-like structure of filepaths
+
+    Args:
+        path (Path): An absolute file or directory path
+        exclude_signatures (bool, optional): Include function/class/method signatures in the output. Defaults to False.
+
+    Returns:
+        List[str]: A list of strings representing the file structure (formated for STDOUT)
+    """
+    if not path.is_absolute():
+        raise PathValidationException(f"Path {path} is not absolute")
+    ctags = get_ctags(path, exclude_signatures)
     if not ctags:
         return []
     return _make_ctags_human_readable(ctags)

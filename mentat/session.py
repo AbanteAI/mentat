@@ -36,28 +36,22 @@ class Session:
         self.id = uuid4()
         setup_api_key()
 
-        # Since we can't set the session_context until after all of the singletons are created,
-        # any singletons used in the constructor of another singleton must be passed in
-        git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
-
-        stream = SessionStream()
-        stream.start()
-        self.stream = stream
+        self.stream = SessionStream()
+        self.stream.start()
 
         cost_tracker = CostTracker()
 
         parser = parser_map[config.format]
 
-        code_context = CodeContext(stream, git_root, diff, pr_diff, ignore_paths)
+        code_context = CodeContext(self.stream, diff, pr_diff, ignore_paths)
 
         code_file_manager = CodeFileManager()
 
         conversation = Conversation(parser)
 
         session_context = SessionContext(
-            stream,
+            self.stream,
             cost_tracker,
-            git_root,
             cwd,
             config,
             parser,
