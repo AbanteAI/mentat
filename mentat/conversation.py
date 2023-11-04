@@ -33,22 +33,18 @@ class MessageRole(Enum):
 class Conversation:
     max_tokens: int
 
-    def __init__(self, parser: Parser):
-        self.messages = list[dict[str, str]]()
+    def __init__(self):
+        self._messages = list[dict[str, str]]()
 
         # This contain the messages the user actually sends and the messages the model output
         # along with a snapshot of exactly what the model got before that message
         self.literal_messages = list[tuple[str, list[dict[str, str]] | None]]()
-
-        prompt = parser.get_system_prompt()
-        self.add_message(MessageRole.System, prompt)
 
     async def display_token_count(self):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
         code_context = session_context.code_context
-        parser = config.parser
 
         if not is_model_available(config.model):
             raise MentatError(
@@ -68,7 +64,7 @@ class Conversation:
                     " size for this model.",
                     color="yellow",
                 )
-        prompt = parser.get_system_prompt()
+        conversation_history = "\n".join([m["content"] for m in self.get_messages()])
         context_size = model_context_size(config.model)
         maximum_context = config.maximum_context
         if maximum_context:
@@ -79,7 +75,7 @@ class Conversation:
         tokens = count_tokens(
             await code_context.get_code_message("", config.model, max_tokens=0),
             config.model,
-        ) + count_tokens(prompt, config.model)
+        ) + count_tokens(conversation_history, config.model)
 
         if not context_size:
             raise MentatError(
@@ -125,7 +121,21 @@ class Conversation:
 
     def add_message(self, role: MessageRole, message: str):
         """Used for adding messages to the models conversation"""
-        self.messages.append({"role": role.value, "content": message})
+        self._messages.append({"role": role.value, "content": message})
+
+    def get_messages(self) -> list[dict[str, str]]:
+        """Returns the messages in the conversation. The system message may change throughout
+        the conversation so it is important to access the messages through this method.
+        """
+        session_context = SESSION_CONTEXT.get()
+        config = session_context.config
+        parser = config.parser
+        prompt = parser.get_system_prompt()
+        return [{"role": "system", "content": prompt}] + self._messages.copy()
+
+    def clear_messages(self) -> None:
+        """Clears the messages in the conversation"""
+        self._messages = list[dict[str, str]]()
 
     async def _stream_model_response(
         self,
@@ -161,7 +171,7 @@ class Conversation:
         parser = config.parser
         cost_tracker = session_context.cost_tracker
 
-        messages_snapshot = self.messages.copy()
+        messages_snapshot = self.get_messages()
 
         # Rebuild code context with active code and available tokens
         conversation_history = "\n".join([m["content"] for m in messages_snapshot])

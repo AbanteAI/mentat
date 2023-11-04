@@ -48,7 +48,7 @@ class Session:
 
         code_file_manager = CodeFileManager()
 
-        conversation = Conversation(config.parser)
+        conversation = Conversation()
 
         session_context = SessionContext(
             stream,
