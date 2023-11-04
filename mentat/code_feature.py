@@ -98,7 +98,7 @@ class CodeFeature:
     Includes a section of code and an annotation method.
 
     Attributes:
-        path: The absolute path to the file. # TODO: enforce this
+        path: A path to a file.
         intervals: The lines in the file.
         level: The level of information to include.
         diff: The diff annotations to include.
@@ -122,20 +122,6 @@ class CodeFeature:
         else:
             self.path = validated_path
             self.intervals = [Interval(0, math.inf)]
-
-        # if Path(path).exists():
-        #     self.path = Path(path)
-        #     self.intervals = [Interval(0, math.inf)]
-        # else:
-        #     path = str(path)
-        #     split = path.rsplit(":", 1)
-        #     self.path = Path(split[0])
-        #     if not self.path.exists():
-        #         self.path = Path(path)
-        #         self.intervals = [Interval(0, math.inf)]
-        #     else:
-        #         self.intervals = parse_intervals(split[1])
-        #         level = CodeMessageLevel.INTERVAL
 
         self.level = level
         self.diff = diff
