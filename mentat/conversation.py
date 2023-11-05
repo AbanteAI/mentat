@@ -129,9 +129,12 @@ class Conversation:
         """
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
-        parser = config.parser
-        prompt = parser.get_system_prompt()
-        return [{"role": "system", "content": prompt}] + self._messages.copy()
+        if config.no_parser_prompt:
+            return self._messages
+        else:
+            parser = config.parser
+            prompt = parser.get_system_prompt()
+            return [{"role": "system", "content": prompt}] + self._messages.copy()
 
     def clear_messages(self) -> None:
         """Clears the messages in the conversation"""

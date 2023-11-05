@@ -58,6 +58,16 @@ class Config:
         converter=parser_map.get,  # pyright: ignore
         validator=validators.instance_of(Parser),  # pyright: ignore
     )
+    no_parser_prompt: bool = attr.field(
+        default=False,
+        metadata={
+            "description": (
+                "Whether to include the parser prompt in the system message. This"
+                " should only be set to true for fine tuned models"
+            )
+        },
+        converter=converters.optional(converters.to_bool),
+    )
 
     # Context specific settings
     file_exclude_glob_list: list[str] = attr.field(
