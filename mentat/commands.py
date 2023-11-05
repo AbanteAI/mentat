@@ -7,7 +7,6 @@ from typing import List
 
 import attr
 
-from mentat.conversation import MessageRole
 from mentat.errors import MentatError, UserError
 from mentat.git_handler import commit
 from mentat.include_files import print_invalid_path
@@ -245,12 +244,7 @@ class ClearCommand(Command, command_name="clear"):
         stream = session_context.stream
         conversation = session_context.conversation
 
-        # Only keep system messages (for now just the prompt)
-        conversation.messages = [
-            message
-            for message in conversation.messages
-            if message["role"] == MessageRole.System.value
-        ]
+        conversation.clear_messages()
         message = "Message history cleared"
         stream.send(message, color="green")
 
@@ -371,8 +365,13 @@ class ConfigCommand(Command, command_name="config"):
                             color="yellow",
                         )
                         return
-                    setattr(config, setting, value)
-                    stream.send(f"{setting} set to {value}", color="green")
+                    try:
+                        setattr(config, setting, value)
+                        stream.send(f"{setting} set to {value}", color="green")
+                    except (TypeError, ValueError):
+                        stream.send(
+                            f"Illegal value for {setting}: {value}", color="red"
+                        )
                 else:
                     stream.send("Too many arguments", color="yellow")
             else:

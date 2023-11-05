@@ -192,7 +192,7 @@ async def test_clear_command(
     session.stream.stop()
 
     conversation = SESSION_CONTEXT.get().conversation
-    assert len(conversation.messages) == 1
+    assert len(conversation.get_messages()) == 1
 
 
 @pytest.mark.asyncio
