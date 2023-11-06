@@ -169,7 +169,11 @@ async def translate_commits_to_transcripts(repo, count=10):
             }
             try:
                 result = await select_features_for_benchmark(
-                    session_context, benchmark, eval=False, verbose=False
+                    session_context,
+                    benchmark,
+                    eval=False,
+                    use_expected=True,
+                    use_llm=True,
                 )
                 benchmark["selected_features"] = result["features"]
             except Exception as e:

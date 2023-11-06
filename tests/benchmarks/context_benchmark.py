@@ -66,7 +66,6 @@ def evaluate(
     git_root: Path,
     actual: list[CodeFeature],
     expected: list[CodeFeature],
-    verbose=False,
 ) -> dict[str, float]:
     """Compare two lists of features and return precision, recall and f1 scores"""
     actual_lines = _convert_features_to_line_sets(git_root, actual)
@@ -83,31 +82,16 @@ def evaluate(
     precision, recall, f1 = None, None, None
     if (_TP + _FP) > 0:
         precision = _TP / (_TP + _FP)
-        print(
-            f"Precision:\t{precision:.3f}\t| How many selected features are relevant?"
-        )
     if (_TP + _FN) > 0:
         recall = _TP / (_TP + _FN)
     if precision and recall:
         f1 = 2 * precision * recall / (precision + recall)
 
-    if verbose:
-        print(f"True Positive:\t{_TP:.3f}")
-        print(f"False Positive:\t{_FP:.3f}")
-        print(f"False Negative:\t{_FN:.3f}")
-        for metric, score, description in [
-            ("Precision", precision, "How many selected features are relevant?"),
-            ("Recall", recall, "How many relevant features are selected?"),
-            ("F1", f1, "Harmonic mean of precision and recall"),
-        ]:
-            if score is not None:
-                print(f"{metric}:\t{score:.3f}\t| {description}")
-
     return {"precision": precision, "recall": recall, "f1": f1}
 
 
 async def select_features_for_benchmark(
-    session_context, benchmark, eval=True, verbose=False
+    session_context, benchmark, eval=True, use_expected=False, use_llm=True
 ):
     """Select features for benchmark using expected edits as a guide"""
     git_root = session_context.git_root
@@ -118,16 +102,20 @@ async def select_features_for_benchmark(
     # The longest context that could have been included to generate expected_edits
     model = config.model
     mentat_prompt_tokens = count_tokens(parser.get_system_prompt(), model)
-    expected_edits_tokens = count_tokens(benchmark["expected_edits"], model)
+    expected_edits, expected_edits_tokens = None, 0
+    if use_expected:
+        expected_edits = benchmark["expected_edits"]
+        expected_edits_tokens = count_tokens(expected_edits, model)
     max_context_tokens = (
         model_context_size(model) - mentat_prompt_tokens - expected_edits_tokens
     )
     # Fill-in available context
     config.auto_tokens = 1e6
     config.use_embeddings = True
-    code_context.use_llm = True
+    code_context.use_llm = use_llm
+    edits = None if not use_expected else benchmark["expected_edits"]
     await code_context.get_code_message(
-        benchmark["prompt"], model, max_context_tokens, benchmark["expected_edits"]
+        benchmark["prompt"], model, max_context_tokens, expected_edits
     )
     git_root_length = len(str(git_root)) + 1
     selected_features = [f.ref()[git_root_length:] for f in code_context.features]
@@ -138,17 +126,15 @@ async def select_features_for_benchmark(
             CodeFeature(git_root / f) for f in benchmark["edited_features"]
         ]
         selector_performance = evaluate(
-            git_root, code_context.features, edited_features, verbose
+            git_root, code_context.features, edited_features
         )
     return {"features": selected_features, "score": selector_performance}
 
 
 @pytest.mark.asyncio
-async def test_code_context_performance(
-    benchmarks, max_benchmarks=10, verbose=True
-):
+async def test_code_context_performance(benchmarks, max_benchmarks=10):
     """Run a set of benchmarks and evaluate performance
-    
+
     Run standalone:
         `pytest -s tests/benchmarks/context_benchmark.py --benchmark`
     """
@@ -163,7 +149,7 @@ async def test_code_context_performance(
     # Run each one
     scores = {}
     for benchmark in benchmarks_to_run.values():
-        print(f"\n\n{benchmark['name']}\n{benchmark['prompt']}")
+        print("\n" + benchmark["prompt"])
 
         # Setup the cwd the same way as in generate
         url = benchmark["codebase_url"]
@@ -188,14 +174,34 @@ async def test_code_context_performance(
         SESSION_CONTEXT.set(session_context)
 
         # Run the benchmark and print results
-        try:
-            results = await select_features_for_benchmark(
-                session_context, benchmark, eval=True, verbose=verbose
-            )
-            scores[benchmark["commit"]] = results["score"]
-            scores[benchmark["commit"]]["selected_features"] = results["features"]
-            scores[benchmark["commit"]]["edited_features"] = benchmark["edited_features"]
-        except Exception as e:
-            print(f"Error: '{e}'; skipping")
+        scores = []
+        for use_llm in [False, True]:
+            for use_expected in [False, True]:
+                try:
+                    if not use_llm and use_expected:
+                        continue  # Not relevant
+                    results = await select_features_for_benchmark(
+                        session_context,
+                        benchmark,
+                        eval=True,
+                        use_expected=use_expected,
+                        use_llm=use_llm,
+                    )
+                    score = {
+                        **results["score"],
+                        "selected_features": results["features"],
+                        "edited_features": benchmark["edited_features"],
+                        "use_llm": use_llm,
+                        "use_expected": use_expected,
+                    }
+                    scores.append(score)
+                    print(
+                        f"  UseExpected={use_expected}\t"
+                        f"| LLM={use_llm}\t"
+                        f"| Recall={(score['recall'] or 0.):.3f}\t"
+                        f"| Precision={(score['precision'] or 0.):.3f}"
+                    )
+                except Exception as e:
+                    print(f"Error: '{e}'; skipping")
 
     return scores
