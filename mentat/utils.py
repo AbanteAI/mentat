@@ -54,7 +54,7 @@ def fetch_resource(resource_path: Path) -> Traversable:
 
 # TODO: Should we use a templating library (like jinja?) for this?
 def create_viewer(
-    literal_messages: list[tuple[str, list[dict[str, str]] | None]]
+    literal_messages: list[tuple[str, list[tuple[str, list[dict[str, str]] | None]]]]
 ) -> Path:
     messages_json = json.dumps(literal_messages)
     viewer_resource = fetch_resource(conversation_viewer_path)
