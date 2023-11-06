@@ -23,9 +23,7 @@ async def test_posix_paths(mock_session_context):
         [file_path], []
     )
 
-    code_message = await mock_session_context.code_context.get_code_message(
-        "", mock_session_context.config.model, 1e6
-    )
+    code_message = await mock_session_context.code_context.get_code_message("", 1e6)
     assert dir_name + "/" + file_name in code_message.split("\n")
 
 
@@ -51,7 +49,7 @@ async def test_partial_files(mocker, mock_session_context):
     mock_session_context.code_context.code_map = False
 
     code_message = await mock_session_context.code_context.get_code_message(
-        "", mock_session_context.config.model, max_tokens=1e6
+        "", max_tokens=1e6
     )
     assert code_message == dedent("""\
             Code Files:

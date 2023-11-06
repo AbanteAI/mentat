@@ -5,17 +5,16 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
-from mentat.auto_context import get_feature_selector
 from mentat.code_feature import (
     CodeFeature,
     CodeMessageLevel,
-    count_feature_tokens,
     get_code_message_from_features,
     split_file_into_intervals,
 )
 from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
-from mentat.embeddings import get_feature_similarity_scores
+from mentat.feature_filters.default_filter import DefaultFilter
+from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
 from mentat.git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from mentat.include_files import (
     build_path_tree,
@@ -29,54 +28,6 @@ from mentat.llm_api import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import sha256
-
-
-def _get_all_features(
-    git_root: Path,
-    include_files: dict[Path, list[CodeFeature]],
-    ignore_files: set[Path],
-    diff_context: DiffContext,
-    code_map: bool,
-    level: CodeMessageLevel,
-) -> list[CodeFeature]:
-    """Return a list of all features in the git root with given properties."""
-
-    all_features = list[CodeFeature]()
-    for path in get_non_gitignored_files(git_root):
-        abs_path = git_root / path
-        if (
-            abs_path.is_dir()
-            or not is_file_text_encoded(abs_path)
-            or abs_path in ignore_files
-        ):
-            continue
-
-        diff_target = diff_context.target if abs_path in diff_context.files else None
-        user_included = abs_path in include_files
-        if level == CodeMessageLevel.INTERVAL:
-            # Return intervals if code_map is enabled, otherwise return the full file
-            full_feature = CodeFeature(
-                abs_path,
-                level=CodeMessageLevel.CODE,
-                diff=diff_target,
-                user_included=user_included,
-            )
-            if not code_map:
-                all_features.append(full_feature)
-            else:
-                _split_features = split_file_into_intervals(
-                    git_root,
-                    full_feature,
-                    user_features=include_files.get(abs_path, []),
-                )
-                all_features += _split_features
-        else:
-            _feature = CodeFeature(
-                abs_path, level=level, diff=diff_target, user_included=user_included
-            )
-            all_features.append(_feature)
-
-    return sorted(all_features, key=lambda f: f.path.relative_to(git_root))
 
 
 class CodeContext:
@@ -116,13 +67,13 @@ class CodeContext:
             print_invalid_path(invalid_path)
         self.ignore_files = get_ignore_files(ignore_paths)
 
-    def set_code_map(self):
+    def code_map_enabled(self):
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         stream = session_context.stream
 
         if config.no_code_map:
-            self.code_map = False
+            return False
         else:
             disabled_reason = check_ctags_disabled()
             if disabled_reason:
@@ -133,9 +84,9 @@ class CodeContext:
                 ctags_disabled_message = dedent(ctags_disabled_message)
                 stream.send(ctags_disabled_message, color="yellow")
                 config.no_code_map = True
-                self.code_map = False
+                return False
             else:
-                self.code_map = True
+                return True
 
     def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
@@ -163,10 +114,7 @@ class CodeContext:
             stream.send(f"{prefix}Included files: None", color="yellow")
         auto = config.auto_tokens
         if auto != 0:
-            stream.send(
-                f"{prefix}Auto-token limit:"
-                f" {'Model max (default)' if auto is None else auto}"
-            )
+            stream.send(f"{prefix}Auto-token limit: {auto}")
             stream.send(
                 f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
             )
@@ -204,7 +152,7 @@ class CodeContext:
             ]
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
-            "code_map": self.code_map,
+            "code_map": self.code_map_enabled(),
             "auto_tokens": config.auto_tokens,
             "use_embeddings": config.use_embeddings,
             "use_llm": self.use_llm,
@@ -219,7 +167,6 @@ class CodeContext:
     async def get_code_message(
         self,
         prompt: str,
-        model: str,
         max_tokens: int,
         expected_edits: Optional[list[str]] = None,  # for training/benchmarking
     ) -> str:
@@ -229,29 +176,26 @@ class CodeContext:
             or code_message_checksum != self._code_message_checksum
         ):
             self._code_message = await self._get_code_message(
-                prompt, model, max_tokens, expected_edits
+                prompt, max_tokens, expected_edits
             )
             self._code_message_checksum = self._get_code_message_checksum(max_tokens)
         return self._code_message
 
     use_llm: bool = False
-    auto_threshold: float = 0.0
 
     async def _get_code_message(
         self,
         prompt: str,
-        model: str,
         max_tokens: int,
         expected_edits: Optional[list[str]] = None,
     ) -> str:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
-        git_root = session_context.git_root
+        model = config.model
 
         # Setup code message metadata
         code_message = list[str]()
         self.diff_context.clear_cache()
-        self.set_code_map()
         if self.diff_context.files:
             code_message += [
                 "Diff References:",
@@ -262,62 +206,26 @@ class CodeContext:
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model)
 
-        # Add user-included features
-        included_features = self._get_include_features()
-        included_feature_tokens = sum(
-            await count_feature_tokens(included_features, model)
-        )
-        remaining_tokens = max(0, max_tokens - meta_tokens - included_feature_tokens)
         auto_tokens = config.auto_tokens
-        if remaining_tokens == 0 or config.auto_tokens == 0:
-            self.features = sorted(
-                included_features, key=lambda f: f.path.relative_to(git_root)
-            )
+        remaining_tokens = max(0, min(auto_tokens, max_tokens - meta_tokens))
+
+        if remaining_tokens == 0:
+            self.features = self._get_include_features()
         else:
-            auto_tokens = (
-                remaining_tokens
-                if auto_tokens is None
-                else min(remaining_tokens, auto_tokens)
+            self.features = self._get_all_features(
+                CodeMessageLevel.INTERVAL,
             )
-            selectable_tokens = included_feature_tokens + auto_tokens
 
-            # Get a complete, sorted list of features to select from
-            if prompt and config.use_embeddings:
-                candidate_features = await self.search(
-                    prompt, level=CodeMessageLevel.INTERVAL
-                )
-                candidate_features = [
-                    f[0] for f in candidate_features
-                ]  # Drop the score, keep sorted
-            else:
-                candidate_features = _get_all_features(
-                    git_root,
-                    self.include_files,
-                    self.ignore_files,
-                    self.diff_context,
-                    self.code_map,
-                    CodeMessageLevel.INTERVAL,
-                )
-            _user = [f for f in candidate_features if f.user_included]
-            _non = [f for f in candidate_features if not f.user_included]
-            candidate_features = _user + _non  # Move included files to the front
-
-            alt_levels = [CodeMessageLevel.FILE_NAME]
-            if self.code_map:
-                alt_levels = [
-                    CodeMessageLevel.CMAP_FULL,
-                    CodeMessageLevel.CMAP,
-                ] + alt_levels
-
-            feature_selector = get_feature_selector(self.use_llm)
-            self.features = await feature_selector.select(
-                candidate_features,
-                selectable_tokens,
-                model,
-                alt_levels,
-                prompt,
-                expected_edits,
-            )
+        feature_filter = DefaultFilter(
+            remaining_tokens,
+            model,
+            self.code_map_enabled(),
+            config.use_embeddings,
+            self.use_llm,
+            prompt,
+            expected_edits,
+        )
+        self.features = await feature_filter.filter(self.features)
 
         # Group intervals by file, separated by ellipses if there are gaps
         code_message += get_code_message_from_features(self.features)
@@ -344,6 +252,54 @@ class CodeContext:
             return os.path.relpath(f.path, git_root)
 
         return sorted(include_features, key=_feature_relative_path)
+
+    def _get_all_features(
+        self,
+        level: CodeMessageLevel,
+    ) -> list[CodeFeature]:
+        session_context = SESSION_CONTEXT.get()
+        git_root = session_context.git_root
+
+        all_features = list[CodeFeature]()
+        for path in get_non_gitignored_files(git_root):
+            abs_path = git_root / path
+            if (
+                abs_path.is_dir()
+                or not is_file_text_encoded(abs_path)
+                or abs_path in self.ignore_files
+            ):
+                continue
+
+            diff_target = (
+                self.diff_context.target
+                if abs_path in self.diff_context.files
+                else None
+            )
+            user_included = abs_path in self.include_files
+            if level == CodeMessageLevel.INTERVAL:
+                # Return intervals if code_map is enabled, otherwise return the full file
+                full_feature = CodeFeature(
+                    abs_path,
+                    level=CodeMessageLevel.CODE,
+                    diff=diff_target,
+                    user_included=user_included,
+                )
+                if not self.code_map_enabled():
+                    all_features.append(full_feature)
+                else:
+                    _split_features = split_file_into_intervals(
+                        git_root,
+                        full_feature,
+                        user_features=self.include_files.get(abs_path, []),
+                    )
+                    all_features += _split_features
+            else:
+                _feature = CodeFeature(
+                    abs_path, level=level, diff=diff_target, user_included=user_included
+                )
+                all_features.append(_feature)
+
+        return sorted(all_features, key=lambda f: f.path.relative_to(git_root))
 
     def include_file(self, path: Path):
         paths, invalid_paths = get_include_files([path], [])
@@ -375,7 +331,6 @@ class CodeContext:
         """Return the top n features that are most similar to the query."""
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
-        git_root = session_context.git_root
         stream = session_context.stream
 
         if not config.use_embeddings:
@@ -385,19 +340,12 @@ class CodeContext:
             )
             return []
 
-        all_features = _get_all_features(
-            git_root,
-            self.include_files,
-            self.ignore_files,
-            self.diff_context,
-            self.code_map,
+        all_features = self._get_all_features(
             level,
         )
-        sim_scores = await get_feature_similarity_scores(query, all_features)
-        all_features_scored = zip(all_features, sim_scores)
-        all_features_sorted = sorted(
-            all_features_scored, key=lambda x: x[1], reverse=True
-        )
+
+        embedding_similarity_filter = EmbeddingSimilarityFilter(query)
+        all_features_sorted = await embedding_similarity_filter.score(all_features)
         if max_results is None:
             return all_features_sorted
         else:

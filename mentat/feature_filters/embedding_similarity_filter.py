@@ -1,0 +1,22 @@
+from mentat.code_feature import CodeFeature
+from mentat.embeddings import get_feature_similarity_scores
+from mentat.feature_filters.feature_filter import FeatureFilter
+
+
+class EmbeddingSimilarityFilter(FeatureFilter):
+    def __init__(self, query: str):
+        self.query = query
+
+    async def score(
+        self,
+        features: list[CodeFeature],
+    ) -> list[tuple[CodeFeature, float]]:
+        sim_scores = await get_feature_similarity_scores(self.query, features)
+        features_scored = zip(features, sim_scores)
+        return sorted(features_scored, key=lambda x: x[1], reverse=True)
+
+    async def filter(
+        self,
+        features: list[CodeFeature],
+    ) -> list[CodeFeature]:
+        return [f for f, _ in await self.score(features)]

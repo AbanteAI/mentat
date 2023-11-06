@@ -177,7 +177,7 @@ async def test_diff_context_end_to_end(
 
     session_context = SESSION_CONTEXT.get()
     code_context = session_context.code_context
-    code_message = await code_context.get_code_message("test", "test", 1)
+    code_message = await code_context.get_code_message("test", 1)
     diff_context = code_context.diff_context
 
     assert diff_context.target == "HEAD~2"
