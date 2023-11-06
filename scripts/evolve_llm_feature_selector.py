@@ -10,7 +10,6 @@ import openai
 
 from mentat.errors import ModelError
 from mentat.prompts.prompts import read_prompt
-from mentat.utils import sha256
 from tests.benchmarks.context_benchmark import test_code_context_performance
 
 prompts_dir = Path(__file__).parent.parent / "mentat/resources/prompts"
@@ -65,7 +64,7 @@ async def generate_variations(
     top_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:population]
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "system", "content": f"Scores: {scores}"},
+        {"role": "system", "content": f"Scores: {top_scores}"},
     ]
     response = await openai.ChatCompletion.acreate(  # type: ignore
         model="gpt-4",
@@ -78,7 +77,7 @@ async def generate_variations(
         assert isinstance(prompts, list)
         assert all(isinstance(p, str) for p in prompts)
         return prompts[:population]
-    except:
+    except (json.JSONDecodeError, AssertionError):
         logging.error(f"LLM response is not JSON-parsable: {response}")
         raise ModelError(f"LLM response is not JSON-parsable: {response}")
 

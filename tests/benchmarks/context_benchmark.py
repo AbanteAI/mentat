@@ -113,7 +113,6 @@ async def select_features_for_benchmark(
     config.auto_tokens = 1e6
     config.use_embeddings = True
     code_context.use_llm = use_llm
-    edits = None if not use_expected else benchmark["expected_edits"]
     await code_context.get_code_message(
         benchmark["prompt"], model, max_context_tokens, expected_edits
     )
