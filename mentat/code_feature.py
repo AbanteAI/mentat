@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import math
 import os
 from collections import OrderedDict
@@ -240,7 +241,10 @@ def get_code_message_from_intervals(features: list[CodeFeature]) -> list[str]:
     for feature in features_sorted:
         starting_line = feature.interval.start
         if starting_line < next_line:
-            raise MentatError("Features overlap")
+            logging.warning(f"Features overlap: {feature}")
+            if feature.interval.end < next_line:
+                continue
+            feature.interval = Interval(next_line, feature.interval.end)
         elif starting_line > next_line:
             code_message += ["..."]
         code_message += feature.get_code_message()[1:-1]

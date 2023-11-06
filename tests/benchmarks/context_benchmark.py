@@ -194,6 +194,7 @@ async def test_code_context_performance(
             )
             scores[benchmark["commit"]] = results["score"]
             scores[benchmark["commit"]]["selected_features"] = results["features"]
+            scores[benchmark["commit"]]["edited_features"] = benchmark["edited_features"]
         except Exception as e:
             print(f"Error: '{e}'; skipping")
 
