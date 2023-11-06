@@ -3,10 +3,10 @@ from __future__ import annotations
 import asyncio
 import math
 import os
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Set
+from typing import Optional
 
 from mentat.code_map import get_code_map, get_ctags
 from mentat.diff_context import annotate_file_message, parse_diff
@@ -138,8 +138,9 @@ class CodeFeature:
 
     def __repr__(self):
         return (
-            f"CodeFeature(fname={self.path.name}, interval={self.interval},"
-            f" level={self.level}, diff={self.diff})"
+            f"CodeFeature(fname={self.path.name},"
+            f" interval={self.interval.start}-{self.interval.end},"
+            f" level={self.level.key}, diff={self.diff})"
         )
 
     def ref(self):
@@ -261,29 +262,3 @@ def get_code_message_from_features(features: list[CodeFeature]) -> list[str]:
         else:
             code_message += get_code_message_from_intervals(path_features)
     return code_message
-
-
-def code_features_difference(
-    a: list[CodeFeature], b: list[CodeFeature]
-) -> dict[Path, Set[int]]:
-    def _get_lines(features: list[CodeFeature]) -> dict[Path, Set[int]]:
-        lines: defaultdict[Path, Set[int]] = defaultdict(set)
-        for feature in features:
-            if feature.interval.end == math.inf:
-                n_lines = len(feature.path.read_text().splitlines())
-                start, end = 1, n_lines + 1
-            else:
-                start, end = feature.interval.start, feature.interval.end
-            for line in range(int(start), int(end)):
-                lines[feature.path].add(line)
-        return dict(lines)
-
-    a_lines = _get_lines(a)
-    b_lines = _get_lines(b)
-    differences: defaultdict[Path, Set[int]] = defaultdict(set)
-    for file in a_lines:
-        difference = a_lines[file] - b_lines[file]
-        if len(difference) > 0:
-            differences[file] = difference
-
-    return dict(differences)

@@ -81,8 +81,8 @@ class GreedyFeatureSelector(FeatureSelector, selector_name="greedy"):
 
 class LLMFeatureSelector(FeatureSelector, selector_name="llm"):
     feature_selection_prompt_path = Path("feature_selection_prompt.txt")
-    feature_selection_prompt_training_path = Path(
-        "feature_selection_prompt_training.txt"
+    feature_selection_training_prompt_path = Path(
+        "feature_selection_training_prompt.txt"
     )
     feature_selection_response_buffer = 500
 
@@ -122,7 +122,7 @@ class LLMFeatureSelector(FeatureSelector, selector_name="llm"):
                 f"{config.feature_selection_model}"
             )
         system_prompt = read_prompt(self.feature_selection_prompt_path)
-        training_prompt = read_prompt(self.feature_selection_prompt_training_path)
+        training_prompt = read_prompt(self.feature_selection_training_prompt_path)
         system_prompt = system_prompt.format(
             training_prompt=training_prompt if expected_edits else ""
         )
