@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import attr
+
 
 def parse_intervals(interval_string: str) -> list[Interval]:
     try:
@@ -15,14 +17,10 @@ def parse_intervals(interval_string: str) -> list[Interval]:
         return []
 
 
+@attr.define
 class Interval:
-    def __init__(
-        self,
-        start: int | float,
-        end: int | float,
-    ):
-        self.start = start
-        self.end = end
+    start: int | float = attr.field()
+    end: int | float = attr.field()
 
     def contains(self, line_number: int):
         return self.start <= line_number <= self.end
