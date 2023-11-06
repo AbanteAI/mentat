@@ -92,7 +92,9 @@ class Session:
                     conversation.add_user_message(message.data)
 
                 file_edits = await conversation.get_model_response()
-                file_edits = [file_edit for file_edit in file_edits if file_edit.is_valid()]
+                file_edits = [
+                    file_edit for file_edit in file_edits if file_edit.is_valid()
+                ]
                 if file_edits:
                     need_user_request = await get_user_feedback_on_edits(file_edits)
                 else:
