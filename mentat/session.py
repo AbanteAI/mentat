@@ -120,7 +120,6 @@ class Session:
                 pass
             except Exception:
                 traceback.print_exc()
-                exit(1)
 
         setup_logging()
         self._main_task: Task[None] = asyncio.create_task(run_main())
