@@ -7,6 +7,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from ipdb import set_trace
+
 from mentat.code_map import get_code_map, get_ctags
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.git_handler import get_diff_for_file
@@ -115,6 +117,9 @@ class CodeFeature:
         ctx = SESSION_CONTEXT.get()
 
         validated_path = validate_and_format_path(path=Path(path), cwd=ctx.cwd, check_for_text=False)
+
+        set_trace()
+
         if ":" in str(validated_path):
             interval_path, interval_str = str(validated_path).split(":", 1)
             self.path = Path(interval_path)

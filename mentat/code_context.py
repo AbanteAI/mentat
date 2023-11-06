@@ -1,12 +1,13 @@
 from __future__ import annotations
-from git import Diff
-from ipdb import set_trace
 
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 from textwrap import dedent
 from typing import Dict, Iterable, List, Optional, Set, Tuple
+
+from git import Diff
+from ipdb import set_trace
 
 from mentat.code_feature import (
     CodeFeature,
@@ -17,14 +18,22 @@ from mentat.code_feature import (
 from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.embeddings import get_feature_similarity_scores
-from mentat.errors import UserError, PathValidationException
+from mentat.errors import PathValidationException, UserError
 from mentat.git_handler import get_paths_with_git_diffs
-from mentat.include_files import build_path_tree, get_code_features_for_path, print_path_tree
-from mentat.utils.path import match_path_with_patterns, get_paths_for_directory, validate_and_format_path
+from mentat.include_files import (
+    build_path_tree,
+    get_code_features_for_path,
+    print_path_tree,
+)
 from mentat.llm_api import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import sha256
+from mentat.utils.path import (
+    get_paths_for_directory,
+    match_path_with_patterns,
+    validate_and_format_path,
+)
 
 
 def _get_all_features(
@@ -71,12 +80,6 @@ class CodeContext:
     def __init__(self, ignore_patterns: Iterable[Path] = [], diff_context: DiffContext | None = None):
         self.ignore_patterns = set(ignore_patterns)
         self.diff_context = diff_context
-
-        # try:
-        #     git_root = get_shared_git_root_for_paths(paths)
-        #     self.diff_context = DiffContext(stream, git_root, self.diff, self.pr_diff)
-        # except (UserError, subprocess.CalledProcessError):
-        #     self.diff_context = None
 
         # TODO: This is a dict so we can quickly reference either a path (key)
         # or the CodeFeature (value) and its interval. Redundant.
@@ -200,12 +203,17 @@ class CodeContext:
                 "",
             ]
         code_message += ["Code Files:\n"]
-        features = self._get_include_features()
+
+        # features = self._get_include_features()
+        features = list(self.include_files.values())
+
         meta_tokens = count_tokens("\n".join(code_message), model)  # NOTE: why does this take so long to run?
         include_feature_tokens = sum(await count_feature_tokens(features, model))
         _max_auto = max(0, max_tokens - meta_tokens - include_feature_tokens)
         _max_user = ctx.config.auto_tokens
         self.features = features
+
+        set_trace()
 
         if _max_auto == 0 or _max_user == 0:
             self.features = features
@@ -219,6 +227,8 @@ class CodeContext:
 
     def _get_include_features(self) -> list[CodeFeature]:
         ctx = SESSION_CONTEXT.get()
+
+        set_trace()
 
         include_features: List[CodeFeature] = []
         for path, feature in self.include_files.items():

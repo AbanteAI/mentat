@@ -1,11 +1,13 @@
 import fnmatch
-import re
 import os
+import re
 from pathlib import Path
-from typing import Iterable, Set, List
+from typing import Iterable, List, Set
 
-from mentat.git_handler import check_is_git_repo, get_non_gitignored_files
+from ipdb import set_trace
+
 from mentat.errors import PathValidationException
+from mentat.git_handler import check_is_git_repo, get_non_gitignored_files
 
 
 # TODO: replace this with something that doesn't load the file into memory
@@ -23,7 +25,12 @@ def is_file_text_encoded(abs_path: Path):
 def validate_and_format_path(path: Path, cwd: Path, check_for_text: bool = True) -> Path:
     """Validate and format a path.
 
-    `path` can be a file path, file interval path, directory path, or a glob pattern.
+    Args:
+        `path` - A file path, file interval path, directory path, or a glob pattern
+        `check_for_text` - Check if the file can be opened. Default to True
+
+    Return:
+        An absolute path
     """
     # Get absolute path
     if path.is_absolute():

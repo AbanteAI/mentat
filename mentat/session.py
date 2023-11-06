@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import subprocess
 from asyncio import Task
 from pathlib import Path
 from typing import List, Optional
@@ -12,7 +13,8 @@ from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
-from mentat.errors import MentatError, SessionExit
+from mentat.diff_context import DiffContext
+from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_shared_git_root_for_paths
 from mentat.llm_api import CostTracker, setup_api_key
 from mentat.logging_config import setup_logging
@@ -43,7 +45,12 @@ class Session:
 
         parser = parser_map[config.format]
 
-        code_context = CodeContext(self.stream, diff, pr_diff, ignore_paths)
+        try:
+            git_root = get_shared_git_root_for_paths(paths)
+            diff_context = DiffContext(self.stream, git_root, diff, pr_diff)
+        except (UserError, subprocess.CalledProcessError):
+            diff_context = None
+        code_context = CodeContext(ignore_paths, diff_context)
 
         code_file_manager = CodeFileManager()
 

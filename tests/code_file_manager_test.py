@@ -1,13 +1,12 @@
-from ipdb import set_trace
 import os
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from ipdb import set_trace
+from pytest_mock import MockFixture
 
 from mentat.config import Config
-
-from pytest_mock import MockFixture
 
 # from mentat.include_files import get_include_files
 from mentat.parsers.file_edit import FileEdit, Replacement
@@ -51,7 +50,6 @@ async def test_partial_files(mocker: MockFixture, mock_session_context: SessionC
         )
 
     file_path_partial = file_path + ":1,3-5"
-    # mock_session_context.code_context.include_files, _ = get_include_files([file_path_partial], [])
     mock_session_context.code_context.include(Path(file_path_partial))
     mocker.patch.object(Config, "auto_tokens", new=0)
     mock_session_context.code_context.code_map = False
@@ -59,6 +57,9 @@ async def test_partial_files(mocker: MockFixture, mock_session_context: SessionC
     code_message = await mock_session_context.code_context.get_code_message(
         "", mock_session_context.config.model, max_tokens=1000000
     )
+
+    set_trace()
+
     assert code_message == dedent(
         """\
             Code Files:
