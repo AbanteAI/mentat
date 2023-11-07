@@ -10,6 +10,7 @@ import attr
 from mentat.errors import MentatError, UserError
 from mentat.git_handler import commit
 from mentat.include_files import print_invalid_path
+from mentat.logging_config import get_transcript_logs
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import create_viewer
 
@@ -308,7 +309,9 @@ class ConversationCommand(Command, command_name="conversation"):
         session_context = SESSION_CONTEXT.get()
         conversation = session_context.conversation
 
-        viewer_path = create_viewer(conversation.literal_messages)
+        logs = get_transcript_logs()
+
+        viewer_path = create_viewer([("Current", conversation.literal_messages)] + logs)
         webbrowser.open(f"file://{viewer_path.resolve()}")
 
     @classmethod
