@@ -104,7 +104,7 @@ def warn_user(message: str, max_tries: int, details: Details):
     on_backoff=partial(warn_user, "Rate limit recieved from OpenAI's servers", 3),
 )
 async def call_llm_api(
-    messages: list[dict[str, str]], model: str
+    messages: list[dict[str, str]], model: str, **kwargs: dict[str, Any]
 ) -> AsyncGenerator[Any, None]:
     raise_if_in_test_environment()
     session_context = SESSION_CONTEXT.get()
@@ -117,6 +117,7 @@ async def call_llm_api(
             messages=messages,
             temperature=config.temperature,
             stream=True,
+            **kwargs,
         ),
     )
 

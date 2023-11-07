@@ -150,7 +150,7 @@ class Conversation:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         try:
-            response = await call_llm_api(messages, config.model)
+            response = await call_llm_api(messages, config.model, **parser.api_kwargs())
             stream.send(
                 "Streaming... use control-c to interrupt the model at any point\n"
             )

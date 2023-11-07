@@ -66,6 +66,9 @@ class Parser(ABC):
     def get_system_prompt(self) -> str:
         pass
 
+    def api_kwargs(self) -> dict[str, Any]:
+        return {}
+
     async def stream_and_parse_llm_response(
         self,
         response: AsyncGenerator[Any, None],
@@ -75,7 +78,7 @@ class Parser(ABC):
         1. 'conversation' lines, which are streamed as they come,
         2. 'special' lines, that are never shown to the user and contain information such as the file_name
         3. 'code' lines, which are the actual code written and are shown to the user in a special format
-        To make a parser that differs from these assumptions, make this functionality a subclass of Parser
+        To make a parser that differs from these assumptions, override this method instead of the helper methods
         """
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
@@ -333,6 +336,9 @@ class Parser(ABC):
     def provide_line_numbers(self) -> bool:
         return True
 
+    def line_number_starting_index(self) -> int:
+        return 1
+
     def _code_line_beginning(
         self, display_information: DisplayInformation, cur_block: str
     ) -> str:
@@ -355,29 +361,26 @@ class Parser(ABC):
         """
         return colored(content, color="green")
 
-    @abstractmethod
+    # These methods must be overriden if using the default stream and parse function
     def _could_be_special(self, cur_line: str) -> bool:
         """
         Returns if this current line could be a special line and therefore shouldn't be printed yet.
         Once line is completed, will include a newline character.
         """
-        pass
+        raise NotImplementedError()
 
-    @abstractmethod
     def _starts_special(self, line: str) -> bool:
         """
         Determines if this line begins a special block
         """
-        pass
+        raise NotImplementedError()
 
-    @abstractmethod
     def _ends_special(self, line: str) -> bool:
         """
         Determines if this line ends a special block
         """
-        pass
+        raise NotImplementedError()
 
-    @abstractmethod
     def _special_block(
         self,
         code_file_manager: CodeFileManager,
@@ -389,16 +392,14 @@ class Parser(ABC):
         After finishing special block, return DisplayInformation to print, FileEdit to add/merge to list,
         and if a code block follows this special block.
         """
-        pass
+        raise NotImplementedError()
 
-    @abstractmethod
     def _ends_code(self, line: str) -> bool:
         """
         Determines if this line ends a code block
         """
-        pass
+        raise NotImplementedError()
 
-    @abstractmethod
     def _add_code_block(
         self,
         code_file_manager: CodeFileManager,
@@ -412,4 +413,4 @@ class Parser(ABC):
         Using the special block, code block and display_information, edits the FileEdit to add the new code block.
         Can return a message to print after this change is finished.
         """
-        pass
+        raise NotImplementedError()
