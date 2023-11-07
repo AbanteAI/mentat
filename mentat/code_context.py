@@ -38,6 +38,7 @@ def _get_all_features(
     diff_context: DiffContext,
     code_map: bool,
     level: CodeMessageLevel,
+    max_chars: int = 100000,
 ) -> list[CodeFeature]:
     """Return a list of all features in the git root with given properties."""
 
@@ -48,6 +49,7 @@ def _get_all_features(
             abs_path.is_dir()
             or not is_file_text_encoded(abs_path)
             or abs_path in ignore_files
+            or os.path.getsize(abs_path) > max_chars
         ):
             continue
 
