@@ -1,32 +1,3 @@
-"""
-Given a codebase, a prompt and a token limit, code_context will auto-select
-features to include in the code_message. This script evaluates the 
-performance of that selection algorithm.
-
-Test Guidelines:
-- Codebase should be larger than the token limit
-- Prompts should be thorough and specific - give it the best chance to succeed
-- Tasks should draw on multiple files/features.
-
-Scoring:
-- Score based on the features (path, level, diff) auto-selected
-- Use traditional precision, recall and f1 scores:
-    - y_pred = [(f in code_context.features) for f in all_features]
-    - y_true = [(f in test.expected) for f in all_features]
-
-Fine-tuning:
-An auto-context process might look like this:
-1. Use local methods (embeddings) to select a full-context worth
-    of features
-2. Send the code_message of those features to gpt-3, and have it 
-    return a modified features spec [(path, level, diff)] based on what's
-    relevant and not. (Bonus: let gpt-3 ask for more info if it needs it)
-3. Use the modified features to get_code_message for gpt-4
-
-These tests can be used to train/score #1 or #2, but we'd expect #2 to score 
-a lot higher.
-"""
-
 import json
 import os
 from collections import defaultdict
@@ -41,29 +12,36 @@ from mentat.code_context import CodeContext
 from mentat.code_feature import CodeFeature, CodeMessageLevel
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
-from mentat.llm_api import CostTracker, setup_api_key
-from mentat.parsers.replacement_parser import ReplacementParser
+from mentat.interval import Interval
+from mentat.llm_api import CostTracker, count_tokens, model_context_size, setup_api_key
 from mentat.session_context import SESSION_CONTEXT, SessionContext
-from scripts.git_log_to_transcripts import MockStream
 from tests.benchmarks.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
-benchmarks_dir = Path(__file__).parent / "repos/for_transcripts"
+
+class MockStream:
+    def send(self, message, **kwargs):
+        end = kwargs.get("end", "\n")
+        print(message, end=end)
 
 
-def load_tests() -> dict[str, dict[str, Any]]:
-    tests = {}
-    benchmarks_path = benchmarks_dir / "benchmarks.json"
-    if benchmarks_path.exists():
-        with open(benchmarks_path, "r") as f:
-            tests = json.load(f)
-    return tests
+def _load_benchmarks() -> dict[str, dict[str, Any]]:
+    """Load all benchmarks found in tests/benchmarks/repos"""
+    benchmarks = {}
+    benchmarks_dir = Path(__file__).parent / "repos"
+    for repo_dir in benchmarks_dir.iterdir():
+        benchmarks_path = repo_dir / "benchmarks.json"
+        if benchmarks_path.exists():
+            with open(benchmarks_path, "r") as f:
+                benchmarks.update(json.load(f))
+    return benchmarks
 
 
-def features_to_line_sets(
+def _convert_features_to_line_sets(
     git_root: Path, features: list[CodeFeature]
 ) -> defaultdict[set]:
+    """Convert a list of features to a dict of {path: set(lines)} for comparison"""
     lines = defaultdict(set)
     for feature in features:
         # Non-explicit features (e.g. CodeMaps) are considered false positives.
@@ -79,16 +57,19 @@ def features_to_line_sets(
             interval = feature.interval
         else:
             n_lines = len(feature.get_code_message())
-            interval = (1, n_lines + 1)
+            interval = Interval(1, n_lines + 1)
         lines[path].update(range(interval.start, interval.end + 1))
     return lines
 
 
 def evaluate(
-    git_root: Path, actual: list[CodeFeature], expected: list[CodeFeature]
+    git_root: Path,
+    actual: list[CodeFeature],
+    expected: list[CodeFeature],
 ) -> dict[str, float]:
-    actual_lines = features_to_line_sets(git_root, actual)
-    expected_lines = features_to_line_sets(git_root, expected)
+    """Compare two lists of features and return precision, recall and f1 scores"""
+    actual_lines = _convert_features_to_line_sets(git_root, actual)
+    expected_lines = _convert_features_to_line_sets(git_root, expected)
 
     _TP, _FP, _FN = 0, 0, 0
     for file in actual_lines | expected_lines:
@@ -98,74 +79,128 @@ def evaluate(
         _FP += len(actual_set - expected_set)
         _FN += len(expected_set - actual_set)
 
-    print(f"True Positive:\t{_TP:.3f}")
-    print(f"False Positive:\t{_FP:.3f}")
-    print(f"False Negative:\t{_FN:.3f}")
-
-    precision, recall = None, None
+    precision, recall, f1 = None, None, None
     if (_TP + _FP) > 0:
         precision = _TP / (_TP + _FP)
-        print(
-            f"Precision:\t{precision:.3f}\t| How many selected features are relevant?"
-        )
     if (_TP + _FN) > 0:
         recall = _TP / (_TP + _FN)
-        print(f"Recall:\t\t{recall:.3f}\t| How many relevant features are selected?")
     if precision and recall:
         f1 = 2 * precision * recall / (precision + recall)
-        print(f"F1:\t\t{f1:.3f}\t| Weighted average of precision and recall")
+
+    return {"precision": precision, "recall": recall, "f1": f1}
+
+
+async def select_features_for_benchmark(
+    session_context, benchmark, eval=True, use_expected=False, use_llm=True
+):
+    """Select features for benchmark using expected edits as a guide"""
+    git_root = session_context.git_root
+    config = session_context.config
+    parser = config.parser
+    code_context = session_context.code_context
+
+    # The longest context that could have been included to generate expected_edits
+    model = config.model
+    mentat_prompt_tokens = count_tokens(parser.get_system_prompt(), model)
+    expected_edits, expected_edits_tokens = None, 0
+    if use_expected:
+        expected_edits = benchmark["expected_edits"]
+        expected_edits_tokens = count_tokens(expected_edits, model)
+    max_context_tokens = (
+        model_context_size(model) - mentat_prompt_tokens - expected_edits_tokens
+    )
+    # Fill-in available context
+    config.auto_tokens = 1e6
+    config.use_embeddings = True
+    code_context.use_llm = use_llm
+    await code_context.get_code_message(
+        benchmark["prompt"], model, max_context_tokens, expected_edits
+    )
+    git_root_length = len(str(git_root)) + 1
+    selected_features = [f.ref()[git_root_length:] for f in code_context.features]
+
+    selector_performance = {}
+    if eval:
+        edited_features = [
+            CodeFeature(git_root / f) for f in benchmark["edited_features"]
+        ]
+        selector_performance = evaluate(
+            git_root, code_context.features, edited_features
+        )
+    return {"features": selected_features, "score": selector_performance}
 
 
 @pytest.mark.asyncio
-async def test_code_context_performance(
-    mock_session_context, benchmarks, max_benchmarks
-):
+async def test_code_context_performance(benchmarks, max_benchmarks=10):
+    """Run a set of benchmarks and evaluate performance
+
+    Run standalone:
+        `pytest -s tests/benchmarks/context_benchmark.py --benchmark`
+    """
+    # Load applicable benchmarks
     setup_api_key()
-    tests = load_tests()
-
+    all_benchmarks = _load_benchmarks()
     if len(benchmarks) > 0:
-        tests_to_run = {k: v for k, v in tests.items() if k in benchmarks}
+        benchmarks_to_run = {k: v for k, v in all_benchmarks.items() if k in benchmarks}
     else:
-        tests_to_run = dict(islice(tests.items(), max_benchmarks))
+        benchmarks_to_run = dict(islice(all_benchmarks.items(), max_benchmarks))
 
-    for test in tests_to_run.values():
-        print(f"\n\n{test['name']}\n{test['prompt']}")
+    # Run each one
+    scores = {}
+    for benchmark in benchmarks_to_run.values():
+        print("\n" + benchmark["prompt"])
 
         # Setup the cwd the same way as in generate
-        codebase = clone_repo(test["codebase_url"], "for_transcripts")
+        url = benchmark["codebase_url"]
+        codebase = clone_repo(url=url, local_dir_name=url.split("/")[-1], refresh=False)
         os.chdir(codebase)
+        repo = Repo(".")
+        repo.git.checkout(benchmark["commit"])
 
         # Initialize a full SESSION_CONTEXT
         stream = MockStream()
-        git_root = Path.cwd()
-        config = Config(use_embeddings=True, auto_tokens=7000)
+        config = Config()
         code_context = CodeContext(stream, os.getcwd())
-        paths = test["args"].get("paths", [])
-        exclude_paths = test["args"].get("exclude_paths", [])
-        ignore_paths = test["args"].get("ignore_paths", [])
-        code_context.set_paths(paths, exclude_paths, ignore_paths)
         session_context = SessionContext(
             stream,
             CostTracker(),
-            git_root,
+            Path.cwd(),
             config,
-            ReplacementParser(),
             code_context,
             CodeFileManager(),
             None,
         )
         SESSION_CONTEXT.set(session_context)
-        repo = Repo(".")
-        repo.git.checkout(test["commit"])
 
-        # Get results with and without llm
-        expected_features = [
-            CodeFeature(git_root / f) for f in test["expected_features"]
-        ]
+        # Run the benchmark and print results
+        scores = []
+        for use_llm in [False, True]:
+            for use_expected in [False, True]:
+                try:
+                    if not use_llm and use_expected:
+                        continue  # Not relevant
+                    results = await select_features_for_benchmark(
+                        session_context,
+                        benchmark,
+                        eval=True,
+                        use_expected=use_expected,
+                        use_llm=use_llm,
+                    )
+                    score = {
+                        **results["score"],
+                        "selected_features": results["features"],
+                        "edited_features": benchmark["edited_features"],
+                        "use_llm": use_llm,
+                        "use_expected": use_expected,
+                    }
+                    scores.append(score)
+                    print(
+                        f"  UseExpected={use_expected}\t"
+                        f"| LLM={use_llm}\t"
+                        f"| Recall={(score['recall'] or 0.):.3f}\t"
+                        f"| Precision={(score['precision'] or 0.):.3f}"
+                    )
+                except Exception as e:
+                    print(f"Error: '{e}'; skipping")
 
-        _ = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)
-        evaluate(git_root, code_context.features, expected_features)
-
-        code_context.use_llm = True
-        _ = await code_context.get_code_message(test["prompt"], "gpt-4", 7000)
-        evaluate(git_root, code_context.features, expected_features)
+    return scores

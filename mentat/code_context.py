@@ -256,6 +256,7 @@ class CodeContext:
     def _get_all_features(
         self,
         level: CodeMessageLevel,
+        max_chars: int = 100000,
     ) -> list[CodeFeature]:
         session_context = SESSION_CONTEXT.get()
         git_root = session_context.git_root
@@ -267,6 +268,7 @@ class CodeContext:
                 abs_path.is_dir()
                 or not is_file_text_encoded(abs_path)
                 or abs_path in self.ignore_files
+                or os.path.getsize(abs_path) > max_chars
             ):
                 continue
 
@@ -299,7 +301,7 @@ class CodeContext:
                 )
                 all_features.append(_feature)
 
-        return sorted(all_features, key=lambda f: f.path.relative_to(git_root))
+        return sorted(all_features, key=lambda f: f.path)
 
     def include_file(self, path: Path):
         paths, invalid_paths = get_include_files([path], [])

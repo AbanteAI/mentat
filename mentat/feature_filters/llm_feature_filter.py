@@ -14,9 +14,6 @@ from mentat.session_context import SESSION_CONTEXT
 
 class LLMFeatureFilter(FeatureFilter):
     feature_selection_prompt_path = Path("feature_selection_prompt.txt")
-    feature_selection_prompt_training_path = Path(
-        "feature_selection_prompt_training.txt"
-    )
     feature_selection_response_buffer = 500
 
     def __init__(
@@ -46,10 +43,6 @@ class LLMFeatureFilter(FeatureFilter):
                 f"{config.feature_selection_model}"
             )
         system_prompt = read_prompt(self.feature_selection_prompt_path)
-        training_prompt = read_prompt(self.feature_selection_prompt_training_path)
-        system_prompt = system_prompt.format(
-            training_prompt=training_prompt if self.expected_edits else ""
-        )
         system_prompt_tokens = count_tokens(
             system_prompt, config.feature_selection_model
         )

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import traceback
 from asyncio import Task
 from pathlib import Path
 from typing import List, Optional
@@ -48,7 +49,7 @@ class Session:
 
         code_file_manager = CodeFileManager()
 
-        conversation = Conversation(config.parser)
+        conversation = Conversation()
 
         session_context = SessionContext(
             stream,
@@ -118,6 +119,8 @@ class Session:
                 await self.stop()
             except asyncio.CancelledError:
                 pass
+            except Exception:
+                traceback.print_exc()
 
         setup_logging()
         self._main_task: Task[None] = asyncio.create_task(run_main())

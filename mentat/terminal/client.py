@@ -111,6 +111,10 @@ class TerminalClient:
         signal.signal(signal.SIGINT, self._handle_sig_int)
 
     async def _startup(self):
+        def session_start_callback(_: asyncio.Task[None]):
+            """Shutdown the Terminal Client if the Session stops"""
+            self._should_exit.set()
+
         self.session = Session(
             self.paths,
             self.exclude_paths,
@@ -119,7 +123,8 @@ class TerminalClient:
             self.pr_diff,
             self.config,
         )
-        self.session.start()
+        session_start_task = self.session.start()
+        session_start_task.add_done_callback(session_start_callback)
         # Logging is setup in session.start()
         logging.debug("Running startup")
 

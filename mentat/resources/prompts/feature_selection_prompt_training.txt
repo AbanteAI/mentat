@@ -1,3 +1,0 @@
-You are currently being used to generate benchmarking data, so you'll be shown those Code Edits as well in order to maximize your performance.
-Make sure you don't only include the files/lines in those edits, but also 5 lines of padding in either direction,
-as well as unchanged but relevant segments of code from the codebase. 

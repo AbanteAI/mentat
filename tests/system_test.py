@@ -54,6 +54,25 @@ async def test_system(mock_call_llm_api, mock_setup_api_key, mock_collect_user_i
 
 
 @pytest.mark.asyncio
+async def test_system_exits_on_exception(
+    mock_call_llm_api, mock_setup_api_key, mock_collect_user_input
+):
+    mock_collect_user_input.set_stream_messages(
+        [
+            "respond with 'hello'",
+        ]
+    )
+
+    # if we don't catch this and shutdown properly, pytest will fail test
+    # with "Task was destroyed but it is pending!"
+    mock_call_llm_api.side_effect = Exception("Something went wrong")
+
+    session = Session()
+    await session.start()
+    session.stream.stop()
+
+
+@pytest.mark.asyncio
 async def test_interactive_change_selection(
     mock_call_llm_api, mock_setup_api_key, mock_collect_user_input
 ):
