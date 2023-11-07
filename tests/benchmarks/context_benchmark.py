@@ -114,7 +114,7 @@ async def select_features_for_benchmark(
     config.use_embeddings = True
     code_context.use_llm = use_llm
     await code_context.get_code_message(
-        benchmark["prompt"], model, max_context_tokens, expected_edits
+        benchmark["prompt"], max_context_tokens, expected_edits
     )
     git_root_length = len(str(git_root)) + 1
     selected_features = [f.ref()[git_root_length:] for f in code_context.features]

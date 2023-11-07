@@ -1,4 +1,3 @@
-
 import pytest
 
 from mentat.code_feature import CodeFeature, CodeMessageLevel
