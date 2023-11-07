@@ -11,6 +11,8 @@ class EmbeddingSimilarityFilter(FeatureFilter):
         self,
         features: list[CodeFeature],
     ) -> list[tuple[CodeFeature, float]]:
+        if self.query == "":
+            return [(f, 0.0) for f in features]
         sim_scores = await get_feature_similarity_scores(self.query, features)
         features_scored = zip(features, sim_scores)
         return sorted(features_scored, key=lambda x: x[1], reverse=True)
@@ -19,4 +21,6 @@ class EmbeddingSimilarityFilter(FeatureFilter):
         self,
         features: list[CodeFeature],
     ) -> list[CodeFeature]:
+        if self.query == "":
+            return features
         return [f for f, _ in await self.score(features)]

@@ -7,12 +7,12 @@ class TruncateFilter(FeatureFilter):
         self,
         max_tokens: int,
         model: str = "gpt-4",
-        code_map: bool = False,
+        levels: list[CodeMessageLevel] = [],
         respect_user_include: bool = True,
     ):
         self.max_tokens = max_tokens
         self.model = model
-        self.code_map = code_map
+        self.levels = levels
         self.respect_user_include = respect_user_include
 
     async def filter(
@@ -20,16 +20,10 @@ class TruncateFilter(FeatureFilter):
         features: list[CodeFeature],
     ) -> list[CodeFeature]:
         """Truncate the features to max_token tokens."""
-        levels = [CodeMessageLevel.FILE_NAME]
-        if self.code_map:
-            levels = [
-                CodeMessageLevel.CMAP_FULL,
-                CodeMessageLevel.CMAP,
-            ] + levels
         output = list[CodeFeature]()
         remaining_tokens = self.max_tokens
         for feature in features:
-            _levels = list(set(levels) | {feature.level})
+            _levels = list(set(self.levels) | {feature.level})
             _levels = sorted(list(_levels), key=lambda v: v.rank)
             for level in _levels:
                 feature.level = level

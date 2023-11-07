@@ -1,4 +1,3 @@
-from copy import deepcopy
 
 import pytest
 
@@ -18,23 +17,17 @@ async def test_truncate_feature_selector(temp_testbed, mock_session_context):
     ]
 
     feature_filter = TruncateFilter(100)
-    selected = await feature_filter.filter(deepcopy(all_features))
-    assert len(selected) == 2
-    assert selected[0].level == CodeMessageLevel.FILE_NAME
-    assert selected[1].level == CodeMessageLevel.CODE
+    selected = await feature_filter.filter(all_features)
+    assert len(selected) == 1
+    assert selected[0].path.name == "operations.py"
 
     feature_filter = TruncateFilter(200)
-    selected = await feature_filter.filter(deepcopy(all_features))
-    assert len(selected) == 2
-    assert selected[0].level == CodeMessageLevel.CODE
-    assert selected[1].level == CodeMessageLevel.FILE_NAME
-
-    feature_filter = TruncateFilter(188)
-    selected = await feature_filter.filter(deepcopy(all_features))
+    selected = await feature_filter.filter(all_features)
     assert len(selected) == 1
-    assert selected[0].level == CodeMessageLevel.CODE
+    assert selected[0].path.name == "calculator.py"
 
-    feature_filter = TruncateFilter(100, code_map=True)
-    selected = await feature_filter.filter(deepcopy(all_features))
-    assert len(selected) == 2
-    assert selected[0].level == CodeMessageLevel.CMAP_FULL
+    levels = [CodeMessageLevel.FILE_NAME]
+    feature_filter = TruncateFilter(100, levels=levels)
+    selected = await feature_filter.filter(all_features)
+    assert selected[0].level.key == "file_name"
+    assert selected[1].level.key == "code"

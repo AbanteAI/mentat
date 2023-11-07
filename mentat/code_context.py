@@ -215,17 +215,16 @@ class CodeContext:
             self.features = self._get_all_features(
                 CodeMessageLevel.INTERVAL,
             )
-
-        feature_filter = DefaultFilter(
-            remaining_tokens,
-            model,
-            self.code_map_enabled(),
-            config.use_embeddings,
-            self.use_llm,
-            prompt,
-            expected_edits,
-        )
-        self.features = await feature_filter.filter(self.features)
+            feature_filter = DefaultFilter(
+                remaining_tokens,
+                model,
+                self.code_map_enabled(),
+                config.use_embeddings,
+                self.use_llm,
+                prompt,
+                expected_edits,
+            )
+            self.features = await feature_filter.filter(self.features)
 
         # Group intervals by file, separated by ellipses if there are gaps
         code_message += get_code_message_from_features(self.features)

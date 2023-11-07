@@ -2,7 +2,11 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from mentat.code_feature import CodeFeature, get_code_message_from_features
+from mentat.code_feature import (
+    CodeFeature,
+    CodeMessageLevel,
+    get_code_message_from_features,
+)
 from mentat.errors import UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
@@ -21,10 +25,12 @@ class LLMFeatureFilter(FeatureFilter):
         max_tokens: int,
         model: str = "gpt-4",
         user_prompt: Optional[str] = None,
+        levels: list[CodeMessageLevel] = [],
         expected_edits: Optional[list[str]] = None,
     ):
         self.max_tokens = max_tokens
         self.user_prompt = user_prompt or ""
+        self.levels = levels
         self.expected_edits = expected_edits
 
     async def filter(
@@ -59,7 +65,9 @@ class LLMFeatureFilter(FeatureFilter):
             - expected_edits_tokens
             - self.feature_selection_response_buffer
         )
-        truncate_filter = TruncateFilter(preselect_max_tokens, model=model)
+        truncate_filter = TruncateFilter(
+            preselect_max_tokens, model=model, levels=self.levels
+        )
         preselected_features = await truncate_filter.filter(features)
 
         # Ask the model to return only relevant features
