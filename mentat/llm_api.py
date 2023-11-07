@@ -160,7 +160,9 @@ def is_model_available(model: str) -> bool:
 
 
 def model_context_size(model: str) -> Optional[int]:
-    if "gpt-4" in model:
+    if model == "gpt-4-1106-preview":
+        return 131072
+    elif "gpt-4" in model:
         if "32k" in model:
             return 32768
         else:
@@ -178,7 +180,9 @@ def model_context_size(model: str) -> Optional[int]:
 
 def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
     """Returns (input, output) cost per 1000 tokens in USD"""
-    if "gpt-4" in model:
+    if model == "gpt-4-1106-preview":
+        return (0.01, 0.03)
+    elif "gpt-4" in model:
         if "32k" in model:
             return (0.06, 0.12)
         else:
