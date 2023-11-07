@@ -133,7 +133,7 @@ async def translate_commits_to_transcripts(repo, count=10):
             parsedLLMResponse = GitParser().parse_string(shown)
 
             code_context.set_paths(bound_files(parsedLLMResponse.file_edits), [])
-            code_message = await code_context.get_code_message("", "gpt-4-0314", 0)
+            code_message = await code_context.get_code_message("", 0)
             commit_summary = gpt_commit_summary(sha, shown)
             prompt = commit_summary["request"]
             plan = commit_summary["plan"]

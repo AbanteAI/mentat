@@ -5,10 +5,9 @@ from unittest import TestCase
 
 import pytest
 
-from mentat.code_context import CodeContext, _get_all_features
+from mentat.code_context import CodeContext
 from mentat.code_feature import CodeMessageLevel
 from mentat.config import Config
-from mentat.diff_context import DiffContext
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
 from mentat.llm_api import count_tokens
@@ -213,20 +212,14 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
         "mentat.code_context.CodeContext._get_code_message"
     )
     mock_get_code_message.return_value = "test1"
-    value1 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value1 = await code_context.get_code_message(prompt="", max_tokens=1e6)
     mock_get_code_message.return_value = "test2"
-    value2 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value2 = await code_context.get_code_message(prompt="", max_tokens=1e6)
     assert value1 == value2
 
     # Regenerate if settings change
     mocker.patch.object(Config, "auto_tokens", new=11)
-    value3 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value3 = await code_context.get_code_message(prompt="", max_tokens=1e6)
     assert value1 != value3
 
     # Regenerate if feature files change
@@ -234,9 +227,7 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
     lines = file.read_text().splitlines()
     lines[0] = "something different"
     file.write_text("\n".join(lines))
-    value4 = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    value4 = await code_context.get_code_message(prompt="", max_tokens=1e6)
     assert value3 != value4
 
 
@@ -253,9 +244,7 @@ async def test_get_code_message_include(mocker, temp_testbed, mock_session_conte
 
     # If max tokens is less than include_files, return include_files without
     # raising and Exception (that's handled elsewhere)
-    code_message = await code_context.get_code_message(
-        prompt="", model="gpt-4", max_tokens=1e6
-    )
+    code_message = await code_context.get_code_message(prompt="", max_tokens=1e6)
     expected = [
         "Code Files:",
         "",
@@ -304,9 +293,7 @@ async def test_auto_tokens(mocker, temp_testbed, mock_session_context):
 
     async def _count_auto_tokens_where(limit: int) -> int:
         mocker.patch.object(Config, "auto_tokens", new=limit)
-        code_message = await code_context.get_code_message(
-            prompt="", model="gpt-4", max_tokens=limit
-        )
+        code_message = await code_context.get_code_message(prompt="", max_tokens=limit)
         return count_tokens(code_message, "gpt-4")
 
     assert await _count_auto_tokens_where(1e6) == 85  # Code
@@ -328,17 +315,11 @@ def test_get_all_features(temp_testbed, mock_session_context):
         file2.write("def sample_function():\n    pass\n")
 
     # Test without include_files
-    diff_context = DiffContext(
-        mock_session_context.stream, mock_session_context.git_root
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
     )
-    features = _get_all_features(
-        git_root=mock_session_context.git_root,
-        include_files={},
-        ignore_files=set(),
-        diff_context=diff_context,
-        code_map=False,
-        level=CodeMessageLevel.CODE,
-    )
+    features = code_context._get_all_features(level=CodeMessageLevel.CODE)
     assert len(features) == 2
     feature1 = next(f for f in features if f.path == path1)
     feature2 = next(f for f in features if f.path == path2)
@@ -350,17 +331,8 @@ def test_get_all_features(temp_testbed, mock_session_context):
         assert feature.user_included is False
 
     # Test with include_files argument matching one file
-    include_files = {
-        path1: feature1,
-    }
-    features = _get_all_features(
-        git_root=mock_session_context.git_root,
-        include_files=include_files,
-        ignore_files=set(),
-        diff_context=diff_context,
-        code_map=False,
-        level=CodeMessageLevel.FILE_NAME,
-    )
+    code_context.set_paths([path1], [])
+    features = code_context._get_all_features(level=CodeMessageLevel.FILE_NAME)
     assert len(features) == 2
     feature1b = next(f for f in features if f.path == path1)
     feature2b = next(f for f in features if f.path == path2)
@@ -378,7 +350,7 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
         mock_session_context.git_root,
     )
     code_context.set_paths([], [], ["scripts", "**/*.txt"])
-    code_message = await code_context.get_code_message("", "gpt-4", 1e6)
+    code_message = await code_context.get_code_message("", 1e6)
 
     # Iterate through all files in temp_testbed; if they're not in the ignore
     # list, they should be in the code message.

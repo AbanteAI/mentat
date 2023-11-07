@@ -123,6 +123,22 @@ async def call_llm_api(
     return _add_newline(response)
 
 
+async def call_llm_api_sync(model: str, messages: list[dict[str, str]]) -> str:
+    raise_if_in_test_environment()
+
+    session_context = SESSION_CONTEXT.get()
+    config = session_context.config
+
+    response = await openai.ChatCompletion.acreate(  # type: ignore
+        model=model,
+        messages=messages,
+        temperature=config.temperature,
+    )
+
+    # Create output features from the response
+    return cast(str, response["choices"][0]["message"]["content"])  # type: ignore
+
+
 async def call_embedding_api(
     input: list[str], model: str = "text-embedding-ada-002"
 ) -> list[list[float]]:

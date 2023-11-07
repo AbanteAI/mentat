@@ -90,7 +90,7 @@ class Config:
         },
         converter=converters.optional(converters.to_bool),
     )
-    auto_tokens: int | None = attr.field(
+    auto_tokens: int = attr.field(
         default=0,
         metadata={
             "description": (
@@ -99,7 +99,7 @@ class Config:
             ),
             "abbreviation": "a",
         },
-        converter=int_or_none,
+        converter=int,
         validator=validators.optional(validators.ge(0)),
     )
 

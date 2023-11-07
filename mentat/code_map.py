@@ -1,6 +1,7 @@
 import json
 import subprocess
 import tempfile
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -102,6 +103,7 @@ def get_code_map(abs_file_path: Path, exclude_signatures: bool = False) -> list[
     return _make_ctags_human_readable(ctags)
 
 
+@cache
 def check_ctags_disabled() -> str | None:
     try:
         cmd = ["ctags", "--version"]

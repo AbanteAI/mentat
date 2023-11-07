@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import pytest
 
 from mentat.code_map import check_ctags_disabled, get_code_map, get_ctags
@@ -38,5 +40,13 @@ def test_get_code_map(temp_testbed, mock_session_context):
 
 
 @pytest.mark.no_git_testbed
-def test_check_ctags_disabled(temp_testbed):
+def test_check_ctags_disabled(mocker, temp_testbed):
     assert check_ctags_disabled() is None
+
+    # mock subprocess.check_output
+    mock = mocker.patch(
+        "mentat.code_map.subprocess.check_output",
+        new_callable=MagicMock,
+    )
+    check_ctags_disabled()
+    assert not mock.called

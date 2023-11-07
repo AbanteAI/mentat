@@ -73,7 +73,7 @@ class Conversation:
             else:
                 context_size = maximum_context
         tokens = count_tokens(
-            await code_context.get_code_message("", config.model, max_tokens=0),
+            await code_context.get_code_message("", max_tokens=0),
             config.model,
         ) + count_tokens(conversation_history, config.model)
 
@@ -182,7 +182,6 @@ class Conversation:
         response_buffer = 1000
         code_message = await code_context.get_code_message(
             messages_snapshot[-1]["content"],
-            config.model,
             self.max_tokens - tokens - response_buffer,
         )
         messages_snapshot.append({"role": "system", "content": code_message})
