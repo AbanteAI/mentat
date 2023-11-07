@@ -161,7 +161,7 @@ def is_model_available(model: str) -> bool:
 
 def model_context_size(model: str) -> Optional[int]:
     if model == "gpt-4-1106-preview":
-        return 131072
+        return 128000
     elif "gpt-4" in model:
         if "32k" in model:
             return 32768
