@@ -1,11 +1,13 @@
-import gzip
+import asyncio
 import json
 import logging
 import os
+import sqlite3
 from pathlib import Path
 from timeit import default_timer
 
 import numpy as np
+from openai.error import RateLimitError
 
 from mentat.code_feature import CodeFeature, count_feature_tokens
 from mentat.errors import MentatError
@@ -19,35 +21,50 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
 from mentat.utils import mentat_dir_path, sha256
 
+MAX_SIMULTANEOUS_REQUESTS = 10
+
 
 class EmbeddingsDatabase:
-    # { sha256 : [ embedding_dim(1536) floats ] }
-    _dict: dict[str, list[float]] = dict[str, list[float]]()
-
     def __init__(self, output_dir: Path | None = None):
-        if output_dir is None:
-            output_dir = mentat_dir_path
-        os.makedirs(output_dir, exist_ok=True)
-        self.path = Path(output_dir) / "embeddings.json.gz"
-        if self.path.exists():
-            try:
-                with gzip.open(self.path, "rt") as f:
-                    self._dict = json.load(f)
-            except gzip.BadGzipFile:
-                logging.warning(f"Could not load embeddings from {self.path}.")
+        self.output_dir = output_dir or mentat_dir_path
+        os.makedirs(self.output_dir, exist_ok=True)
+        self.path = Path(self.output_dir) / "embeddings.sqlite3"
+        self._connect()
 
-    def save(self):
-        with gzip.open(self.path, "wt") as f:
-            json.dump(self._dict, f)
+    def _connect(self):
+        self.conn = sqlite3.connect(self.path)
+        with self.conn as db:
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS embeddings "
+                "(checksum TEXT PRIMARY KEY, vector BLOB)"
+            )
 
-    def __getitem__(self, key: str) -> list[float]:
-        return self._dict[key]
+    def set(self, items: dict[str, list[float]]):
+        with self.conn as db:
+            db.executemany(
+                "INSERT OR REPLACE INTO embeddings (checksum, vector) VALUES (?, ?)",
+                [
+                    (key, sqlite3.Binary(json.dumps(value).encode("utf-8")))
+                    for key, value in items.items()
+                ],
+            )
 
-    def __setitem__(self, key: str, value: list[float]):
-        self._dict[key] = value
+    def get(self, keys: list[str]) -> dict[str, list[float]]:
+        with self.conn as db:
+            cursor = db.execute(
+                "SELECT checksum, vector FROM embeddings WHERE checksum IN"
+                f" ({','.join(['?']*len(keys))})",
+                keys,
+            )
+            return {row[0]: json.loads(row[1]) for row in cursor.fetchall()}
 
-    def __contains__(self, key: str) -> bool:
-        return key in self._dict
+    def exists(self, key: str) -> bool:
+        with self.conn as db:
+            cursor = db.execute("SELECT 1 FROM embeddings WHERE checksum=?", (key,))
+            return cursor.fetchone() is not None
+
+    def __del__(self):
+        self.conn.close()
 
 
 database = EmbeddingsDatabase()
@@ -69,6 +86,21 @@ def _batch_ffd(data: dict[str, int], batch_size: int) -> list[list[str]]:
         if not placed:
             batches.append([key])
     return batches
+
+
+embedding_api_semaphore = asyncio.Semaphore(MAX_SIMULTANEOUS_REQUESTS)
+
+
+async def _fetch_embeddings(model: str, batch: list[str], retries: int = 3, wait_time: int = 20):
+    async with embedding_api_semaphore:
+        for _ in range(retries):
+            try:
+                response = await call_embedding_api(batch, model)
+                return response
+            except RateLimitError:
+                logging.warning("Rate limit error, retrying...")
+                await asyncio.sleep(wait_time)
+        raise RateLimitError("Rate limit error after retries.")
 
 
 def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
@@ -101,13 +133,13 @@ async def get_feature_similarity_scores(
     items_to_embed_tokens = dict[str, int]()
     prompt_checksum = sha256(prompt)
     num_prompt_tokens = 0
-    if prompt_checksum not in database:
+    if not database.exists(prompt_checksum):
         items_to_embed[prompt_checksum] = prompt
         items_to_embed_tokens[prompt_checksum] = count_tokens(prompt, embedding_model)
     for feature, checksum, token in zip(features, checksums, tokens):
         if token > max_model_tokens:
             continue
-        if checksum not in database:
+        if not database.exists(checksum):
             feature_content = feature.get_code_message()
             # Remove line numbering
             items_to_embed[checksum] = "\n".join(feature_content)
@@ -134,30 +166,30 @@ async def get_feature_similarity_scores(
 
     # Fetch embeddings in batches
     batches = _batch_ffd(items_to_embed_tokens, max_model_tokens)
+    if len(batches) > MAX_SIMULTANEOUS_REQUESTS:
+        stream.send(f"Embedding {len(batches)} batches...")
+
     _start_time = default_timer()
-    for i, batch in enumerate(batches):
+    tasks = list[tuple[asyncio.Task[list[list[float]]], list[str]]]()
+    for batch in batches:
         batch_content = [items_to_embed[k] for k in batch]
-        stream.send(f"Embedding batch {i + 1}/{len(batches)}...")
-        response = await call_embedding_api(batch_content, embedding_model)
-        for k, v in zip(batch, response):
-            database[k] = v
+        task = asyncio.create_task(_fetch_embeddings(embedding_model, batch_content))
+        tasks.append((task, batch))
+    for task, batch in tasks:
+        response = await task
+        database.set({k: v for k, v in zip(batch, response)})
     if len(batches) > 0:
-        database.save()
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
-            0,
+            num_prompt_tokens,
             embedding_model,
             default_timer() - _start_time,
             decimal_places=4,
         )
 
     # Calculate similarity score for each feature
-    prompt_embedding = database[prompt_checksum]
-    scores = [0.0 for _ in checksums]
-    for i, checksum in enumerate(checksums):
-        if checksum not in database:
-            continue
-        feature_embedding = database[checksum]
-        scores[i] = _cosine_similarity(prompt_embedding, feature_embedding)
+    prompt_embedding = database.get([prompt_checksum])[prompt_checksum]
+    embeddings = database.get(checksums)
+    scores = [_cosine_similarity(prompt_embedding, embeddings[k]) for k in checksums]
 
     return scores
