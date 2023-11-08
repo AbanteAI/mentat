@@ -51,6 +51,7 @@ class CodeContext:
         # or the CodeFeatures (value) and their intervals. Redundant.
         self.include_files = {}
         self.ignore_files = set()
+        self.ctags_disabled = check_ctags_disabled()
 
     def set_paths(
         self,
@@ -91,9 +92,9 @@ class CodeContext:
             stream.send(f"{prefix}Included files: None", color="yellow")
         if config.auto_context:
             stream.send(f"{prefix}Auto-Context: Enabled", color="green")
-            if check_ctags_disabled():
+            if self.ctags_disabled:
                 stream.send(
-                    f"{prefix}Code Maps Disbled: {check_ctags_disabled()}",
+                    f"{prefix}Code Maps Disbled: {self.ctags_disabled}",
                     color="yellow",
                 )
         else:
@@ -135,7 +136,7 @@ class CodeContext:
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
             "prompt": prompt,
-            "code_map_disabled": check_ctags_disabled(),
+            "code_map_disabled": self.ctags_disabled,
             "auto_context": config.auto_context,
             "use_llm": self.use_llm,
             "diff": self.diff,
@@ -200,7 +201,7 @@ class CodeContext:
             feature_filter = DefaultFilter(
                 remaining_tokens,
                 model,
-                not (bool(check_ctags_disabled())),
+                not (bool(self.ctags_disabled)),
                 self.use_llm,
                 prompt,
                 expected_edits,
@@ -266,7 +267,7 @@ class CodeContext:
                     diff=diff_target,
                     user_included=user_included,
                 )
-                if check_ctags_disabled():
+                if self.ctags_disabled:
                     all_features.append(full_feature)
                 else:
                     _split_features = split_file_into_intervals(
