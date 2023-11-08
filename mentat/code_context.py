@@ -190,7 +190,7 @@ class CodeContext:
             ]
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model)
-        remaining_tokens = max(0, max_tokens - meta_tokens)
+        remaining_tokens = max_tokens - meta_tokens
 
         if not config.auto_context or remaining_tokens <= 0:
             self.features = self._get_include_features()
