@@ -75,15 +75,6 @@ class Config:
         default=[],
         metadata={"description": "List of glob patterns to exclude from context"},
     )
-    no_code_map: bool = attr.field(
-        default=False,
-        metadata={
-            "description": (
-                "Exclude the file structure/syntax map from the system prompt"
-            )
-        },
-        converter=converters.optional(converters.to_bool),
-    )
     auto_tokens: int = attr.field(
         default=0,
         metadata={

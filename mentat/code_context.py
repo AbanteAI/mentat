@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from textwrap import dedent
 from typing import Optional
 
 from mentat.code_feature import (
@@ -34,7 +33,6 @@ class CodeContext:
     include_files: dict[Path, list[CodeFeature]]
     ignore_files: set[Path]
     diff_context: DiffContext
-    code_map: bool = True
     features: list[CodeFeature] = []
     diff: Optional[str] = None
     pr_diff: Optional[str] = None
@@ -67,27 +65,6 @@ class CodeContext:
             print_invalid_path(invalid_path)
         self.ignore_files = get_ignore_files(ignore_paths)
 
-    def code_map_enabled(self):
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        stream = session_context.stream
-
-        if config.no_code_map:
-            return False
-        else:
-            disabled_reason = check_ctags_disabled()
-            if disabled_reason:
-                ctags_disabled_message = f"""
-                    There was an error with your universal ctags installation, disabling CodeMap.
-                    Reason: {disabled_reason}
-                """
-                ctags_disabled_message = dedent(ctags_disabled_message)
-                stream.send(ctags_disabled_message, color="yellow")
-                config.no_code_map = True
-                return False
-            else:
-                return True
-
     def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
         session_context = SESSION_CONTEXT.get()
@@ -115,8 +92,9 @@ class CodeContext:
         auto = config.auto_tokens
         if auto != 0:
             stream.send(f"{prefix}Auto-token limit: {auto}")
+            disabled_reason = check_ctags_disabled()
             stream.send(
-                f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
+                f"{prefix}CodeMaps: {disabled_reason or 'Enabled'}"
             )
 
     def display_features(self):
@@ -137,7 +115,7 @@ class CodeContext:
     _code_message: str | None = None
     _code_message_checksum: str | None = None
 
-    def _get_code_message_checksum(self, max_tokens: Optional[int] = None) -> str:
+    def _get_code_message_checksum(self, prompt: str = "", max_tokens: Optional[int] = None) -> str:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         git_root = session_context.git_root
@@ -152,7 +130,8 @@ class CodeContext:
             ]
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
-            "code_map": self.code_map_enabled(),
+            "prompt": prompt,
+            "code_map_disabled": check_ctags_disabled(),
             "auto_tokens": config.auto_tokens,
             "use_llm": self.use_llm,
             "diff": self.diff,
@@ -169,7 +148,7 @@ class CodeContext:
         max_tokens: int,
         expected_edits: Optional[list[str]] = None,  # for training/benchmarking
     ) -> str:
-        code_message_checksum = self._get_code_message_checksum(max_tokens)
+        code_message_checksum = self._get_code_message_checksum(prompt, max_tokens)
         if (
             self._code_message is None
             or code_message_checksum != self._code_message_checksum
@@ -177,7 +156,7 @@ class CodeContext:
             self._code_message = await self._get_code_message(
                 prompt, max_tokens, expected_edits
             )
-            self._code_message_checksum = self._get_code_message_checksum(max_tokens)
+            self._code_message_checksum = self._get_code_message_checksum(prompt, max_tokens)
         return self._code_message
 
     use_llm: bool = False
@@ -217,7 +196,7 @@ class CodeContext:
             feature_filter = DefaultFilter(
                 remaining_tokens,
                 model,
-                self.code_map_enabled(),
+                not(bool(check_ctags_disabled())),
                 self.use_llm,
                 prompt,
                 expected_edits,
@@ -283,7 +262,7 @@ class CodeContext:
                     diff=diff_target,
                     user_included=user_included,
                 )
-                if not self.code_map_enabled():
+                if check_ctags_disabled():
                     all_features.append(full_feature)
                 else:
                     _split_features = split_file_into_intervals(
