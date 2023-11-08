@@ -21,8 +21,6 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
 from mentat.utils import mentat_dir_path, sha256
 
-EMBEDDING_MODEL = "text-embedding-ada-002"
-EMBEDDING_DIM = 1536
 MAX_SIMULTANEOUS_REQUESTS = 10
 
 
@@ -93,11 +91,13 @@ def _batch_ffd(data: dict[str, int], batch_size: int) -> list[list[str]]:
 embedding_api_semaphore = asyncio.Semaphore(MAX_SIMULTANEOUS_REQUESTS)
 
 
-async def _fetch_embeddings(batch: list[str], retries: int = 3, wait_time: int = 20):
+async def _fetch_embeddings(
+    model: str, batch: list[str], retries: int = 3, wait_time: int = 20
+):
     async with embedding_api_semaphore:
         for _ in range(retries):
             try:
-                response = await call_embedding_api(batch, EMBEDDING_MODEL)
+                response = await call_embedding_api(batch, model)
                 return response
             except RateLimitError:
                 logging.warning("Rate limit error, retrying...")
@@ -121,13 +121,14 @@ async def get_feature_similarity_scores(
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
     cost_tracker = session_context.cost_tracker
-    max_model_tokens = model_context_size(EMBEDDING_MODEL)
+    embedding_model = session_context.config.embedding_model
+    max_model_tokens = model_context_size(embedding_model)
     if max_model_tokens is None:
-        raise MentatError(f"Missing model context size for {EMBEDDING_MODEL}.")
+        raise MentatError(f"Missing model context size for {embedding_model}.")
 
     # Keep things in the same order
     checksums: list[str] = [f.get_checksum() for f in features]
-    tokens: list[int] = await count_feature_tokens(features, EMBEDDING_MODEL)
+    tokens: list[int] = await count_feature_tokens(features, embedding_model)
 
     # Make a checksum:content dict of all items that need to be embedded
     items_to_embed = dict[str, str]()
@@ -136,7 +137,7 @@ async def get_feature_similarity_scores(
     num_prompt_tokens = 0
     if not database.exists(prompt_checksum):
         items_to_embed[prompt_checksum] = prompt
-        items_to_embed_tokens[prompt_checksum] = count_tokens(prompt, EMBEDDING_MODEL)
+        items_to_embed_tokens[prompt_checksum] = count_tokens(prompt, embedding_model)
     for feature, checksum, token in zip(features, checksums, tokens):
         if token > max_model_tokens:
             continue
@@ -148,7 +149,7 @@ async def get_feature_similarity_scores(
             num_prompt_tokens += token
 
     # If it costs more than $1, get confirmation from user.
-    cost = model_price_per_1000_tokens(EMBEDDING_MODEL)
+    cost = model_price_per_1000_tokens(embedding_model)
     if cost is None:
         stream.send(
             "Warning: Could not determine cost of embeddings. Continuing anyway.",
@@ -174,7 +175,7 @@ async def get_feature_similarity_scores(
     tasks = list[tuple[asyncio.Task[list[list[float]]], list[str]]]()
     for batch in batches:
         batch_content = [items_to_embed[k] for k in batch]
-        task = asyncio.create_task(_fetch_embeddings(batch_content))
+        task = asyncio.create_task(_fetch_embeddings(embedding_model, batch_content))
         tasks.append((task, batch))
     for task, batch in tasks:
         response = await task
@@ -183,7 +184,7 @@ async def get_feature_similarity_scores(
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             num_prompt_tokens,
-            EMBEDDING_MODEL,
+            embedding_model,
             default_timer() - _start_time,
             decimal_places=4,
         )

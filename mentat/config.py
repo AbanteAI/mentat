@@ -31,6 +31,7 @@ class Config:
     # Model specific settings
     model: str = attr.field(default="gpt-4-0314")
     feature_selection_model: str = attr.field(default="gpt-4-0314")
+    embedding_model: str = attr.field(default="text-embedding-ada-002")
     temperature: float = attr.field(
         default=0.5, converter=float, validator=[validators.le(1), validators.ge(0)]
     )
@@ -74,33 +75,13 @@ class Config:
         default=[],
         metadata={"description": "List of glob patterns to exclude from context"},
     )
-    use_embeddings: bool = attr.field(
+    auto_context: bool = attr.field(
         default=False,
         metadata={
-            "description": "Fetch/compare embeddings to auto-generate code context"
-        },
-        converter=converters.optional(converters.to_bool),
-    )
-    no_code_map: bool = attr.field(
-        default=False,
-        metadata={
-            "description": (
-                "Exclude the file structure/syntax map from the system prompt"
-            )
-        },
-        converter=converters.optional(converters.to_bool),
-    )
-    auto_tokens: int = attr.field(
-        default=0,
-        metadata={
-            "description": (
-                "Maximum number of auto-generated tokens to include in the prompt"
-                " context"
-            ),
+            "description": "Automatically select code files to include in context.",
             "abbreviation": "a",
         },
-        converter=int,
-        validator=validators.optional(validators.ge(0)),
+        converter=converters.optional(converters.to_bool),
     )
 
     # Only settable by config file
