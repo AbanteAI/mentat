@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from textwrap import dedent
-from timeit import default_timer
 from typing import Optional
 
 from mentat.code_feature import (
@@ -171,10 +170,7 @@ class CodeContext:
         max_tokens: int,
         expected_edits: Optional[list[str]] = None,  # for training/benchmarking
     ) -> str:
-        t1 = default_timer()
         code_message_checksum = self._get_code_message_checksum(max_tokens)
-        t2 = default_timer()
-        print('_get_code_message_checksum in', t2 - t1)
         if (
             self._code_message is None
             or code_message_checksum != self._code_message_checksum
@@ -182,7 +178,6 @@ class CodeContext:
             self._code_message = await self._get_code_message(
                 prompt, max_tokens, expected_edits
             )
-            print('get_code_message in', default_timer() - t2)
             self._code_message_checksum = self._get_code_message_checksum(max_tokens)
         return self._code_message
 
@@ -197,7 +192,6 @@ class CodeContext:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         model = config.model
-        t1 = default_timer()
 
         # Setup code message metadata
         code_message = list[str]()
@@ -210,25 +204,17 @@ class CodeContext:
                 "",
             ]
         code_message += ["Code Files:\n"]
-        t2 = default_timer()
-        print('Setup meta in', t2 - t1)
         meta_tokens = count_tokens("\n".join(code_message), model)
-        t3 = default_timer()
-        print('Join and count tokens in', t3 - t2)
 
         auto_tokens = config.auto_tokens
         remaining_tokens = max(0, min(auto_tokens, max_tokens - meta_tokens))
 
         if remaining_tokens == 0:
             self.features = self._get_include_features()
-            t4 = default_timer()
-            print('Get default features in', t4 - t3)
         else:
             self.features = self._get_all_features(
                 CodeMessageLevel.INTERVAL,
             )
-            t4 = default_timer()
-            print('Get all features in', t4 - t3)
             feature_filter = DefaultFilter(
                 remaining_tokens,
                 model,
@@ -238,16 +224,10 @@ class CodeContext:
                 prompt,
                 expected_edits,
             )
-            t5 = default_timer()
-            print('Setup feature filter in', t5 - t4)
             self.features = await feature_filter.filter(self.features)
-            t6 = default_timer()
-            print('Filter features in', t6 - t5)
 
         # Group intervals by file, separated by ellipses if there are gaps
-        t7 = default_timer()
         code_message += get_code_message_from_features(self.features)
-        print('Get code message from features in', default_timer() - t7)
         return "\n".join(code_message)
 
     def _get_include_features(self) -> list[CodeFeature]:
