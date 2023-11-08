@@ -91,7 +91,9 @@ def _batch_ffd(data: dict[str, int], batch_size: int) -> list[list[str]]:
 embedding_api_semaphore = asyncio.Semaphore(MAX_SIMULTANEOUS_REQUESTS)
 
 
-async def _fetch_embeddings(model: str, batch: list[str], retries: int = 3, wait_time: int = 20):
+async def _fetch_embeddings(
+    model: str, batch: list[str], retries: int = 3, wait_time: int = 20
+):
     async with embedding_api_semaphore:
         for _ in range(retries):
             try:
