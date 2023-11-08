@@ -1,10 +1,13 @@
 import json
+import logging
 import os
 from pathlib import Path
 from timeit import default_timer
 import sqlite3
 
+import asyncio
 import numpy as np
+from openai.error import RateLimitError
 
 from mentat.code_feature import CodeFeature, count_feature_tokens
 from mentat.errors import MentatError
@@ -20,6 +23,7 @@ from mentat.utils import mentat_dir_path, sha256
 
 EMBEDDING_MODEL = "text-embedding-ada-002"
 EMBEDDING_DIM = 1536
+MAX_SIMULTANEOUS_REQUESTS = 10
 
 
 class EmbeddingsDatabase:
@@ -84,6 +88,19 @@ def _batch_ffd(data: dict[str, int], batch_size: int) -> list[list[str]]:
     return batches
 
 
+embedding_api_semaphore = asyncio.Semaphore(MAX_SIMULTANEOUS_REQUESTS)
+async def _fetch_embeddings(batch: list[str], retries: int=3, wait_time: int=20):
+    async with embedding_api_semaphore:
+        for _ in range(retries):
+            try:
+                response = await call_embedding_api(batch, EMBEDDING_MODEL)
+                return response
+            except RateLimitError:
+                logging.warning("Rate limit error, retrying...")
+                await asyncio.sleep(wait_time)
+        raise RateLimitError("Rate limit error after retries.")
+
+
 def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
     """Calculate the cosine similarity between two vectors."""
     dot_product = np.dot(v1, v2)
@@ -146,17 +163,22 @@ async def get_feature_similarity_scores(
 
     # Fetch embeddings in batches
     batches = _batch_ffd(items_to_embed_tokens, max_model_tokens)
+    if len(batches) > MAX_SIMULTANEOUS_REQUESTS:
+        stream.send(f"Embedding {len(batches)} batches...")
 
     _start_time = default_timer()
-    for i, batch in enumerate(batches):
+    tasks = list[tuple[asyncio.Task[list[list[float]]], list[str]]]()
+    for batch in batches:
         batch_content = [items_to_embed[k] for k in batch]
-        stream.send(f"Embedding batch {i + 1}/{len(batches)}...")
-        response = await call_embedding_api(batch_content, EMBEDDING_MODEL)
+        task = asyncio.create_task(_fetch_embeddings(batch_content))
+        tasks.append((task, batch))
+    for task, batch in tasks:
+        response = await task
         database.set({k: v for k, v in zip(batch, response)})
     if len(batches) > 0:
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
-            0,
+            num_prompt_tokens,
             EMBEDDING_MODEL,
             default_timer() - _start_time,
             decimal_places=4,
