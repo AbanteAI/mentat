@@ -95,8 +95,13 @@ async def get_feature_similarity_scores(
         raise MentatError(f"Missing model context size for {EMBEDDING_MODEL}.")
 
     # Keep things in the same order
+    t1 = default_timer()
     checksums: list[str] = [f.get_checksum() for f in features]
+    t2 = default_timer()
+    print('Got checksums in', t2 - t1)
     tokens: list[int] = await count_feature_tokens(features, EMBEDDING_MODEL)
+    t3 = default_timer()
+    print('Got tokens in', t3 - t2)
 
     # Make a checksum:content dict of all items that need to be embedded
     items_to_embed = dict[str, str]()
@@ -115,6 +120,8 @@ async def get_feature_similarity_scores(
             items_to_embed[checksum] = "\n".join(feature_content)
             items_to_embed_tokens[checksum] = token
             num_prompt_tokens += token
+    t4 = default_timer()
+    print('Got items to embed in', t4 - t3)
 
     # If it costs more than $1, get confirmation from user.
     cost = model_price_per_1000_tokens(EMBEDDING_MODEL)
@@ -136,15 +143,28 @@ async def get_feature_similarity_scores(
 
     # Fetch embeddings in batches
     batches = _batch_ffd(items_to_embed_tokens, max_model_tokens)
+    t5 = default_timer()
+    print('Got batches in', t5 - t4)
+
     _start_time = default_timer()
+    _embed_time = 0.
+    _add_to_db_time = 0.
     for i, batch in enumerate(batches):
         batch_content = [items_to_embed[k] for k in batch]
         stream.send(f"Embedding batch {i + 1}/{len(batches)}...")
+        t1a = default_timer()
         response = await call_embedding_api(batch_content, EMBEDDING_MODEL)
+        t1b = default_timer()
+        print('Got response in', t1b - t1a)
+        _embed_time += t1b - t1a
         for k, v in zip(batch, response):
             database[k] = v
+        t1c = default_timer()
+        _add_to_db_time += t1c - t1b
     if len(batches) > 0:
+        t2a = default_timer()
         database.save()
+        print('Saved to database in', default_timer() - t2a)
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             0,
@@ -152,14 +172,30 @@ async def get_feature_similarity_scores(
             default_timer() - _start_time,
             decimal_places=4,
         )
+    print(f'Total time to embed {len(batches)} batches:', _embed_time)
+    print('Total time to add to db:', _add_to_db_time)
 
     # Calculate similarity score for each feature
     prompt_embedding = database[prompt_checksum]
     scores = [0.0 for _ in checksums]
+    _check_in_db = 0.
+    _get_from_db = 0.
+    _cosine_times = 0.
     for i, checksum in enumerate(checksums):
+        t1 = default_timer()
         if checksum not in database:
+            _check_in_db += default_timer() - t1
             continue
+        t2 = default_timer()
+        _check_in_db += t2 - t1
         feature_embedding = database[checksum]
+        t3 = default_timer()
+        _get_from_db += t3 - t2
         scores[i] = _cosine_similarity(prompt_embedding, feature_embedding)
+        t4 = default_timer()
+        _cosine_times += t4 - t3
+    print(f'Total time to check for {len(checksums)} checksums in db:', _check_in_db)
+    print('Total time to get from db:', _get_from_db)
+    print('Total time to cosine:', _cosine_times)
 
     return scores
