@@ -89,13 +89,12 @@ class CodeContext:
             )
         else:
             stream.send(f"{prefix}Included files: None", color="yellow")
-        auto = config.auto_tokens
-        if auto != 0:
-            stream.send(f"{prefix}Auto-token limit: {auto}")
-            disabled_reason = check_ctags_disabled()
-            stream.send(
-                f"{prefix}CodeMaps: {disabled_reason or 'Enabled'}"
-            )
+        if config.auto_context:
+            stream.send(f"{prefix}Auto-Context: Enabled", color="green")
+            if check_ctags_disabled():
+                stream.send(f"{prefix}Code Maps Disbled: {check_ctags_disabled()}", color="yellow")
+        else:
+            stream.send(f"{prefix}Auto-Context: Disabled")
 
     def display_features(self):
         """Display a summary of all active features"""
@@ -132,7 +131,7 @@ class CodeContext:
         settings = {
             "prompt": prompt,
             "code_map_disabled": check_ctags_disabled(),
-            "auto_tokens": config.auto_tokens,
+            "auto_context": config.auto_context,
             "use_llm": self.use_llm,
             "diff": self.diff,
             "pr_diff": self.pr_diff,
@@ -159,7 +158,7 @@ class CodeContext:
             self._code_message_checksum = self._get_code_message_checksum(prompt, max_tokens)
         return self._code_message
 
-    use_llm: bool = False
+    use_llm: bool = True
 
     async def _get_code_message(
         self,
@@ -183,11 +182,9 @@ class CodeContext:
             ]
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model)
+        remaining_tokens = max(0, max_tokens - meta_tokens)
 
-        auto_tokens = config.auto_tokens
-        remaining_tokens = max(0, min(auto_tokens, max_tokens - meta_tokens))
-
-        if remaining_tokens == 0:
+        if not config.auto_context or remaining_tokens <= 0:
             self.features = self._get_include_features()
         else:
             self.features = self._get_all_features(

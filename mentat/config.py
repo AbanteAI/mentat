@@ -75,17 +75,15 @@ class Config:
         default=[],
         metadata={"description": "List of glob patterns to exclude from context"},
     )
-    auto_tokens: int = attr.field(
-        default=0,
+    auto_context: bool = attr.field(
+        default=False,
         metadata={
             "description": (
-                "Maximum number of auto-generated tokens to include in the prompt"
-                " context"
+                "Automatically select code files to include in context."
             ),
             "abbreviation": "a",
         },
-        converter=int,
-        validator=validators.optional(validators.ge(0)),
+        converter=converters.optional(converters.to_bool),
     )
 
     # Only settable by config file

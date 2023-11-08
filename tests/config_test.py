@@ -25,14 +25,13 @@ async def test_config_creation():
             "--maximum-context",
             "1",
             "-a",
-            "2",
         ]
     )
     assert args.model == "model"
     assert args.temperature == 0.2
     assert args.maximum_context == "1"
     assert args.parser is None
-    assert args.auto_tokens == 2
+    assert args.auto_context is True
 
     with open(config_file_name, "w") as project_config_file:
         project_config_file.write(dedent("""\
@@ -55,7 +54,7 @@ async def test_config_creation():
     assert config.temperature == 0.2
     assert config.maximum_context == 1
     assert type(config.parser) == ReplacementParser
-    assert config.auto_tokens == 2
+    assert config.auto_context is True
     assert config.input_style == [["project", "yes"]]
 
 

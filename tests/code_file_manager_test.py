@@ -45,7 +45,6 @@ async def test_partial_files(mocker, mock_session_context):
     mock_session_context.code_context.include_files, _ = get_include_files(
         [file_path_partial], []
     )
-    mocker.patch.object(Config, "auto_tokens", new=0)
     mock_session_context.code_context.code_map = False
 
     code_message = await mock_session_context.code_context.get_code_message(
