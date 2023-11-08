@@ -154,7 +154,6 @@ class CodeContext:
         settings = {
             "code_map": self.code_map_enabled(),
             "auto_tokens": config.auto_tokens,
-            "use_embeddings": config.use_embeddings,
             "use_llm": self.use_llm,
             "diff": self.diff,
             "pr_diff": self.pr_diff,
@@ -219,7 +218,6 @@ class CodeContext:
                 remaining_tokens,
                 model,
                 self.code_map_enabled(),
-                config.use_embeddings,
                 self.use_llm,
                 prompt,
                 expected_edits,
@@ -330,16 +328,6 @@ class CodeContext:
         level: CodeMessageLevel = CodeMessageLevel.INTERVAL,
     ) -> list[tuple[CodeFeature, float]]:
         """Return the top n features that are most similar to the query."""
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        stream = session_context.stream
-
-        if not config.use_embeddings:
-            stream.send(
-                "Embeddings are disabled. Enable with `/config use_embeddings true`",
-                color="light_red",
-            )
-            return []
 
         all_features = self._get_all_features(
             level,

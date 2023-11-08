@@ -14,7 +14,6 @@ class DefaultFilter(FeatureFilter):
         max_tokens: int,
         model: str = "gpt-4",
         code_map: bool = False,
-        use_embeddings: bool = False,
         use_llm: bool = False,
         user_prompt: Optional[str] = None,
         expected_edits: Optional[list[str]] = None,
@@ -24,10 +23,6 @@ class DefaultFilter(FeatureFilter):
         self.code_map = code_map
         self.use_llm = use_llm
         self.user_prompt = user_prompt or ""
-        if user_prompt == "":
-            self.use_embeddings = False
-        else:
-            self.use_embeddings = use_embeddings
         self.levels = [CodeMessageLevel.FILE_NAME]
         if self.code_map:
             self.levels = [
@@ -37,7 +32,7 @@ class DefaultFilter(FeatureFilter):
         self.expected_edits = expected_edits
 
     async def filter(self, features: list[CodeFeature]) -> list[CodeFeature]:
-        if self.use_embeddings:
+        if self.user_prompt != "":
             features = await EmbeddingSimilarityFilter(self.user_prompt).filter(
                 features
             )

@@ -31,6 +31,7 @@ class Config:
     # Model specific settings
     model: str = attr.field(default="gpt-4-0314")
     feature_selection_model: str = attr.field(default="gpt-4-0314")
+    embedding_model: str = attr.field(default="text-embedding-ada-002")
     temperature: float = attr.field(
         default=0.5, converter=float, validator=[validators.le(1), validators.ge(0)]
     )
@@ -73,13 +74,6 @@ class Config:
     file_exclude_glob_list: list[str] = attr.field(
         default=[],
         metadata={"description": "List of glob patterns to exclude from context"},
-    )
-    use_embeddings: bool = attr.field(
-        default=False,
-        metadata={
-            "description": "Fetch/compare embeddings to auto-generate code context"
-        },
-        converter=converters.optional(converters.to_bool),
     )
     no_code_map: bool = attr.field(
         default=False,

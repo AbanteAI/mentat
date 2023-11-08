@@ -24,7 +24,6 @@ async def test_config_creation():
             "0.2",
             "--maximum-context",
             "1",
-            "--use-embeddings",
             "-a",
             "2",
         ]
@@ -33,7 +32,6 @@ async def test_config_creation():
     assert args.temperature == 0.2
     assert args.maximum_context == "1"
     assert args.parser is None
-    assert args.use_embeddings
     assert args.auto_tokens == 2
     assert not args.no_code_map
 
@@ -59,7 +57,6 @@ async def test_config_creation():
     assert config.temperature == 0.2
     assert config.maximum_context == 1
     assert type(config.parser) == ReplacementParser
-    assert config.use_embeddings
     assert config.auto_tokens == 2
     assert config.input_style == [["project", "yes"]]
     assert config.no_code_map
