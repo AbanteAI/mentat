@@ -1,9 +1,8 @@
-import gzip
 import json
-import logging
 import os
 from pathlib import Path
 from timeit import default_timer
+import sqlite3
 
 import numpy as np
 
@@ -24,34 +23,63 @@ EMBEDDING_DIM = 1536
 
 
 class EmbeddingsDatabase:
-    # { sha256 : [ EMBEDDING_DIM floats ] }
-    _dict: dict[str, list[float]] = dict[str, list[float]]()
-
     def __init__(self, output_dir: Path | None = None):
-        if output_dir is None:
-            output_dir = mentat_dir_path
-        os.makedirs(output_dir, exist_ok=True)
-        self.path = Path(output_dir) / "embeddings.json.gz"
-        if self.path.exists():
-            try:
-                with gzip.open(self.path, "rt") as f:
-                    self._dict = json.load(f)
-            except gzip.BadGzipFile:
-                logging.warning(f"Could not load embeddings from {self.path}.")
+        self.output_dir = output_dir or mentat_dir_path
+        os.makedirs(self.output_dir, exist_ok=True)
+        self.path = Path(self.output_dir) / "embeddings.sqlite3"
+        self._connect()
 
-    def save(self):
-        with gzip.open(self.path, "wt") as f:
-            json.dump(self._dict, f)
+    def _connect(self):
+        self.conn = sqlite3.connect(self.path)
+        with self.conn:
+            self.conn.execute(
+                "CREATE TABLE IF NOT EXISTS embeddings "
+                "(checksum TEXT PRIMARY KEY, vector BLOB)"
+            )
+
+    def batch_set(self, items: dict[str, list[float]]):
+        with self.conn:
+            self.conn.executemany(
+                "INSERT OR REPLACE INTO embeddings (checksum, vector) VALUES (?, ?)",
+                [(key, sqlite3.Binary(json.dumps(value).encode('utf-8'))) for key, value in items.items()]
+            )
+
+    def batch_get(self, keys: list[str]) -> dict[str, list[float]]:
+        with self.conn:
+            cursor = self.conn.execute(
+                f"SELECT checksum, vector FROM embeddings WHERE checksum IN ({','.join(['?']*len(keys))})",
+                keys
+            )
+            return {row[0]: json.loads(row[1]) for row in cursor.fetchall()}
 
     def __getitem__(self, key: str) -> list[float]:
-        return self._dict[key]
+        with self.conn:
+            cursor = self.conn.execute(
+                "SELECT vector FROM embeddings WHERE checksum=?", (key,)
+            )
+            result = cursor.fetchone()
+            if result:
+                return json.loads(result[0])
+            else:
+                raise KeyError(f"Checksum {key} not found in database")
 
     def __setitem__(self, key: str, value: list[float]):
-        self._dict[key] = value
+        with self.conn:
+            self.conn.execute(
+                "INSERT OR REPLACE INTO embeddings (checksum, vector) VALUES (?, ?)",
+                (key, sqlite3.Binary(json.dumps(value).encode('utf-8')))
+            )
 
     def __contains__(self, key: str) -> bool:
-        return key in self._dict
+        with self.conn:
+            cursor = self.conn.execute(
+                "SELECT 1 FROM embeddings WHERE checksum=?", (key,)
+            )
+            return cursor.fetchone() is not None
 
+    def __del__(self):
+        self.conn.close()
+    
 
 database = EmbeddingsDatabase()
 
@@ -157,14 +185,13 @@ async def get_feature_similarity_scores(
         t1b = default_timer()
         print('Got response in', t1b - t1a)
         _embed_time += t1b - t1a
-        for k, v in zip(batch, response):
-            database[k] = v
+        database.batch_set({k: v for k, v in zip(batch, response)})
         t1c = default_timer()
         _add_to_db_time += t1c - t1b
     if len(batches) > 0:
-        t2a = default_timer()
-        database.save()
-        print('Saved to database in', default_timer() - t2a)
+        # t2a = default_timer()
+        # database.save()
+        # print('Saved to database in', default_timer() - t2a)
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             0,
