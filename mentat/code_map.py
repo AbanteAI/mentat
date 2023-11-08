@@ -1,18 +1,15 @@
 import json
+import logging
 import subprocess
 import tempfile
 from functools import cache
 from pathlib import Path
 from typing import Any
 
-from mentat.session_context import SESSION_CONTEXT
-
 
 def get_ctags(
     abs_file_path: Path, exclude_signatures: bool = False
 ) -> set[tuple[str | int | None, ...]]:
-    session_context = SESSION_CONTEXT.get()
-    stream = session_context.stream
 
     # Create ctags from executable in a subprocess
     ctags_cmd_args = [
@@ -38,10 +35,7 @@ def get_ctags(
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            stream.send(
-                f"Error parsing ctags output: {err}\n{repr(output_line)}",
-                color="yellow",
-            )
+            logging.error(f"Error parsing ctags output: {err}\n{repr(output_line)}")
             continue
 
         scope = tag.get("scope")
