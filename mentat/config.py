@@ -78,9 +78,7 @@ class Config:
     auto_context: bool = attr.field(
         default=False,
         metadata={
-            "description": (
-                "Automatically select code files to include in context."
-            ),
+            "description": "Automatically select code files to include in context.",
             "abbreviation": "a",
         },
         converter=converters.optional(converters.to_bool),

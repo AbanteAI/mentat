@@ -291,6 +291,7 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     code_context.set_paths(["file_1.py"], [])
     code_context.use_llm = False
     mock_session_context.config.auto_context = True
+
     async def _count_max_tokens_where(limit: int) -> int:
         code_message = await code_context.get_code_message(prompt="", max_tokens=limit)
         return count_tokens(code_message, "gpt-4")

@@ -92,7 +92,10 @@ class CodeContext:
         if config.auto_context:
             stream.send(f"{prefix}Auto-Context: Enabled", color="green")
             if check_ctags_disabled():
-                stream.send(f"{prefix}Code Maps Disbled: {check_ctags_disabled()}", color="yellow")
+                stream.send(
+                    f"{prefix}Code Maps Disbled: {check_ctags_disabled()}",
+                    color="yellow",
+                )
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 
@@ -114,7 +117,9 @@ class CodeContext:
     _code_message: str | None = None
     _code_message_checksum: str | None = None
 
-    def _get_code_message_checksum(self, prompt: str = "", max_tokens: Optional[int] = None) -> str:
+    def _get_code_message_checksum(
+        self, prompt: str = "", max_tokens: Optional[int] = None
+    ) -> str:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         git_root = session_context.git_root
@@ -155,7 +160,9 @@ class CodeContext:
             self._code_message = await self._get_code_message(
                 prompt, max_tokens, expected_edits
             )
-            self._code_message_checksum = self._get_code_message_checksum(prompt, max_tokens)
+            self._code_message_checksum = self._get_code_message_checksum(
+                prompt, max_tokens
+            )
         return self._code_message
 
     use_llm: bool = True
@@ -193,7 +200,7 @@ class CodeContext:
             feature_filter = DefaultFilter(
                 remaining_tokens,
                 model,
-                not(bool(check_ctags_disabled())),
+                not (bool(check_ctags_disabled())),
                 self.use_llm,
                 prompt,
                 expected_edits,
