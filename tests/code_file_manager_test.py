@@ -4,7 +4,6 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.config import Config
 from mentat.include_files import get_include_files
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.session import Session
