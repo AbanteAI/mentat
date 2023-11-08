@@ -1,11 +1,11 @@
+import asyncio
 import json
 import logging
 import os
+import sqlite3
 from pathlib import Path
 from timeit import default_timer
-import sqlite3
 
-import asyncio
 import numpy as np
 from openai.error import RateLimitError
 
@@ -45,14 +45,18 @@ class EmbeddingsDatabase:
         with self.conn:
             self.conn.executemany(
                 "INSERT OR REPLACE INTO embeddings (checksum, vector) VALUES (?, ?)",
-                [(key, sqlite3.Binary(json.dumps(value).encode('utf-8'))) for key, value in items.items()]
+                [
+                    (key, sqlite3.Binary(json.dumps(value).encode("utf-8")))
+                    for key, value in items.items()
+                ],
             )
 
     def get(self, keys: list[str]) -> dict[str, list[float]]:
         with self.conn:
             cursor = self.conn.execute(
-                f"SELECT checksum, vector FROM embeddings WHERE checksum IN ({','.join(['?']*len(keys))})",
-                keys
+                "SELECT checksum, vector FROM embeddings WHERE checksum IN"
+                f" ({','.join(['?']*len(keys))})",
+                keys,
             )
             return {row[0]: json.loads(row[1]) for row in cursor.fetchall()}
 
@@ -65,7 +69,7 @@ class EmbeddingsDatabase:
 
     def __del__(self):
         self.conn.close()
-    
+
 
 database = EmbeddingsDatabase()
 
@@ -89,7 +93,9 @@ def _batch_ffd(data: dict[str, int], batch_size: int) -> list[list[str]]:
 
 
 embedding_api_semaphore = asyncio.Semaphore(MAX_SIMULTANEOUS_REQUESTS)
-async def _fetch_embeddings(batch: list[str], retries: int=3, wait_time: int=20):
+
+
+async def _fetch_embeddings(batch: list[str], retries: int = 3, wait_time: int = 20):
     async with embedding_api_semaphore:
         for _ in range(retries):
             try:
