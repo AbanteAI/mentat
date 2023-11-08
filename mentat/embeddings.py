@@ -62,9 +62,7 @@ class EmbeddingsDatabase:
 
     def exists(self, key: str) -> bool:
         with self.conn as db:
-            cursor = db.execute(
-                "SELECT 1 FROM embeddings WHERE checksum=?", (key,)
-            )
+            cursor = db.execute("SELECT 1 FROM embeddings WHERE checksum=?", (key,))
             return cursor.fetchone() is not None
 
     def __del__(self):
