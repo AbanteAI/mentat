@@ -35,15 +35,15 @@ class EmbeddingsDatabase:
 
     def _connect(self):
         self.conn = sqlite3.connect(self.path)
-        with self.conn:
-            self.conn.execute(
+        with self.conn as db:
+            db.execute(
                 "CREATE TABLE IF NOT EXISTS embeddings "
                 "(checksum TEXT PRIMARY KEY, vector BLOB)"
             )
 
     def set(self, items: dict[str, list[float]]):
-        with self.conn:
-            self.conn.executemany(
+        with self.conn as db:
+            db.executemany(
                 "INSERT OR REPLACE INTO embeddings (checksum, vector) VALUES (?, ?)",
                 [
                     (key, sqlite3.Binary(json.dumps(value).encode("utf-8")))
@@ -52,8 +52,8 @@ class EmbeddingsDatabase:
             )
 
     def get(self, keys: list[str]) -> dict[str, list[float]]:
-        with self.conn:
-            cursor = self.conn.execute(
+        with self.conn as db:
+            cursor = db.execute(
                 "SELECT checksum, vector FROM embeddings WHERE checksum IN"
                 f" ({','.join(['?']*len(keys))})",
                 keys,
@@ -61,8 +61,8 @@ class EmbeddingsDatabase:
             return {row[0]: json.loads(row[1]) for row in cursor.fetchall()}
 
     def exists(self, key: str) -> bool:
-        with self.conn:
-            cursor = self.conn.execute(
+        with self.conn as db:
+            cursor = db.execute(
                 "SELECT 1 FROM embeddings WHERE checksum=?", (key,)
             )
             return cursor.fetchone() is not None
