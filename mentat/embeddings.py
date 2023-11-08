@@ -37,14 +37,14 @@ class EmbeddingsDatabase:
                 "(checksum TEXT PRIMARY KEY, vector BLOB)"
             )
 
-    def batch_set(self, items: dict[str, list[float]]):
+    def set(self, items: dict[str, list[float]]):
         with self.conn:
             self.conn.executemany(
                 "INSERT OR REPLACE INTO embeddings (checksum, vector) VALUES (?, ?)",
                 [(key, sqlite3.Binary(json.dumps(value).encode('utf-8'))) for key, value in items.items()]
             )
 
-    def batch_get(self, keys: list[str]) -> dict[str, list[float]]:
+    def get(self, keys: list[str]) -> dict[str, list[float]]:
         with self.conn:
             cursor = self.conn.execute(
                 f"SELECT checksum, vector FROM embeddings WHERE checksum IN ({','.join(['?']*len(keys))})",
@@ -52,25 +52,7 @@ class EmbeddingsDatabase:
             )
             return {row[0]: json.loads(row[1]) for row in cursor.fetchall()}
 
-    def __getitem__(self, key: str) -> list[float]:
-        with self.conn:
-            cursor = self.conn.execute(
-                "SELECT vector FROM embeddings WHERE checksum=?", (key,)
-            )
-            result = cursor.fetchone()
-            if result:
-                return json.loads(result[0])
-            else:
-                raise KeyError(f"Checksum {key} not found in database")
-
-    def __setitem__(self, key: str, value: list[float]):
-        with self.conn:
-            self.conn.execute(
-                "INSERT OR REPLACE INTO embeddings (checksum, vector) VALUES (?, ?)",
-                (key, sqlite3.Binary(json.dumps(value).encode('utf-8')))
-            )
-
-    def __contains__(self, key: str) -> bool:
+    def exists(self, key: str) -> bool:
         with self.conn:
             cursor = self.conn.execute(
                 "SELECT 1 FROM embeddings WHERE checksum=?", (key,)
@@ -136,13 +118,13 @@ async def get_feature_similarity_scores(
     items_to_embed_tokens = dict[str, int]()
     prompt_checksum = sha256(prompt)
     num_prompt_tokens = 0
-    if prompt_checksum not in database:
+    if not database.exists(prompt_checksum):
         items_to_embed[prompt_checksum] = prompt
         items_to_embed_tokens[prompt_checksum] = count_tokens(prompt, EMBEDDING_MODEL)
     for feature, checksum, token in zip(features, checksums, tokens):
         if token > max_model_tokens:
             continue
-        if checksum not in database:
+        if not database.exists(checksum):
             feature_content = feature.get_code_message()
             # Remove line numbering
             items_to_embed[checksum] = "\n".join(feature_content)
@@ -185,13 +167,10 @@ async def get_feature_similarity_scores(
         t1b = default_timer()
         print('Got response in', t1b - t1a)
         _embed_time += t1b - t1a
-        database.batch_set({k: v for k, v in zip(batch, response)})
+        database.set({k: v for k, v in zip(batch, response)})
         t1c = default_timer()
         _add_to_db_time += t1c - t1b
     if len(batches) > 0:
-        # t2a = default_timer()
-        # database.save()
-        # print('Saved to database in', default_timer() - t2a)
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             0,
@@ -203,26 +182,12 @@ async def get_feature_similarity_scores(
     print('Total time to add to db:', _add_to_db_time)
 
     # Calculate similarity score for each feature
-    prompt_embedding = database[prompt_checksum]
-    scores = [0.0 for _ in checksums]
-    _check_in_db = 0.
-    _get_from_db = 0.
-    _cosine_times = 0.
-    for i, checksum in enumerate(checksums):
-        t1 = default_timer()
-        if checksum not in database:
-            _check_in_db += default_timer() - t1
-            continue
-        t2 = default_timer()
-        _check_in_db += t2 - t1
-        feature_embedding = database[checksum]
-        t3 = default_timer()
-        _get_from_db += t3 - t2
-        scores[i] = _cosine_similarity(prompt_embedding, feature_embedding)
-        t4 = default_timer()
-        _cosine_times += t4 - t3
-    print(f'Total time to check for {len(checksums)} checksums in db:', _check_in_db)
-    print('Total time to get from db:', _get_from_db)
-    print('Total time to cosine:', _cosine_times)
+    prompt_embedding = database.get([prompt_checksum])[prompt_checksum]
+    t6 = default_timer()
+    embeddings = database.get(checksums)
+    t7 = default_timer()
+    print('Total time to get from db:', t7 - t6)
+    scores = [_cosine_similarity(prompt_embedding, embeddings[k]) for k in checksums]
+    print('Total time to cosine:', default_timer() - t7)
 
     return scores
