@@ -1,11 +1,14 @@
 import asyncio
 import logging
+import os
 import traceback
 from asyncio import CancelledError, Task
 from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
 
+import attr
+import sentry_sdk
 from openai.error import RateLimitError, Timeout
 
 from mentat.code_context import CodeContext
@@ -17,9 +20,11 @@ from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_shared_git_root_for_paths
 from mentat.llm_api import CostTracker, setup_api_key
 from mentat.logging_config import setup_logging
+from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_input import collect_user_input
 from mentat.session_stream import SessionStream
+from mentat.utils import check_version, mentat_dir_path
 
 
 class Session:
@@ -40,6 +45,11 @@ class Session:
     ):
         # TODO: All errors should be thrown in _main, and should never be thrown here
         self.stopped = False
+
+        if not mentat_dir_path.exists():
+            os.mkdir(mentat_dir_path)
+        setup_logging()
+        sentry_init()
         self.id = uuid4()
 
         # Since we can't set the session_context until after all of the singletons are created,
@@ -70,6 +80,7 @@ class Session:
         SESSION_CONTEXT.set(session_context)
 
         # Functions that require session_context
+        check_version()
         config.send_errors_to_stream()
         code_context.set_paths(paths, exclude_paths, ignore_paths)
 
@@ -127,8 +138,13 @@ class Session:
         """
 
         async def run_main():
+            ctx = SESSION_CONTEXT.get()
             try:
-                await self._main()
+                with sentry_sdk.start_transaction(
+                    op="mentat_started", name="Mentat Started"
+                ) as transaction:
+                    transaction.set_tag("config", attr.asdict(ctx.config))
+                    await self._main()
             except (SessionExit, CancelledError):
                 pass
             except (MentatError, UserError) as e:
@@ -140,8 +156,8 @@ class Session:
                 )
             finally:
                 await self._stop()
+                sentry_sdk.flush()
 
-        setup_logging()
         self._main_task: Task[None] = asyncio.create_task(run_main())
         # If we create more tasks in Session, add a task list and helper function like we have in TerminalClient
         self._exit_task: Task[None] = asyncio.create_task(
