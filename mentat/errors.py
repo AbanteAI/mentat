@@ -3,20 +3,23 @@ class ModelError(Exception):
     pass
 
 
-# Used to indicate an issue with Mentat's code
-class MentatError(Exception):
-    pass
-
-
-# Used to indicate an issue with the user's usage of Mentat
-class UserError(Exception):
-    pass
-
-
 # Used to indicate a KeyboardInterupt thrown by a remote client
 class RemoteKeyboardInterrupt(Exception):
     pass
 
 
+# These 2 errors will have their message displayed in red, but no stacktrace thrown
+
+
+# TODO: Combine MentatError and UserError into just MentatError
+class MentatError(Exception):
+    pass
+
+
+class UserError(Exception):
+    pass
+
+
+# This will exit the session without showing any sign of error
 class SessionExit(Exception):
     pass

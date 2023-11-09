@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import traceback
-from asyncio import Task
+from asyncio import CancelledError, Task
 from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
@@ -13,7 +13,7 @@ from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
-from mentat.errors import MentatError, SessionExit
+from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_shared_git_root_for_paths
 from mentat.llm_api import CostTracker, setup_api_key
 from mentat.logging_config import setup_logging
@@ -32,6 +32,8 @@ class Session:
         pr_diff: Optional[str] = None,
         config: Config = Config(),
     ):
+        # TODO: All errors should be thrown in _main, and should never be thrown here
+        self.stopped = False
         self.id = uuid4()
 
         # Since we can't set the session_context until after all of the singletons are created,
@@ -62,7 +64,6 @@ class Session:
         SESSION_CONTEXT.set(session_context)
 
         # Functions that require session_context
-        setup_api_key()
         config.send_errors_to_stream()
         code_context.set_paths(paths, exclude_paths, ignore_paths)
 
@@ -71,6 +72,8 @@ class Session:
         stream = session_context.stream
         code_context = session_context.code_context
         conversation = session_context.conversation
+
+        setup_api_key()
 
         try:
             code_context.display_context()
@@ -116,24 +119,37 @@ class Session:
         async def run_main():
             try:
                 await self._main()
-                await self.stop()
-            except asyncio.CancelledError:
+            except (SessionExit, CancelledError):
                 pass
+            except (MentatError, UserError) as e:
+                self.stream.send(str(e), color="red")
             except Exception:
-                traceback.print_exc()
+                # All unhandled exceptions end up here
+                self.stream.send(
+                    f"Unhandled Exception: {traceback.format_exc()}", color="red"
+                )
+            finally:
+                await self.stop()
 
         setup_logging()
         self._main_task: Task[None] = asyncio.create_task(run_main())
         return self._main_task
 
     async def stop(self):
+        if self.stopped:
+            return
+        self.stopped = True
+
         session_context = SESSION_CONTEXT.get()
         cost_tracker = session_context.cost_tracker
 
         cost_tracker.display_total_cost()
         logging.shutdown()
         self._main_task.cancel()
-        await self._main_task
+        try:
+            await self._main_task
+        except CancelledError:
+            pass
         self.stream.send(None, channel="exit")
         await self.stream.join()
         self.stream.stop()

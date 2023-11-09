@@ -99,9 +99,7 @@ class Broadcast:
         self._listener_task = asyncio.create_task(self._listener())
 
     def disconnect(self) -> None:
-        if self._listener_task.done():
-            self._listener_task.result()
-        else:
+        if not self._listener_task.done():
             self._listener_task.cancel()
         self._backend.disconnect()
 
