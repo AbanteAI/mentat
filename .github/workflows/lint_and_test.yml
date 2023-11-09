@@ -55,7 +55,6 @@ jobs:
         run: |
           pytest
       - name: Can run Mentat
-          # Ensure that python doesn't import local mentat folder and that 'mentat' command calls mentat instead of switching folder
           working-directory: ./testbed
           run: |
             echo -e "q\r" | mentat
