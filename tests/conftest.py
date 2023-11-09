@@ -255,6 +255,9 @@ def add_permissions(func, path, exc_info):
 
 @pytest.fixture(autouse=True)
 def temp_testbed(monkeypatch, get_marks):
+    # Allow us to run tests from any directory
+    base_dir = Path(__file__).parent.parent
+
     # create temporary copy of testbed, complete with git repo
     # realpath() resolves symlinks, required for paths to match on macOS
     temp_dir = os.path.realpath(tempfile.mkdtemp())
@@ -272,8 +275,8 @@ def temp_testbed(monkeypatch, get_marks):
 
     if "clear_testbed" not in get_marks:
         # Copy testbed
-        shutil.copytree("testbed", temp_testbed, dirs_exist_ok=True)
-        shutil.copy(".gitignore", temp_testbed)
+        shutil.copytree(base_dir / "testbed", temp_testbed, dirs_exist_ok=True)
+        shutil.copy(base_dir / ".gitignore", temp_testbed)
 
         if "no_git_testbed" not in get_marks:
             # Add all files and commit
