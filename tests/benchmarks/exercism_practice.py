@@ -113,7 +113,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
     await client.startup()
 
     # These prompts are copied from Aider: https://aider.chat/docs/benchmarks.html to
-    # allow direct comparison.
+    # allow for direct comparison.
     prompt_1 = (
         f"Use the instructions in {exercise_runner.docs()} to modify"
         + f" {exercise_runner.file}. Keep and implement the existing"
