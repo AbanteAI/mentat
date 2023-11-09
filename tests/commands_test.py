@@ -220,8 +220,8 @@ async def test_search_command(
     session.stream.stop()
 
     rel_path = mock_feature.path.relative_to(Path(temp_testbed))
-    assert str(rel_path) in session.stream.messages[-2].data
-    assert "cost" in session.stream.messages[-1].data
+    assert str(rel_path) in session.stream.messages[-3].data
+    assert "cost" in session.stream.messages[-2].data
 
 
 @pytest.mark.asyncio
