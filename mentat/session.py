@@ -33,7 +33,6 @@ class Session:
         config: Config = Config(),
     ):
         self.id = uuid4()
-        setup_api_key()
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
@@ -63,6 +62,7 @@ class Session:
         SESSION_CONTEXT.set(session_context)
 
         # Functions that require session_context
+        setup_api_key()
         config.send_errors_to_stream()
         code_context.set_paths(paths, exclude_paths, ignore_paths)
 
