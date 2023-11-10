@@ -39,8 +39,8 @@ async def test_insert(
         @""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -74,8 +74,8 @@ async def test_delete(
         @""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -108,8 +108,8 @@ async def test_replace(
         @""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -139,8 +139,8 @@ async def test_create_file(
         @""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -172,8 +172,8 @@ async def test_delete_file(
         @ {temp_file_name} -""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     assert not Path(temp_file_name).exists()
 
 
@@ -201,8 +201,8 @@ async def test_rename_file(
         @ {temp_file_name} {temp_file_name_2}""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     assert not Path(temp_file_name).exists()
     with open(temp_file_name_2, "r") as f:
         content = f.read()
@@ -242,8 +242,8 @@ async def test_change_then_rename_then_change(
         @""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     assert not Path(temp_file_name).exists()
     with open(temp_file_name_2, "r") as f:
         content = f.read()

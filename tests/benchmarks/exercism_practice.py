@@ -126,7 +126,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
     )
 
     iterations = 0
-    while iterations < max_iterations and not client.exited.is_set():
+    while iterations < max_iterations and not client.stopped.is_set():
         if exercise_runner.passed():
             break
         message = (
@@ -140,8 +140,8 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         exercise_runner.run_test()
         iterations += 1
 
-    had_error = client.exited.is_set()
-    await client.stop()
+    had_error = client.stopped.is_set()
+    await client.shutdown()
     passed = exercise_runner.passed()
     result = {
         "iterations": iterations,
