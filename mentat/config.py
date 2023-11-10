@@ -33,7 +33,7 @@ class Config:
     feature_selection_model: str = attr.field(default="gpt-4-0314")
     embedding_model: str = attr.field(default="text-embedding-ada-002")
     temperature: float = attr.field(
-        default=0.05, converter=float, validator=[validators.le(1), validators.ge(0)]
+        default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)]
     )
 
     maximum_context: int | None = attr.field(
