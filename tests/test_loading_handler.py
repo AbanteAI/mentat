@@ -1,8 +1,6 @@
 from datetime import datetime
 from uuid import uuid4
 
-import pytest
-
 from mentat.session_stream import StreamMessage, StreamMessageSource
 from mentat.terminal.loading import LoadingHandler
 
