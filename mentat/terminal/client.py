@@ -13,7 +13,8 @@ from prompt_toolkit.styles import Style
 
 from mentat.config import Config
 from mentat.session import Session
-from mentat.session_stream import StreamMessageSource
+from mentat.session_stream import SessionStream, StreamMessageSource
+from mentat.terminal.loading import LoadingHandler
 from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
@@ -54,6 +55,23 @@ class TerminalClient:
     async def _cprint_session_stream(self):
         async for message in self.session.stream.listen():
             print_stream_message(message)
+
+    async def _handle_loading_messages(self):
+        loading_handler = LoadingHandler()
+
+        async def terminate_on_input_request(
+            stream: SessionStream, loading_handler: LoadingHandler
+        ):
+            while True:
+                _ = await stream.recv("input_request")
+                loading_handler.terminate()
+
+        self._create_task(
+            terminate_on_input_request(self.session.stream, loading_handler)
+        )
+
+        async for message in self.session.stream.listen("loading"):
+            loading_handler.update(message)
 
     async def _handle_input_requests(self):
         while True:
@@ -153,6 +171,7 @@ class TerminalClient:
         self._create_task(mentat_completer.refresh_completions())
         self._create_task(self._cprint_session_stream())
         self._create_task(self._handle_input_requests())
+        self._create_task(self._handle_loading_messages())
         self._create_task(self._listen_for_exit())
 
         logging.debug("Completed startup")

@@ -175,6 +175,7 @@ class CodeContext:
         expected_edits: Optional[list[str]] = None,
     ) -> str:
         session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
         config = session_context.config
         model = config.model
 
@@ -195,9 +196,11 @@ class CodeContext:
         if not config.auto_context or remaining_tokens <= 0:
             self.features = self._get_include_features()
         else:
+            stream.send("Scanning current project...", channel="loading", progress=10)
             self.features = self._get_all_features(
                 CodeMessageLevel.INTERVAL,
             )
+            stream.send("Generating feature filters", channel="loading", progress=10)
             feature_filter = DefaultFilter(
                 remaining_tokens,
                 model,
@@ -205,6 +208,7 @@ class CodeContext:
                 self.use_llm,
                 prompt,
                 expected_edits,
+                loading_multiplier=0.8,
             )
             self.features = await feature_filter.filter(self.features)
 
