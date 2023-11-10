@@ -43,8 +43,8 @@ async def test_system(mock_call_llm_api, mock_setup_api_key, mock_collect_user_i
         @@end""".format(file_name=temp_file_name))])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -68,8 +68,8 @@ async def test_system_exits_on_exception(
     mock_call_llm_api.side_effect = Exception("Something went wrong")
 
     session = Session()
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
 
 @pytest.mark.asyncio
@@ -132,8 +132,8 @@ async def test_interactive_change_selection(
         @@end""".format(file_name=temp_file_name))])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -176,8 +176,8 @@ async def test_without_os_join(
         print("Hello, world!")
         @@end""".format(file_name=fake_file_path))])
     session = Session([temp_file_path])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     mock_collect_user_input.reset_mock()
     with open(temp_file_path, "r") as f:
         content = f.read()
@@ -215,8 +215,8 @@ async def test_sub_directory(
             @@end""")])
 
         session = Session([file_name])
-        await session.start()
-        session.stream.stop()
+        session.start()
+        await session.stream.recv(channel="client_exit")
 
         # Check if the temporary file is modified as expected
         with open(file_name, "r") as f:

@@ -51,8 +51,8 @@ async def test_insert(
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -101,8 +101,8 @@ async def test_replace(
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -149,8 +149,8 @@ async def test_delete(
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -190,8 +190,8 @@ async def test_create_file(
         @@end""".format(file_name=temp_file_name))])
 
     session = Session(["."])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -233,8 +233,8 @@ async def test_delete_file(
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check if the temporary file is modified as expected
     assert not os.path.exists(temp_file_name)
@@ -271,8 +271,8 @@ async def test_rename_file(
         @@end""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_2_file_name) as new_file:
         content = new_file.read()
         expected_content = "# Move me!"
@@ -324,8 +324,8 @@ async def test_change_then_rename_file(
         @@end""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_2_file_name) as new_file:
         content = new_file.read()
         expected_content = "# I inserted this comment!\n# Move me!"
@@ -377,8 +377,8 @@ async def test_rename_file_then_change(
         @@end""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_2_file_name) as new_file:
         content = new_file.read()
         expected_content = "# I inserted this comment!\n# Move me!"
@@ -438,8 +438,8 @@ async def test_multiple_blocks(
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -504,8 +504,8 @@ async def test_json_strings(
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
