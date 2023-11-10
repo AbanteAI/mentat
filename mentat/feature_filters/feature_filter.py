@@ -22,7 +22,7 @@ class FeatureFilter(ABC):
     ) -> list[CodeFeature]:
         raise NotImplementedError()
 
-    loading_multiplier: float = 0.
+    loading_multiplier: float = 0.0
 
     def report_loading(self, message: str, progress: int | float):
         if self.loading_multiplier > 0:

@@ -8,6 +8,7 @@ from mentat.terminal.loading import LoadingHandler
 class MockTqdm:
     total = 100
     n = 0
+
     def __init__(self, desc):
         self.desc = desc
 
@@ -18,15 +19,17 @@ class MockTqdm:
         self.desc = desc
 
     closed = False
+
     def close(self):
         self.closed = True
 
+
 def test_loading_handler(mocker):
     mock_tqdm = MockTqdm("")
-    tqdm_mock = mocker.patch('mentat.terminal.loading.tqdm')
+    tqdm_mock = mocker.patch("mentat.terminal.loading.tqdm")
     tqdm_mock.return_value = mock_tqdm
     lh = LoadingHandler()
-    
+
     msg = StreamMessage(
         uuid4(),
         "loading",

@@ -19,7 +19,7 @@ class DefaultFilter(FeatureFilter):
         use_llm: bool = False,
         user_prompt: Optional[str] = None,
         expected_edits: Optional[list[str]] = None,
-        loading_multiplier: float = 0.,
+        loading_multiplier: float = 0.0,
     ):
         self.max_tokens = max_tokens
         self.model = model
@@ -54,12 +54,12 @@ class DefaultFilter(FeatureFilter):
                     self.user_prompt,
                     self.levels,
                     self.expected_edits,
-                    (0.5 if self.user_prompt != "" else 1)
-                    * self.loading_multiplier,
+                    (0.5 if self.user_prompt != "" else 1) * self.loading_multiplier,
                 ).filter(features)
             except ModelError:
                 stream.send(
-                    "Feature-selection LLM response invalid. Using TruncateFilter instead."
+                    "Feature-selection LLM response invalid. Using TruncateFilter"
+                    " instead."
                 )
                 features = await TruncateFilter(
                     self.max_tokens, self.model, self.levels, True

@@ -27,7 +27,7 @@ class LLMFeatureFilter(FeatureFilter):
         user_prompt: Optional[str] = None,
         levels: list[CodeMessageLevel] = [],
         expected_edits: Optional[list[str]] = None,
-        loading_multiplier: float = 0.,
+        loading_multiplier: float = 0.0,
     ):
         self.max_tokens = max_tokens
         self.user_prompt = user_prompt or ""

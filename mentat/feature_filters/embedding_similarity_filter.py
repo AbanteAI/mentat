@@ -4,7 +4,7 @@ from mentat.feature_filters.feature_filter import FeatureFilter
 
 
 class EmbeddingSimilarityFilter(FeatureFilter):
-    def __init__(self, query: str, loading_multiplier: float = 0.):
+    def __init__(self, query: str, loading_multiplier: float = 0.0):
         self.query = query
         self.loading_multiplier = loading_multiplier
 
