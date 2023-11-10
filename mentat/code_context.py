@@ -166,7 +166,7 @@ class CodeContext:
             )
         return self._code_message
 
-    use_llm: bool = True
+    use_llm: bool = False
 
     async def _get_code_message(
         self,
@@ -190,7 +190,8 @@ class CodeContext:
             ]
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model)
-        remaining_tokens = max_tokens - meta_tokens
+        auto_tokens = config.auto_tokens
+        remaining_tokens = min(max_tokens, auto_tokens) - meta_tokens
 
         if not config.auto_context or remaining_tokens <= 0:
             self.features = self._get_include_features()

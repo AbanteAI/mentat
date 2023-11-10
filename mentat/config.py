@@ -83,6 +83,17 @@ class Config:
         },
         converter=converters.optional(converters.to_bool),
     )
+    auto_tokens: int = attr.field(
+        default=3000,
+        metadata={
+            "description": (
+                "Maximum number of auto-generated tokens to include in the prompt"
+                " context"
+            ),
+        },
+        converter=int,
+        validator=validators.optional(validators.ge(0)),
+    )
 
     # Only settable by config file
     input_style: list[tuple[str, str]] = attr.field(
