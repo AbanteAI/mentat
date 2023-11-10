@@ -23,7 +23,7 @@ class LoadingHandler:
             _progress = min(message.extra["progress"], self.pbar.total - self.pbar.n)
             self.pbar.update(_progress)
             if self.pbar.n == self.pbar.total:
-                self.pbar.close()
+                self.terminate()
 
     def terminate(self):
         if self.pbar is not None:
