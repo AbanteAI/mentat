@@ -151,4 +151,4 @@ async def test_edit_quality(
         repo.git.reset("--hard")
         repo.git.clean("-fd")
         repo.git.checkout(start_commit)
-        await client.stop()
+        await client.shutdown()

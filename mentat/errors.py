@@ -1,25 +1,28 @@
-# Raised when model output doesn't adhere to the specified format for changes
 class ModelError(Exception):
-    pass
+    """
+    Raised when model output doesn't adhere to the specified format for changes.
+    Handled by the parser; shouldn't be thrown outside of parsing!
+    """
 
 
-# Used to indicate a KeyboardInterupt thrown by a remote client
 class RemoteKeyboardInterrupt(Exception):
-    pass
-
-
-# These 2 errors will have their message displayed in red, but no stacktrace thrown
+    """Used to indicate a KeyboardInterupt thrown by a remote client"""
 
 
 # TODO: Combine MentatError and UserError into just MentatError
 class MentatError(Exception):
-    pass
+    """
+    Will show the user the exception, but not the stacktrace. Used for known errors.
+    """
 
 
 class UserError(Exception):
-    pass
+    """
+    Will show the user the exception, but not the stacktrace. Used for known errors.
+    """
 
 
-# This will exit the session without showing any sign of error
 class SessionExit(Exception):
-    pass
+    """
+    Stops the session without any sign of error.
+    """

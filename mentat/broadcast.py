@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from asyncio import Queue
+from asyncio import CancelledError, Queue
 from collections import defaultdict
 from contextlib import contextmanager
 from typing import Any, AsyncGenerator, Dict, Iterator, Set
@@ -99,7 +99,12 @@ class Broadcast:
         self._listener_task = asyncio.create_task(self._listener())
 
     def disconnect(self) -> None:
-        if not self._listener_task.done():
+        if self._listener_task.done():
+            try:
+                self._listener_task.result()
+            except CancelledError:
+                pass
+        else:
             self._listener_task.cancel()
         self._backend.disconnect()
 

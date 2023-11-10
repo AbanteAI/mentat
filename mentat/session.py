@@ -23,6 +23,12 @@ from mentat.session_stream import SessionStream
 
 
 class Session:
+    """
+    The server for Mentat.
+    To stop, send a message on the session_exit channel.
+    A message will be sent on the client_exit channel when ready for client to quit.
+    """
+
     def __init__(
         self,
         paths: List[Path] = [],
@@ -107,13 +113,17 @@ class Session:
         except (Timeout, RateLimitError) as e:
             stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
 
+    async def listen_for_session_exit(self):
+        await self.stream.recv(channel="session_exit")
+        self._main_task.cancel()
+
     ### lifecycle
 
-    def start(self) -> asyncio.Task[None]:
+    def start(self):
         """Asynchronously start the Session.
 
         A background asyncio Task will be created to run the startup sequence and run
-        the main loop which runs forever (until a client interrupts it).
+        the main loop which runs until an Exception or session_exit signal is encountered.
         """
 
         async def run_main():
@@ -129,13 +139,16 @@ class Session:
                     f"Unhandled Exception: {traceback.format_exc()}", color="red"
                 )
             finally:
-                await self.stop()
+                await self._stop()
 
         setup_logging()
         self._main_task: Task[None] = asyncio.create_task(run_main())
-        return self._main_task
+        # If we create more tasks in Session, add a task list and helper function like we have in TerminalClient
+        self._exit_task: Task[None] = asyncio.create_task(
+            self.listen_for_session_exit()
+        )
 
-    async def stop(self):
+    async def _stop(self):
         if self.stopped:
             return
         self.stopped = True
@@ -145,11 +158,12 @@ class Session:
 
         cost_tracker.display_total_cost()
         logging.shutdown()
+        self._exit_task.cancel()
         self._main_task.cancel()
         try:
             await self._main_task
         except CancelledError:
             pass
-        self.stream.send(None, channel="exit")
+        self.stream.send(None, channel="client_exit")
         await self.stream.join()
         self.stream.stop()
