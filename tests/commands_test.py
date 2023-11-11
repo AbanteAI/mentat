@@ -22,7 +22,9 @@ async def test_help_command(mock_session_context):
 
 
 @pytest.mark.asyncio
-async def test_commit_command(temp_testbed, mock_setup_api_key, mock_collect_user_input):
+async def test_commit_command(
+    temp_testbed, mock_setup_api_key, mock_collect_user_input
+):
     file_name = "test_file.py"
     with open(file_name, "w") as f:
         f.write("# Commit me!")
@@ -42,7 +44,9 @@ async def test_commit_command(temp_testbed, mock_setup_api_key, mock_collect_use
 
 
 @pytest.mark.asyncio
-async def test_include_command(temp_testbed, mock_setup_api_key, mock_collect_user_input):
+async def test_include_command(
+    temp_testbed, mock_setup_api_key, mock_collect_user_input
+):
     mock_collect_user_input.set_stream_messages(
         [
             "/include scripts",
@@ -55,11 +59,15 @@ async def test_include_command(temp_testbed, mock_setup_api_key, mock_collect_us
     session.stream.stop()
 
     code_context = SESSION_CONTEXT.get().code_context
-    assert Path(temp_testbed) / "scripts" / "calculator.py" in code_context.include_files
+    assert (
+        Path(temp_testbed) / "scripts" / "calculator.py" in code_context.include_files
+    )
 
 
 @pytest.mark.asyncio
-async def test_exclude_command(temp_testbed, mock_setup_api_key, mock_collect_user_input):
+async def test_exclude_command(
+    temp_testbed, mock_setup_api_key, mock_collect_user_input
+):
     mock_collect_user_input.set_stream_messages(
         [
             "/exclude scripts",
@@ -76,16 +84,14 @@ async def test_exclude_command(temp_testbed, mock_setup_api_key, mock_collect_us
 
 
 @pytest.mark.asyncio
-async def test_undo_command(temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api):
+async def test_undo_command(
+    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
+):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(
-            dedent(
-                """\
+        f.write(dedent("""\
             # This is a temporary file
-            # with 2 lines"""
-            )
-        )
+            # with 2 lines"""))
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -96,10 +102,7 @@ async def test_undo_command(temp_testbed, mock_setup_api_key, mock_collect_user_
         ]
     )
 
-    mock_call_llm_api.set_generator_values(
-        [
-            dedent(
-                f"""\
+    mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
         @@start
@@ -111,10 +114,7 @@ async def test_undo_command(temp_testbed, mock_setup_api_key, mock_collect_user_
         }}
         @@code
         # I inserted this comment
-        @@end"""
-            )
-        ]
-    )
+        @@end""")])
 
     session = Session([temp_file_name])
     await session.start()
@@ -122,25 +122,21 @@ async def test_undo_command(temp_testbed, mock_setup_api_key, mock_collect_user_
 
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent(
-            """\
+        expected_content = dedent("""\
             # This is a temporary file
-            # with 2 lines"""
-        )
+            # with 2 lines""")
     assert content == expected_content
 
 
 @pytest.mark.asyncio
-async def test_undo_all_command(temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api):
+async def test_undo_all_command(
+    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
+):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(
-            dedent(
-                """\
+        f.write(dedent("""\
             # This is a temporary file
-            # with 2 lines"""
-            )
-        )
+            # with 2 lines"""))
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -152,10 +148,7 @@ async def test_undo_all_command(temp_testbed, mock_setup_api_key, mock_collect_u
     )
 
     # TODO: Make a way to set multiple return values for call_llm_api and reset multiple edits at once
-    mock_call_llm_api.set_generator_values(
-        [
-            dedent(
-                f"""\
+    mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
         @@start
@@ -167,10 +160,7 @@ async def test_undo_all_command(temp_testbed, mock_setup_api_key, mock_collect_u
         }}
         @@code
         # I inserted this comment
-        @@end"""
-            )
-        ]
-    )
+        @@end""")])
 
     session = Session([temp_file_name])
     await session.start()
@@ -178,16 +168,16 @@ async def test_undo_all_command(temp_testbed, mock_setup_api_key, mock_collect_u
 
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent(
-            """\
+        expected_content = dedent("""\
             # This is a temporary file
-            # with 2 lines"""
-        )
+            # with 2 lines""")
     assert content == expected_content
 
 
 @pytest.mark.asyncio
-async def test_clear_command(temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api):
+async def test_clear_command(
+    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
+):
     mock_collect_user_input.set_stream_messages(
         [
             "Request",
@@ -206,7 +196,9 @@ async def test_clear_command(temp_testbed, mock_setup_api_key, mock_collect_user
 
 
 @pytest.mark.asyncio
-async def test_search_command(mocker, temp_testbed, mock_setup_api_key, mock_call_llm_api, mock_collect_user_input):
+async def test_search_command(
+    mocker, temp_testbed, mock_setup_api_key, mock_call_llm_api, mock_collect_user_input
+):
     mock_collect_user_input.set_stream_messages(
         [
             "Request",
@@ -215,7 +207,9 @@ async def test_search_command(mocker, temp_testbed, mock_setup_api_key, mock_cal
         ]
     )
     mock_call_llm_api.set_generator_values(["Answer"])
-    mock_feature = CodeFeature(Path(temp_testbed) / "multifile_calculator" / "calculator.py")
+    mock_feature = CodeFeature(
+        Path(temp_testbed) / "multifile_calculator" / "calculator.py"
+    )
     mock_score = 1.0
     mocker.patch(
         "mentat.code_context.CodeContext.search",

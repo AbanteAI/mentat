@@ -61,7 +61,10 @@ class TerminalClient:
         while True:
             input_request_message = await self.session.stream.recv("input_request")
             # TODO: Make extra kwargs like plain constants
-            if input_request_message.extra is not None and input_request_message.extra.get("plain"):
+            if (
+                input_request_message.extra is not None
+                and input_request_message.extra.get("plain")
+            ):
                 prompt_session = self._plain_session
             else:
                 prompt_session = self._prompt_session
@@ -83,7 +86,9 @@ class TerminalClient:
 
     async def _send_session_stream_interrupt(self):
         logging.debug("Sending interrupt to session stream")
-        self.session.stream.send("", source=StreamMessageSource.CLIENT, channel="interrupt")
+        self.session.stream.send(
+            "", source=StreamMessageSource.CLIENT, channel="interrupt"
+        )
 
     # Be careful editing this function; since we use signal.signal instead of asyncio's
     # add signal handler (which isn't available on Windows), this function can interrupt
@@ -91,7 +96,8 @@ class TerminalClient:
     def _handle_sig_int(self, sig: int, frame: FrameType | None):
         if (
             # If session is still starting up we want to quit without an error
-            not self.session or self.session.stream.interrupt_lock.locked() is False
+            not self.session
+            or self.session.stream.interrupt_lock.locked() is False
         ):
             if self._should_exit.is_set():
                 logging.debug("Force exiting client...")
@@ -126,7 +132,9 @@ class TerminalClient:
         logging.debug("Running startup")
 
         mentat_completer = MentatCompleter()
-        self._prompt_session = MentatPromptSession(completer=mentat_completer, style=Style(self.config.input_style))
+        self._prompt_session = MentatPromptSession(
+            completer=mentat_completer, style=Style(self.config.input_style)
+        )
 
         plain_bindings = KeyBindings()
 
@@ -177,8 +185,12 @@ class TerminalClient:
 
 
 def run_cli():
-    parser = argparse.ArgumentParser(description="Run conversation with command line args")
-    parser.add_argument("cwd", default=Path.cwd(), help="The directory to start mentat in")
+    parser = argparse.ArgumentParser(
+        description="Run conversation with command line args"
+    )
+    parser.add_argument(
+        "cwd", default=Path.cwd(), help="The directory to start mentat in"
+    )
     parser.add_argument(
         "paths",
         nargs="*",
@@ -197,7 +209,10 @@ def run_cli():
         "-g",
         nargs="*",
         default=[],
-        help=("List of file paths, directory paths, or glob patterns to ignore in" " auto-context"),
+        help=(
+            "List of file paths, directory paths, or glob patterns to ignore in"
+            " auto-context"
+        ),
     )
     parser.add_argument(
         "--diff",

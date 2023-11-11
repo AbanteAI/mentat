@@ -18,7 +18,9 @@ async def test_posix_paths(mock_session_context):
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
         file_file.write("I am a file")
-    mock_session_context.code_context.include_files, _ = get_include_files([file_path], [])
+    mock_session_context.code_context.include_files, _ = get_include_files(
+        [file_path], []
+    )
 
     code_message = await mock_session_context.code_context.get_code_message("", 1e6)
     assert dir_name + "/" + file_name in code_message.split("\n")
@@ -31,24 +33,23 @@ async def test_partial_files(mocker, mock_session_context):
     file_path = os.path.join(dir_name, file_name)
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
-        file_file.write(
-            dedent(
-                """\
+        file_file.write(dedent("""\
              I am a file
              with 5 lines
              third
              fourth
-             fifth"""
-            )
-        )
+             fifth"""))
 
     file_path_partial = file_path + ":1,3-5"
-    mock_session_context.code_context.include_files, _ = get_include_files([file_path_partial], [])
+    mock_session_context.code_context.include_files, _ = get_include_files(
+        [file_path_partial], []
+    )
     mock_session_context.code_context.code_map = False
 
-    code_message = await mock_session_context.code_context.get_code_message("", max_tokens=1e6)
-    assert code_message == dedent(
-        """\
+    code_message = await mock_session_context.code_context.get_code_message(
+        "", max_tokens=1e6
+    )
+    assert code_message == dedent("""\
             Code Files:
 
             dir/file.txt
@@ -57,12 +58,13 @@ async def test_partial_files(mocker, mock_session_context):
             3:third
             4:fourth
             5:fifth
-              """
-    )
+              """)
 
 
 @pytest.mark.asyncio
-async def test_run_from_subdirectory(mock_collect_user_input, mock_call_llm_api, mock_setup_api_key):
+async def test_run_from_subdirectory(
+    mock_collect_user_input, mock_call_llm_api, mock_setup_api_key
+):
     """Run mentat from a subdirectory of the git root"""
     # Change to the subdirectory
     os.chdir("multifile_calculator")
@@ -76,10 +78,7 @@ async def test_run_from_subdirectory(mock_collect_user_input, mock_call_llm_api,
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values(
-        [
-            dedent(
-                """\
+    mock_call_llm_api.set_generator_values([dedent("""\
         I will insert a comment in both files.
 
         @@start
@@ -101,10 +100,7 @@ async def test_run_from_subdirectory(mock_collect_user_input, mock_call_llm_api,
         }
         @@code
         # Hello
-        @@end"""
-            )
-        ]
-    )
+        @@end""")])
 
     session = Session(cwd=Path.cwd(), paths=[Path("calculator.py"), Path("../scripts")])
     await session.start()
@@ -120,7 +116,9 @@ async def test_run_from_subdirectory(mock_collect_user_input, mock_call_llm_api,
 
 
 @pytest.mark.asyncio
-async def test_change_after_creation(mock_collect_user_input, mock_call_llm_api, mock_setup_api_key):
+async def test_change_after_creation(
+    mock_collect_user_input, mock_call_llm_api, mock_setup_api_key
+):
     file_name = Path("hello_world.py")
     mock_collect_user_input.set_stream_messages(
         [
@@ -129,10 +127,7 @@ async def test_change_after_creation(mock_collect_user_input, mock_call_llm_api,
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values(
-        [
-            dedent(
-                f"""\
+    mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
         @@start
@@ -151,10 +146,7 @@ async def test_change_after_creation(mock_collect_user_input, mock_call_llm_api,
         }}
         @@code
         print("Hello, World!")
-        @@end"""
-            )
-        ]
-    )
+        @@end""")])
 
     session = Session(cwd=Path.cwd())
     await session.start()

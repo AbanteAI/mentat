@@ -11,10 +11,7 @@ async def test_editing_file_auto_accept(mock_call_llm_api, mock_setup_api_key):
     with open(file_name, "w") as f:
         f.write("# Line 1")
 
-    mock_call_llm_api.set_generator_values(
-        [
-            dedent(
-                f"""\
+    mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
         @@start
@@ -26,10 +23,7 @@ async def test_editing_file_auto_accept(mock_call_llm_api, mock_setup_api_key):
         }}
         @@code
         # Line 2
-        @@end"""
-            )
-        ]
-    )
+        @@end""")])
 
     python_client = PythonClient(paths=["."])
     await python_client.startup()
@@ -48,10 +42,7 @@ async def test_collects_mentat_response(mock_call_llm_api, mock_setup_api_key):
     with open(file_name, "w") as f:
         f.write("# Line 1")
 
-    mock_call_llm_api.set_generator_values(
-        [
-            dedent(
-                f"""\
+    mock_call_llm_api.set_generator_values([dedent(f"""\
         Conversation
 
         @@start
@@ -63,10 +54,7 @@ async def test_collects_mentat_response(mock_call_llm_api, mock_setup_api_key):
         }}
         @@code
         # Line 2
-        @@end"""
-            )
-        ]
-    )
+        @@end""")])
 
     python_client = PythonClient(paths=["."])
     await python_client.startup()
