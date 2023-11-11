@@ -5,7 +5,6 @@ import pytest
 
 from mentat.config import Config
 from mentat.parsers.block_parser import BlockParser
-from pathlib import Path
 from mentat.session import Session
 
 

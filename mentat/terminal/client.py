@@ -189,9 +189,6 @@ def run_cli():
         description="Run conversation with command line args"
     )
     parser.add_argument(
-        "cwd", default=Path.cwd(), help="The directory to start mentat in"
-    )
-    parser.add_argument(
         "paths",
         nargs="*",
         default=[],
@@ -227,6 +224,9 @@ def run_cli():
         type=str,
         default=None,
         help="A git tree-ish to diff against the latest common ancestor of",
+    )
+    parser.add_argument(
+        "--cwd", default=Path.cwd(), help="The current working directory"
     )
 
     Config.add_fields_to_argparse(parser)
