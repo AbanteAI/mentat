@@ -57,9 +57,7 @@ def test_diff_context_default(temp_testbed, git_history, mock_session_context):
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     # DiffContext.__init__() (default): active code vs last commit
-    diff_context = DiffContext(
-        mock_session_context.stream, mock_session_context.git_root
-    )
+    diff_context = DiffContext(mock_session_context.stream, mock_session_context.git_root)
     assert diff_context.target == "HEAD"
     assert diff_context.name == "HEAD (last commit)"
     assert diff_context.files == []
@@ -84,12 +82,8 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     # Get the hash of 2-commits-ago
-    last_commit = subprocess.check_output(
-        ["git", "rev-parse", "HEAD~2"], cwd=temp_testbed, text=True
-    ).strip()
-    diff_context = DiffContext(
-        mock_session_context.stream, mock_session_context.git_root, diff=last_commit
-    )
+    last_commit = subprocess.check_output(["git", "rev-parse", "HEAD~2"], cwd=temp_testbed, text=True).strip()
+    diff_context = DiffContext(mock_session_context.stream, mock_session_context.git_root, diff=last_commit)
     assert diff_context.target == last_commit
     assert diff_context.name == f"{last_commit[:8]}: add testbed"
     assert diff_context.files == [abs_path]
@@ -105,9 +99,7 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
 
 @pytest.mark.asyncio
 async def test_diff_context_branch(temp_testbed, git_history, mock_session_context):
-    diff_context = DiffContext(
-        mock_session_context.stream, mock_session_context.git_root, diff="test_branch"
-    )
+    diff_context = DiffContext(mock_session_context.stream, mock_session_context.git_root, diff="test_branch")
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     assert diff_context.target == "test_branch"
@@ -126,9 +118,7 @@ async def test_diff_context_branch(temp_testbed, git_history, mock_session_conte
 
 @pytest.mark.asyncio
 async def test_diff_context_relative(temp_testbed, git_history, mock_session_context):
-    diff_context = DiffContext(
-        mock_session_context.stream, mock_session_context.git_root, diff="HEAD~2"
-    )
+    diff_context = DiffContext(mock_session_context.stream, mock_session_context.git_root, diff="HEAD~2")
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     assert diff_context.target == "HEAD~2"
@@ -150,13 +140,9 @@ async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     subprocess.run(["git", "checkout", "test_branch"], cwd=temp_testbed)
-    diff_context = DiffContext(
-        mock_session_context.stream, mock_session_context.git_root, pr_diff="master"
-    )
+    diff_context = DiffContext(mock_session_context.stream, mock_session_context.git_root, pr_diff="master")
 
-    commit2 = subprocess.check_output(
-        ["git", "rev-parse", "HEAD~1"], cwd=temp_testbed, text=True
-    ).strip()
+    commit2 = subprocess.check_output(["git", "rev-parse", "HEAD~1"], cwd=temp_testbed, text=True).strip()
     assert diff_context.target == commit2
     assert diff_context.name.startswith("Merge-base Branch master:")
     assert diff_context.name.endswith(": commit2")  # NOT the latest
@@ -164,15 +150,13 @@ async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
 
 
 @pytest.mark.asyncio
-async def test_diff_context_end_to_end(
-    temp_testbed, git_history, mock_call_llm_api, mock_setup_api_key
-):
+async def test_diff_context_end_to_end(temp_testbed, git_history, mock_call_llm_api, mock_setup_api_key):
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     # SESSION_CONTEXT isn't reset between tests
     SESSION_CONTEXT.set(None)
     mock_call_llm_api.set_generator_values([""])
-    python_client = PythonClient([], diff="HEAD~2")
+    python_client = PythonClient(paths=[], diff="HEAD~2")
     await python_client.startup()
 
     session_context = SESSION_CONTEXT.get()
