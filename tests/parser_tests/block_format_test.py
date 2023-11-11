@@ -1,9 +1,9 @@
 import os
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
 
-from pathlib import Path
 from mentat.config import Config
 from mentat.parsers.block_parser import BlockParser
 from mentat.session import Session
