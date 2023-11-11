@@ -7,6 +7,7 @@ from typing import List
 
 import attr
 
+from mentat.code_feature import CodeMessageLevel
 from mentat.errors import MentatError, UserError
 from mentat.git_handler import commit
 from mentat.include_files import print_invalid_path
@@ -146,7 +147,6 @@ class IncludeCommand(Command, command_name="include"):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
-        git_root = session_context.git_root
 
         if len(args) == 0:
             stream.send("No files specified", color="yellow")
@@ -158,7 +158,7 @@ class IncludeCommand(Command, command_name="include"):
             for invalid_path in invalid_paths:
                 print_invalid_path(invalid_path)
             for included_path in included_paths:
-                rel_path = included_path.relative_to(git_root)
+                rel_path = included_path.relative_to(session_context.cwd)
                 stream.send(f"{rel_path} added to context", color="green")
 
     @classmethod
@@ -175,7 +175,6 @@ class ExcludeCommand(Command, command_name="exclude"):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
-        git_root = session_context.git_root
 
         if len(args) == 0:
             stream.send("No files specified", color="yellow")
@@ -187,7 +186,7 @@ class ExcludeCommand(Command, command_name="exclude"):
             for invalid_path in invalid_paths:
                 print_invalid_path(invalid_path)
             for excluded_path in excluded_paths:
-                rel_path = excluded_path.relative_to(git_root)
+                rel_path = excluded_path.relative_to(session_context.cwd)
                 stream.send(f"{rel_path} removed from context", color="red")
 
     @classmethod
@@ -266,7 +265,6 @@ class SearchCommand(Command, command_name="search"):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
-        git_root = session_context.git_root
 
         if len(args) == 0:
             stream.send("No search query specified", color="yellow")
@@ -279,9 +277,12 @@ class SearchCommand(Command, command_name="search"):
             return
 
         for i, (feature, score) in enumerate(results, start=1):
-            label = feature.ref()
-            if label.startswith(str(git_root)):
-                label = label[len(str(git_root)) + 1 :]
+            if feature.path.is_relative_to(session_context.cwd):
+                label = f"{feature.path.relative_to(session_context.cwd)}"
+                if feature.level == CodeMessageLevel.INTERVAL:
+                    label = f"{label}:{feature.interval.start}-{feature.interval.end}"
+            else:
+                label = feature.ref()
             if feature.name:
                 label += f' "{feature.name}"'
             stream.send(f"{i:3} | {score:.3f} | {label}")

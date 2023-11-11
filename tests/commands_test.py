@@ -43,6 +43,7 @@ async def test_commit_command(
     assert subprocess.check_output(["git", "status", "-s"], text=True) == ""
 
 
+# TODO: test without git
 @pytest.mark.asyncio
 async def test_include_command(
     temp_testbed, mock_setup_api_key, mock_collect_user_input
@@ -64,6 +65,7 @@ async def test_include_command(
     )
 
 
+# TODO: test without git
 @pytest.mark.asyncio
 async def test_exclude_command(
     temp_testbed, mock_setup_api_key, mock_collect_user_input
@@ -195,6 +197,7 @@ async def test_clear_command(
     assert len(conversation.get_messages()) == 1
 
 
+# TODO: test without git
 @pytest.mark.asyncio
 async def test_search_command(
     mocker, temp_testbed, mock_setup_api_key, mock_call_llm_api, mock_collect_user_input
