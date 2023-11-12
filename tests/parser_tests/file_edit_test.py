@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from mentat.parsers.file_edit import FileEdit, Replacement
@@ -14,7 +12,10 @@ async def test_replacement(mock_session_context):
         Replacement(0, 2, ["# Line 0", "# Line 1", "# Line 2"]),
         Replacement(3, 3, ["# Inserted"]),
     ]
-    file_edit = FileEdit(file_path=Path("test.py"), replacements=replacements)
+    file_edit = FileEdit(
+        file_path=mock_session_context.cwd.joinpath("test.py"),
+        replacements=replacements,
+    )
     file_edit.resolve_conflicts()
     original_lines = ["# Remove me", "# Remove me", "# Line 3", "# Line 4"]
     new_lines = file_edit.get_updated_file_lines(original_lines)
@@ -37,7 +38,10 @@ async def test_replacement_conflict(mock_session_context):
         Replacement(4, 7, ["L3"]),
         Replacement(5, 6, ["L2"]),
     ]
-    file_edit = FileEdit(file_path=Path("test.py"), replacements=replacements)
+    file_edit = FileEdit(
+        file_path=mock_session_context.cwd.joinpath("test.py"),
+        replacements=replacements,
+    )
     file_edit.resolve_conflicts()
     original_lines = ["O0", "O1", "O2", "O3", "O4", "O5", "O6"]
     new_lines = file_edit.get_updated_file_lines(original_lines)

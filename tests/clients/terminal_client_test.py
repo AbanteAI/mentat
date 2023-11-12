@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import subprocess
 from textwrap import dedent
 from unittest.mock import AsyncMock
@@ -93,7 +94,7 @@ def test_request_and_command(
         # I created this file
         @@end""")])
 
-    terminal_client = TerminalClient(["."])
+    terminal_client = TerminalClient(cwd=Path.cwd(), paths=["."])
     terminal_client.run()
 
     with open(file_name, "r") as f:
