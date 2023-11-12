@@ -81,27 +81,10 @@ class CodeFileManager:
                     )
                 self.history.add_action(CreationAction(file_edit.file_path))
                 self._create_file(code_context, file_edit.file_path)
-            else:
-                if not file_edit.file_path.exists():
-                    raise MentatError(
-                        f"Attempted to edit non-existent file {file_edit.file_path}"
-                    )
-                context_features = code_context.features or [
-                    feat
-                    for feats in code_context.include_files.values()
-                    for feat in feats
-                ]
-                missing_lines = False
-                for r in file_edit.replacements:
-                    for i in range(r.starting_line, r.ending_line):
-                        if not any(f.contains_line(i) for f in context_features):
-                            missing_lines = True
-                if not context_features or missing_lines:
-                    stream.send(
-                        f"Attempted to edit file {file_edit.file_path} not in context",
-                        color="yellow",
-                    )
-                    continue
+            elif not file_edit.file_path.exists():
+                raise MentatError(
+                    f"Attempted to edit non-existent file {file_edit.file_path}"
+                )
 
             if file_edit.is_deletion:
                 stream.send(f"Are you sure you want to delete {rel_path}?", color="red")
