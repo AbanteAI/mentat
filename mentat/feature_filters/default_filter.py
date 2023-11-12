@@ -41,7 +41,7 @@ class DefaultFilter(FeatureFilter):
 
         if self.user_prompt != "":
             features = await EmbeddingSimilarityFilter(
-                self.user_prompt, 0.5 * self.loading_multiplier
+                self.user_prompt, (0.5 if self.use_llm else 1) * self.loading_multiplier
             ).filter(features)
         # python sorts are stable (even with reversed=true) so the two groups: included and not included
         # will maintain their relative orders
