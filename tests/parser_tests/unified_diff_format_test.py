@@ -1,5 +1,6 @@
 from pathlib import Path
 from textwrap import dedent
+
 import pytest
 
 from mentat.config import Config
