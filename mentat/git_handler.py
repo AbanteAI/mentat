@@ -27,6 +27,7 @@ def get_non_gitignored_files(path: Path) -> set[Path]:
                 text=True,
             ).split("\n"),
         )
+        if os.path.exists(p)  # ignore deleted files
     )
 
 
