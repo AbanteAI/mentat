@@ -10,8 +10,6 @@ jobs:
       contents: write
 
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
 
     steps:
     - uses: actions/checkout@v3
@@ -33,6 +31,7 @@ jobs:
         mv mentat/resources/conf/conf-prod.ini mentat/resources/conf/conf.ini
     - name: Github Release
       if: ${{ steps.version-number.outputs.match != '' }}
+      continue-on-error: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: >-
@@ -41,6 +40,7 @@ jobs:
         --title "Version ${{ steps.version-number.outputs.group1 }}"
     - name: PyPi Release
       if: ${{ steps.version-number.outputs.match != '' }}
+      continue-on-error: true
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
@@ -49,7 +49,9 @@ jobs:
         twine upload dist/*
     - name: Brew Release
       if: ${{ steps.version-number.outputs.match != '' }}
+      continue-on-error: true
       uses: dawidd6/action-homebrew-bump-formula@v3
       with:
         token: ${{ secrets.TOKEN_FOR_BREW }}
         formula: mentat
+        tag: v${{ steps.version-number.outputs.group1 }}
