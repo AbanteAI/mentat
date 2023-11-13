@@ -7,6 +7,9 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
     steps:
     - uses: actions/checkout@v3
     - uses: actions-ecosystem/action-regex-match@v2
@@ -27,9 +30,12 @@ jobs:
         mv mentat/resources/conf/conf-prod.ini mentat/resources/conf/conf.ini
     - name: Github Release
       if: ${{ steps.version-number.outputs.match != '' }}
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ steps.version-number.outputs.group1 }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: >-
+        gh release create "v${{ steps.version-number.outputs.group1 }}"
+        --generate-notes
+        --title "Version ${{ steps.version-number.outputs.group1 }}"
     - name: PyPi Release
       if: ${{ steps.version-number.outputs.match != '' }}
       env:
