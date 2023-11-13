@@ -48,7 +48,8 @@ jobs:
         python setup.py sdist bdist_wheel
         twine upload dist/*
     - name: Brew Release
-      if: ${{ steps.version-number.outputs.match != '' }}
+      # Since Homebrew automatically updates from PyPI, no need for us to run this
+      if: ${{ steps.version-number.outputs.match != '' }} && false
       continue-on-error: true
       uses: dawidd6/action-homebrew-bump-formula@v3
       with:
