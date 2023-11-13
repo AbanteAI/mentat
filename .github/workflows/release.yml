@@ -6,6 +6,10 @@ on:
     - main
 jobs:
   release:
+    permissions:
+      contents: write
+      workflows: write
+
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
