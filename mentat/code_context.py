@@ -271,9 +271,7 @@ class CodeContext:
                     all_features.append(full_feature)
                 else:
                     _split_features = split_file_into_intervals(
-                        git_root,
-                        full_feature,
-                        user_features=self.include_files.get(abs_path, []),
+                        full_feature, user_features=self.include_files.get(abs_path, [])
                     )
                     all_features += _split_features
             else:

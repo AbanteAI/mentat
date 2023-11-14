@@ -21,7 +21,10 @@ def _make_code_feature(path, text):
 @pytest.mark.asyncio
 async def test_get_feature_similarity_scores(mocker, mock_session_context):
     prompt = "example prompt"
-    features = [_make_code_feature(f"file{i}.txt", f"File {i}") for i in range(3)]
+    features = [
+        _make_code_feature(mock_session_context.cwd / f"file{i}.txt", f"File {i}")
+        for i in range(3)
+    ]
     mocker.patch(
         "mentat.embeddings.call_embedding_api",
         return_value=[
