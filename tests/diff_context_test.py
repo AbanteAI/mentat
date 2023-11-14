@@ -172,7 +172,7 @@ async def test_diff_context_end_to_end(
     # SESSION_CONTEXT isn't reset between tests
     SESSION_CONTEXT.set(None)
     mock_call_llm_api.set_generator_values([""])
-    python_client = PythonClient(paths=[], diff="HEAD~2")
+    python_client = PythonClient(cwd=temp_testbed, paths=[], diff="HEAD~2")
     await python_client.startup()
 
     session_context = SESSION_CONTEXT.get()
