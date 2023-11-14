@@ -11,6 +11,7 @@ from openai.error import InvalidRequestError
 from mentat.errors import MentatError
 from mentat.llm_api import (
     call_llm_api,
+    conversation_tokens,
     count_tokens,
     get_prompt_token_count,
     is_model_available,
@@ -64,7 +65,7 @@ class Conversation:
                     " size for this model.",
                     color="yellow",
                 )
-        conversation_history = "\n".join([m["content"] for m in self.get_messages()])
+
         context_size = model_context_size(config.model)
         maximum_context = config.maximum_context
         if maximum_context:
@@ -72,10 +73,17 @@ class Conversation:
                 context_size = min(context_size, maximum_context)
             else:
                 context_size = maximum_context
-        tokens = count_tokens(
-            await code_context.get_code_message("", max_tokens=0),
+
+        messages = self.get_messages() + [
+            {
+                "role": MessageRole.System.value,
+                "content": await code_context.get_code_message("", max_tokens=0),
+            }
+        ]
+        tokens = conversation_tokens(
+            messages,
             config.model,
-        ) + count_tokens(conversation_history, config.model)
+        )
 
         if not context_size:
             raise MentatError(
@@ -134,7 +142,9 @@ class Conversation:
         else:
             parser = config.parser
             prompt = parser.get_system_prompt()
-            return [{"role": "system", "content": prompt}] + self._messages.copy()
+            return [
+                {"role": MessageRole.System.value, "content": prompt}
+            ] + self._messages.copy()
 
     def clear_messages(self) -> None:
         """Clears the messages in the conversation"""
@@ -177,14 +187,15 @@ class Conversation:
         messages_snapshot = self.get_messages()
 
         # Rebuild code context with active code and available tokens
-        conversation_history = "\n".join([m["content"] for m in messages_snapshot])
-        tokens = count_tokens(conversation_history, config.model)
+        tokens = conversation_tokens(messages_snapshot, config.model)
         response_buffer = 1000
         code_message = await code_context.get_code_message(
             messages_snapshot[-1]["content"],
             self.max_tokens - tokens - response_buffer,
         )
-        messages_snapshot.append({"role": "system", "content": code_message})
+        messages_snapshot.append(
+            {"role": MessageRole.System.value, "content": code_message}
+        )
 
         code_context.display_features()
         num_prompt_tokens = get_prompt_token_count(messages_snapshot, config.model)
@@ -193,13 +204,18 @@ class Conversation:
         )
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
-            count_tokens(parsedLLMResponse.full_response, config.model),
+            count_tokens(
+                parsedLLMResponse.full_response, config.model, full_message=True
+            ),
             config.model,
             time_elapsed,
         )
 
         messages_snapshot.append(
-            {"role": "assistant", "content": parsedLLMResponse.full_response}
+            {
+                "role": MessageRole.Assistant.value,
+                "content": parsedLLMResponse.full_response,
+            }
         )
         self.add_model_message(parsedLLMResponse.full_response, messages_snapshot)
         return parsedLLMResponse.file_edits

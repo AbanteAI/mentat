@@ -217,7 +217,7 @@ class CodeFeature:
 
     def count_tokens(self, model: str) -> int:
         code_message = self.get_code_message()
-        return count_tokens("\n".join(code_message), model)
+        return count_tokens("\n".join(code_message), model, full_message=False)
 
 
 async def count_feature_tokens(features: list[CodeFeature], model: str) -> list[int]:
