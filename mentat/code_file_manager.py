@@ -32,7 +32,7 @@ class CodeFileManager:
     def read_file(self, path: Path) -> list[str]:
         session_context = SESSION_CONTEXT.get()
 
-        abs_path = path if path.is_absolute() else session_context.cwd.joinpath(path)
+        abs_path = path if path.is_absolute() else session_context.cwd / path
         with open(abs_path, "r") as f:
             lines = f.read().split("\n")
         self.file_lines[abs_path] = lines
