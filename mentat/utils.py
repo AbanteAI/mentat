@@ -1,10 +1,17 @@
 import asyncio
 import hashlib
 import json
+import sys
 from importlib import resources
 from importlib.abc import Traversable
 from pathlib import Path
 from typing import AsyncGenerator
+
+import packaging.version
+import requests
+
+from mentat import __version__
+from mentat.session_context import SESSION_CONTEXT
 
 mentat_dir_path = Path.home() / ".mentat"
 
@@ -66,3 +73,25 @@ def create_viewer(
     with viewer_path.open("w") as viewer_file:
         viewer_file.write(html)
     return viewer_path
+
+
+def check_version():
+    ctx = SESSION_CONTEXT.get()
+
+    try:
+        response = requests.get("https://pypi.org/pypi/mentat/json")
+        data = response.json()
+        latest_version = data["info"]["version"]
+        current_version = __version__
+
+        if packaging.version.parse(current_version) < packaging.version.parse(
+            latest_version
+        ):
+            ctx.stream.send(
+                f"Version v{latest_version} of mentat is available. To upgrade, run:",
+                color="light_red",
+            )
+            py = sys.executable
+            ctx.stream.send(f"{py} -m pip install --upgrade mentat", color="yellow")
+    except Exception as err:
+        ctx.stream.send(f"Error checking for most recent version: {err}", color="red")

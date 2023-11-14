@@ -10,6 +10,7 @@ from typing import Any, AsyncGenerator, Optional, cast
 import backoff
 import openai
 import openai.error
+import sentry_sdk
 import tiktoken
 from backoff.types import Details
 from dotenv import load_dotenv
@@ -110,30 +111,36 @@ async def call_llm_api(
     session_context = SESSION_CONTEXT.get()
     config = session_context.config
 
-    response: AsyncGenerator[Any, None] = cast(
-        AsyncGenerator[Any, None],
-        await openai.ChatCompletion.acreate(  # type: ignore
-            model=model,
-            messages=messages,
-            temperature=config.temperature,
-            stream=True,
-        ),
-    )
+    with sentry_sdk.start_span(description="LLM Call") as span:
+        span.set_tag("model", model)
+        response: AsyncGenerator[Any, None] = cast(
+            AsyncGenerator[Any, None],
+            await openai.ChatCompletion.acreate(  # type: ignore
+                model=model,
+                messages=messages,
+                temperature=config.temperature,
+                stream=True,
+            ),
+        )
 
     return _add_newline(response)
 
 
+# TODO: We shouldn't have two separate functions; it means we need to duplicate backoff annotations,
+# sentry spans, and openai calls.
 async def call_llm_api_sync(model: str, messages: list[dict[str, str]]) -> str:
     raise_if_in_test_environment()
 
     session_context = SESSION_CONTEXT.get()
     config = session_context.config
 
-    response = await openai.ChatCompletion.acreate(  # type: ignore
-        model=model,
-        messages=messages,
-        temperature=config.temperature,
-    )
+    with sentry_sdk.start_span(description="LLM Call") as span:
+        span.set_tag("model", model)
+        response = await openai.ChatCompletion.acreate(  # type: ignore
+            model=model,
+            messages=messages,
+            temperature=config.temperature,
+        )
 
     # Create output features from the response
     return cast(str, response["choices"][0]["message"]["content"])  # type: ignore
