@@ -1,8 +1,10 @@
+import os
 import platform
 from uuid import UUID, uuid4
 
 import sentry_sdk
 
+from mentat.app_conf import IS_DEV
 from mentat.utils import mentat_dir_path
 
 user_id_path = mentat_dir_path / ".user"
@@ -28,6 +30,10 @@ def _get_user() -> UUID:
 
 
 def sentry_init():
+    # Check if in dev or testing (although we should never be in testing in prod)
+    if IS_DEV or "PYTEST_CURRENT_TEST" in os.environ:
+        return
+
     sentry_sdk.init(
         dsn="https://fa4d2b80dab0938c38c89384dc317f1b@o4506146491006976.ingest.sentry.io/4506187066245120",
         profiles_sample_rate=1.0,
