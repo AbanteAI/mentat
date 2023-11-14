@@ -44,7 +44,6 @@ def get_ctags(abs_file_path: Path, exclude_signatures: bool = False):
         line_number: int = tag.get("line")
 
         ctags.add((scope, kind, name, signature, line_number))
-        print((scope, kind, name, signature, line_number))
     return ctags
 
 
