@@ -21,7 +21,7 @@ class StreamMessage:
     channel: str
     source: StreamMessageSource
     data: Any
-    extra: Dict[str, Any] | None
+    extra: Dict[str, Any]
     created_at: datetime
 
 
@@ -51,7 +51,7 @@ class SessionStream:
         data: Any,
         source: StreamMessageSource = StreamMessageSource.SERVER,
         channel: str = "default",
-        **kwargs: Any,
+        **kwargs: Dict[str, Any],
     ):
         message = StreamMessage(
             id=uuid4(),
@@ -72,7 +72,7 @@ class SessionStream:
         data: Any,
         source: StreamMessageSource = StreamMessageSource.SERVER,
         channel: str = "default",
-        **kwargs: Any,
+        **kwargs: Dict[str, Any],
     ):
         message = StreamMessage(
             id=uuid4(),
