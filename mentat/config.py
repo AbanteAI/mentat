@@ -26,7 +26,7 @@ def int_or_none(s: str | None) -> int | None:
 
 @attr.define
 class Config:
-    _errors: list[str] = attr.field(default=[])
+    _errors: list[str] = attr.field(factory=list)
 
     # Model specific settings
     model: str = attr.field(default="gpt-4-0314")
@@ -72,7 +72,7 @@ class Config:
 
     # Context specific settings
     file_exclude_glob_list: list[str] = attr.field(
-        default=[],
+        factory=list,
         metadata={"description": "List of glob patterns to exclude from context"},
     )
     auto_context: bool = attr.field(
@@ -86,7 +86,7 @@ class Config:
 
     # Only settable by config file
     input_style: list[tuple[str, str]] = attr.field(
-        default=[
+        factory=lambda: [
             ["", "#9835bd"],
             ["prompt", "#ffffff bold"],
             ["continuation", "#ffffff bold"],
