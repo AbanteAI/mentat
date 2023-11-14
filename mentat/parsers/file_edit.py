@@ -76,30 +76,28 @@ class FileEdit:
         stream = session_context.stream
         code_context = session_context.code_context
 
-        rel_path = None
         if self.file_path.is_relative_to(session_context.cwd):
-            rel_path = self.file_path.relative_to(session_context.cwd)
+            display_path = self.file_path.relative_to(session_context.cwd)
+        else:
+            display_path = self.file_path
 
         if self.is_creation:
             if self.file_path.exists():
                 stream.send(
-                    f"File {rel_path or self.file_path} already exists, canceling"
-                    " creation.",
+                    f"File {display_path} already exists, canceling creation.",
                     color="light_yellow",
                 )
                 return False
         else:
             if not self.file_path.exists():
                 stream.send(
-                    f"File {rel_path or self.file_path} does not exist, canceling all"
-                    " edits to file.",
+                    f"File {display_path} does not exist, canceling all edits to file.",
                     color="light_yellow",
                 )
                 return False
             elif self.file_path not in code_context.include_files:
                 stream.send(
-                    f"File {rel_path or self.file_path} not in context, canceling all"
-                    " edits to file.",
+                    f"File {display_path} not in context, canceling all edits to file.",
                     color="light_yellow",
                 )
                 return False
@@ -109,7 +107,7 @@ class FileEdit:
             if self.rename_file_path.is_relative_to(session_context.cwd):
                 rel_rename_path = self.rename_file_path.relative_to(session_context.cwd)
             stream.send(
-                f"File {rel_path or self.file_path} being renamed to existing file"
+                f"File {display_path} being renamed to existing file"
                 f" {rel_rename_path or self.rename_file_path}, canceling rename.",
                 color="light_yellow",
             )

@@ -69,9 +69,10 @@ class CodeFileManager:
         stream = session_context.stream
 
         for file_edit in file_edits:
-            rel_path = None
             if file_edit.file_path.is_relative_to(session_context.cwd):
-                rel_path = file_edit.file_path.relative_to(session_context.cwd)
+                display_path = file_edit.file_path.relative_to(session_context.cwd)
+            else:
+                display_path = file_edit.file_path
 
             if file_edit.is_creation:
                 if file_edit.file_path.exists():
@@ -105,14 +106,11 @@ class CodeFileManager:
 
             if file_edit.is_deletion:
                 stream.send(
-                    "Are you sure you want to delete"
-                    f" {rel_path or file_edit.file_path}?",
+                    f"Are you sure you want to delete {display_path}?",
                     color="red",
                 )
                 if await ask_yes_no(default_yes=False):
-                    stream.send(
-                        f"Deleting {rel_path or file_edit.file_path}...", color="red"
-                    )
+                    stream.send(f"Deleting {display_path}...", color="red")
                     # We use the current lines rather than the stored lines for undo
                     self.history.add_action(
                         DeletionAction(
@@ -122,9 +120,7 @@ class CodeFileManager:
                     self._delete_file(code_context, file_edit.file_path)
                     continue
                 else:
-                    stream.send(
-                        f"Not deleting {rel_path or file_edit.file_path}", color="green"
-                    )
+                    stream.send(f"Not deleting {display_path}", color="green")
 
             if not file_edit.is_creation:
                 stored_lines = self.file_lines[file_edit.file_path]
@@ -133,15 +129,12 @@ class CodeFileManager:
                         f"File '{file_edit.file_path}' changed while generating changes"
                     )
                     stream.send(
-                        f"File '{rel_path or file_edit.file_path}' changed while"
+                        f"File '{display_path}' changed while"
                         " generating; current file changes will be erased. Continue?",
                         color="light_yellow",
                     )
                     if not await ask_yes_no(default_yes=False):
-                        stream.send(
-                            "Not applying changes to file"
-                            f" {rel_path or file_edit.file_path}"
-                        )
+                        stream.send(f"Not applying changes to file {display_path}")
                         continue
             else:
                 stored_lines = []
