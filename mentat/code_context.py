@@ -348,56 +348,50 @@ class CodeContext:
         )
 
         excluded_paths: Set[Path] = set()
-        try:
-            # file
-            if validated_path.is_file():
-                if validated_path not in self.include_files:
-                    session_context.stream.send(
-                        f"Path {validated_path} not in context", color="light_red"
-                    )
-                    return excluded_paths
-                excluded_paths.add(validated_path)
-                del self.include_files[validated_path]
-            # file interval
-            elif len(str(validated_path).rsplit(":", 1)) > 1:
-                interval_path, interval_str = str(validated_path).rsplit(":", 1)
-                interval_path = Path(interval_path)
-                if interval_path not in self.include_files:
-                    session_context.stream.send(
-                        f"Path {interval_path} not in context", color="light_red"
-                    )
-                    return excluded_paths
-                intervals = parse_intervals(interval_str)
-                included_code_features: List[CodeFeature] = []
-                for code_feature in self.include_files[interval_path]:
-                    if code_feature.interval in intervals:
-                        excluded_path = f"{interval_path}:{code_feature.interval.start}-{code_feature.interval.end}"
-                        excluded_paths.add(Path(excluded_path))
-                    else:
-                        included_code_features.append(code_feature)
-                self.include_files[interval_path] = included_code_features
-            # directory
-            elif validated_path.is_dir():
-                if validated_path not in self.include_files:
-                    session_context.stream.send(
-                        f"Directory path {validated_path} not in context",
-                        color="light_red",
-                    )
-                    return excluded_paths
-                excluded_paths.add(validated_path)
-                del self.include_files[validated_path]
-            # glob
-            else:
-                for included_path in self.include_files.keys():
-                    if match_path_with_patterns(
-                        included_path, set(str(validated_path))
-                    ):
-                        excluded_paths.add(included_path)
-                        del self.include_files[included_path]
 
-        except PathValidationError as e:
-            session_context.stream.send(e, color="light_red")
-            return excluded_paths
+        # file
+        if validated_path.is_file():
+            if validated_path not in self.include_files:
+                session_context.stream.send(
+                    f"Path {validated_path} not in context", color="light_red"
+                )
+                return excluded_paths
+            excluded_paths.add(validated_path)
+            del self.include_files[validated_path]
+        # file interval
+        elif len(str(validated_path).rsplit(":", 1)) > 1:
+            interval_path, interval_str = str(validated_path).rsplit(":", 1)
+            interval_path = Path(interval_path)
+            if interval_path not in self.include_files:
+                session_context.stream.send(
+                    f"Path {interval_path} not in context", color="light_red"
+                )
+                return excluded_paths
+            intervals = parse_intervals(interval_str)
+            included_code_features: List[CodeFeature] = []
+            for code_feature in self.include_files[interval_path]:
+                if code_feature.interval in intervals:
+                    excluded_path = f"{interval_path}:{code_feature.interval.start}-{code_feature.interval.end}"
+                    excluded_paths.add(Path(excluded_path))
+                else:
+                    included_code_features.append(code_feature)
+            self.include_files[interval_path] = included_code_features
+        # directory
+        elif validated_path.is_dir():
+            if validated_path not in self.include_files:
+                session_context.stream.send(
+                    f"Directory path {validated_path} not in context",
+                    color="light_red",
+                )
+                return excluded_paths
+            excluded_paths.add(validated_path)
+            del self.include_files[validated_path]
+        # glob
+        else:
+            for included_path in self.include_files.keys():
+                if match_path_with_patterns(included_path, set(str(validated_path))):
+                    excluded_paths.add(included_path)
+                    del self.include_files[included_path]
 
         return excluded_paths
 
