@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from mentat.conversation import Conversation
     from mentat.llm_api import CostTracker
     from mentat.session_stream import SessionStream
+    from mentat.vision.vision_manager import VisionManager
 
 SESSION_CONTEXT: ContextVar[SessionContext] = ContextVar("mentat:session_context")
 
@@ -26,3 +27,4 @@ class SessionContext:
     code_context: CodeContext = attr.field()
     code_file_manager: CodeFileManager = attr.field()
     conversation: Conversation = attr.field()
+    vision_manager: VisionManager = attr.field()

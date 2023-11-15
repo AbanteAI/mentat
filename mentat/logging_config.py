@@ -77,8 +77,9 @@ def get_transcript_logs() -> (
     list[tuple[str, list[tuple[str, list[dict[str, str]] | None]]]]
 ):
     transcripts = glob.glob(str(logs_path / "transcript_*"))
+    transcripts = sorted(transcripts, reverse=True)
     ans = []
-    for transcript in transcripts:
+    for transcript in transcripts[:3]:
         match = re.search(r"transcript_(.+).log", transcript)
         timestamp = match.group(1)  # type: ignore
 
@@ -89,4 +90,4 @@ def get_transcript_logs() -> (
         else:
             transcript = json.loads("[" + ", ".join(transcript) + "]")
         ans.append((timestamp, transcript))  # type: ignore
-    return sorted(ans, key=lambda x: x[0], reverse=True)
+    return ans  # type: ignore

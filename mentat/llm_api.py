@@ -14,8 +14,10 @@ import tiktoken
 from backoff.types import Details
 from dotenv import load_dotenv
 from openai.error import AuthenticationError, RateLimitError, Timeout
+from PIL import Image
 
 from mentat.errors import MentatError, UserError
+from mentat.message import Message
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -103,9 +105,7 @@ def warn_user(message: str, max_tries: int, details: Details):
     giveup_log_level=logging.INFO,
     on_backoff=partial(warn_user, "Rate limit recieved from OpenAI's servers", 3),
 )
-async def call_llm_api(
-    messages: list[dict[str, str]], model: str
-) -> AsyncGenerator[Any, None]:
+async def call_llm_api(messages: list[Any], model: str) -> AsyncGenerator[Any, None]:
     raise_if_in_test_environment()
     session_context = SESSION_CONTEXT.get()
     config = session_context.config
@@ -117,13 +117,14 @@ async def call_llm_api(
             messages=messages,
             temperature=config.temperature,
             stream=True,
+            max_tokens=4000,
         ),
     )
 
     return _add_newline(response)
 
 
-async def call_llm_api_sync(model: str, messages: list[dict[str, str]]) -> str:
+async def call_llm_api_sync(model: str, messages: list[Any]) -> str:
     raise_if_in_test_environment()
 
     session_context = SESSION_CONTEXT.get()
@@ -153,18 +154,34 @@ def chunk_to_lines(chunk: Any) -> list[str]:
     return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)
 
 
-# NOTE: We may be calculating the length of Conversation messages incorrectly,
-# but the difference should be negligible (<5 tokens per message):
-# https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
-def count_tokens(message: str, model: str) -> int:
-    try:
-        return len(
-            tiktoken.encoding_for_model(model).encode(message, disallowed_special=())
-        )
-    except KeyError:
-        return len(
-            tiktoken.encoding_for_model("gpt-4").encode(message, disallowed_special=())
-        )
+def count_tokens(message: Message | str, model: str) -> int:
+    if isinstance(message, str):
+        try:
+            return len(
+                tiktoken.encoding_for_model(model).encode(
+                    message, disallowed_special=()
+                )
+            )
+        except KeyError:
+            return len(
+                tiktoken.encoding_for_model("gpt-4").encode(
+                    message, disallowed_special=()
+                )
+            )
+    else:
+        if message.image_path is None:
+            return count_tokens(message.text, model)
+        else:
+            count = count_tokens(message.text, model)
+            img = Image.open(message.image_path)
+            size = img.size
+            scale = min(1, 2048 / max(size))
+            size = (int(size[0] * scale), int(size[1] * scale))
+            scale = min(1, 768 / min(size))
+            size = (int(size[0] * scale), int(size[1] * scale))
+            count += 85 + 170 * (size[0] // 512) * (size[1] // 512)
+
+            return count
 
 
 def is_model_available(model: str) -> bool:
@@ -214,13 +231,13 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
         return None
 
 
-def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
+def get_prompt_token_count(messages: list[Message], model: str) -> int:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
     prompt_token_count = 0
     for message in messages:
-        prompt_token_count += count_tokens(message["content"], model)
+        prompt_token_count += count_tokens(message, model)
     stream.send(f"Total token count: {prompt_token_count}", color="cyan")
 
     token_buffer = 500

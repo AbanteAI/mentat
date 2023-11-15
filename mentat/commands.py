@@ -11,6 +11,7 @@ from mentat.errors import MentatError, UserError
 from mentat.git_handler import commit
 from mentat.include_files import print_invalid_path
 from mentat.logging_config import get_transcript_logs
+from mentat.message import Message, MessageRole
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import create_viewer
 
@@ -311,7 +312,7 @@ class ConversationCommand(Command, command_name="conversation"):
 
         logs = get_transcript_logs()
 
-        viewer_path = create_viewer([("Current", conversation.literal_messages)] + logs)
+        viewer_path = create_viewer([("Current", conversation.literal_messages)] + logs)  # type: ignore
         webbrowser.open(f"file://{viewer_path.resolve()}")
 
     @classmethod
@@ -387,3 +388,31 @@ class ConfigCommand(Command, command_name="config"):
     @classmethod
     def help_message(cls) -> str:
         return "Set a configuration option or omit value to see current value."
+
+
+class ScreenshotCommand(Command, command_name="screenshot"):
+    async def apply(self, *args: str) -> None:
+        if not args:
+            raise UserError("Screenshot command requires a URL or string to capture.")
+        url_or_string = args[0]
+        vision_manager = SESSION_CONTEXT.get().vision_manager
+        image_path = vision_manager.screenshot(url_or_string)
+        session_context = SESSION_CONTEXT.get()
+        conversation = session_context.conversation
+        message = Message(
+            MessageRole.User, f"A screenshot of {url_or_string}", image_path
+        )
+        conversation.add_message(message)
+        stream = session_context.stream
+        stream.send(
+            f"Screenshot taken for: {url_or_string}.",
+            color="green",
+        )
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return ["url or local file"]
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Opens the url or local file in chrome and takes a screenshot."

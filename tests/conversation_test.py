@@ -9,14 +9,11 @@ def test_midconveration_parser_change(mock_session_context):
     conversation = session_context.conversation
 
     config.parser = "block"
-    assert (
-        conversation.get_messages()[0]["content"] == BlockParser().get_system_prompt()
-    )
+    assert conversation.get_messages()[0].text == BlockParser().get_system_prompt()
 
     config.parser = "replacement"
     assert (
-        conversation.get_messages()[0]["content"]
-        == ReplacementParser().get_system_prompt()
+        conversation.get_messages()[0].text == ReplacementParser().get_system_prompt()
     )
 
 

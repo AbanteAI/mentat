@@ -16,6 +16,28 @@
             document.querySelectorAll('.message').forEach(element => element.remove());
         }
 
+        function append_message(message, messageDiv) {
+            if (typeof message.content === 'string') {
+                const p = document.createElement("p")
+                p.innerHTML = message.content.replace(/\n/g, "<br>")
+                messageDiv.appendChild(p)
+            } else {
+                for (part of message.content) {
+                    if (part.type == "text") {
+                        const p = document.createElement("p")
+                        p.innerHTML = part.text.replace(/\n/g, "<br>")
+                        messageDiv.appendChild(p)
+                    } else if (part.type == "image_url") {
+                        const image = document.createElement("img")
+                        image.src = part.image_url.url
+                        messageDiv.appendChild(image)
+                    }
+                }
+            }
+            messageDiv.classList.add("message")
+            const role = message["role"]
+            messageDiv.classList.add(role)
+        }
 
         function display_transcript(transcript) {
             timestamp = transcript[0]
@@ -28,12 +50,18 @@
             const leftViewer = document.getElementsByClassName("left-viewer")[0]
             for(message of messages) {
                 const messageDiv = document.createElement("div")
-                messageDiv.innerHTML = message[0]
-                messageDiv.classList.add("message")
-                if(message[1] == null) {
-                    messageDiv.classList.add("user")
+
+                if (typeof message[0] === 'string') {
+                    current_message = JSON.parse(message[0])
                 } else {
-                    messageDiv.classList.add("assistant")
+                    current_message = message[0]
+                }
+
+
+                append_message(current_message, messageDiv)
+
+                const role = current_message["role"]
+                if(role == "assistant") {
                     messageDiv.classList.add("clickable")
                     const modelMessages = message[1]
                     messageDiv.onclick = (event) => {
@@ -53,10 +81,10 @@
             document.querySelectorAll('.viewpoint-message').forEach(element => element.remove());
             for(message of modelMessages) {
                 const messageDiv = document.createElement("div")
-                messageDiv.innerHTML = message["content"]
-                messageDiv.classList.add("message")
+                const messageText = document.createElement("p")
+                const parsed_message = JSON.parse(message)
+                append_message(parsed_message, messageDiv)
                 messageDiv.classList.add("viewpoint-message")
-                messageDiv.classList.add(message["role"])
                 rightViewer.appendChild(messageDiv)
             }
         }
@@ -109,42 +137,39 @@ html {
             width: 100%;
             display: flex;
             flex-direction: row;
-            flex-grow: 1;
         }
 
         .viewer {
             border: 1px solid black;
-            overflow-y: auto;
+            overflow: auto;
             text-align: center;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
         }
 
         .left-viewer {
             background-color: rgb(228, 254, 255);
-            flex: 1 0 19%;
+            resize: horizontal;
+            width: 20%;
+            min-width: 10%;
+            max-width: 90%;
         }
 
         .right-viewer {
             background-color: rgb(220, 220, 220);
-            flex: 1 0 79%;
         }
 
         .message {
             padding: 8px;
-            max-width: 65%;
-            width: fit-content;
             border: 1px solid black;
-            border-radius: 16px;
-            margin: 32px 24px;
-            white-space: pre;
-            overflow-y: auto;
-            overflow-x: auto;
+            overflow: auto;
             max-height: 500px;
             text-align: left;
         }
 
         .system {
             background-color: rgb(203, 203, 203);
-            width: 40%;
             margin-left: auto;
             margin-right: auto;
         }

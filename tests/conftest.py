@@ -20,6 +20,7 @@ from mentat.llm_api import CostTracker
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
 from mentat.streaming_printer import StreamingPrinter
+from mentat.vision.vision_manager import VisionManager
 
 pytest_plugins = ("pytest_reportlog",)
 
@@ -202,6 +203,8 @@ async def _mock_session_context(temp_testbed):
 
     conversation = Conversation()
 
+    vision_manager = VisionManager()
+
     session_context = SessionContext(
         stream,
         cost_tracker,
@@ -210,6 +213,7 @@ async def _mock_session_context(temp_testbed):
         code_context,
         code_file_manager,
         conversation,
+        vision_manager,
     )
     yield session_context
     session_context.stream.stop()

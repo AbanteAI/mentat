@@ -17,9 +17,11 @@ from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_shared_git_root_for_paths
 from mentat.llm_api import CostTracker, setup_api_key
 from mentat.logging_config import setup_logging
+from mentat.message import Message, MessageRole
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_input import collect_user_input
 from mentat.session_stream import SessionStream
+from mentat.vision.vision_manager import VisionManager
 
 
 class Session:
@@ -58,6 +60,8 @@ class Session:
 
         conversation = Conversation()
 
+        vision_manager = VisionManager()
+
         session_context = SessionContext(
             stream,
             cost_tracker,
@@ -66,6 +70,7 @@ class Session:
             code_context,
             code_file_manager,
             conversation,
+            vision_manager,
         )
         SESSION_CONTEXT.set(session_context)
 
@@ -97,7 +102,7 @@ class Session:
                     message = await collect_user_input()
                     if message.data.strip() == "":
                         continue
-                    conversation.add_user_message(message.data)
+                    conversation.add_message(Message(MessageRole.User, message.data))
 
                 file_edits = await conversation.get_model_response()
                 file_edits = [
