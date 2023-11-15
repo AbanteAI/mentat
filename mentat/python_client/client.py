@@ -53,21 +53,15 @@ class PythonClient:
         await self.session.stream.recv(channel="edits_complete")
 
     async def _accumulate_messages(self):
-        try:
-            async for message in self.session.stream.listen():
-                end = "\n"
-                if message.extra and isinstance(message.extra.get("end"), str):
-                    end = message.extra["end"]
-                self._accumulated_message += message.data + end
-        except Exception as e:
-            raise e
+        async for message in self.session.stream.listen():
+            end = "\n"
+            if message.extra and isinstance(message.extra.get("end"), str):
+                end = message.extra["end"]
+            self._accumulated_message += message.data + end
 
     async def _listen_for_exit(self):
-        try:
-            await self.session.stream.recv("exit")
-            await self.stop()
-        except Exception as e:
-            raise e
+        await self.session.stream.recv("exit")
+        await self.stop()
 
     async def startup(self):
         self.session = Session(
