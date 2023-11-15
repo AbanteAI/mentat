@@ -43,8 +43,8 @@ async def test_not_matching(
          # 4 lines""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -87,8 +87,8 @@ async def test_no_prefix(
         # 4 lines""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\

@@ -27,7 +27,7 @@ class PythonClient:
         self.config = config
 
         self._accumulated_message = ""
-        self.exited = Event()
+        self.stopped = Event()
 
     async def call_mentat(self, message: str):
         input_request_message = await self.session.stream.recv("input_request")
@@ -43,7 +43,7 @@ class PythonClient:
 
     async def call_mentat_auto_accept(self, message: str):
         await self.call_mentat(message)
-        if self.exited.is_set():
+        if self.stopped.is_set():
             return
         await self.call_mentat("y")
 
@@ -57,9 +57,9 @@ class PythonClient:
                 end = message.extra["end"]
             self._accumulated_message += message.data + end
 
-    async def _listen_for_exit(self):
-        await self.session.stream.recv("exit")
-        await self.stop()
+    async def _listen_for_client_exit(self):
+        await self.session.stream.recv("client_exit")
+        await self._stop()
 
     async def startup(self):
         self.session = Session(
@@ -72,10 +72,14 @@ class PythonClient:
         )
         self.session.start()
         self.acc_task = asyncio.create_task(self._accumulate_messages())
-        self.exit_task: Task[None] = asyncio.create_task(self._listen_for_exit())
+        self.exit_task: Task[None] = asyncio.create_task(self._listen_for_client_exit())
 
-    async def stop(self):
-        await self.session.stop()
+    async def shutdown(self):
+        """Sends the stop signal to the session and returns when client is fully shutdown."""
+        self.session.stream.send(None, channel="session_exit")
+        await self.stopped.wait()
+
+    async def _stop(self):
         self.acc_task.cancel()
         self.exit_task.cancel()
-        self.exited.set()
+        self.stopped.set()

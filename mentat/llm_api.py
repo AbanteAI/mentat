@@ -10,12 +10,13 @@ from typing import Any, AsyncGenerator, Optional, cast
 import backoff
 import openai
 import openai.error
+import sentry_sdk
 import tiktoken
 from backoff.types import Details
 from dotenv import load_dotenv
 from openai.error import AuthenticationError, RateLimitError, Timeout
 
-from mentat.errors import MentatError
+from mentat.errors import MentatError, UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -27,7 +28,6 @@ package_name = __name__.split(".")[0]
 # Check for .env file or already exported API key
 # If no api key found, raise an error
 def setup_api_key():
-    ctx = SESSION_CONTEXT.get()
     if not load_dotenv(mentat_dir_path / ".env"):
         load_dotenv()
     key = os.getenv("OPENAI_API_KEY")
@@ -35,24 +35,15 @@ def setup_api_key():
     if base_url:
         openai.api_base = base_url
     if not key:
-        ctx.stream.send(
+        raise UserError(
             "No OpenAI api key detected.\nEither place your key into a .env"
-            " file or export it as an environment variable.",
-            color="red",
+            " file or export it as an environment variable."
         )
-        ctx.stream.send(None, channel="exit")
-        # TODO: This should be an exit code of 1, but right now GHA fails here and we want it to show as passed
-        sys.exit(0)
     try:
         openai.api_key = key
         openai.Model.list()  # type: ignore Test the API key
     except AuthenticationError as e:
-        ctx.stream.send(
-            f"OpenAI gave an Authentication Error:\n{e}",
-            color="red",
-        )
-        ctx.stream.send(None, channel="exit")
-        sys.exit(1)
+        raise UserError(f"OpenAI gave an Authentication Error:\n{e}")
 
 
 def is_test_environment():
@@ -120,30 +111,36 @@ async def call_llm_api(
     session_context = SESSION_CONTEXT.get()
     config = session_context.config
 
-    response: AsyncGenerator[Any, None] = cast(
-        AsyncGenerator[Any, None],
-        await openai.ChatCompletion.acreate(  # type: ignore
-            model=model,
-            messages=messages,
-            temperature=config.temperature,
-            stream=True,
-        ),
-    )
+    with sentry_sdk.start_span(description="LLM Call") as span:
+        span.set_tag("model", model)
+        response: AsyncGenerator[Any, None] = cast(
+            AsyncGenerator[Any, None],
+            await openai.ChatCompletion.acreate(  # type: ignore
+                model=model,
+                messages=messages,
+                temperature=config.temperature,
+                stream=True,
+            ),
+        )
 
     return _add_newline(response)
 
 
+# TODO: We shouldn't have two separate functions; it means we need to duplicate backoff annotations,
+# sentry spans, and openai calls.
 async def call_llm_api_sync(model: str, messages: list[dict[str, str]]) -> str:
     raise_if_in_test_environment()
 
     session_context = SESSION_CONTEXT.get()
     config = session_context.config
 
-    response = await openai.ChatCompletion.acreate(  # type: ignore
-        model=model,
-        messages=messages,
-        temperature=config.temperature,
-    )
+    with sentry_sdk.start_span(description="LLM Call") as span:
+        span.set_tag("model", model)
+        response = await openai.ChatCompletion.acreate(  # type: ignore
+            model=model,
+            messages=messages,
+            temperature=config.temperature,
+        )
 
     # Create output features from the response
     return cast(str, response["choices"][0]["message"]["content"])  # type: ignore

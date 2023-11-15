@@ -188,4 +188,4 @@ async def test_diff_context_end_to_end(
     assert "multifile_calculator" in code_message
 
     await python_client.call_mentat("Conversation")
-    await python_client.stop()
+    await python_client.shutdown()
