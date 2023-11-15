@@ -28,7 +28,7 @@ def get_non_gitignored_files(path: Path) -> set[Path]:
             ).split("\n"),
         )
         # windows-safe check if p exists in path
-        if Path(os.path.join(path, p)).exists()
+        if Path(path / p).exists()
     )
 
 
