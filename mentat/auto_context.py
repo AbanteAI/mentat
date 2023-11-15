@@ -1,7 +1,7 @@
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, cast
+from typing import Iterable, Optional, Set, cast
 
 import openai
 
@@ -11,7 +11,7 @@ from mentat.code_feature import (
     get_code_message_from_features,
 )
 from mentat.errors import UserError
-from mentat.include_files import get_include_files
+from mentat.include_files import get_code_features_for_path
 from mentat.llm_api import (
     count_tokens,
     model_context_size,
@@ -56,7 +56,7 @@ class FeatureSelector(ABC):
 class GreedyFeatureSelector(FeatureSelector, selector_name="greedy"):
     async def select(
         self,
-        features: list[CodeFeature],
+        features: Iterable[CodeFeature],
         max_tokens: int,
         model: str = "gpt-4",
         levels: list[CodeMessageLevel] = [],
@@ -161,12 +161,14 @@ class LLMFeatureSelector(FeatureSelector, selector_name="llm"):
             selected_refs = json.loads(message)
         except json.JSONDecodeError:
             raise ValueError(f"The response is not valid json: {message}")
-        parsed_features, _ = get_include_files(selected_refs, [])
-        postselected_features = [
-            feature for features in parsed_features.values() for feature in features
-        ]
+        code_features: Set[CodeFeature] = set()
+        for selected_ref in selected_refs:
+            ref_code_features = get_code_features_for_path(
+                path=selected_ref, cwd=session_context.cwd
+            )
+            code_features.update(ref_code_features)
 
-        for out_feat in postselected_features:
+        for out_feat in code_features:
             # Match with corresponding inputs
             matching_inputs = [
                 in_feat
@@ -186,7 +188,7 @@ class LLMFeatureSelector(FeatureSelector, selector_name="llm"):
                 out_feat.name = next(f.name for f in matching_inputs if f.name)
 
         # Greedy again to enforce max_tokens
-        return await greedy_selector.select(postselected_features, max_tokens, model)
+        return await greedy_selector.select(code_features, max_tokens, model)
 
 
 def get_feature_selector(use_llm: bool) -> FeatureSelector:
