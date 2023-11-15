@@ -68,8 +68,7 @@ def validate_and_format_path(
             )
     # Directory
     elif abs_path.is_dir():
-        if not abs_path.exists():
-            raise PathValidationError(f"Directory {abs_path} does not exist")
+        pass
     # Glob pattern
     elif re.search(r"[\*\?\[\]]", str(path)):
         pass

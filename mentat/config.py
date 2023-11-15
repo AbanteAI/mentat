@@ -4,7 +4,7 @@ import json
 from argparse import ArgumentParser, Namespace
 from json import JSONDecodeError
 from pathlib import Path
-from typing import cast, List
+from typing import List, cast
 
 import attr
 from attr import converters, validators
