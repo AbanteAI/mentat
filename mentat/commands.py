@@ -10,7 +10,6 @@ import attr
 from mentat.code_feature import CodeMessageLevel
 from mentat.errors import MentatError, UserError
 from mentat.git_handler import commit
-from mentat.include_files import print_invalid_path
 from mentat.logging_config import get_transcript_logs
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import create_viewer
@@ -152,11 +151,7 @@ class IncludeCommand(Command, command_name="include"):
             stream.send("No files specified", color="yellow")
             return
         for file_path in args:
-            included_paths, invalid_paths = code_context.include_file(
-                Path(file_path).absolute()
-            )
-            for invalid_path in invalid_paths:
-                print_invalid_path(invalid_path)
+            included_paths = code_context.include(Path(file_path).absolute())
             for included_path in included_paths:
                 rel_path = included_path.relative_to(session_context.cwd)
                 stream.send(f"{rel_path} added to context", color="green")
@@ -180,11 +175,7 @@ class ExcludeCommand(Command, command_name="exclude"):
             stream.send("No files specified", color="yellow")
             return
         for file_path in args:
-            excluded_paths, invalid_paths = code_context.exclude_file(
-                Path(file_path).absolute()
-            )
-            for invalid_path in invalid_paths:
-                print_invalid_path(invalid_path)
+            excluded_paths = code_context.exclude(Path(file_path).absolute())
             for excluded_path in excluded_paths:
                 rel_path = excluded_path.relative_to(session_context.cwd)
                 stream.send(f"{rel_path} removed from context", color="red")

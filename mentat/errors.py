@@ -20,3 +20,7 @@ class RemoteKeyboardInterrupt(Exception):
 
 class SessionExit(Exception):
     pass
+
+
+class PathValidationError(Exception):
+    pass

@@ -33,12 +33,12 @@ async def test_path_gitignoring(temp_testbed, mock_session_context):
             file.write("I am a file")
 
     # Run CodeFileManager on the git_testing_dir, and also explicitly pass in ignored_file_2.txt
-    paths = [Path(testing_dir_path), Path(ignored_file_path_2)]
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths(paths, [])
+    code_context.include(testing_dir_path)
+    code_context.include(ignored_file_path_2)
 
     expected_file_paths = [
         os.path.join(temp_testbed, ignored_file_path_2),
@@ -78,7 +78,8 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths([Path("."), directly_added_glob_excluded_path], [])
+    code_context.include(".")
+    code_context.include(directly_added_glob_excluded_path)
 
     file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
@@ -103,12 +104,11 @@ async def test_glob_include(temp_testbed, mock_session_context):
     with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am not included")
 
-    file_paths = ["**/*.py"]
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths(file_paths, [])
+    code_context.include("**/*.py")
 
     file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
@@ -131,13 +131,11 @@ async def test_cli_glob_exclude(temp_testbed, mock_session_context):
     with open(glob_exclude_path, "w") as glob_exclude_file:
         glob_exclude_file.write("I am excluded")
 
-    file_paths = ["**/*.py"]
-    exclude_paths = ["**/*.py", "**/*.ts"]
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths(file_paths, exclude_paths)
+    code_context.include("**/*.py", ignore_patterns=["**/*.py", "**/*.ts"])
 
     file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_include_then_exclude_path) not in file_paths
@@ -156,7 +154,7 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths(["./"], [])
+    code_context.include("./")
     file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, nontext_path) not in file_paths
 
@@ -168,7 +166,7 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths([Path(nontext_path_requested)], [])
+    code_context.include(nontext_path_requested)
     assert not code_context.include_files
 
 
@@ -198,8 +196,8 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths(
-        ["multifile_calculator"], ["multifile_calculator/calculator.py"]
+    code_context.include(
+        "multifile_calculator", ignore_patterns=["multifile_calculator/calculator.py"]
     )
 
     file = Path("multifile_calculator/operations.py")
@@ -237,8 +235,8 @@ async def test_get_code_message_include(mocker, temp_testbed, mock_session_conte
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths(
-        ["multifile_calculator"], ["multifile_calculator/calculator.py"]
+    code_context.include(
+        "multifile_calculator", ignore_patterns=["multifile_calculator/calculator.py"]
     )
 
     # If max tokens is less than include_files, return include_files without
@@ -288,7 +286,7 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.set_paths(["file_1.py"], [])
+    code_context.include("file_1.py")
     code_context.use_llm = False
     mock_session_context.config.auto_context = True
 
@@ -331,7 +329,7 @@ def test_get_all_features(temp_testbed, mock_session_context):
         assert feature.user_included is False
 
     # Test with include_files argument matching one file
-    code_context.set_paths([path1], [])
+    code_context.include(path1)
     features = code_context._get_all_features(level=CodeMessageLevel.FILE_NAME)
     assert len(features) == 2
     feature1b = next(f for f in features if f.path == path1)
@@ -349,9 +347,9 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
+        ignore_patterns=["scripts", "**/*.txt"],
     )
     code_context.use_llm = False
-    code_context.set_paths([], [], ["scripts", "**/*.txt"])
     code_message = await code_context.get_code_message("", 1e6)
 
     # Iterate through all files in temp_testbed; if they're not in the ignore

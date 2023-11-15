@@ -30,7 +30,7 @@ def test_empty_prompt(
     mock_prompt_session_prompt, mock_call_llm_api, mock_setup_api_key
 ):
     mock_prompt_session_prompt.side_effect = ["", "q"]
-    terminal_client = TerminalClient(["."])
+    terminal_client = TerminalClient(cwd=Path.cwd(), paths=["."])
     terminal_client.run()
     mock_call_llm_api.assert_not_called()
 
@@ -61,7 +61,7 @@ def test_editing_file(
         # Line 2
         @@end""")])
 
-    terminal_client = TerminalClient(paths=["."])
+    terminal_client = TerminalClient(cwd=Path.cwd(), paths=["."])
     terminal_client.run()
     with open(file_name, "r") as f:
         content = f.read()

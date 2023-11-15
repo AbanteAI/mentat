@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Set
 
 from mentat.code_feature import (
     CodeFeature,
@@ -10,7 +10,7 @@ from mentat.code_feature import (
 from mentat.errors import UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
-from mentat.include_files import get_include_files
+from mentat.include_files import get_code_features_for_path
 from mentat.llm_api import call_llm_api_sync, count_tokens, model_context_size
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
@@ -91,10 +91,13 @@ class LLMFeatureFilter(FeatureFilter):
             selected_refs = json.loads(message)  # type: ignore
         except json.JSONDecodeError:
             raise ValueError(f"The response is not valid json: {message}")
-        parsed_features, _ = get_include_files(selected_refs, [])
-        postselected_features = [
-            feature for features in parsed_features.values() for feature in features
-        ]
+
+        postselected_features: Set[CodeFeature] = set()
+        for selected_ref in selected_refs:
+            code_features = get_code_features_for_path(
+                selected_ref, session_context.cwd
+            )
+            postselected_features.update(code_features)
 
         for out_feat in postselected_features:
             # Match with corresponding inputs
@@ -117,4 +120,4 @@ class LLMFeatureFilter(FeatureFilter):
 
         # Greedy again to enforce max_tokens
         truncate_filter = TruncateFilter(self.max_tokens, model=model)
-        return await truncate_filter.filter(postselected_features)
+        return await truncate_filter.filter(list(postselected_features))

@@ -45,7 +45,7 @@ class Session:
 
         cost_tracker = CostTracker()
 
-        code_context = CodeContext(stream, git_root, diff, pr_diff)
+        code_context = CodeContext(stream, git_root, diff, pr_diff, ignore_paths)
 
         code_file_manager = CodeFileManager()
 
@@ -66,7 +66,8 @@ class Session:
         # Functions that require session_context
         setup_api_key()
         config.send_errors_to_stream()
-        code_context.set_paths(paths, exclude_paths, ignore_paths)
+        for path in paths:
+            code_context.include(path, ignore_patterns=exclude_paths)
 
     async def _main(self):
         session_context = SESSION_CONTEXT.get()
@@ -78,6 +79,8 @@ class Session:
             code_context.display_context()
             await conversation.display_token_count()
         except MentatError as e:
+            # BUG: this is not getting streamed in the Python and Terminal clients.
+            # It makes it look like Mentat is hanging forever.
             stream.send(str(e), color="red")
             return
 
