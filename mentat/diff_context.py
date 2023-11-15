@@ -133,6 +133,8 @@ class DiffContext:
 
         meta = get_treeish_metadata(git_root, target)
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
+        if target == "HEAD":
+            name = "HEAD (last commit)"
 
         self.target = target
         self.name = name
