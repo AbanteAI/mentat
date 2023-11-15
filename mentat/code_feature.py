@@ -37,15 +37,15 @@ def split_file_into_intervals(
     ctags = sorted(ctags, key=lambda x: int(x[4]))  # type: ignore
     named_intervals = list[tuple[str, int, int]]()  # Name, Start, End
     _last_item = tuple[str, int]()
-    for i, tag in enumerate(ctags):
-        (scope, _, name, _, line_number) = tag  # Kind and Signature ignored
+    for i, tag in enumerate(ctags):  # type: ignore
+        (scope, _, name, _, line_number) = tag  # type: ignore # Kind and Signature ignored
         if name is None or line_number is None:
             continue
-        key = name
+        key = name  # type: ignore
         if scope is not None:
             key = f"{scope}.{name}"
         if _last_item:
-            _last_item_length = int(line_number) - _last_item[1]
+            _last_item_length = int(line_number) - _last_item[1]  # type: ignore
             min_lines = min_lines or MIN_INTERVAL_LINES
             if _last_item_length < min_lines:
                 line_number = _last_item[1]
@@ -55,10 +55,10 @@ def split_file_into_intervals(
                 )
         else:
             line_number = 1
-        if i == len(ctags) - 1:
-            named_intervals.append((str(key), int(line_number), n_lines))
+        if i == len(ctags) - 1:  # type: ignore
+            named_intervals.append((str(key), int(line_number), n_lines))  # type: ignore
         else:
-            _last_item = (key, int(line_number))
+            _last_item = (key, int(line_number))  # type: ignore
 
     if len(named_intervals) <= 1:
         return [feature]
