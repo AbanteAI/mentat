@@ -186,7 +186,7 @@ class Conversation:
         except RateLimitError:
             stream.send(
                 "Rate limit recieved from OpenAI's servers using model"
-                f" {config.model}.\nUse /config model <model_name> to switch to a"
+                f' {config.model}.\nUse "/config model <model_name>" to switch to a'
                 " different model.",
                 color="light_red",
             )
