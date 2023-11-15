@@ -120,13 +120,15 @@ class LLMFeatureSelector(FeatureSelector, selector_name="llm"):
             )
         system_prompt = read_prompt(self.feature_selection_prompt_path)
         system_prompt_tokens = count_tokens(
-            system_prompt, config.feature_selection_model
+            system_prompt, config.feature_selection_model, full_message=True
         )
         if user_prompt is None:
             user_prompt = ""
-        user_prompt_tokens = count_tokens(user_prompt, model)
+        user_prompt_tokens = count_tokens(user_prompt, model, full_message=True)
         expected_edits_tokens = (
-            0 if not expected_edits else count_tokens("\n".join(expected_edits), model)
+            0
+            if not expected_edits
+            else count_tokens("\n".join(expected_edits), model, full_message=True)
         )
         preselect_max_tokens = (
             context_size

@@ -294,14 +294,14 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
 
     async def _count_max_tokens_where(limit: int) -> int:
         code_message = await code_context.get_code_message(prompt="", max_tokens=limit)
-        return count_tokens(code_message, "gpt-4")
+        return count_tokens(code_message, "gpt-4", full_message=True)
 
-    assert await _count_max_tokens_where(1e6) == 85  # Code
-    assert await _count_max_tokens_where(84) == 65  # Cmap w/ signatures
-    assert await _count_max_tokens_where(60) == 57  # Cmap
-    assert await _count_max_tokens_where(52) == 47  # fnames
+    assert await _count_max_tokens_where(1e6) == 89  # Code
+    assert await _count_max_tokens_where(84) == 69  # Cmap w/ signatures
+    assert await _count_max_tokens_where(65) == 61  # Cmap
+    assert await _count_max_tokens_where(52) == 51  # fnames
     # Always return include_files, regardless of max
-    assert await _count_max_tokens_where(0) == 42  # Include_files only
+    assert await _count_max_tokens_where(0) == 46  # Include_files only
 
 
 @pytest.mark.clear_testbed

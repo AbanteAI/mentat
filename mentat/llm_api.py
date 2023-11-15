@@ -160,18 +160,41 @@ def chunk_to_lines(chunk: Any) -> list[str]:
     return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)
 
 
-# NOTE: We may be calculating the length of Conversation messages incorrectly,
-# but the difference should be negligible (<5 tokens per message):
-# https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
-def count_tokens(message: str, model: str) -> int:
+def count_tokens(message: str, model: str, full_message: bool = False) -> int:
+    """
+    Calculates the tokens in this message. Will NOT be accurate for a full conversation!
+    Use conversation_tokens to get the exact amount of tokens in a conversation.
+    If full_message is true, will include the extra 4 tokens used in a chat completion by this message.
+    """
     try:
-        return len(
-            tiktoken.encoding_for_model(model).encode(message, disallowed_special=())
-        )
+        encoding = tiktoken.encoding_for_model(model)
     except KeyError:
-        return len(
-            tiktoken.encoding_for_model("gpt-4").encode(message, disallowed_special=())
-        )
+        encoding = tiktoken.get_encoding("cl100k_base")
+    return len(encoding.encode(message, disallowed_special=())) + (
+        4 if full_message else 0
+    )
+
+
+def conversation_tokens(messages: list[dict[str, str]], model: str):
+    """
+    Returns the number of tokens used by a full conversation.
+    Adapted from https://platform.openai.com/docs/guides/text-generation/managing-tokens
+    """
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        encoding = tiktoken.get_encoding("cl100k_base")
+
+    num_tokens = 0
+    for message in messages:
+        # every message follows <im_start>{role/name}\n{content}<im_end>\n
+        num_tokens += 4
+        for key, value in message.items():
+            num_tokens += len(encoding.encode(value))
+            if key == "name":  # if there's a name, the role is omitted
+                num_tokens -= 1  # role is always required and always 1 token
+    num_tokens += 2  # every reply is primed with <im_start>assistant
+    return num_tokens
 
 
 def is_model_available(model: str) -> bool:
@@ -225,9 +248,7 @@ def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
-    prompt_token_count = 0
-    for message in messages:
-        prompt_token_count += count_tokens(message["content"], model)
+    prompt_token_count = conversation_tokens(messages, model)
     stream.send(f"Total token count: {prompt_token_count}", color="cyan")
 
     token_buffer = 500
