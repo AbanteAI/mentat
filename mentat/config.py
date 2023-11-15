@@ -4,6 +4,7 @@ import json
 from argparse import ArgumentParser, Namespace
 from json import JSONDecodeError
 from pathlib import Path
+from typing import cast, List
 
 import attr
 from attr import converters, validators
@@ -26,7 +27,7 @@ def int_or_none(s: str | None) -> int | None:
 
 @attr.define
 class Config:
-    _errors: list[str] = attr.field(default=[])
+    _errors: list[str] = attr.field(default=cast(List[str], []))
 
     # Model specific settings
     model: str = attr.field(default="gpt-4-0314")
@@ -72,7 +73,7 @@ class Config:
 
     # Context specific settings
     file_exclude_glob_list: list[str] = attr.field(
-        default=[],
+        default=cast(List[str], []),
         metadata={"description": "List of glob patterns to exclude from context"},
     )
     auto_context: bool = attr.field(
