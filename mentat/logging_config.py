@@ -79,7 +79,7 @@ def get_transcript_logs() -> (
     transcripts = glob.glob(str(logs_path / "transcript_*"))
     transcripts = sorted(transcripts, reverse=True)
     ans = []
-    for transcript in transcripts[:3]:
+    for transcript in transcripts[:20]:
         match = re.search(r"transcript_(.+).log", transcript)
         timestamp = match.group(1)  # type: ignore
 
