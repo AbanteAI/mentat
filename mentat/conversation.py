@@ -6,7 +6,7 @@ from enum import Enum
 from timeit import default_timer
 from typing import TYPE_CHECKING
 
-from openai.error import InvalidRequestError
+from openai.error import RateLimitError
 
 from mentat.errors import MentatError
 from mentat.llm_api import (
@@ -149,19 +149,10 @@ class Conversation:
         start_time = default_timer()
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
-        try:
-            response = await call_llm_api(messages, config.model)
-            stream.send(
-                "Streaming... use control-c to interrupt the model at any point\n"
-            )
-            async with parser.interrupt_catcher():
-                parsedLLMResponse = await parser.stream_and_parse_llm_response(response)
-        except InvalidRequestError as e:
-            raise MentatError(
-                "Something went wrong - invalid request to OpenAI API. OpenAI"
-                " returned:\n"
-                + str(e)
-            )
+        response = await call_llm_api(messages, config.model)
+        stream.send("Streaming... use control-c to interrupt the model at any point\n")
+        async with parser.interrupt_catcher():
+            parsedLLMResponse = await parser.stream_and_parse_llm_response(response)
 
         time_elapsed = default_timer() - start_time
         return (parsedLLMResponse, time_elapsed)
@@ -188,9 +179,19 @@ class Conversation:
 
         code_context.display_features()
         num_prompt_tokens = get_prompt_token_count(messages_snapshot, config.model)
-        parsedLLMResponse, time_elapsed = await self._stream_model_response(
-            stream, parser, messages_snapshot
-        )
+        try:
+            parsedLLMResponse, time_elapsed = await self._stream_model_response(
+                stream, parser, messages_snapshot
+            )
+        except RateLimitError:
+            stream.send(
+                "Rate limit recieved from OpenAI's servers using model"
+                f" {config.model}.\nUse /config model <model_name> to switch to a"
+                " different model.",
+                color="light_red",
+            )
+            return []
+
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             count_tokens(parsedLLMResponse.full_response, config.model),
