@@ -9,7 +9,7 @@ from typing import Any
 CTAG = tuple[str | None, str, str, str | None, int]
 
 
-def get_ctags(abs_file_path: Path, exclude_signatures: bool = False):
+def get_ctags(abs_file_path: Path, exclude_signatures: bool = False) -> set[CTAG]:
     # Create ctags from executable in a subprocess
     ctags_cmd_args = [
         "--extras=-F",
