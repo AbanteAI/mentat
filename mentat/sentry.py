@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 import sentry_sdk
 
+from mentat import __version__
 from mentat.app_conf import IS_DEV
 from mentat.utils import mentat_dir_path
 
@@ -40,6 +41,7 @@ def sentry_init():
         enable_tracing=True,
         traces_sample_rate=1.0,
     )
+    sentry_sdk.set_tag("version", __version__)
     sentry_sdk.set_user({"id": _get_user()})
     uname = platform.uname()
     sentry_sdk.set_context(
