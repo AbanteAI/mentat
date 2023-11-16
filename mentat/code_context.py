@@ -166,7 +166,7 @@ class CodeContext:
             )
         return self._code_message
 
-    use_llm: bool = True
+    use_llm: bool = False
 
     async def _get_code_message(
         self,
@@ -175,6 +175,7 @@ class CodeContext:
         expected_edits: Optional[list[str]] = None,
     ) -> str:
         session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
         config = session_context.config
         model = config.model
 
@@ -195,18 +196,28 @@ class CodeContext:
         if not config.auto_context or remaining_tokens <= 0:
             self.features = self._get_include_features()
         else:
-            self.features = self._get_all_features(
-                CodeMessageLevel.INTERVAL,
-            )
-            feature_filter = DefaultFilter(
-                remaining_tokens,
-                model,
-                not (bool(self.ctags_disabled)),
-                self.use_llm,
-                prompt,
-                expected_edits,
-            )
-            self.features = await feature_filter.filter(self.features)
+            try:
+                stream.send(
+                    "Scanning current project...", channel="loading", progress=10
+                )
+                self.features = self._get_all_features(
+                    CodeMessageLevel.INTERVAL,
+                )
+                stream.send(
+                    "Generating feature filters...", channel="loading", progress=10
+                )
+                feature_filter = DefaultFilter(
+                    remaining_tokens,
+                    model,
+                    not (bool(self.ctags_disabled)),
+                    self.use_llm,
+                    prompt,
+                    expected_edits,
+                    loading_multiplier=0.8,
+                )
+                self.features = await feature_filter.filter(self.features)
+            finally:
+                stream.send(None, channel="loading", terminate=True)
 
         # Group intervals by file, separated by ellipses if there are gaps
         code_message += get_code_message_from_features(self.features)

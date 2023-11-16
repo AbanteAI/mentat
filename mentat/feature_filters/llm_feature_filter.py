@@ -7,7 +7,7 @@ from mentat.code_feature import (
     CodeMessageLevel,
     get_code_message_from_features,
 )
-from mentat.errors import UserError
+from mentat.errors import ModelError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.include_files import get_include_files
@@ -27,11 +27,13 @@ class LLMFeatureFilter(FeatureFilter):
         user_prompt: Optional[str] = None,
         levels: list[CodeMessageLevel] = [],
         expected_edits: Optional[list[str]] = None,
+        loading_multiplier: float = 0.0,
     ):
         self.max_tokens = max_tokens
         self.user_prompt = user_prompt or ""
         self.levels = levels
         self.expected_edits = expected_edits
+        self.loading_multiplier = loading_multiplier
 
     async def filter(
         self,
@@ -41,6 +43,7 @@ class LLMFeatureFilter(FeatureFilter):
         config = session_context.config
 
         # Preselect as many features as fit in the context window
+        self.report_loading("Preselecting features", 10)
         model = config.feature_selection_model
         context_size = model_context_size(model)
         if context_size is None:
@@ -86,11 +89,15 @@ class LLMFeatureFilter(FeatureFilter):
             messages.append(
                 {"role": "system", "content": f"Expected Edits:\n{self.expected_edits}"}
             )
+
+        self.report_loading("Asking LLM to filter out irrelevant context...", 80)
         message = await call_llm_api_sync(model, messages)
+
+        self.report_loading("Parsing LLM response...", 10)
         try:
             selected_refs = json.loads(message)  # type: ignore
         except json.JSONDecodeError:
-            raise ValueError(f"The response is not valid json: {message}")
+            raise ModelError(f"The response is not valid json: {message}")
         parsed_features, _ = get_include_files(selected_refs, [])
         postselected_features = [
             feature for features in parsed_features.values() for feature in features
@@ -105,7 +112,7 @@ class LLMFeatureFilter(FeatureFilter):
                 and in_feat.interval.intersects(out_feat.interval)
             ]
             if len(matching_inputs) == 0:
-                raise ValueError(f"No input feature found for llm-selected {out_feat}")
+                raise ModelError(f"No input feature found for llm-selected {out_feat}")
             # Copy metadata
             out_feat.user_included = any(f.user_included for f in matching_inputs)
             diff = any(f.diff for f in matching_inputs)
