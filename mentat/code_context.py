@@ -8,6 +8,7 @@ from mentat.code_feature import (
     CodeFeature,
     CodeMessageLevel,
     get_code_message_from_features,
+    get_consolidated_feature_refs,
     split_file_into_intervals,
 )
 from mentat.code_map import check_ctags_disabled
@@ -81,7 +82,7 @@ class CodeContext:
         diff = self.diff_context.get_display_context()
         if diff:
             stream.send(f"{prefix}Diff: {diff}", color="green")
-        
+
         if config.auto_context:
             stream.send(f"{prefix}Auto-Context: Enabled")
             if self.ctags_disabled:
@@ -92,16 +93,19 @@ class CodeContext:
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 
-        files = None
+        features = None
         if self.features:
             stream.send(f"{prefix}Active Features:")
-            files = {f.path for f in self.features}
+            features = self.features
         elif self.include_files:
             stream.send(f"{prefix}Included files:")
-            files = {f.path for file in self.include_files.values() for f in file}
-        if files is not None:
+            features = [
+                _feat for _file in self.include_files.values() for _feat in _file
+            ]
+        if features is not None:
+            refs = get_consolidated_feature_refs(features)
             print_path_tree(
-                build_path_tree(list(files), git_root),
+                build_path_tree([Path(r) for r in refs], git_root),
                 get_paths_with_git_diffs(),
                 git_root,
                 prefix + prefix,

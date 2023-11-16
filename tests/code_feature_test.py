@@ -1,7 +1,12 @@
 from pathlib import Path
 from textwrap import dedent
 
-from mentat.code_feature import CodeFeature, CodeMessageLevel, split_file_into_intervals
+from mentat.code_feature import (
+    CodeFeature,
+    CodeMessageLevel,
+    get_consolidated_feature_refs,
+    split_file_into_intervals,
+)
 
 
 def test_split_file_into_intervals(temp_testbed, mock_session_context):
@@ -32,3 +37,18 @@ def test_ref_method(temp_testbed):
     assert (code_feature.interval.start, code_feature.interval.end) == (2, 4)
     ref_result = code_feature.ref()
     assert ref_result == expected
+
+
+def test_consolidated_refs(temp_testbed):
+    dir = temp_testbed / "scripts"
+    features = [
+        CodeFeature(str(dir / "calculator.py") + ":1-10"),
+        CodeFeature(str(dir / "calculator.py") + ":11-20"),
+        CodeFeature(str(dir / "calculator.py") + ":30-40"),
+        CodeFeature(str(dir / "echo.py")),
+        CodeFeature(str(dir / "echo.py") + ":10-20"),
+    ]
+    consolidated = get_consolidated_feature_refs(features)
+    assert len(consolidated) == 2
+    assert consolidated[0] == f"{dir / 'calculator.py'}:1-20,30-40"
+    assert consolidated[1] == str(dir / "echo.py")
