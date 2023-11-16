@@ -9,7 +9,9 @@ class LoadingHandler:
 
     def update(self, message: StreamMessage):
         """Create or update a loading bar with text and progress value (0-100)"""
-        if "terminate" in message.extra:
+
+        terminate = bool(message.extra and message.extra.get("terminate"))
+        if self.pbar is None and terminate:
             self.terminate()
             return
 
@@ -26,8 +28,9 @@ class LoadingHandler:
         if "progress" in message.extra:
             _progress = min(message.extra["progress"], self.pbar.total - self.pbar.n)
             self.pbar.update(_progress)
-            if self.pbar.n == self.pbar.total:
-                self.terminate()
+
+        if terminate or self.pbar.n == self.pbar.total:
+            self.terminate()
 
     def terminate(self, message: str | None = None):
         if self.pbar is not None:

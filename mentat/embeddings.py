@@ -4,7 +4,6 @@ import logging
 import os
 import sqlite3
 from pathlib import Path
-from typing import Callable, Optional
 
 import numpy as np
 from openai.error import RateLimitError
@@ -116,7 +115,7 @@ def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
 async def get_feature_similarity_scores(
     prompt: str,
     features: list[CodeFeature],
-    report_loading: Optional[Callable[[str, int | float], None]] = None,
+    loading_multiplier: float = 0.0,
 ) -> list[float]:
     """Return the similarity scores for a given prompt and list of features."""
     global database
@@ -169,8 +168,6 @@ async def get_feature_similarity_scores(
 
     # Fetch embeddings in batches
     batches = _batch_ffd(items_to_embed_tokens, max_model_tokens)
-    if report_loading:
-        report_loading(f"Fetching {len(batches)} batches of embeddings...", 10)
 
     tasks = list[tuple[asyncio.Task[list[list[float]]], list[str]]]()
     for batch in batches:
@@ -178,16 +175,16 @@ async def get_feature_similarity_scores(
         task = asyncio.create_task(_fetch_embeddings(embedding_model, batch_content))
         tasks.append((task, batch))
     for i, (task, batch) in enumerate(tasks):
-        if report_loading:
-            report_loading(
-                f"Processing embeddings, batch {i+1}/{len(tasks)}", 80 / len(tasks)
+        if loading_multiplier:
+            stream.send(
+                f"Fetching embeddings, batch {i+1}/{len(tasks)}",
+                channel="loading",
+                progress=(100 / len(tasks)) * loading_multiplier,
             )
         response = await task
         database.set({k: v for k, v in zip(batch, response)})
 
     # Calculate similarity score for each feature
-    if report_loading:
-        report_loading("Calculating similarity scores...", 10)
     prompt_embedding = database.get([prompt_checksum])[prompt_checksum]
     embeddings = database.get(checksums)
     scores = [_cosine_similarity(prompt_embedding, embeddings[k]) for k in checksums]

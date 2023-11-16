@@ -23,7 +23,6 @@ class LLMFeatureFilter(FeatureFilter):
     def __init__(
         self,
         max_tokens: int,
-        model: str = "gpt-4",
         user_prompt: Optional[str] = None,
         levels: list[CodeMessageLevel] = [],
         expected_edits: Optional[list[str]] = None,
@@ -40,10 +39,10 @@ class LLMFeatureFilter(FeatureFilter):
         features: list[CodeFeature],
     ) -> list[CodeFeature]:
         session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
         config = session_context.config
 
         # Preselect as many features as fit in the context window
-        self.report_loading("Preselecting features", 10)
         model = config.feature_selection_model
         context_size = model_context_size(model)
         if context_size is None:
@@ -69,7 +68,7 @@ class LLMFeatureFilter(FeatureFilter):
             - self.feature_selection_response_buffer
         )
         truncate_filter = TruncateFilter(
-            preselect_max_tokens, model=model, levels=self.levels
+            preselect_max_tokens, model, levels=self.levels
         )
         preselected_features = await truncate_filter.filter(features)
 
@@ -90,10 +89,20 @@ class LLMFeatureFilter(FeatureFilter):
                 {"role": "system", "content": f"Expected Edits:\n{self.expected_edits}"}
             )
 
-        self.report_loading("Asking LLM to filter out irrelevant context...", 80)
+        if self.loading_multiplier:
+            stream.send(
+                "Asking LLM to filter out irrelevant context...",
+                channel="loading",
+                progress=50 * self.loading_multiplier,
+            )
         message = await call_llm_api_sync(model, messages)
+        if self.loading_multiplier:
+            stream.send(
+                "Parsing LLM response...",
+                channel="loading",
+                progress=50 * self.loading_multiplier,
+            )
 
-        self.report_loading("Parsing LLM response...", 10)
         try:
             selected_refs = json.loads(message)  # type: ignore
         except json.JSONDecodeError:
@@ -123,5 +132,5 @@ class LLMFeatureFilter(FeatureFilter):
                 out_feat.name = next(f.name for f in matching_inputs if f.name)
 
         # Greedy again to enforce max_tokens
-        truncate_filter = TruncateFilter(self.max_tokens, model=model)
+        truncate_filter = TruncateFilter(self.max_tokens, config.model)
         return await truncate_filter.filter(postselected_features)
