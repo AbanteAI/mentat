@@ -53,13 +53,13 @@ class LLMFeatureFilter(FeatureFilter):
             )
         system_prompt = read_prompt(self.feature_selection_prompt_path)
         system_prompt_tokens = count_tokens(
-            system_prompt, config.feature_selection_model
+            system_prompt, config.feature_selection_model, full_message=True
         )
-        user_prompt_tokens = count_tokens(self.user_prompt, model)
+        user_prompt_tokens = count_tokens(self.user_prompt, model, full_message=True)
         expected_edits_tokens = (
             0
             if not self.expected_edits
-            else count_tokens("\n".join(self.expected_edits), model)
+            else count_tokens("\n".join(self.expected_edits), model, full_message=True)
         )
         preselect_max_tokens = (
             context_size
