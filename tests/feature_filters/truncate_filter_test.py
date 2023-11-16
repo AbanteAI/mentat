@@ -15,19 +15,18 @@ async def test_truncate_feature_selector(temp_testbed, mock_session_context):
         ),  # 87 tokens
     ]
 
-    model = mock_session_context.config.model
-    feature_filter = TruncateFilter(100, model)
+    feature_filter = TruncateFilter(100)
     selected = await feature_filter.filter(all_features)
     assert len(selected) == 1
     assert selected[0].path.name == "operations.py"
 
-    feature_filter = TruncateFilter(200, model)
+    feature_filter = TruncateFilter(200)
     selected = await feature_filter.filter(all_features)
     assert len(selected) == 1
     assert selected[0].path.name == "calculator.py"
 
     levels = [CodeMessageLevel.FILE_NAME]
-    feature_filter = TruncateFilter(100, model, levels=levels)
+    feature_filter = TruncateFilter(100, levels=levels)
     selected = await feature_filter.filter(all_features)
     assert selected[0].level.key == "file_name"
     assert selected[1].level.key == "code"
