@@ -4,6 +4,7 @@ import logging
 import os
 import sqlite3
 from pathlib import Path
+from timeit import default_timer
 from typing import Callable, Optional
 
 import numpy as np
@@ -122,6 +123,7 @@ async def get_feature_similarity_scores(
     global database
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
+    cost_tracker = session_context.cost_tracker
     embedding_model = session_context.config.embedding_model
     max_model_tokens = model_context_size(embedding_model)
     if max_model_tokens is None:
@@ -182,7 +184,14 @@ async def get_feature_similarity_scores(
             report_loading(
                 f"Processing embeddings, batch {i+1}/{len(tasks)}", 80 / len(tasks)
             )
+        start_time = default_timer()
         response = await task
+        cost_tracker.log_api_call_stats(
+            sum(items_to_embed_tokens[k] for k in batch),
+            0,
+            embedding_model,
+            start_time - default_timer(),
+        )
         database.set({k: v for k, v in zip(batch, response)})
 
     # Calculate similarity score for each feature

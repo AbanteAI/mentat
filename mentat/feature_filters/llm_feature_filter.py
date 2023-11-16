@@ -13,10 +13,10 @@ from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.include_files import get_include_files
 from mentat.llm_api import (
-    call_llm_api_sync, 
+    call_llm_api_sync,
     conversation_tokens,
-    count_tokens, 
-    model_context_size
+    count_tokens,
+    model_context_size,
 )
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
@@ -103,7 +103,7 @@ class LLMFeatureFilter(FeatureFilter):
         for i in range(n_tries):
             start_time = default_timer()
             message = await call_llm_api_sync(model, messages)
-            
+
             tokens = conversation_tokens(messages, model)
             response_tokens = count_tokens(message, model)
             cost_tracker.log_api_call_stats(

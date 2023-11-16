@@ -275,7 +275,7 @@ class CostTracker:
         model: str,
         call_time: float,
         decimal_places: int = 2,
-        display: bool = False
+        display: bool = False,
     ) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
