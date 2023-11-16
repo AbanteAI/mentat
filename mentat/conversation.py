@@ -201,13 +201,14 @@ class Conversation:
         parsedLLMResponse, time_elapsed = await self._stream_model_response(
             stream, parser, messages_snapshot
         )
-        cost_tracker.display_api_call_stats(
+        cost_tracker.log_api_call_stats(
             num_prompt_tokens,
             count_tokens(
                 parsedLLMResponse.full_response, config.model, full_message=True
             ),
             config.model,
             time_elapsed,
+            display=True,
         )
 
         messages_snapshot.append(

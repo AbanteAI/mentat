@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from timeit import default_timer
 from typing import Optional
 
 from mentat.code_feature import (
@@ -11,7 +12,12 @@ from mentat.errors import ModelError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.include_files import get_include_files
-from mentat.llm_api import call_llm_api_sync, count_tokens, model_context_size
+from mentat.llm_api import (
+    call_llm_api_sync, 
+    conversation_tokens,
+    count_tokens, 
+    model_context_size
+)
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
@@ -41,6 +47,7 @@ class LLMFeatureFilter(FeatureFilter):
     ) -> list[CodeFeature]:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
+        cost_tracker = session_context.cost_tracker
 
         # Preselect as many features as fit in the context window
         self.report_loading("Preselecting features", 10)
@@ -91,7 +98,17 @@ class LLMFeatureFilter(FeatureFilter):
             )
 
         self.report_loading("Asking LLM to filter out irrelevant context...", 80)
+        start_time = default_timer()
         message = await call_llm_api_sync(model, messages)
+        
+        tokens = conversation_tokens(messages, model)
+        response_tokens = count_tokens(message, model)
+        cost_tracker.log_api_call_stats(
+            tokens,
+            response_tokens,
+            model,
+            default_timer() - start_time,
+        )
 
         self.report_loading("Parsing LLM response...", 10)
         try:
