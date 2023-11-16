@@ -72,26 +72,18 @@ class CodeContext:
         stream = session_context.stream
         config = session_context.config
         git_root = session_context.git_root
-
-        stream.send("Code Context:", color="blue")
         prefix = "  "
+
+        stream.send("")
+        stream.send("Code Context:", color="blue")
         stream.send(f"{prefix}Directory: {git_root}")
-        if self.diff_context.name:
-            stream.send(f"{prefix}Diff:", end=" ")
-            stream.send(self.diff_context.get_display_context(), color="green")
-        if self.include_files:
-            stream.send(f"{prefix}Included files:")
-            stream.send(f"{prefix + prefix}{git_root.name}")
-            print_path_tree(
-                build_path_tree(list(self.include_files.keys()), git_root),
-                get_paths_with_git_diffs(),
-                git_root,
-                prefix + prefix,
-            )
-        else:
-            stream.send(f"{prefix}Included files: None", color="yellow")
+
+        diff = self.diff_context.get_display_context()
+        if diff:
+            stream.send(f"{prefix}Diff: {diff}", color="green")
+        
         if config.auto_context:
-            stream.send(f"{prefix}Auto-Context: Enabled", color="green")
+            stream.send(f"{prefix}Auto-Context: Enabled")
             if self.ctags_disabled:
                 stream.send(
                     f"{prefix}Code Maps Disbled: {self.ctags_disabled}",
@@ -100,20 +92,24 @@ class CodeContext:
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 
-    def display_features(self):
-        """Display a summary of all active features"""
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
+        files = None
+        if self.features:
+            stream.send(f"{prefix}Active Features:")
+            files = {f.path for f in self.features}
+        elif self.include_files:
+            stream.send(f"{prefix}Included files:")
+            files = {f.path for file in self.include_files.values() for f in file}
+        if files is not None:
+            print_path_tree(
+                build_path_tree(list(files), git_root),
+                get_paths_with_git_diffs(),
+                git_root,
+                prefix + prefix,
+            )
+        else:
+            stream.send(f"{prefix}Included files: None", color="yellow")
 
-        auto_features = {level: 0 for level in CodeMessageLevel}
-        for f in self.features:
-            if f.path not in self.include_files:
-                auto_features[f.level] += 1
-        if any(auto_features.values()):
-            stream.send("Auto-Selected Features:", color="blue")
-            for level, count in auto_features.items():
-                if count:
-                    stream.send(f"  {count} {level.description}")
+        stream.send("")
 
     _code_message: str | None = None
     _code_message_checksum: str | None = None

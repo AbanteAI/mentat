@@ -197,7 +197,6 @@ class Conversation:
             {"role": MessageRole.System.value, "content": code_message}
         )
 
-        code_context.display_features()
         num_prompt_tokens = get_prompt_token_count(messages_snapshot, config.model)
         parsedLLMResponse, time_elapsed = await self._stream_model_response(
             stream, parser, messages_snapshot
