@@ -15,6 +15,7 @@ from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
+from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from mentat.include_files import (
     build_path_tree,
@@ -24,7 +25,7 @@ from mentat.include_files import (
     print_invalid_path,
     print_path_tree,
 )
-from mentat.llm_api import count_tokens
+from mentat.llm_api import count_tokens, is_test_environment
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import sha256
@@ -193,8 +194,19 @@ class CodeContext:
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
         remaining_tokens = max_tokens - meta_tokens
 
-        if not config.auto_context or remaining_tokens <= 0:
+        if remaining_tokens < 0:
+            self.features = []
+            return ""
+        elif not config.auto_context:
             self.features = self._get_include_features()
+            if sum(f.count_tokens(model) for f in self.features) > remaining_tokens:
+                if prompt and not is_test_environment():
+                    self.features = await EmbeddingSimilarityFilter(prompt).filter(
+                        self.features
+                    )
+                self.features = await TruncateFilter(
+                    remaining_tokens, model, respect_user_include=False
+                ).filter(self.features)
         else:
             try:
                 stream.send(

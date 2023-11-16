@@ -92,18 +92,11 @@ class Conversation:
             )
         else:
             self.max_tokens = context_size
-        if context_size and tokens > context_size:
-            raise MentatError(
-                f"Included files already exceed token limit ({tokens} /"
-                f" {context_size}). Please try running again with a reduced"
-                " number of files."
-            )
-        elif tokens + 1000 > context_size:
+        if context_size and tokens + 1000 > context_size:
             stream.send(
-                f"Warning: Included files are close to token limit ({tokens} /"
-                f" {context_size}), you may not be able to have a long"
-                " conversation.",
-                color="red",
+                f"Included files exceeds token limit ({tokens} / {context_size}). "
+                "Truncating based on task similarity.",
+                color="yellow",
             )
         else:
             stream.send(
