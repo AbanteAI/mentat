@@ -63,7 +63,7 @@ def fetch_resource(resource_path: Path) -> Traversable:
 def create_viewer(
     literal_messages: list[tuple[str, list[tuple[str, list[dict[str, str]] | None]]]]
 ) -> Path:
-    messages_json = json.dumps(literal_messages)
+    messages_json = json.dumps(literal_messages[:100])
     viewer_resource = fetch_resource(conversation_viewer_path)
     with viewer_resource.open("r") as viewer_file:
         html = viewer_file.read()
