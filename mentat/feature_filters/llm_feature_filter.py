@@ -98,23 +98,29 @@ class LLMFeatureFilter(FeatureFilter):
             )
 
         self.report_loading("Asking LLM to filter out irrelevant context...", 80)
-        start_time = default_timer()
-        message = await call_llm_api_sync(model, messages)
-        
-        tokens = conversation_tokens(messages, model)
-        response_tokens = count_tokens(message, model)
-        cost_tracker.log_api_call_stats(
-            tokens,
-            response_tokens,
-            model,
-            default_timer() - start_time,
-        )
-
+        selected_refs = list[Path]()
+        n_tries = 3
+        for i in range(n_tries):
+            start_time = default_timer()
+            message = await call_llm_api_sync(model, messages)
+            
+            tokens = conversation_tokens(messages, model)
+            response_tokens = count_tokens(message, model)
+            cost_tracker.log_api_call_stats(
+                tokens,
+                response_tokens,
+                model,
+                default_timer() - start_time,
+            )
+            try:
+                response = json.loads(message)  # type: ignore
+                selected_refs = [Path(r) for r in response]
+                break
+            except json.JSONDecodeError:
+                # TODO: Update Loader
+                if i == n_tries - 1:
+                    raise ModelError(f"The response is not valid json: {message}")
         self.report_loading("Parsing LLM response...", 10)
-        try:
-            selected_refs = json.loads(message)  # type: ignore
-        except json.JSONDecodeError:
-            raise ModelError(f"The response is not valid json: {message}")
         parsed_features, _ = get_include_files(selected_refs, [])
         postselected_features = [
             feature for features in parsed_features.values() for feature in features
