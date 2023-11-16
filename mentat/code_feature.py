@@ -84,8 +84,8 @@ def split_file_into_intervals(
 
 
 class CodeMessageLevel(Enum):
-    CODE = ("code", 1, "Complete code")
-    INTERVAL = ("interval", 2, "Specific range(s)")
+    CODE = ("code", 1, "Full File")
+    INTERVAL = ("interval", 2, "Specific range")
     CMAP_FULL = ("cmap_full", 3, "Function/Class names and signatures")
     CMAP = ("cmap", 4, "Function/Class names")
     FILE_NAME = ("file_name", 5, "Relative path/filename")

@@ -66,7 +66,7 @@ class TerminalClient:
         while True:
             input_request_message = await self.session.stream.recv("input_request")
             # TODO: Make extra kwargs like plain constants
-            if "plain" in input_request_message.extra:
+            if input_request_message.extra.get("plain"):
                 prompt_session = self._plain_session
             else:
                 prompt_session = self._prompt_session
