@@ -174,6 +174,7 @@ class Conversation:
                     progress=50 * loading_multiplier,
                     terminate=True,
                 )
+            stream.send(f"Total token count: {num_prompt_tokens}", color="cyan")
             stream.send(
                 "Streaming... use control-c to interrupt the model at any point\n"
             )
