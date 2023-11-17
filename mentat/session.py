@@ -92,12 +92,8 @@ class Session:
 
         setup_api_key()
 
-        try:
-            code_context.display_context()
-            await conversation.display_token_count()
-        except MentatError as e:
-            stream.send(str(e), color="red")
-            return
+        code_context.display_context()
+        await conversation.display_token_count()
 
         try:
             stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
@@ -149,8 +145,9 @@ class Session:
                 pass
             except (MentatError, UserError) as e:
                 self.stream.send(str(e), color="red")
-            except Exception:
+            except Exception as e:
                 # All unhandled exceptions end up here
+                sentry_sdk.capture_exception(e)
                 self.stream.send(
                     f"Unhandled Exception: {traceback.format_exc()}", color="red"
                 )
