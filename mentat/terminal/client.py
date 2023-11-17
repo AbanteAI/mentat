@@ -211,10 +211,8 @@ def run_cli():
     parser.add_argument(
         "--pr-diff",
         "-p",
-        nargs="?",
         type=str,
         default=None,
-        const="main",
         help="A git tree-ish to diff against the latest common ancestor of",
     )
 
