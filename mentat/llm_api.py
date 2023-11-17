@@ -98,7 +98,7 @@ def warn_user(message: str, max_tries: int, details: Details):
     exception=RateLimitError,
     max_tries=3,
     base=2,
-    factor=10,
+    factor=5,
     jitter=None,
     logger="",
     giveup_log_level=logging.INFO,

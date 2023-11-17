@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import attr
 import sentry_sdk
+from openai import InvalidRequestError
 from openai.error import RateLimitError, Timeout
 
 from mentat.code_context import CodeContext
@@ -92,12 +93,8 @@ class Session:
 
         setup_api_key()
 
-        try:
-            code_context.display_context()
-            await conversation.display_token_count()
-        except MentatError as e:
-            stream.send(str(e), color="red")
-            return
+        code_context.display_context()
+        await conversation.display_token_count()
 
         try:
             stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
@@ -121,7 +118,7 @@ class Session:
                 stream.send(bool(file_edits), channel="edits_complete")
         except SessionExit:
             pass
-        except (Timeout, RateLimitError) as e:
+        except (Timeout, RateLimitError, InvalidRequestError) as e:
             stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
 
     async def listen_for_session_exit(self):
@@ -149,8 +146,9 @@ class Session:
                 pass
             except (MentatError, UserError) as e:
                 self.stream.send(str(e), color="red")
-            except Exception:
+            except Exception as e:
                 # All unhandled exceptions end up here
+                sentry_sdk.capture_exception(e)
                 self.stream.send(
                     f"Unhandled Exception: {traceback.format_exc()}", color="red"
                 )
