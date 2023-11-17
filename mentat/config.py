@@ -29,8 +29,8 @@ class Config:
     _errors: list[str] = attr.field(factory=list)
 
     # Model specific settings
-    model: str = attr.field(default="gpt-4-0314")
-    feature_selection_model: str = attr.field(default="gpt-4-0314")
+    model: str = attr.field(default="gpt-4-1106-preview")
+    feature_selection_model: str = attr.field(default="gpt-4-1106-preview")
     embedding_model: str = attr.field(default="text-embedding-ada-002")
     temperature: float = attr.field(
         default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)]
