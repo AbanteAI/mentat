@@ -66,7 +66,6 @@ def create_viewer(
         loader=PackageLoader("mentat", "resources/templates"),
         autoescape=select_autoescape(["html", "xml"]),
     )
-    print(len(literal_messages))
     template = env.get_template("conversation_viewer.jinja")
     html = template.render(transcripts=literal_messages[:500])
 
