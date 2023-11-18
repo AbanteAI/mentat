@@ -86,7 +86,7 @@ class Config:
     auto_tokens: int = attr.field(
         default=8000,
         metadata={
-            "description": "The number of tokens auto-context can add.",
+            "description": "The number of tokens auto-context will add.",
         },
         converter=int,
     )
