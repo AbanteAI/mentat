@@ -92,6 +92,7 @@ class CodeContext:
             stream.send(f"{prefix}Included files: None", color="yellow")
         if config.auto_context:
             stream.send(f"{prefix}Auto-Context: Enabled", color="green")
+            stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
             if self.ctags_disabled:
                 stream.send(
                     f"{prefix}Code Maps Disbled: {self.ctags_disabled}",
@@ -193,15 +194,16 @@ class CodeContext:
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
         remaining_tokens = max_tokens - meta_tokens
+        auto_tokens = min(remaining_tokens, config.auto_tokens)
 
-        if not config.auto_context or remaining_tokens <= 0:
+        if not config.auto_context or auto_tokens <= 0:
             self.features = self._get_include_features()
         else:
             self.features = self._get_all_features(
                 CodeMessageLevel.INTERVAL,
             )
             feature_filter = DefaultFilter(
-                remaining_tokens,
+                auto_tokens,
                 not (bool(self.ctags_disabled)),
                 self.use_llm,
                 prompt,

@@ -83,6 +83,13 @@ class Config:
         },
         converter=converters.optional(converters.to_bool),
     )
+    auto_tokens: int = attr.field(
+        default=4000,
+        metadata={
+            "description": "The number of tokens auto-context can add.",
+        },
+        converter=int,
+    )
 
     # Only settable by config file
     input_style: list[tuple[str, str]] = attr.field(
