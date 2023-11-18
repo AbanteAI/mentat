@@ -18,11 +18,9 @@ from mentat.llm_api import (
     model_context_size,
 )
 from mentat.session_context import SESSION_CONTEXT
-from mentat.session_stream import SessionStream
 
 if TYPE_CHECKING:
     from mentat.parsers.file_edit import FileEdit
-    from mentat.parsers.parser import Parser
 
 
 class MessageRole(Enum):
@@ -152,27 +150,42 @@ class Conversation:
 
     async def _stream_model_response(
         self,
-        stream: SessionStream,
-        parser: Parser,
         messages: list[dict[str, str]],
+        loading_multiplier: float = 0.0,
     ):
         start_time = default_timer()
         session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
         config = session_context.config
+        parser = config.parser
+        num_prompt_tokens = get_prompt_token_count(messages, config.model)
+        if loading_multiplier:
+            stream.send(
+                "Sending query and context to LLM",
+                channel="loading",
+                progress=50 * loading_multiplier,
+            )
         response = await call_llm_api(messages, config.model)
+        if loading_multiplier:
+            stream.send(
+                None,
+                channel="loading",
+                progress=50 * loading_multiplier,
+                terminate=True,
+            )
+        stream.send(f"Total token count: {num_prompt_tokens}", color="cyan")
         stream.send("Streaming... use control-c to interrupt the model at any point\n")
         async with parser.interrupt_catcher():
             parsedLLMResponse = await parser.stream_and_parse_llm_response(response)
 
         time_elapsed = default_timer() - start_time
-        return (parsedLLMResponse, time_elapsed)
+        return (parsedLLMResponse, time_elapsed, num_prompt_tokens)
 
     async def get_model_response(self) -> list[FileEdit]:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
         code_context = session_context.code_context
-        parser = config.parser
         cost_tracker = session_context.cost_tracker
 
         messages_snapshot = self.get_messages()
@@ -180,20 +193,19 @@ class Conversation:
         # Rebuild code context with active code and available tokens
         tokens = conversation_tokens(messages_snapshot, config.model)
         response_buffer = 1000
-        code_message = await code_context.get_code_message(
-            messages_snapshot[-1]["content"],
-            self.max_tokens - tokens - response_buffer,
-        )
-        messages_snapshot.append(
-            {"role": MessageRole.System.value, "content": code_message}
-        )
-
-        code_context.display_features()
-        num_prompt_tokens = get_prompt_token_count(messages_snapshot, config.model)
+        loading_multiplier = 1.0 if config.auto_context else 0.0
         try:
-            parsedLLMResponse, time_elapsed = await self._stream_model_response(
-                stream, parser, messages_snapshot
+            code_message = await code_context.get_code_message(
+                messages_snapshot[-1]["content"],
+                self.max_tokens - tokens - response_buffer,
+                loading_multiplier=0.5 * loading_multiplier,
             )
+            messages_snapshot.append({"role": "system", "content": code_message})
+            response = await self._stream_model_response(
+                messages_snapshot,
+                loading_multiplier=0.5 * loading_multiplier,
+            )
+            parsedLLMResponse, time_elapsed, num_prompt_tokens = response
         except RateLimitError:
             stream.send(
                 "Rate limit recieved from OpenAI's servers using model"
@@ -202,7 +214,9 @@ class Conversation:
                 color="light_red",
             )
             return []
-
+        finally:
+            if loading_multiplier:
+                stream.send(None, channel="loading", terminate=True)
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             count_tokens(
