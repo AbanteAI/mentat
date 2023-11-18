@@ -28,6 +28,8 @@ def expand_paths(paths: list[Path]) -> tuple[list[Path], list[str]]:
             if Path(p).exists() and intervals:
                 for interval in intervals:
                     globbed_paths.add(f"{p}:{interval.start}-{interval.end}")
+            elif Path(p).exists():
+                globbed_paths.add(str(p))
             else:
                 invalid_paths.add(str(path))
     return [Path(path).resolve() for path in globbed_paths], list(invalid_paths)
