@@ -6,7 +6,7 @@ from enum import Enum
 from timeit import default_timer
 from typing import TYPE_CHECKING
 
-from openai.error import InvalidRequestError
+from openai.error import RateLimitError
 
 from mentat.errors import MentatError
 from mentat.llm_api import (
@@ -165,27 +165,20 @@ class Conversation:
                 channel="loading",
                 progress=50 * loading_multiplier,
             )
-        try:
-            response = await call_llm_api(messages, config.model)
-            if loading_multiplier:
-                stream.send(
-                    None,
-                    channel="loading",
-                    progress=50 * loading_multiplier,
-                    terminate=True,
-                )
-            stream.send(f"Total token count: {num_prompt_tokens}", color="cyan")
+        response = await call_llm_api(messages, config.model)
+        if loading_multiplier:
             stream.send(
-                "Streaming... use control-c to interrupt the model at any point\n"
+                None,
+                channel="loading",
+                progress=50 * loading_multiplier,
+                terminate=True,
             )
-            async with parser.interrupt_catcher():
-                parsedLLMResponse = await parser.stream_and_parse_llm_response(response)
-        except InvalidRequestError as e:
-            raise MentatError(
-                "Something went wrong - invalid request to OpenAI API. OpenAI"
-                " returned:\n"
-                + str(e)
-            )
+        stream.send(f"Total token count: {num_prompt_tokens}", color="cyan")
+        stream.send(
+            "Streaming... use control-c to interrupt the model at any point\n"
+        )
+        async with parser.interrupt_catcher():
+            parsedLLMResponse = await parser.stream_and_parse_llm_response(response)
 
         time_elapsed = default_timer() - start_time
         return (parsedLLMResponse, time_elapsed, num_prompt_tokens)
@@ -215,6 +208,14 @@ class Conversation:
                 loading_multiplier=0.5 * loading_multiplier,
             )
             parsedLLMResponse, time_elapsed, num_prompt_tokens = response
+        except RateLimitError:
+            stream.send(
+                "Rate limit recieved from OpenAI's servers using model"
+                f' {config.model}.\nUse "/config model <model_name>" to switch to a'
+                " different model.",
+                color="light_red",
+            )
+            return []
         finally:
             if loading_multiplier:
                 stream.send(None, channel="loading", terminate=True)
