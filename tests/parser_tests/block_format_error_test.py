@@ -65,8 +65,8 @@ async def error_test_template(
     mock_call_llm_api.set_generator_values([changes])
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
     return content

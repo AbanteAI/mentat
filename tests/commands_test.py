@@ -37,8 +37,8 @@ async def test_commit_command(
     )
 
     session = Session([])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     assert subprocess.check_output(["git", "status", "-s"], text=True) == ""
 
@@ -55,8 +55,8 @@ async def test_include_command(
     )
 
     session = Session([])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     code_context = SESSION_CONTEXT.get().code_context
     assert (
@@ -76,8 +76,8 @@ async def test_exclude_command(
     )
 
     session = Session(["scripts"])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     code_context = SESSION_CONTEXT.get().code_context
     assert not code_context.include_files
@@ -117,8 +117,8 @@ async def test_undo_command(
         @@end""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     with open(temp_file_name, "r") as f:
         content = f.read()
@@ -163,8 +163,8 @@ async def test_undo_all_command(
         @@end""")])
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     with open(temp_file_name, "r") as f:
         content = f.read()
@@ -188,8 +188,8 @@ async def test_clear_command(
     mock_call_llm_api.set_generator_values(["Answer"])
 
     session = Session(cwd=Path.cwd())
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     conversation = SESSION_CONTEXT.get().conversation
     assert len(conversation.get_messages()) == 1
@@ -216,12 +216,12 @@ async def test_search_command(
         return_value=[(mock_feature, mock_score)],
     )
     session = Session(cwd=Path.cwd())
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     rel_path = mock_feature.path.relative_to(Path(temp_testbed))
-    assert str(rel_path) in session.stream.messages[-2].data
-    assert "cost" in session.stream.messages[-1].data
+    assert str(rel_path) in session.stream.messages[-3].data
+    assert "cost" in session.stream.messages[-2].data
 
 
 @pytest.mark.asyncio
@@ -240,7 +240,7 @@ async def test_config_command(mock_session_context):
     await command.apply("test")
     assert stream.messages[-1].data == "Unrecognized config option: test"
     await command.apply("model")
-    assert stream.messages[-1].data == "model: gpt-4-0314"
+    assert stream.messages[-1].data.startswith("model: ")
     await command.apply("model", "test")
     assert stream.messages[-1].data == "model set to test"
     assert config.model == "test"

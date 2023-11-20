@@ -30,6 +30,8 @@ def get_non_gitignored_files(path: Path) -> set[Path]:
                 stderr=subprocess.DEVNULL,
             ).split("\n"),
         )
+        # windows-safe check if p exists in path
+        if Path(path / p).exists()
     )
 
 
@@ -179,6 +181,9 @@ def check_head_exists() -> bool:
     git_root = session_context.git_root
 
     try:
+        subprocess.check_output(
+            ["git", "rev-parse", "HEAD", "--"], cwd=git_root, stderr=subprocess.DEVNULL
+        )
         subprocess.check_output(
             ["git", "rev-parse", "HEAD", "--"], cwd=git_root, stderr=subprocess.DEVNULL
         )

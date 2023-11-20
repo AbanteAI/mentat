@@ -46,8 +46,8 @@ async def test_replacement(
         @@ end @@""")])
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -100,8 +100,8 @@ async def test_multiple_replacements(
         @@ end @@""")])
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -154,8 +154,8 @@ async def test_multiple_replacement_spots(
         @@ end @@""")])
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -207,8 +207,8 @@ async def test_little_context_addition(
         @@ end @@""")])
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -251,8 +251,8 @@ async def test_empty_file(
         @@ end @@""")])
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -284,8 +284,8 @@ async def test_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_a
         """)])
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -323,8 +323,8 @@ async def test_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_a
         @@ end @@""")])
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     assert not temp_file_name.exists()
 
 
@@ -360,8 +360,8 @@ async def test_no_ending_marker(
          # 4 lines""")])
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\

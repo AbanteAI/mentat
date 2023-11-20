@@ -33,7 +33,7 @@ async def test_editing_file_auto_accept(mock_call_llm_api, mock_setup_api_key):
         content = f.read()
         expected_content = "# Line 1\n# Line 2"
     assert content == expected_content
-    await python_client.stop()
+    await python_client.shutdown()
 
 
 @pytest.mark.asyncio
@@ -62,4 +62,4 @@ async def test_collects_mentat_response(mock_call_llm_api, mock_setup_api_key):
     response += await python_client.call_mentat("y")
     assert "Conversation" in response
     assert "Apply these changes? 'Y/n/i' or provide feedback." in response
-    await python_client.stop()
+    await python_client.shutdown()
