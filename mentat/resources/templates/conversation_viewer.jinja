@@ -4,12 +4,16 @@
         <style>
             {% include 'conversation_viewer.css' %}
         </style>
+        <script>
+            {% include 'conversation_viewer.js' %}
+        </script>
     </head>
     <body>
         {% for transcript in transcripts %}
-        <div class="container">
+        <div class="container" id={{ transcript[0] }}>
             <div class="left-viewer viewer">
                 <h1 class="history-title">Conversation History</h1>
+<a class="download_parent"><span class="download_icon"></span></a>
                 {% for message in transcript[1] %}
                 <div class="message {{'user' if message[1] is none else 'assistant clickable'}}">
                     {{ message[0] |e|replace('\n', '<br>')|safe }}
@@ -28,8 +32,5 @@
             </div>
         </div>
         {% endfor %}
-        <script>
-            {% include 'conversation_viewer.js' %}
-        </script>
     </body>
 </html>

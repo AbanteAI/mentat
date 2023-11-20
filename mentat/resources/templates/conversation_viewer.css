@@ -16,6 +16,7 @@ h1 {
 }
 
 .container {
+    position: relative;
     width: 100%;
     display: none;
     flex-direction: row;
@@ -90,4 +91,29 @@ h1 {
 .selected,
 .selected:hover {
     background-color: rgb(255, 255, 255);
+}
+
+.download_parent {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    cursor: pointer;
+}
+
+.download_icon {
+    display: inline-block;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg>');
+    background-size: contain;
+    background-repeat: no-repeat;
+    width: 36px;
+    height: 36px;
+    border: 2px solid black; /* Darker border color */
+    border-radius: 18px;
+    padding: 4px;
+    transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.download_icon:hover {
+    transform: scale(1.1);
+    border-color: black; /* Darker border color on hover */
 }
