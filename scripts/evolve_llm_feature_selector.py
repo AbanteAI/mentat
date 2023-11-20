@@ -6,7 +6,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any, cast
 
-import openai
+from openai import AsyncOpenAI
 
 from mentat.errors import ModelError
 from mentat.prompts.prompts import read_prompt
@@ -66,12 +66,13 @@ async def generate_variations(
         {"role": "system", "content": system_prompt},
         {"role": "system", "content": f"Scores: {top_scores}"},
     ]
-    response = await openai.ChatCompletion.acreate(  # type: ignore
+    async_client = AsyncOpenAI()
+    response = await async_client.chat.completions.create(
         model="gpt-4",
         messages=messages,
         temperature=0.5,
     )
-    response = cast(str, response["choices"][0]["message"]["content"])  # type: ignore
+    response = response.choices[0].message.content
     try:
         prompts = json.loads(response)
         assert isinstance(prompts, list)

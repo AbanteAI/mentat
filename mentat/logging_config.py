@@ -4,7 +4,9 @@ import json
 import logging
 import re
 
-from mentat.llm_api import is_test_environment
+from openai.types.chat import ChatCompletionMessageParam
+
+from mentat.llm_api_handler import is_test_environment
 from mentat.utils import mentat_dir_path
 
 logs_dir = "logs"
@@ -74,19 +76,22 @@ def setup_logging():
 
 
 def get_transcript_logs() -> (
-    list[tuple[str, list[tuple[str, list[dict[str, str]] | None]]]]
+    list[tuple[str, list[tuple[str, list[ChatCompletionMessageParam] | None]]]]
 ):
     transcripts = glob.glob(str(logs_path / "transcript_*"))
-    ans = []
-    for transcript in transcripts:
-        match = re.search(r"transcript_(.+).log", transcript)
-        timestamp = match.group(1)  # type: ignore
+    ans = list[tuple[str, list[tuple[str, list[ChatCompletionMessageParam] | None]]]]()
+    for transcript_path in transcripts:
+        match = re.search(r"transcript_(.+).log", transcript_path)
+        if match is None:
+            continue
+        timestamp = match.group(1)
 
-        with open(transcript, "r") as f:
+        with open(transcript_path, "r") as f:
             transcript = f.readlines()
         if len(transcript) == 0:
             continue
-        else:
-            transcript = json.loads("[" + ", ".join(transcript) + "]")
-        ans.append((timestamp, transcript))  # type: ignore
+
+        # TODO: Test if this still works (despite not being explicitly converted to ChatCompletionMessageParam)
+        transcript = json.loads("[" + ", ".join(transcript) + "]")
+        ans.append((timestamp, transcript))
     return sorted(ans, key=lambda x: x[0], reverse=True)

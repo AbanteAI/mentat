@@ -15,7 +15,8 @@ def unified_diff_parser(mocker):
 
 @pytest.mark.asyncio
 async def test_replacement(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_session_context,
+    mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
@@ -32,7 +33,7 @@ async def test_replacement(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -43,7 +44,7 @@ async def test_replacement(
         -# with
         +# your captain speaking
          # 4 lines
-        @@ end @@""")])
+        @@ end @@""")]
 
     session = Session([temp_file_name])
     session.start()
@@ -59,7 +60,8 @@ async def test_replacement(
 
 @pytest.mark.asyncio
 async def test_multiple_replacements(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_session_context,
+    mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
@@ -80,7 +82,7 @@ async def test_multiple_replacements(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -97,7 +99,7 @@ async def test_multiple_replacements(
         -# 8
         +# new line
          # lines
-        @@ end @@""")])
+        @@ end @@""")]
 
     session = Session([temp_file_name])
     session.start()
@@ -118,7 +120,8 @@ async def test_multiple_replacements(
 
 @pytest.mark.asyncio
 async def test_multiple_replacement_spots(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_session_context,
+    mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
@@ -139,7 +142,7 @@ async def test_multiple_replacement_spots(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -151,7 +154,7 @@ async def test_multiple_replacement_spots(
         -# file
          # with
         +# more than
-        @@ end @@""")])
+        @@ end @@""")]
 
     session = Session([temp_file_name])
     session.start()
@@ -172,7 +175,8 @@ async def test_multiple_replacement_spots(
 
 @pytest.mark.asyncio
 async def test_little_context_addition(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_session_context,
+    mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
@@ -193,7 +197,7 @@ async def test_little_context_addition(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -204,7 +208,7 @@ async def test_little_context_addition(
         @@ @@
         +# New line 2
          # with 
-        @@ end @@""")])
+        @@ end @@""")]
 
     session = Session([temp_file_name])
     session.start()
@@ -227,7 +231,8 @@ async def test_little_context_addition(
 
 @pytest.mark.asyncio
 async def test_empty_file(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_session_context,
+    mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
@@ -240,7 +245,7 @@ async def test_empty_file(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -248,7 +253,7 @@ async def test_empty_file(
         @@ @@
         +# New
         +# line
-        @@ end @@""")])
+        @@ end @@""")]
 
     session = Session([temp_file_name])
     session.start()
@@ -263,7 +268,10 @@ async def test_empty_file(
 
 
 @pytest.mark.asyncio
-async def test_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+async def test_creation(
+    mock_session_context,
+    mock_collect_user_input,
+):
     temp_file_name = Path("temp.py")
 
     mock_collect_user_input.set_stream_messages(
@@ -273,7 +281,7 @@ async def test_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_a
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         --- /dev/null
@@ -281,7 +289,7 @@ async def test_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_a
         @@ @@
         +# New line
         @@ end @@
-        """)])
+        """)]
 
     session = Session([temp_file_name])
     session.start()
@@ -294,7 +302,10 @@ async def test_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_a
 
 
 @pytest.mark.asyncio
-async def test_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key):
+async def test_deletion(
+    mock_session_context,
+    mock_collect_user_input,
+):
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
@@ -315,12 +326,12 @@ async def test_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_a
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         --- {temp_file_name}
         +++ /dev/null
-        @@ end @@""")])
+        @@ end @@""")]
 
     session = Session([temp_file_name])
     session.start()
@@ -330,7 +341,8 @@ async def test_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_a
 
 @pytest.mark.asyncio
 async def test_no_ending_marker(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_session_context,
+    mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
@@ -347,7 +359,7 @@ async def test_no_ending_marker(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -357,7 +369,7 @@ async def test_no_ending_marker(
         -# a temporary file
         -# with
         +# your captain speaking
-         # 4 lines""")])
+         # 4 lines""")]
 
     session = Session([temp_file_name])
     session.start()

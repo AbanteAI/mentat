@@ -2,52 +2,45 @@ from __future__ import annotations
 
 import json
 import logging
-from enum import Enum
 from timeit import default_timer
 from typing import TYPE_CHECKING
 
-from openai.error import InvalidRequestError
+from openai.types.chat import ChatCompletionMessageParam
 
 from mentat.errors import MentatError
-from mentat.llm_api import (
-    call_llm_api,
+from mentat.llm_api_handler import (
     conversation_tokens,
     count_tokens,
     get_prompt_token_count,
-    is_model_available,
     model_context_size,
 )
 from mentat.session_context import SESSION_CONTEXT
-from mentat.session_stream import SessionStream
+from mentat.utils import add_newline
 
 if TYPE_CHECKING:
     from mentat.parsers.file_edit import FileEdit
-    from mentat.parsers.parser import Parser
-
-
-class MessageRole(Enum):
-    System = "system"
-    User = "user"
-    Assistant = "assistant"
 
 
 class Conversation:
     max_tokens: int
 
     def __init__(self):
-        self._messages = list[dict[str, str]]()
+        self._messages = list[ChatCompletionMessageParam]()
 
         # This contain the messages the user actually sends and the messages the model output
         # along with a snapshot of exactly what the model got before that message
-        self.literal_messages = list[tuple[str, list[dict[str, str]] | None]]()
+        self.literal_messages = list[
+            tuple[str, list[ChatCompletionMessageParam] | None]
+        ]()
 
     async def display_token_count(self):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
         code_context = session_context.code_context
+        llm_api_handler = session_context.llm_api_handler
 
-        if not is_model_available(config.model):
+        if not await llm_api_handler.is_model_available(config.model):
             raise MentatError(
                 f"Model {config.model} is not available. Please try again with a"
                 " different model."
@@ -76,7 +69,7 @@ class Conversation:
 
         messages = self.get_messages() + [
             {
-                "role": MessageRole.System.value,
+                "role": "system",
                 "content": await code_context.get_code_message("", max_tokens=0),
             }
         ]
@@ -118,20 +111,22 @@ class Conversation:
         transcript_logger = logging.getLogger("transcript")
         transcript_logger.info(json.dumps((message, None)))
         self.literal_messages.append((message, None))
-        self.add_message(MessageRole.User, message)
+        self.add_message({"role": "user", "content": message})
 
-    def add_model_message(self, message: str, messages_snapshot: list[dict[str, str]]):
+    def add_model_message(
+        self, message: str, messages_snapshot: list[ChatCompletionMessageParam]
+    ):
         """Used for actual model output messages"""
         transcript_logger = logging.getLogger("transcript")
         transcript_logger.info(json.dumps((message, messages_snapshot)))
         self.literal_messages.append((message, messages_snapshot))
-        self.add_message(MessageRole.Assistant, message)
+        self.add_message({"role": "assistant", "content": message})
 
-    def add_message(self, role: MessageRole, message: str):
+    def add_message(self, message: ChatCompletionMessageParam):
         """Used for adding messages to the models conversation"""
-        self._messages.append({"role": role.value, "content": message})
+        self._messages.append(message)
 
-    def get_messages(self) -> list[dict[str, str]]:
+    def get_messages(self) -> list[ChatCompletionMessageParam]:
         """Returns the messages in the conversation. The system message may change throughout
         the conversation so it is important to access the messages through this method.
         """
@@ -142,46 +137,44 @@ class Conversation:
         else:
             parser = config.parser
             prompt = parser.get_system_prompt()
-            return [
-                {"role": MessageRole.System.value, "content": prompt}
-            ] + self._messages.copy()
+            prompt_message: ChatCompletionMessageParam = {
+                "role": "system",
+                "content": prompt,
+            }
+            return [prompt_message] + self._messages.copy()
 
     def clear_messages(self) -> None:
         """Clears the messages in the conversation"""
-        self._messages = list[dict[str, str]]()
+        self._messages = list[ChatCompletionMessageParam]()
 
     async def _stream_model_response(
         self,
-        stream: SessionStream,
-        parser: Parser,
-        messages: list[dict[str, str]],
+        messages: list[ChatCompletionMessageParam],
     ):
-        start_time = default_timer()
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
-        try:
-            response = await call_llm_api(messages, config.model)
-            stream.send(
-                "Streaming... use control-c to interrupt the model at any point\n"
-            )
-            async with parser.interrupt_catcher():
-                parsedLLMResponse = await parser.stream_and_parse_llm_response(response)
-        except InvalidRequestError as e:
-            raise MentatError(
-                "Something went wrong - invalid request to OpenAI API. OpenAI"
-                " returned:\n"
-                + str(e)
+        parser = config.parser
+        stream = session_context.stream
+        llm_api_handler = session_context.llm_api_handler
+
+        start_time = default_timer()
+        response = await llm_api_handler.call_llm_api(
+            messages, config.model, stream=True
+        )
+
+        stream.send("Streaming... use control-c to interrupt the model at any point\n")
+        async with parser.interrupt_catcher():
+            parsed_llm_response = await parser.stream_and_parse_llm_response(
+                add_newline(response)
             )
 
         time_elapsed = default_timer() - start_time
-        return (parsedLLMResponse, time_elapsed)
+        return (parsed_llm_response, time_elapsed)
 
     async def get_model_response(self) -> list[FileEdit]:
         session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
         config = session_context.config
         code_context = session_context.code_context
-        parser = config.parser
         cost_tracker = session_context.cost_tracker
 
         messages_snapshot = self.get_messages()
@@ -189,18 +182,22 @@ class Conversation:
         # Rebuild code context with active code and available tokens
         tokens = conversation_tokens(messages_snapshot, config.model)
         response_buffer = 1000
+        prompt = messages_snapshot[-1]["content"]
         code_message = await code_context.get_code_message(
-            messages_snapshot[-1]["content"],
+            (
+                # Prompt can be image as well as text
+                prompt
+                if isinstance(prompt, str)
+                else ""
+            ),
             self.max_tokens - tokens - response_buffer,
         )
-        messages_snapshot.append(
-            {"role": MessageRole.System.value, "content": code_message}
-        )
+        messages_snapshot.append({"role": "system", "content": code_message})
 
         code_context.display_features()
         num_prompt_tokens = get_prompt_token_count(messages_snapshot, config.model)
         parsedLLMResponse, time_elapsed = await self._stream_model_response(
-            stream, parser, messages_snapshot
+            messages_snapshot
         )
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
@@ -213,7 +210,7 @@ class Conversation:
 
         messages_snapshot.append(
             {
-                "role": MessageRole.Assistant.value,
+                "role": "assistant",
                 "content": parsedLLMResponse.full_response,
             }
         )

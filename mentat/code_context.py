@@ -23,7 +23,7 @@ from mentat.include_files import (
     print_invalid_path,
     print_path_tree,
 )
-from mentat.llm_api import count_tokens
+from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import sha256

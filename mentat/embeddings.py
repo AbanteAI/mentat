@@ -1,18 +1,15 @@
 import asyncio
 import json
-import logging
 import os
 import sqlite3
 from pathlib import Path
 from timeit import default_timer
 
 import numpy as np
-from openai.error import RateLimitError
 
 from mentat.code_feature import CodeFeature, count_feature_tokens
 from mentat.errors import MentatError
-from mentat.llm_api import (
-    call_embedding_api,
+from mentat.llm_api_handler import (
     count_tokens,
     model_context_size,
     model_price_per_1000_tokens,
@@ -91,18 +88,12 @@ def _batch_ffd(data: dict[str, int], batch_size: int) -> list[list[str]]:
 embedding_api_semaphore = asyncio.Semaphore(MAX_SIMULTANEOUS_REQUESTS)
 
 
-async def _fetch_embeddings(
-    model: str, batch: list[str], retries: int = 3, wait_time: int = 20
-):
+async def _fetch_embeddings(model: str, batch: list[str]):
+    ctx = SESSION_CONTEXT.get()
+
     async with embedding_api_semaphore:
-        for _ in range(retries):
-            try:
-                response = await call_embedding_api(batch, model)
-                return response
-            except RateLimitError:
-                logging.warning("Rate limit error, retrying...")
-                await asyncio.sleep(wait_time)
-        raise RateLimitError("Rate limit error after retries.")
+        response = await ctx.llm_api_handler.call_embedding_api(batch, model)
+        return response
 
 
 def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
@@ -110,7 +101,7 @@ def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
     dot_product = np.dot(v1, v2)
     norm_v1 = np.linalg.norm(v1)
     norm_v2 = np.linalg.norm(v2)
-    return dot_product / (norm_v1 * norm_v2)
+    return dot_product / (norm_v1 * norm_v2)  # pyright: ignore
 
 
 async def get_feature_similarity_scores(

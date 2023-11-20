@@ -1,5 +1,3 @@
-from unittest.mock import AsyncMock
-
 import pytest
 
 from mentat.code_feature import CodeFeature
@@ -8,7 +6,9 @@ from mentat.feature_filters.llm_feature_filter import LLMFeatureFilter
 
 @pytest.mark.asyncio
 async def test_llm_feature_filter(
-    mocker, temp_testbed, mock_session_context, mock_setup_api_key
+    mocker,
+    temp_testbed,
+    mock_session_context,
 ):
     all_features = [
         CodeFeature(
@@ -19,16 +19,14 @@ async def test_llm_feature_filter(
         ),  # 87 tokens
     ]
 
-    mock_completion = mocker.patch(
-        "mentat.feature_filters.llm_feature_filter.call_llm_api_sync",
-        new_callable=AsyncMock,
+    mock_session_context.llm_api_handler.unstreamed_value = (
+        '["multifile_calculator/operations.py"]'
     )
-    mock_completion.return_value = '["multifile_calculator/operations.py"]'
 
     feature_filter = LLMFeatureFilter(100, user_prompt="test prompt")
     selected = await feature_filter.filter(all_features)
 
-    model, messages = mock_completion.call_args.args
+    messages, model, stream = mock_session_context.llm_api_handler.llm_call_args
     assert messages[0]["content"].startswith("You are part of")
     assert "User Query:\ntest prompt\n\nCode Files:" in messages[1]["content"]
 

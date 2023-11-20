@@ -9,16 +9,17 @@ from uuid import uuid4
 
 import attr
 import sentry_sdk
-from openai.error import RateLimitError, Timeout
+from openai import APITimeoutError, RateLimitError
 
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
+from mentat.cost_tracker import CostTracker
 from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_shared_git_root_for_paths
-from mentat.llm_api import CostTracker, setup_api_key
+from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
 from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
@@ -52,13 +53,39 @@ class Session:
         sentry_init()
         self.id = uuid4()
 
+        try:
+            # This is so that if we set the session context in a test, we don't reset it;
+            # is there a better way to do this?
+            session_context = SESSION_CONTEXT.get()
+            if session_context is None:  # pyright: ignore
+                session_context = self._set_session_context(
+                    paths, diff, pr_diff, config
+                )
+        except LookupError:
+            session_context = self._set_session_context(paths, diff, pr_diff, config)
+
+        # Functions that require session_context
+        self.stream = session_context.stream
+        self.stream.start()
+        check_version()
+        config.send_errors_to_stream()
+        session_context.code_context.set_paths(paths, exclude_paths, ignore_paths)
+
+    def _set_session_context(
+        self,
+        paths: List[Path],
+        diff: Optional[str],
+        pr_diff: Optional[str],
+        config: Config,
+    ) -> SessionContext:
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
 
+        llm_api_handler = LlmApiHandler()
+
         stream = SessionStream()
         stream.start()
-        self.stream = stream
 
         cost_tracker = CostTracker()
 
@@ -70,6 +97,7 @@ class Session:
 
         session_context = SessionContext(
             stream,
+            llm_api_handler,
             cost_tracker,
             git_root,
             config,
@@ -78,19 +106,13 @@ class Session:
             conversation,
         )
         SESSION_CONTEXT.set(session_context)
-
-        # Functions that require session_context
-        check_version()
-        config.send_errors_to_stream()
-        code_context.set_paths(paths, exclude_paths, ignore_paths)
+        return session_context
 
     async def _main(self):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
         conversation = session_context.conversation
-
-        setup_api_key()
 
         try:
             code_context.display_context()
@@ -121,7 +143,7 @@ class Session:
                 stream.send(bool(file_edits), channel="edits_complete")
         except SessionExit:
             pass
-        except (Timeout, RateLimitError) as e:
+        except (APITimeoutError, RateLimitError) as e:
             stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
 
     async def listen_for_session_exit(self):
@@ -151,9 +173,11 @@ class Session:
                 self.stream.send(str(e), color="red")
             except Exception:
                 # All unhandled exceptions end up here
-                self.stream.send(
-                    f"Unhandled Exception: {traceback.format_exc()}", color="red"
-                )
+                error = f"Unhandled Exception: {traceback.format_exc()}"
+                # Helps us handle errors in tests
+                if is_test_environment():
+                    print(error)
+                self.stream.send(error, color="red")
             finally:
                 await self._stop()
                 sentry_sdk.flush()

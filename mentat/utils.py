@@ -2,13 +2,16 @@ import asyncio
 import hashlib
 import json
 import sys
+import time
 from importlib import resources
 from importlib.abc import Traversable
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import AsyncIterator, Literal, Optional
 
 import packaging.version
 import requests
+from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
+from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
 
 from mentat import __version__
 from mentat.session_context import SESSION_CONTEXT
@@ -44,12 +47,26 @@ async def run_subprocess_async(*args: str) -> str:
 
 
 # Useful for using functions designed to work with LLMs on prepared strings
-async def convert_string_to_asyncgen(
-    input_str: str, chunk_size: int
-) -> AsyncGenerator[dict[str, list[dict[str, dict[str, str]]]], None]:
+async def convert_string_to_asynciter(
+    input_str: str,
+    chunk_size: int,
+    role: Optional[Literal["system", "user", "assistant", "tool"]] = "assistant",
+) -> AsyncIterator[ChatCompletionChunk]:
+    timestamp = int(time.time())
     for i in range(0, len(input_str), chunk_size):
-        yield {"choices": [{"delta": {"content": input_str[i : i + chunk_size]}}]}
-    return
+        yield ChatCompletionChunk(
+            id="asynciter-id",
+            choices=[
+                Choice(
+                    delta=ChoiceDelta(content=input_str[i : i + chunk_size], role=role),
+                    finish_reason=None,
+                    index=0,
+                )
+            ],
+            created=timestamp,
+            model="asynciter-model",
+            object="chat.completion.chunk",
+        )
 
 
 def fetch_resource(resource_path: Path) -> Traversable:
@@ -61,7 +78,9 @@ def fetch_resource(resource_path: Path) -> Traversable:
 
 # TODO: Should we use a templating library (like jinja?) for this?
 def create_viewer(
-    literal_messages: list[tuple[str, list[tuple[str, list[dict[str, str]] | None]]]]
+    literal_messages: list[
+        tuple[str, list[tuple[str, list[ChatCompletionMessageParam] | None]]]
+    ]
 ) -> Path:
     messages_json = json.dumps(literal_messages)
     viewer_resource = fetch_resource(conversation_viewer_path)
@@ -95,3 +114,32 @@ def check_version():
             ctx.stream.send(f"{py} -m pip install --upgrade mentat", color="yellow")
     except Exception as err:
         ctx.stream.send(f"Error checking for most recent version: {err}", color="red")
+
+
+async def add_newline(
+    iterator: AsyncIterator[ChatCompletionChunk],
+    role: Optional[Literal["system", "user", "assistant", "tool"]] = "assistant",
+) -> AsyncIterator[ChatCompletionChunk]:
+    """
+    The model often doesn't end it's responses in a newline;
+    adding a newline makes it significantly easier for us to parse.
+    """
+    last_chunk = None
+    async for chunk in iterator:
+        last_chunk = chunk
+        yield chunk
+    if last_chunk is not None:
+        yield ChatCompletionChunk(
+            id=last_chunk.id,
+            choices=[
+                Choice(
+                    delta=ChoiceDelta(content="\n", role=role),
+                    finish_reason=last_chunk.choices[0].finish_reason,
+                    index=0,
+                )
+            ],
+            created=last_chunk.created,
+            model=last_chunk.model,
+            object=last_chunk.object,
+            system_fingerprint=last_chunk.system_fingerprint,
+        )

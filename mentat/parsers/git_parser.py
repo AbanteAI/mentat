@@ -2,7 +2,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any, AsyncGenerator, List
 
-from mentat.llm_api import chunk_to_lines
+from mentat.llm_api_handler import chunk_to_lines
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import ParsedLLMResponse
 from tests.conftest import SESSION_CONTEXT

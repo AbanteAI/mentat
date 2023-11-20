@@ -3,20 +3,29 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    ChatCompletionMessageParam,
+)
+from openai.types.chat.chat_completion import Choice
+from openai.types.chat.chat_completion_chunk import Choice as AsyncChoice
+from openai.types.chat.chat_completion_chunk import ChoiceDelta
 
 from mentat import config
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config, config_file_name
 from mentat.conversation import Conversation
-from mentat.llm_api import CostTracker
+from mentat.cost_tracker import CostTracker
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
 from mentat.streaming_printer import StreamingPrinter
@@ -131,23 +140,6 @@ def get_marks(request):
     return [mark.name for mark in request.node.iter_markers()]
 
 
-@pytest.fixture(scope="function")
-def mock_call_llm_api(mocker):
-    mock = mocker.patch("mentat.conversation.call_llm_api")
-
-    def set_generator_values(values):
-        async def async_generator():
-            for value in values:
-                yield {"choices": [{"delta": {"content": value}}]}
-            yield {"choices": [{"delta": {"content": "\n"}}]}
-
-        mock.return_value = async_generator()
-
-    mock.set_generator_values = set_generator_values
-
-    return mock
-
-
 @pytest.fixture
 def mock_collect_user_input(mocker):
     async_mock = AsyncMock()
@@ -171,11 +163,65 @@ def mock_collect_user_input(mocker):
     return async_mock
 
 
-@pytest.fixture(scope="function")
-def mock_setup_api_key(mocker):
-    mocker.patch("mentat.session.setup_api_key")
-    mocker.patch("mentat.conversation.is_model_available")
-    return
+class MockLlmApiHandler:
+    def __init__(self, config):
+        self.streamed_values = []
+        self.unstreamed_value = ""
+        self.embeddings = []
+        self.models_available = set([config.model])
+        self.llm_call_args = tuple()
+        self.embeddings_call_args = tuple()
+
+    async def _async_generator(self, values: list[str], model: str):
+        timestamp = int(time.time())
+        for value in values:
+            yield ChatCompletionChunk(
+                id="test-id",
+                choices=[
+                    AsyncChoice(
+                        delta=ChoiceDelta(content=value, role="assistant"),
+                        finish_reason=None,
+                        index=0,
+                    )
+                ],
+                created=timestamp,
+                model=model,
+                object="chat.completion.chunk",
+            )
+
+    async def call_llm_api(
+        self, messages: list[ChatCompletionMessageParam], model: str, stream: bool
+    ):
+        self.llm_call_args = (messages, model, stream)
+        if stream:
+            return self._async_generator(self.streamed_values, model)
+        else:
+            timestamp = int(time.time())
+            return ChatCompletion(
+                id="test-id",
+                choices=[
+                    Choice(
+                        finish_reason="stop",
+                        index=0,
+                        message=ChatCompletionMessage(
+                            content=self.unstreamed_value,
+                            role="assistant",
+                        ),
+                    )
+                ],
+                created=timestamp,
+                model=model,
+                object="chat.completion",
+            )
+
+    async def call_embedding_api(
+        self, input_texts: list[str], model: str = "text-embedding-ada-002"
+    ):
+        self.embeddings_call_args = (input_texts, model)
+        return self.embeddings
+
+    async def is_model_available(self, model: str) -> bool:
+        return model in self.models_available
 
 
 # ContextVars need to be set in a synchronous fixture due to pytest not propagating
@@ -183,18 +229,18 @@ def mock_setup_api_key(mocker):
 # https://github.com/pytest-dev/pytest-asyncio/issues/127
 
 
-# Despite not using any awaits here, this has to be async or there won't be a running event loop
-@pytest_asyncio.fixture()
-async def _mock_session_context(temp_testbed):
+@pytest.fixture(autouse=True)
+def mock_session_context(temp_testbed):
     # TODO make this `None` if there's no git (SessionContext needs to allow it)
     git_root = temp_testbed
 
     stream = SessionStream()
-    stream.start()
 
     cost_tracker = CostTracker()
 
     config = Config()
+
+    llm_api_handler = MockLlmApiHandler(config)
 
     code_context = CodeContext(stream, git_root)
 
@@ -204,6 +250,7 @@ async def _mock_session_context(temp_testbed):
 
     session_context = SessionContext(
         stream,
+        llm_api_handler,
         cost_tracker,
         git_root,
         config,
@@ -211,14 +258,8 @@ async def _mock_session_context(temp_testbed):
         code_file_manager,
         conversation,
     )
+    token = SESSION_CONTEXT.set(session_context)
     yield session_context
-    session_context.stream.stop()
-
-
-@pytest.fixture
-def mock_session_context(_mock_session_context):
-    token = SESSION_CONTEXT.set(_mock_session_context)
-    yield _mock_session_context
     SESSION_CONTEXT.reset(token)
 
 

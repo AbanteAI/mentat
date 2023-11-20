@@ -10,7 +10,7 @@ from mentat.code_feature import CodeMessageLevel
 from mentat.config import Config
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
-from mentat.llm_api import count_tokens
+from mentat.llm_api_handler import count_tokens
 from tests.conftest import run_git_command
 
 

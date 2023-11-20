@@ -14,7 +14,8 @@ def replacement_parser(mocker):
 
 @pytest.mark.asyncio
 async def test_invalid_line_numbers(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_session_context,
+    mock_collect_user_input,
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -29,7 +30,7 @@ async def test_invalid_line_numbers(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         @ {temp_file_name} insert_line=2
@@ -40,7 +41,7 @@ async def test_invalid_line_numbers(
         @
         @ {temp_file_name} insert_line=1
         # I also will not be used
-        @""")])
+        @""")]
 
     session = Session([temp_file_name])
     session.start()
@@ -56,7 +57,8 @@ async def test_invalid_line_numbers(
 
 @pytest.mark.asyncio
 async def test_invalid_special_line(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_session_context,
+    mock_collect_user_input,
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -71,7 +73,7 @@ async def test_invalid_special_line(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         @ {temp_file_name} insert_line=2
@@ -82,7 +84,7 @@ async def test_invalid_special_line(
         @
         @ {temp_file_name} insert_line=1
         # I will not be used
-        @""")])
+        @""")]
 
     session = Session([temp_file_name])
     session.start()

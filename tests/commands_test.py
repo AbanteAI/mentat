@@ -22,9 +22,7 @@ async def test_help_command(mock_session_context):
 
 
 @pytest.mark.asyncio
-async def test_commit_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input
-):
+async def test_commit_command(temp_testbed, mock_collect_user_input):
     file_name = "test_file.py"
     with open(file_name, "w") as f:
         f.write("# Commit me!")
@@ -44,9 +42,7 @@ async def test_commit_command(
 
 
 @pytest.mark.asyncio
-async def test_include_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input
-):
+async def test_include_command(temp_testbed, mock_collect_user_input):
     mock_collect_user_input.set_stream_messages(
         [
             "/include scripts",
@@ -65,9 +61,7 @@ async def test_include_command(
 
 
 @pytest.mark.asyncio
-async def test_exclude_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input
-):
+async def test_exclude_command(temp_testbed, mock_collect_user_input):
     mock_collect_user_input.set_stream_messages(
         [
             "/exclude scripts",
@@ -85,7 +79,7 @@ async def test_exclude_command(
 
 @pytest.mark.asyncio
 async def test_undo_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
+    temp_testbed, mock_collect_user_input, mock_session_context
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -102,7 +96,7 @@ async def test_undo_command(
         ]
     )
 
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         @@start
@@ -114,7 +108,7 @@ async def test_undo_command(
         }}
         @@code
         # I inserted this comment
-        @@end""")])
+        @@end""")]
 
     session = Session([temp_file_name])
     session.start()
@@ -130,7 +124,7 @@ async def test_undo_command(
 
 @pytest.mark.asyncio
 async def test_undo_all_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
+    temp_testbed, mock_collect_user_input, mock_session_context
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -148,7 +142,7 @@ async def test_undo_all_command(
     )
 
     # TODO: Make a way to set multiple return values for call_llm_api and reset multiple edits at once
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         @@start
@@ -160,7 +154,7 @@ async def test_undo_all_command(
         }}
         @@code
         # I inserted this comment
-        @@end""")])
+        @@end""")]
 
     session = Session([temp_file_name])
     session.start()
@@ -176,7 +170,7 @@ async def test_undo_all_command(
 
 @pytest.mark.asyncio
 async def test_clear_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
+    temp_testbed, mock_collect_user_input, mock_session_context
 ):
     mock_collect_user_input.set_stream_messages(
         [
@@ -185,7 +179,7 @@ async def test_clear_command(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values(["Answer"])
+    mock_session_context.llm_api_handler.streamed_values = ["Answer"]
 
     session = Session()
     session.start()
@@ -197,7 +191,7 @@ async def test_clear_command(
 
 @pytest.mark.asyncio
 async def test_search_command(
-    mocker, temp_testbed, mock_setup_api_key, mock_call_llm_api, mock_collect_user_input
+    mocker, temp_testbed, mock_session_context, mock_collect_user_input
 ):
     mock_collect_user_input.set_stream_messages(
         [
@@ -206,7 +200,7 @@ async def test_search_command(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values(["Answer"])
+    mock_session_context.llm_api_handler.streamed_values = ["Answer"]
     mock_feature = CodeFeature(
         Path(temp_testbed) / "multifile_calculator" / "calculator.py"
     )
@@ -225,7 +219,7 @@ async def test_search_command(
 
 
 @pytest.mark.asyncio
-async def test_context_command(temp_testbed, mock_setup_api_key, mock_session_context):
+async def test_context_command(temp_testbed, mock_session_context):
     command = Command.create_command("context")
     await command.apply()
     assert isinstance(command, ContextCommand)

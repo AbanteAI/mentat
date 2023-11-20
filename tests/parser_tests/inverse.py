@@ -4,7 +4,7 @@ from textwrap import dedent
 
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import ParsedLLMResponse
-from mentat.utils import convert_string_to_asyncgen
+from mentat.utils import convert_string_to_asynciter
 
 
 async def verify_inverse(parser):
@@ -75,10 +75,10 @@ async def verify_inverse(parser):
         ],
     )
     inverse = parser.file_edits_to_llm_message(parsedLLMResponse)
-    generator = convert_string_to_asyncgen(inverse, 10)
+    generator = convert_string_to_asynciter(inverse, 10)
     back_once = await parser.stream_and_parse_llm_response(generator)
     inverse2 = parser.file_edits_to_llm_message(back_once)
-    generator2 = convert_string_to_asyncgen(inverse2, 10)
+    generator2 = convert_string_to_asynciter(inverse2, 10)
     back_twice = await parser.stream_and_parse_llm_response(generator2)
 
     # The full_response is originally blank for compatibility with all formats. So we invert twice.

@@ -13,7 +13,8 @@ def unified_diff_parser(mocker):
 
 @pytest.mark.asyncio
 async def test_not_matching(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_session_context,
+    mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
@@ -30,7 +31,7 @@ async def test_not_matching(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -40,7 +41,7 @@ async def test_not_matching(
         -# a temporary file
         -# with
         +# your captain speaking
-         # 4 lines""")])
+         # 4 lines""")]
 
     session = Session([temp_file_name])
     session.start()
@@ -57,7 +58,8 @@ async def test_not_matching(
 
 @pytest.mark.asyncio
 async def test_no_prefix(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_session_context,
+    mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
@@ -74,7 +76,7 @@ async def test_no_prefix(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -84,7 +86,7 @@ async def test_no_prefix(
         -# a temporary file
         -# with
         +# your captain speaking
-        # 4 lines""")])
+        # 4 lines""")]
 
     session = Session([temp_file_name])
     session.start()

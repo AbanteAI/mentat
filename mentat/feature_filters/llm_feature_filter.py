@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from typing import Optional
 
+from openai.types.chat import ChatCompletionMessageParam
+
 from mentat.code_feature import (
     CodeFeature,
     CodeMessageLevel,
@@ -11,7 +13,7 @@ from mentat.errors import UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.include_files import get_include_files
-from mentat.llm_api import call_llm_api_sync, count_tokens, model_context_size
+from mentat.llm_api_handler import count_tokens, model_context_size
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
@@ -39,6 +41,7 @@ class LLMFeatureFilter(FeatureFilter):
     ) -> list[CodeFeature]:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
+        llm_api_handler = session_context.llm_api_handler
 
         # Preselect as many features as fit in the context window
         model = config.feature_selection_model
@@ -78,7 +81,7 @@ class LLMFeatureFilter(FeatureFilter):
             "Code Files:",
         ]
         content_message += get_code_message_from_features(preselected_features)
-        messages = [
+        messages: list[ChatCompletionMessageParam] = [
             {"role": "system", "content": system_prompt},
             {"role": "system", "content": "\n".join(content_message)},
         ]
@@ -86,9 +89,13 @@ class LLMFeatureFilter(FeatureFilter):
             messages.append(
                 {"role": "system", "content": f"Expected Edits:\n{self.expected_edits}"}
             )
-        message = await call_llm_api_sync(model, messages)
+        message = (
+            (await llm_api_handler.call_llm_api(messages, model, stream=False))
+            .choices[0]
+            .message.content
+        )
         try:
-            selected_refs = json.loads(message)  # type: ignore
+            selected_refs = json.loads("" if message is None else message)
         except json.JSONDecodeError:
             raise ValueError(f"The response is not valid json: {message}")
         parsed_features, _ = get_include_files(selected_refs, [])
