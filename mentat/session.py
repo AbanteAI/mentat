@@ -113,13 +113,11 @@ class Session:
         stream = session_context.stream
         code_context = session_context.code_context
         conversation = session_context.conversation
+        llm_api_handler = session_context.llm_api_handler
 
-        try:
-            code_context.display_context()
-            await conversation.display_token_count()
-        except MentatError as e:
-            stream.send(str(e), color="red")
-            return
+        llm_api_handler.initizalize_client()
+        code_context.display_context()
+        await conversation.display_token_count()
 
         try:
             stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")

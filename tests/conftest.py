@@ -172,6 +172,9 @@ class MockLlmApiHandler:
         self.llm_call_args = tuple()
         self.embeddings_call_args = tuple()
 
+    def initizalize_client(self):
+        pass
+
     async def _async_generator(self, values: list[str], model: str):
         timestamp = int(time.time())
         for value in values:
