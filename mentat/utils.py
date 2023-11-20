@@ -1,6 +1,5 @@
 import asyncio
 import hashlib
-import sys
 from importlib import resources
 from importlib.abc import Traversable
 from pathlib import Path
@@ -88,10 +87,10 @@ def check_version():
             latest_version
         ):
             ctx.stream.send(
-                f"Version v{latest_version} of mentat is available. To upgrade, run:",
+                f"Version v{latest_version} of Mentat is available. If pip was used to"
+                " install Mentat, upgrade with:",
                 color="light_red",
             )
-            py = sys.executable
-            ctx.stream.send(f"{py} -m pip install --upgrade mentat", color="yellow")
+            ctx.stream.send("pip install --upgrade mentat", color="yellow")
     except Exception as err:
         ctx.stream.send(f"Error checking for most recent version: {err}", color="red")
