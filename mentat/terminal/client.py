@@ -123,6 +123,7 @@ class TerminalClient:
     async def _run(self):
         self._init_signal_handlers()
         self.session = Session(
+            Path.cwd(),
             self.paths,
             self.exclude_paths,
             self.ignore_paths,

@@ -45,7 +45,7 @@ async def test_replacement(
          # 4 lines
         @@ end @@""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -99,7 +99,7 @@ async def test_multiple_replacements(
          # lines
         @@ end @@""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -153,7 +153,7 @@ async def test_multiple_replacement_spots(
         +# more than
         @@ end @@""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -206,7 +206,7 @@ async def test_little_context_addition(
          # with 
         @@ end @@""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -250,7 +250,7 @@ async def test_empty_file(
         +# line
         @@ end @@""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -283,7 +283,7 @@ async def test_creation(mock_call_llm_api, mock_collect_user_input, mock_setup_a
         @@ end @@
         """)])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -322,7 +322,7 @@ async def test_deletion(mock_call_llm_api, mock_collect_user_input, mock_setup_a
         +++ /dev/null
         @@ end @@""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     assert not temp_file_name.exists()
@@ -359,7 +359,7 @@ async def test_no_ending_marker(
         +# your captain speaking
          # 4 lines""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:

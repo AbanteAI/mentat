@@ -1,3 +1,4 @@
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -63,7 +64,7 @@ async def error_test_template(
     )
     mock_call_llm_api.set_generator_values([changes])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -50,7 +51,7 @@ async def test_insert(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -100,7 +101,7 @@ async def test_replace(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -148,7 +149,7 @@ async def test_delete(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -189,7 +190,7 @@ async def test_create_file(
         # I created this file
         @@end""".format(file_name=temp_file_name))])
 
-    session = Session(["."])
+    session = Session(cwd=Path.cwd(), paths=["."])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -232,7 +233,7 @@ async def test_delete_file(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -270,7 +271,7 @@ async def test_rename_file(
         }}
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_2_file_name) as new_file:
@@ -323,7 +324,7 @@ async def test_change_then_rename_file(
         }}
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_2_file_name) as new_file:
@@ -376,7 +377,7 @@ async def test_rename_file_then_change(
         # I inserted this comment!
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_2_file_name) as new_file:
@@ -437,7 +438,7 @@ async def test_multiple_blocks(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -503,7 +504,7 @@ async def test_json_strings(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 

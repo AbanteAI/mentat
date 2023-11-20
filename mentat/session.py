@@ -37,6 +37,7 @@ class Session:
 
     def __init__(
         self,
+        cwd: Path,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
         ignore_paths: List[Path] = [],
@@ -70,6 +71,7 @@ class Session:
         conversation = Conversation()
 
         session_context = SessionContext(
+            cwd,
             stream,
             cost_tracker,
             git_root,

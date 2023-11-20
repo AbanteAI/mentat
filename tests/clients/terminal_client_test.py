@@ -60,7 +60,7 @@ def test_editing_file(
         # Line 2
         @@end""")])
 
-    terminal_client = TerminalClient(["."])
+    terminal_client = TerminalClient(paths=["."])
     terminal_client.run()
     with open(file_name, "r") as f:
         content = f.read()

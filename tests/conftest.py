@@ -203,6 +203,7 @@ async def _mock_session_context(temp_testbed):
     conversation = Conversation()
 
     session_context = SessionContext(
+        Path.cwd(),
         stream,
         cost_tracker,
         git_root,

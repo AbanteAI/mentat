@@ -1,3 +1,4 @@
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -42,7 +43,7 @@ async def test_invalid_line_numbers(
         # I also will not be used
         @""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -84,7 +85,7 @@ async def test_invalid_special_line(
         # I will not be used
         @""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:

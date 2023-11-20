@@ -25,7 +25,7 @@ async def test_editing_file_auto_accept(mock_call_llm_api, mock_setup_api_key):
         # Line 2
         @@end""")])
 
-    python_client = PythonClient(["."])
+    python_client = PythonClient(paths=["."])
     await python_client.startup()
     await python_client.call_mentat_auto_accept("Conversation")
     await python_client.wait_for_edit_completion()
@@ -56,7 +56,7 @@ async def test_collects_mentat_response(mock_call_llm_api, mock_setup_api_key):
         # Line 2
         @@end""")])
 
-    python_client = PythonClient(["."])
+    python_client = PythonClient(paths=["."])
     await python_client.startup()
     response = await python_client.call_mentat("Conversation")
     response += await python_client.call_mentat("y")
