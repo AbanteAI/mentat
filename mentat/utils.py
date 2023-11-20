@@ -1,6 +1,5 @@
 import asyncio
 import hashlib
-import json
 import sys
 import time
 from importlib import resources
@@ -10,6 +9,7 @@ from typing import AsyncIterator, Literal, Optional
 
 import packaging.version
 import requests
+from jinja2 import Environment, PackageLoader, select_autoescape
 from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
 
@@ -76,17 +76,17 @@ def fetch_resource(resource_path: Path) -> Traversable:
     return resource
 
 
-# TODO: Should we use a templating library (like jinja?) for this?
 def create_viewer(
     literal_messages: list[
         tuple[str, list[tuple[str, list[ChatCompletionMessageParam] | None]]]
     ]
 ) -> Path:
-    messages_json = json.dumps(literal_messages)
-    viewer_resource = fetch_resource(conversation_viewer_path)
-    with viewer_resource.open("r") as viewer_file:
-        html = viewer_file.read()
-    html = html.replace("{{ messages }}", messages_json)
+    env = Environment(
+        loader=PackageLoader("mentat", "resources/templates"),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+    template = env.get_template("conversation_viewer.jinja")
+    html = template.render(transcripts=literal_messages[:500])
 
     viewer_path = mentat_dir_path / conversation_viewer_path
     with viewer_path.open("w") as viewer_file:

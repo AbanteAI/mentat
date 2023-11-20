@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import attr
 import sentry_sdk
-from openai import APITimeoutError, RateLimitError
+from openai import APITimeoutError, BadRequestError, RateLimitError
 
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
@@ -143,7 +143,7 @@ class Session:
                 stream.send(bool(file_edits), channel="edits_complete")
         except SessionExit:
             pass
-        except (APITimeoutError, RateLimitError) as e:
+        except (APITimeoutError, RateLimitError, BadRequestError) as e:
             stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
 
     async def listen_for_session_exit(self):
@@ -171,12 +171,13 @@ class Session:
                 pass
             except (MentatError, UserError) as e:
                 self.stream.send(str(e), color="red")
-            except Exception:
+            except Exception as e:
                 # All unhandled exceptions end up here
                 error = f"Unhandled Exception: {traceback.format_exc()}"
                 # Helps us handle errors in tests
                 if is_test_environment():
                     print(error)
+                sentry_sdk.capture_exception(e)
                 self.stream.send(error, color="red")
             finally:
                 await self._stop()

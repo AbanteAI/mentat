@@ -88,7 +88,6 @@ def get_prompt_token_count(
     stream = session_context.stream
 
     prompt_token_count = conversation_tokens(messages, model)
-    stream.send(f"Total token count: {prompt_token_count}", color="cyan")
 
     token_buffer = 500
     context_size = model_context_size(model)

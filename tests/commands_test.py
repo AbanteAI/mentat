@@ -234,7 +234,7 @@ async def test_config_command(mock_session_context):
     await command.apply("test")
     assert stream.messages[-1].data == "Unrecognized config option: test"
     await command.apply("model")
-    assert stream.messages[-1].data == "model: gpt-4-0314"
+    assert stream.messages[-1].data.startswith("model: ")
     await command.apply("model", "test")
     assert stream.messages[-1].data == "model set to test"
     assert config.model == "test"

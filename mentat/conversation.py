@@ -5,6 +5,7 @@ import logging
 from timeit import default_timer
 from typing import TYPE_CHECKING
 
+from openai import RateLimitError
 from openai.types.chat import ChatCompletionMessageParam
 
 from mentat.errors import MentatError
@@ -150,18 +151,35 @@ class Conversation:
     async def _stream_model_response(
         self,
         messages: list[ChatCompletionMessageParam],
+        loading_multiplier: float = 0.0,
     ):
         session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
         config = session_context.config
         parser = config.parser
-        stream = session_context.stream
         llm_api_handler = session_context.llm_api_handler
 
         start_time = default_timer()
+
+        num_prompt_tokens = get_prompt_token_count(messages, config.model)
+        if loading_multiplier:
+            stream.send(
+                "Sending query and context to LLM",
+                channel="loading",
+                progress=50 * loading_multiplier,
+            )
         response = await llm_api_handler.call_llm_api(
             messages, config.model, stream=True
         )
+        if loading_multiplier:
+            stream.send(
+                None,
+                channel="loading",
+                progress=50 * loading_multiplier,
+                terminate=True,
+            )
 
+        stream.send(f"Total token count: {num_prompt_tokens}", color="cyan")
         stream.send("Streaming... use control-c to interrupt the model at any point\n")
         async with parser.interrupt_catcher():
             parsed_llm_response = await parser.stream_and_parse_llm_response(
@@ -169,10 +187,11 @@ class Conversation:
             )
 
         time_elapsed = default_timer() - start_time
-        return (parsed_llm_response, time_elapsed)
+        return (parsed_llm_response, time_elapsed, num_prompt_tokens)
 
     async def get_model_response(self) -> list[FileEdit]:
         session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
         config = session_context.config
         code_context = session_context.code_context
         cost_tracker = session_context.cost_tracker
@@ -182,27 +201,42 @@ class Conversation:
         # Rebuild code context with active code and available tokens
         tokens = conversation_tokens(messages_snapshot, config.model)
         response_buffer = 1000
-        prompt = messages_snapshot[-1]["content"]
-        code_message = await code_context.get_code_message(
-            (
-                # Prompt can be image as well as text
-                prompt
-                if isinstance(prompt, str)
-                else ""
-            ),
-            self.max_tokens - tokens - response_buffer,
-        )
-        messages_snapshot.append({"role": "system", "content": code_message})
 
-        code_context.display_features()
-        num_prompt_tokens = get_prompt_token_count(messages_snapshot, config.model)
-        parsedLLMResponse, time_elapsed = await self._stream_model_response(
-            messages_snapshot
-        )
+        loading_multiplier = 1.0 if config.auto_context else 0.0
+        try:
+            prompt = messages_snapshot[-1]["content"]
+            code_message = await code_context.get_code_message(
+                (
+                    # Prompt can be image as well as text
+                    prompt
+                    if isinstance(prompt, str)
+                    else ""
+                ),
+                self.max_tokens - tokens - response_buffer,
+                loading_multiplier=0.5 * loading_multiplier,
+            )
+            messages_snapshot.append({"role": "system", "content": code_message})
+            response = await self._stream_model_response(
+                messages_snapshot,
+                loading_multiplier=0.5 * loading_multiplier,
+            )
+            parsed_llm_response, time_elapsed, num_prompt_tokens = response
+        except RateLimitError:
+            stream.send(
+                "Rate limit recieved from OpenAI's servers using model"
+                f' {config.model}.\nUse "/config model <model_name>" to switch to a'
+                " different model.",
+                color="light_red",
+            )
+            return []
+        finally:
+            if loading_multiplier:
+                stream.send(None, channel="loading", terminate=True)
+
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             count_tokens(
-                parsedLLMResponse.full_response, config.model, full_message=True
+                parsed_llm_response.full_response, config.model, full_message=True
             ),
             config.model,
             time_elapsed,
@@ -211,8 +245,8 @@ class Conversation:
         messages_snapshot.append(
             {
                 "role": "assistant",
-                "content": parsedLLMResponse.full_response,
+                "content": parsed_llm_response.full_response,
             }
         )
-        self.add_model_message(parsedLLMResponse.full_response, messages_snapshot)
-        return parsedLLMResponse.file_edits
+        self.add_model_message(parsed_llm_response.full_response, messages_snapshot)
+        return parsed_llm_response.file_edits

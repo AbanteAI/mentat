@@ -22,6 +22,8 @@ def get_non_gitignored_files(path: Path) -> set[Path]:
                 stderr=subprocess.DEVNULL,
             ).split("\n"),
         )
+        # windows-safe check if p exists in path
+        if Path(path / p).exists()
     )
 
 

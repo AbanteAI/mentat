@@ -53,7 +53,7 @@ class PythonClient:
     async def _accumulate_messages(self):
         async for message in self.session.stream.listen():
             end = "\n"
-            if message.extra and isinstance(message.extra.get("end"), str):
+            if isinstance(message.extra.get("end"), str):
                 end = message.extra["end"]
             self._accumulated_message += message.data + end
 

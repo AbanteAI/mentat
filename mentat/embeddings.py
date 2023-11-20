@@ -3,7 +3,6 @@ import json
 import os
 import sqlite3
 from pathlib import Path
-from timeit import default_timer
 
 import numpy as np
 
@@ -105,13 +104,14 @@ def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
 
 
 async def get_feature_similarity_scores(
-    prompt: str, features: list[CodeFeature]
+    prompt: str,
+    features: list[CodeFeature],
+    loading_multiplier: float = 0.0,
 ) -> list[float]:
     """Return the similarity scores for a given prompt and list of features."""
     global database
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
-    cost_tracker = session_context.cost_tracker
     embedding_model = session_context.config.embedding_model
     max_model_tokens = model_context_size(embedding_model)
     if max_model_tokens is None:
@@ -159,26 +159,21 @@ async def get_feature_similarity_scores(
 
     # Fetch embeddings in batches
     batches = _batch_ffd(items_to_embed_tokens, max_model_tokens)
-    if len(batches) > MAX_SIMULTANEOUS_REQUESTS:
-        stream.send(f"Embedding {len(batches)} batches...")
 
-    _start_time = default_timer()
     tasks = list[tuple[asyncio.Task[list[list[float]]], list[str]]]()
     for batch in batches:
         batch_content = [items_to_embed[k] for k in batch]
         task = asyncio.create_task(_fetch_embeddings(embedding_model, batch_content))
         tasks.append((task, batch))
-    for task, batch in tasks:
+    for i, (task, batch) in enumerate(tasks):
+        if loading_multiplier:
+            stream.send(
+                f"Fetching embeddings, batch {i+1}/{len(tasks)}",
+                channel="loading",
+                progress=(100 / len(tasks)) * loading_multiplier,
+            )
         response = await task
         database.set({k: v for k, v in zip(batch, response)})
-    if len(batches) > 0:
-        cost_tracker.display_api_call_stats(
-            num_prompt_tokens,
-            num_prompt_tokens,
-            embedding_model,
-            default_timer() - _start_time,
-            decimal_places=4,
-        )
 
     # Calculate similarity score for each feature
     prompt_embedding = database.get([prompt_checksum])[prompt_checksum]

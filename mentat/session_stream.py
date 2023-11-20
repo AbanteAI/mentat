@@ -21,7 +21,7 @@ class StreamMessage:
     channel: str
     source: StreamMessageSource
     data: Any
-    extra: Dict[str, Any] | None
+    extra: Dict[str, Any]
     created_at: datetime
 
 
