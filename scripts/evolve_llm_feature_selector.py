@@ -4,7 +4,7 @@ import json
 import logging
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, cast
+from typing import Any
 
 from openai import AsyncOpenAI
 

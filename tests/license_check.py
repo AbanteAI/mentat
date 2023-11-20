@@ -7,6 +7,8 @@ library_exceptions = [
     "mentat",
     # pip-licenses shows tiktoken's full license text, but it is MIT
     "tiktoken",
+    # openai as Apache 2.0; for some reason, after updating to 1.0, pip-licenses thinks it's UNKNOWN
+    "openai",
 ]
 accepted_licenses = [
     "BSD License",
