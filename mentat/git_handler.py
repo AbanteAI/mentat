@@ -31,7 +31,6 @@ def get_non_gitignored_files(path: Path) -> set[Path]:
                 cwd=path,
                 text=True,
                 stderr=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
             ).split("\n"),
         )
         # windows-safe check if p exists in path
@@ -48,16 +47,8 @@ def get_paths_with_git_diffs() -> set[Path]:
         cwd=git_root,
         text=True,
         stderr=subprocess.DEVNULL,
-        ["git", "diff", "--name-only"],
-        cwd=git_root,
-        text=True,
-        stderr=subprocess.DEVNULL,
     ).split("\n")
     new = subprocess.check_output(
-        ["git", "ls-files", "-o", "--exclude-standard"],
-        cwd=git_root,
-        text=True,
-        stderr=subprocess.DEVNULL,
         ["git", "ls-files", "-o", "--exclude-standard"],
         cwd=git_root,
         text=True,
@@ -143,10 +134,6 @@ def get_diff_for_file(target: str, path: Path) -> str:
             cwd=git_root,
             text=True,
             stderr=subprocess.DEVNULL,
-            ["git", "diff", "-U0", f"{target}", "--", path],
-            cwd=git_root,
-            text=True,
-            stderr=subprocess.DEVNULL,
         ).strip()
         return diff_content
     except subprocess.CalledProcessError:
@@ -160,7 +147,6 @@ def get_treeish_metadata(git_root: Path, target: str) -> dict[str, str]:
             ["git", "log", target, "-n", "1", "--pretty=format:%H %s"],
             cwd=git_root,
             text=True,
-            stderr=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         ).strip()
 
@@ -179,10 +165,6 @@ def get_files_in_diff(target: str) -> list[Path]:
 
     try:
         diff_content = subprocess.check_output(
-            ["git", "diff", "--name-only", f"{target}", "--"],
-            cwd=git_root,
-            text=True,
-            stderr=subprocess.DEVNULL,
             ["git", "diff", "--name-only", f"{target}", "--"],
             cwd=git_root,
             text=True,
