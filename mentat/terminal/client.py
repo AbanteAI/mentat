@@ -207,8 +207,10 @@ def run_cli():
     parser.add_argument(
         "--diff",
         "-d",
+        nargs="?",
         type=str,
         default=None,
+        const="HEAD",
         help="A git tree-ish (e.g. commit, branch, tag) to diff against",
     )
     parser.add_argument(
