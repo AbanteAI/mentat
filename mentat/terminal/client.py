@@ -96,7 +96,9 @@ class TerminalClient:
 
     async def _send_session_stream_interrupt(self):
         logging.debug("Sending interrupt to session stream")
-        self.session.stream.send("", source=StreamMessageSource.CLIENT, channel="interrupt")
+        self.session.stream.send(
+            "", source=StreamMessageSource.CLIENT, channel="interrupt"
+        )
 
     # Be careful editing this function; since we use signal.signal instead of asyncio's
     # add signal handler (which isn't available on Windows), this function can interrupt
@@ -104,7 +106,8 @@ class TerminalClient:
     def _handle_sig_int(self, sig: int, frame: FrameType | None):
         if (
             # If session is still starting up we want to quit without an error
-            not self.session or self.session.stream.interrupt_lock.locked() is False
+            not self.session
+            or self.session.stream.interrupt_lock.locked() is False
         ):
             if self._should_exit.is_set():
                 logging.debug("Force exiting client...")
@@ -133,7 +136,9 @@ class TerminalClient:
         self.session.start()
 
         mentat_completer = MentatCompleter()
-        self._prompt_session = MentatPromptSession(completer=mentat_completer, style=Style(self.config.input_style))
+        self._prompt_session = MentatPromptSession(
+            completer=mentat_completer, style=Style(self.config.input_style)
+        )
 
         plain_bindings = KeyBindings()
 
@@ -175,7 +180,9 @@ class TerminalClient:
 
 
 def run_cli():
-    parser = argparse.ArgumentParser(description="Run conversation with command line args")
+    parser = argparse.ArgumentParser(
+        description="Run conversation with command line args"
+    )
     parser.add_argument(
         "paths",
         nargs="*",
@@ -194,7 +201,10 @@ def run_cli():
         "-g",
         nargs="*",
         default=[],
-        help=("List of file paths, directory paths, or glob patterns to ignore in" " auto-context"),
+        help=(
+            "List of file paths, directory paths, or glob patterns to ignore in"
+            " auto-context"
+        ),
     )
     parser.add_argument(
         "--diff",
@@ -212,7 +222,9 @@ def run_cli():
         default=None,
         help="A git tree-ish to diff against the latest common ancestor of",
     )
-    parser.add_argument("--cwd", default=Path.cwd(), help="The current working directory")
+    parser.add_argument(
+        "--cwd", default=Path.cwd(), help="The current working directory"
+    )
 
     Config.add_fields_to_argparse(parser)
     args = parser.parse_args()

@@ -102,7 +102,7 @@ async def test_run_from_subdirectory(
         # Hello
         @@end""")])
 
-    session = Session(cwd=Path.cwd(), paths=cwd=Path.cwd(), paths=[Path("calculator.py"), Path("../scripts")])
+    session = Session(cwd=Path.cwd(), paths=[Path("calculator.py"), Path("../scripts")])
     session.start()
     await session.stream.recv(channel="client_exit")
 
