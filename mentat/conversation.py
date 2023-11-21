@@ -14,12 +14,7 @@ from openai.types.chat import (
 )
 
 from mentat.errors import MentatError
-from mentat.llm_api_handler import (
-    conversation_tokens,
-    count_tokens,
-    get_prompt_token_count,
-    model_context_size,
-)
+from mentat.llm_api_handler import conversation_tokens, count_tokens, model_context_size
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
@@ -174,7 +169,17 @@ class Conversation:
 
         start_time = default_timer()
 
-        num_prompt_tokens = get_prompt_token_count(messages, config.model)
+        num_prompt_tokens = conversation_tokens(messages, config.model)
+        token_buffer = 500
+        context_size = model_context_size(config.model)
+        if context_size:
+            if num_prompt_tokens > context_size - token_buffer:
+                stream.send(
+                    f"Warning: {config.model} has a maximum context length of"
+                    f" {context_size} tokens. Attempting to run anyway:",
+                    color="yellow",
+                )
+
         if loading_multiplier:
             stream.send(
                 "Sending query and context to LLM",

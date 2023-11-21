@@ -80,27 +80,6 @@ def conversation_tokens(messages: list[ChatCompletionMessageParam], model: str):
     return num_tokens
 
 
-# TODO: This function should just get the prompt token count; it shouldn't be warning at all
-def get_prompt_token_count(
-    messages: list[ChatCompletionMessageParam], model: str
-) -> int:
-    session_context = SESSION_CONTEXT.get()
-    stream = session_context.stream
-
-    prompt_token_count = conversation_tokens(messages, model)
-
-    token_buffer = 500
-    context_size = model_context_size(model)
-    if context_size:
-        if prompt_token_count > context_size - token_buffer:
-            stream.send(
-                f"Warning: {model} has a maximum context length of {context_size}"
-                " tokens. Attempting to run anyway:",
-                color="yellow",
-            )
-    return prompt_token_count
-
-
 # TODO: These two functions should be a dictionary
 def model_context_size(model: str) -> Optional[int]:
     if model == "gpt-4-1106-preview":
