@@ -18,6 +18,8 @@ def expand_paths(paths: list[Path]) -> tuple[list[Path], list[str]]:
         new_paths = glob.glob(pathname=str(path), recursive=True)
         if new_paths:
             globbed_paths.update(new_paths)
+        elif Path(path).exists():
+            globbed_paths.add(str(path))
         else:
             split = str(path).rsplit(":", 1)
             p = Path(split[0])

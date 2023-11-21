@@ -51,6 +51,32 @@ async def test_path_gitignoring(temp_testbed, mock_session_context):
 
 
 @pytest.mark.asyncio
+async def test_bracket_file(temp_testbed, mock_session_context):
+    file_path_1 = Path("[file].tsx")
+    file_path_2 = Path("test:[file].tsx")
+
+    with file_path_1.open("w") as file_1:
+        file_1.write("Testing")
+    with file_path_2.open("w") as file_2:
+        file_2.write("Testing")
+
+    paths = [file_path_1, file_path_2]
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+    )
+    code_context.set_paths(paths, [])
+    expected_file_paths = [
+        temp_testbed / file_path_1,
+        temp_testbed / file_path_2,
+    ]
+
+    case = TestCase()
+    file_paths = list(code_context.include_files.keys())
+    case.assertListEqual(sorted(expected_file_paths), sorted(file_paths))
+
+
+@pytest.mark.asyncio
 async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
     # Makes sure glob exclude config works
     mocker.patch.object(

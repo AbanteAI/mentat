@@ -20,6 +20,7 @@ SESSION_CONTEXT: ContextVar[SessionContext] = ContextVar("mentat:session_context
 
 @attr.define()
 class SessionContext:
+    cwd: Path = attr.field()
     stream: SessionStream = attr.field()
     llm_api_handler: LlmApiHandler = attr.field()
     cost_tracker: CostTracker = attr.field()

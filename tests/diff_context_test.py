@@ -174,7 +174,7 @@ async def test_diff_context_end_to_end(temp_testbed, git_history, mock_call_llm_
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     mock_call_llm_api.set_streamed_values([""])
-    python_client = PythonClient([], diff="HEAD~2")
+    python_client = PythonClient(paths=[], diff="HEAD~2")
     await python_client.startup()
 
     session_context = SESSION_CONTEXT.get()

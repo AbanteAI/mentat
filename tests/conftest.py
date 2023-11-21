@@ -264,6 +264,7 @@ def mock_session_context(temp_testbed):
     conversation = Conversation()
 
     session_context = SessionContext(
+        Path.cwd(),
         stream,
         llm_api_handler,
         cost_tracker,

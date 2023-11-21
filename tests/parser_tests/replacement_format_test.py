@@ -36,7 +36,7 @@ async def test_insert(mock_call_llm_api, mock_collect_user_input, replacement_pa
         # I inserted this comment
         @""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -69,7 +69,7 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, replacement_pa
         @ {temp_file_name} starting_line=1 ending_line=1
         @""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -101,7 +101,7 @@ async def test_replace(mock_call_llm_api, mock_collect_user_input, replacement_p
         # I inserted this comment
         @""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -132,7 +132,7 @@ async def test_create_file(
         # New line
         @""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -165,7 +165,7 @@ async def test_delete_file(
 
         @ {temp_file_name} -""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     assert not Path(temp_file_name).exists()
@@ -194,7 +194,7 @@ async def test_rename_file(
 
         @ {temp_file_name} {temp_file_name_2}""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     assert not Path(temp_file_name).exists()
@@ -235,7 +235,7 @@ async def test_change_then_rename_then_change(
         # New line 2
         @""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     assert not Path(temp_file_name).exists()

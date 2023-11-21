@@ -177,7 +177,7 @@ async def test_clear_command(temp_testbed, mock_collect_user_input, mock_call_ll
     )
     mock_call_llm_api.set_streamed_values(["Answer"])
 
-    session = Session()
+    session = Session(cwd=Path.cwd())
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -205,7 +205,7 @@ async def test_search_command(
         "mentat.code_context.CodeContext.search",
         return_value=[(mock_feature, mock_score)],
     )
-    session = Session()
+    session = Session(cwd=Path.cwd())
     session.start()
     await session.stream.recv(channel="client_exit")
 

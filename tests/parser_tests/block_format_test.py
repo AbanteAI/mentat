@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -48,7 +49,7 @@ async def test_insert(mock_call_llm_api, mock_collect_user_input, block_parser):
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -96,7 +97,7 @@ async def test_replace(mock_call_llm_api, mock_collect_user_input, block_parser)
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -142,7 +143,7 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, block_parser):
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -181,7 +182,7 @@ async def test_create_file(mock_call_llm_api, mock_collect_user_input, block_par
         # I created this file
         @@end""".format(file_name=temp_file_name))])
 
-    session = Session(["."])
+    session = Session(cwd=Path.cwd(), paths=["."])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -222,7 +223,7 @@ async def test_delete_file(mock_call_llm_api, mock_collect_user_input, block_par
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -258,7 +259,7 @@ async def test_rename_file(mock_call_llm_api, mock_collect_user_input, block_par
         }}
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_2_file_name) as new_file:
@@ -311,7 +312,7 @@ async def test_change_then_rename_file(
         }}
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_2_file_name) as new_file:
@@ -364,7 +365,7 @@ async def test_rename_file_then_change(
         # I inserted this comment!
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_2_file_name) as new_file:
@@ -425,7 +426,7 @@ async def test_multiple_blocks(
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -487,7 +488,7 @@ async def test_json_strings(mock_call_llm_api, mock_collect_user_input, block_pa
         @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
