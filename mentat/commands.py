@@ -7,7 +7,6 @@ from typing import List
 
 import attr
 
-from mentat.code_feature import CodeMessageLevel
 from mentat.errors import MentatError, UserError
 from mentat.git_handler import commit
 from mentat.include_files import print_invalid_path
@@ -277,12 +276,7 @@ class SearchCommand(Command, command_name="search"):
             return
 
         for i, (feature, score) in enumerate(results, start=1):
-            if feature.path.is_relative_to(session_context.cwd):
-                label = f"{feature.path.relative_to(session_context.cwd)}"
-                if feature.level == CodeMessageLevel.INTERVAL:
-                    label = f"{label}:{feature.interval.start}-{feature.interval.end}"
-            else:
-                label = feature.ref()
+            label = feature.ref(session_context.cwd)
             if feature.name:
                 label += f' "{feature.name}"'
             stream.send(f"{i:3} | {score:.3f} | {label}")
