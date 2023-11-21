@@ -15,7 +15,7 @@ def unified_diff_parser(mocker):
 
 @pytest.mark.asyncio
 async def test_replacement(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
@@ -33,7 +33,7 @@ async def test_replacement(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -44,7 +44,7 @@ async def test_replacement(
         -# with
         +# your captain speaking
          # 4 lines
-        @@ end @@""")]
+        @@ end @@""")])
 
     session = Session([temp_file_name])
     session.start()
@@ -60,7 +60,7 @@ async def test_replacement(
 
 @pytest.mark.asyncio
 async def test_multiple_replacements(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
@@ -82,7 +82,7 @@ async def test_multiple_replacements(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -99,7 +99,7 @@ async def test_multiple_replacements(
         -# 8
         +# new line
          # lines
-        @@ end @@""")]
+        @@ end @@""")])
 
     session = Session([temp_file_name])
     session.start()
@@ -120,7 +120,7 @@ async def test_multiple_replacements(
 
 @pytest.mark.asyncio
 async def test_multiple_replacement_spots(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
@@ -142,7 +142,7 @@ async def test_multiple_replacement_spots(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -154,7 +154,7 @@ async def test_multiple_replacement_spots(
         -# file
          # with
         +# more than
-        @@ end @@""")]
+        @@ end @@""")])
 
     session = Session([temp_file_name])
     session.start()
@@ -175,7 +175,7 @@ async def test_multiple_replacement_spots(
 
 @pytest.mark.asyncio
 async def test_little_context_addition(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
@@ -197,7 +197,7 @@ async def test_little_context_addition(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -208,7 +208,7 @@ async def test_little_context_addition(
         @@ @@
         +# New line 2
          # with 
-        @@ end @@""")]
+        @@ end @@""")])
 
     session = Session([temp_file_name])
     session.start()
@@ -231,7 +231,7 @@ async def test_little_context_addition(
 
 @pytest.mark.asyncio
 async def test_empty_file(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
@@ -245,7 +245,7 @@ async def test_empty_file(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -253,7 +253,7 @@ async def test_empty_file(
         @@ @@
         +# New
         +# line
-        @@ end @@""")]
+        @@ end @@""")])
 
     session = Session([temp_file_name])
     session.start()
@@ -269,7 +269,7 @@ async def test_empty_file(
 
 @pytest.mark.asyncio
 async def test_creation(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
@@ -281,7 +281,7 @@ async def test_creation(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         --- /dev/null
@@ -289,7 +289,7 @@ async def test_creation(
         @@ @@
         +# New line
         @@ end @@
-        """)]
+        """)])
 
     session = Session([temp_file_name])
     session.start()
@@ -303,7 +303,7 @@ async def test_creation(
 
 @pytest.mark.asyncio
 async def test_deletion(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
@@ -326,12 +326,12 @@ async def test_deletion(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         --- {temp_file_name}
         +++ /dev/null
-        @@ end @@""")]
+        @@ end @@""")])
 
     session = Session([temp_file_name])
     session.start()
@@ -341,7 +341,7 @@ async def test_deletion(
 
 @pytest.mark.asyncio
 async def test_no_ending_marker(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     temp_file_name = Path("temp.py")
@@ -359,7 +359,7 @@ async def test_no_ending_marker(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         --- {temp_file_name}
@@ -369,7 +369,7 @@ async def test_no_ending_marker(
         -# a temporary file
         -# with
         +# your captain speaking
-         # 4 lines""")]
+         # 4 lines""")])
 
     session = Session([temp_file_name])
     session.start()

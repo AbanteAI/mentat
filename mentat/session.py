@@ -53,31 +53,6 @@ class Session:
         sentry_init()
         self.id = uuid4()
 
-        try:
-            # This is so that if we set the session context in a test, we don't reset it;
-            # is there a better way to do this?
-            session_context = SESSION_CONTEXT.get()
-            if session_context is None:  # pyright: ignore
-                session_context = self._set_session_context(
-                    paths, diff, pr_diff, config
-                )
-        except LookupError:
-            session_context = self._set_session_context(paths, diff, pr_diff, config)
-
-        # Functions that require session_context
-        self.stream = session_context.stream
-        self.stream.start()
-        check_version()
-        config.send_errors_to_stream()
-        session_context.code_context.set_paths(paths, exclude_paths, ignore_paths)
-
-    def _set_session_context(
-        self,
-        paths: List[Path],
-        diff: Optional[str],
-        pr_diff: Optional[str],
-        config: Config,
-    ) -> SessionContext:
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
@@ -85,7 +60,8 @@ class Session:
         llm_api_handler = LlmApiHandler()
 
         stream = SessionStream()
-        stream.start()
+        self.stream = stream
+        self.stream.start()
 
         cost_tracker = CostTracker()
 
@@ -106,7 +82,11 @@ class Session:
             conversation,
         )
         SESSION_CONTEXT.set(session_context)
-        return session_context
+
+        # Functions that require session_context
+        check_version()
+        config.send_errors_to_stream()
+        code_context.set_paths(paths, exclude_paths, ignore_paths)
 
     async def _main(self):
         session_context = SESSION_CONTEXT.get()

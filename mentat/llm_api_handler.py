@@ -162,6 +162,7 @@ class LlmApiHandler:
         self, messages: list[ChatCompletionMessageParam], model: str, stream: bool
     ) -> ChatCompletion | AsyncStream[ChatCompletionChunk]:
         raise_if_in_test_environment()
+
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
 
@@ -187,6 +188,8 @@ class LlmApiHandler:
         return [embedding.embedding for embedding in response.data]
 
     async def is_model_available(self, model: str) -> bool:
+        raise_if_in_test_environment()
+
         available_models: list[str] = [
             model.id async for model in self.async_client.models.list()
         ]

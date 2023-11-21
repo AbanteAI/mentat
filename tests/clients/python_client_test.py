@@ -7,13 +7,13 @@ from mentat.python_client.client import PythonClient
 
 @pytest.mark.asyncio
 async def test_editing_file_auto_accept(
-    mock_session_context,
+    mock_call_llm_api,
 ):
     file_name = "test.py"
     with open(file_name, "w") as f:
         f.write("# Line 1")
 
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         @@start
@@ -25,7 +25,7 @@ async def test_editing_file_auto_accept(
         }}
         @@code
         # Line 2
-        @@end""")]
+        @@end""")])
 
     python_client = PythonClient(["."])
     await python_client.startup()
@@ -40,13 +40,13 @@ async def test_editing_file_auto_accept(
 
 @pytest.mark.asyncio
 async def test_collects_mentat_response(
-    mock_session_context,
+    mock_call_llm_api,
 ):
     file_name = "test.py"
     with open(file_name, "w") as f:
         f.write("# Line 1")
 
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         @@start
@@ -58,7 +58,7 @@ async def test_collects_mentat_response(
         }}
         @@code
         # Line 2
-        @@end""")]
+        @@end""")])
 
     python_client = PythonClient(["."])
     await python_client.startup()

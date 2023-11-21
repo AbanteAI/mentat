@@ -31,7 +31,7 @@ def ui_mock_collect_user_input(
     return async_mock
 
 
-def test_start(mock_session_context, ui_mock_collect_user_input):
+def test_start(mock_call_llm_api, ui_mock_collect_user_input):
     print()
     with pytest.raises(SystemExit) as e_info:
         terminal_client = TerminalClient(["."])

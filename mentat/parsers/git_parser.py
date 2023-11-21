@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator, List
 from mentat.llm_api_handler import chunk_to_lines
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import ParsedLLMResponse
-from tests.conftest import SESSION_CONTEXT
+from mentat.session_context import SESSION_CONTEXT
 
 # The git diff format should not be used with an LLM because it contains information like SHAs
 # which it would not know about. It also involves certain arithmetic that it couldn't reliably do

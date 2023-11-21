@@ -45,7 +45,7 @@ template_insert2 = dedent(f"""\
 
 
 async def error_test_template(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
     changes,
 ):
@@ -60,7 +60,7 @@ async def error_test_template(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [changes]
+    mock_call_llm_api.set_streamed_values([changes])
 
     session = Session([temp_file_name])
     session.start()
@@ -73,12 +73,12 @@ async def error_test_template(
 # These tests should not accept any changes after the invalid one
 @pytest.mark.asyncio
 async def test_malformed_json(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     # Should stop and only allow applying changes up to that point, not including malformed change
     content = await error_test_template(
-        mock_session_context,
+        mock_call_llm_api,
         mock_collect_user_input,
         template_insert + dedent("""\
         @@start
@@ -95,12 +95,12 @@ async def test_malformed_json(
 
 @pytest.mark.asyncio
 async def test_unknown_action(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     # Should stop and only allow applying changes up to that point, not including unknown action change
     content = await error_test_template(
-        mock_session_context,
+        mock_call_llm_api,
         mock_collect_user_input,
         template_insert + dedent(f"""\
         @@start
@@ -120,12 +120,12 @@ async def test_unknown_action(
 
 @pytest.mark.asyncio
 async def test_no_line_numbers(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     # Should have line numbers
     content = await error_test_template(
-        mock_session_context,
+        mock_call_llm_api,
         mock_collect_user_input,
         template_insert + dedent(f"""\
         @@start
@@ -143,12 +143,12 @@ async def test_no_line_numbers(
 
 @pytest.mark.asyncio
 async def test_invalid_line_numbers(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     # First line number should be <= the last line number
     content = await error_test_template(
-        mock_session_context,
+        mock_call_llm_api,
         mock_collect_user_input,
         template_insert + dedent(f"""\
         @@start
@@ -168,12 +168,12 @@ async def test_invalid_line_numbers(
 
 @pytest.mark.asyncio
 async def test_existing_file(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     # Creating file that already exists should fail
     content = await error_test_template(
-        mock_session_context,
+        mock_call_llm_api,
         mock_collect_user_input,
         template_insert + dedent(f"""\
         @@start
@@ -191,14 +191,14 @@ async def test_existing_file(
 
 @pytest.mark.asyncio
 async def test_file_not_in_context(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     with open("iamnotincontext", "w") as f:
         f.write("")
     # Trying to access file not in context should fail
     content = await error_test_template(
-        mock_session_context,
+        mock_call_llm_api,
         mock_collect_user_input,
         template_insert + dedent("""\
         @@start
@@ -218,7 +218,7 @@ async def test_file_not_in_context(
 
 @pytest.mark.asyncio
 async def test_rename_file_already_exists(
-    mock_session_context,
+    mock_call_llm_api,
     mock_collect_user_input,
 ):
     # Trying to rename to existing file shouldn't work
@@ -226,7 +226,7 @@ async def test_rename_file_already_exists(
     with open(existing_file_name, "w") as existing_file:
         existing_file.write("I was always here")
     content = await error_test_template(
-        mock_session_context,
+        mock_call_llm_api,
         mock_collect_user_input,
         template_insert + dedent(f"""\
         @@start

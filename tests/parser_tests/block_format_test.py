@@ -15,7 +15,7 @@ def block_parser(mocker):
 
 
 @pytest.mark.asyncio
-async def test_insert(mock_session_context, mock_collect_user_input, block_parser):
+async def test_insert(mock_call_llm_api, mock_collect_user_input, block_parser):
     # Create a temporary file
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -31,7 +31,7 @@ async def test_insert(mock_session_context, mock_collect_user_input, block_parse
         ]
     )
 
-    mock_session_context.llm_api_handler.streamed_values = [dedent("""\
+    mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment between both lines.
 
         Steps: 1. Insert a comment after the first line
@@ -45,7 +45,7 @@ async def test_insert(mock_session_context, mock_collect_user_input, block_parse
         }}
         @@code
         # I inserted this comment
-        @@end""".format(file_name=temp_file_name))]
+        @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])
@@ -63,7 +63,7 @@ async def test_insert(mock_session_context, mock_collect_user_input, block_parse
 
 
 @pytest.mark.asyncio
-async def test_replace(mock_session_context, mock_collect_user_input, block_parser):
+async def test_replace(mock_call_llm_api, mock_collect_user_input, block_parser):
     # Create a temporary file
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -79,7 +79,7 @@ async def test_replace(mock_session_context, mock_collect_user_input, block_pars
         ]
     )
 
-    mock_session_context.llm_api_handler.streamed_values = [dedent("""\
+    mock_call_llm_api.set_streamed_values([dedent("""\
         I will replace both lines with one comment
 
         Steps: 1. Replace both lines with one comment
@@ -93,7 +93,7 @@ async def test_replace(mock_session_context, mock_collect_user_input, block_pars
         }}
         @@code
         # I inserted this comment
-        @@end""".format(file_name=temp_file_name))]
+        @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])
@@ -109,7 +109,7 @@ async def test_replace(mock_session_context, mock_collect_user_input, block_pars
 
 
 @pytest.mark.asyncio
-async def test_delete(mock_session_context, mock_collect_user_input, block_parser):
+async def test_delete(mock_call_llm_api, mock_collect_user_input, block_parser):
     # Create a temporary file
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -127,7 +127,7 @@ async def test_delete(mock_session_context, mock_collect_user_input, block_parse
         ]
     )
 
-    mock_session_context.llm_api_handler.streamed_values = [dedent("""\
+    mock_call_llm_api.set_streamed_values([dedent("""\
         I will delete the middle two lines
 
         Steps: 1. Delete the middle two lines
@@ -139,7 +139,7 @@ async def test_delete(mock_session_context, mock_collect_user_input, block_parse
             "start-line": 2,
             "end-line": 3
         }}
-        @@end""".format(file_name=temp_file_name))]
+        @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])
@@ -156,7 +156,7 @@ async def test_delete(mock_session_context, mock_collect_user_input, block_parse
 
 
 @pytest.mark.asyncio
-async def test_create_file(mock_session_context, mock_collect_user_input, block_parser):
+async def test_create_file(mock_call_llm_api, mock_collect_user_input, block_parser):
     # Create a temporary file
     temp_file_name = "new_dir/temp.py"
     mock_collect_user_input.set_stream_messages(
@@ -167,7 +167,7 @@ async def test_create_file(mock_session_context, mock_collect_user_input, block_
         ]
     )
 
-    mock_session_context.llm_api_handler.streamed_values = [dedent("""\
+    mock_call_llm_api.set_streamed_values([dedent("""\
         I will create a new file called temp.py
 
         Steps: 1. Create a new file called temp.py
@@ -179,7 +179,7 @@ async def test_create_file(mock_session_context, mock_collect_user_input, block_
         }}
         @@code
         # I created this file
-        @@end""".format(file_name=temp_file_name))]
+        @@end""".format(file_name=temp_file_name))])
 
     session = Session(["."])
     session.start()
@@ -194,7 +194,7 @@ async def test_create_file(mock_session_context, mock_collect_user_input, block_
 
 
 @pytest.mark.asyncio
-async def test_delete_file(mock_session_context, mock_collect_user_input, block_parser):
+async def test_delete_file(mock_call_llm_api, mock_collect_user_input, block_parser):
     # Create a temporary file
     temp_file_name = "incredibly_temp.py"
     with open(temp_file_name, "w") as f:
@@ -209,7 +209,7 @@ async def test_delete_file(mock_session_context, mock_collect_user_input, block_
         ]
     )
 
-    mock_session_context.llm_api_handler.streamed_values = [dedent("""\
+    mock_call_llm_api.set_streamed_values([dedent("""\
         I will delete the file
 
         Steps: 1. Delete the file
@@ -219,7 +219,7 @@ async def test_delete_file(mock_session_context, mock_collect_user_input, block_
             "file": "{file_name}",
             "action": "delete-file"
         }}
-        @@end""".format(file_name=temp_file_name))]
+        @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])
@@ -231,7 +231,7 @@ async def test_delete_file(mock_session_context, mock_collect_user_input, block_
 
 
 @pytest.mark.asyncio
-async def test_rename_file(mock_session_context, mock_collect_user_input, block_parser):
+async def test_rename_file(mock_call_llm_api, mock_collect_user_input, block_parser):
     # Make sure rename-file works
     temp_file_name = "temp.py"
     temp_2_file_name = "temp_2.py"
@@ -245,7 +245,7 @@ async def test_rename_file(mock_session_context, mock_collect_user_input, block_
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         I will rename the file
 
         Steps: 1. rename the file
@@ -256,7 +256,7 @@ async def test_rename_file(mock_session_context, mock_collect_user_input, block_
             "action": "rename-file",
             "name": "{temp_2_file_name}"
         }}
-        @@end""")]
+        @@end""")])
 
     session = Session([temp_file_name])
     session.start()
@@ -271,7 +271,7 @@ async def test_rename_file(mock_session_context, mock_collect_user_input, block_
 
 @pytest.mark.asyncio
 async def test_change_then_rename_file(
-    mock_session_context, mock_collect_user_input, block_parser
+    mock_call_llm_api, mock_collect_user_input, block_parser
 ):
     # Make sure a change made before a rename works
     temp_file_name = "temp.py"
@@ -286,7 +286,7 @@ async def test_change_then_rename_file(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         I will insert a comment then rename the file
 
         Steps:
@@ -309,7 +309,7 @@ async def test_change_then_rename_file(
             "action": "rename-file",
             "name": "{temp_2_file_name}"
         }}
-        @@end""")]
+        @@end""")])
 
     session = Session([temp_file_name])
     session.start()
@@ -324,7 +324,7 @@ async def test_change_then_rename_file(
 
 @pytest.mark.asyncio
 async def test_rename_file_then_change(
-    mock_session_context, mock_collect_user_input, block_parser
+    mock_call_llm_api, mock_collect_user_input, block_parser
 ):
     # Make sure a change made after a rename works
     temp_file_name = "temp.py"
@@ -339,7 +339,7 @@ async def test_rename_file_then_change(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         I will rename the file then insert a comment
 
         Steps:
@@ -362,7 +362,7 @@ async def test_rename_file_then_change(
         }}
         @@code
         # I inserted this comment!
-        @@end""")]
+        @@end""")])
 
     session = Session([temp_file_name])
     session.start()
@@ -377,7 +377,7 @@ async def test_rename_file_then_change(
 
 @pytest.mark.asyncio
 async def test_multiple_blocks(
-    mock_session_context, mock_collect_user_input, block_parser
+    mock_call_llm_api, mock_collect_user_input, block_parser
 ):
     # Create a temporary file
     temp_file_name = "temp.py"
@@ -396,7 +396,7 @@ async def test_multiple_blocks(
         ]
     )
 
-    mock_session_context.llm_api_handler.streamed_values = [dedent("""\
+    mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment between the first two lines
         and then replace the last line with 'better measure'
 
@@ -422,7 +422,7 @@ async def test_multiple_blocks(
         }}
         @@code
         # better measure
-        @@end""".format(file_name=temp_file_name))]
+        @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])
@@ -442,14 +442,12 @@ async def test_multiple_blocks(
 
 
 @pytest.mark.asyncio
-async def test_inverse(mock_session_context, mock_collect_user_input):
+async def test_inverse(mock_call_llm_api, mock_collect_user_input):
     await verify_inverse(BlockParser())
 
 
 @pytest.mark.asyncio
-async def test_json_strings(
-    mock_session_context, mock_collect_user_input, block_parser
-):
+async def test_json_strings(mock_call_llm_api, mock_collect_user_input, block_parser):
     # Make sure we don't throw error if GPT gives us numbers in a string format
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -464,7 +462,7 @@ async def test_json_strings(
         ]
     )
 
-    mock_session_context.llm_api_handler.streamed_values = [dedent("""\
+    mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment at the start.
 
         @@start
@@ -486,7 +484,7 @@ async def test_json_strings(
         }}
         @@code
         # I replaced this comment
-        @@end""".format(file_name=temp_file_name))]
+        @@end""".format(file_name=temp_file_name))])
 
     # Run the system with the temporary file path
     session = Session([temp_file_name])

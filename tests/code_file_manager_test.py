@@ -64,7 +64,7 @@ async def test_partial_files(mocker, mock_session_context):
 @pytest.mark.asyncio
 async def test_run_from_subdirectory(
     mock_collect_user_input,
-    mock_session_context,
+    mock_call_llm_api,
 ):
     """Run mentat from a subdirectory of the git root"""
     # Change to the subdirectory
@@ -79,7 +79,7 @@ async def test_run_from_subdirectory(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent("""\
+    mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment in both files.
 
         @@start
@@ -101,7 +101,7 @@ async def test_run_from_subdirectory(
         }
         @@code
         # Hello
-        @@end""")]
+        @@end""")])
 
     session = Session([Path("calculator.py"), Path("../scripts")])
     session.start()
@@ -119,7 +119,7 @@ async def test_run_from_subdirectory(
 @pytest.mark.asyncio
 async def test_change_after_creation(
     mock_collect_user_input,
-    mock_session_context,
+    mock_call_llm_api,
 ):
     file_name = Path("hello_world.py")
     mock_collect_user_input.set_stream_messages(
@@ -129,7 +129,7 @@ async def test_change_after_creation(
             "q",
         ]
     )
-    mock_session_context.llm_api_handler.streamed_values = [dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         @@start
@@ -148,7 +148,7 @@ async def test_change_after_creation(
         }}
         @@code
         print("Hello, World!")
-        @@end""")]
+        @@end""")])
 
     session = Session()
     session.start()
