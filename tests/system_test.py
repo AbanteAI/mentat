@@ -25,7 +25,10 @@ async def test_system(mock_call_llm_api, mock_setup_api_key, mock_collect_user_i
         ]
     )
 
-    mock_call_llm_api.set_generator_values([dedent("""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                """\
         I will add a print statement.
 
         Steps:
@@ -40,11 +43,14 @@ async def test_system(mock_call_llm_api, mock_setup_api_key, mock_collect_user_i
         }}
         @@code
         print("Hello, world!")
-        @@end""".format(file_name=temp_file_name))])
+        @@end""".format(file_name=temp_file_name)
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -54,9 +60,7 @@ async def test_system(mock_call_llm_api, mock_setup_api_key, mock_collect_user_i
 
 
 @pytest.mark.asyncio
-async def test_system_exits_on_exception(
-    mock_call_llm_api, mock_setup_api_key, mock_collect_user_input
-):
+async def test_system_exits_on_exception(mock_call_llm_api, mock_setup_api_key, mock_collect_user_input):
     mock_collect_user_input.set_stream_messages(
         [
             "respond with 'hello'",
@@ -68,14 +72,12 @@ async def test_system_exits_on_exception(
     mock_call_llm_api.side_effect = Exception("Something went wrong")
 
     session = Session(cwd=Path.cwd())
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
 
 @pytest.mark.asyncio
-async def test_interactive_change_selection(
-    mock_call_llm_api, mock_setup_api_key, mock_collect_user_input
-):
+async def test_interactive_change_selection(mock_call_llm_api, mock_setup_api_key, mock_collect_user_input):
     # Create a temporary file
     temp_file_name = Path("temp_interactive.py")
     with open(temp_file_name, "w") as f:
@@ -92,7 +94,10 @@ async def test_interactive_change_selection(
         ]
     )
 
-    mock_call_llm_api.set_generator_values([dedent("""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                """\
         I will make three changes to the file.
 
         Steps:
@@ -129,11 +134,14 @@ async def test_interactive_change_selection(
         }}
         @@code
         print("Change 3")
-        @@end""".format(file_name=temp_file_name))])
+        @@end""".format(file_name=temp_file_name)
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check if the temporary file is modified as expected
     with open(temp_file_name, "r") as f:
@@ -145,9 +153,7 @@ async def test_interactive_change_selection(
 
 # Makes sure we're properly turning the model output into correct path no matter the os
 @pytest.mark.asyncio
-async def test_without_os_join(
-    mock_call_llm_api, mock_setup_api_key, mock_collect_user_input
-):
+async def test_without_os_join(mock_call_llm_api, mock_setup_api_key, mock_collect_user_input):
     temp_dir = "dir"
     temp_file_name = "temp.py"
     temp_file_path = Path(os.path.join(temp_dir, temp_file_name))
@@ -155,13 +161,14 @@ async def test_without_os_join(
     with open(temp_file_path, "w") as f:
         f.write("# This is a temporary file.")
 
-    mock_collect_user_input.set_stream_messages(
-        ['Replace comment with print("Hello, world!")', "y", "q"]
-    )
+    mock_collect_user_input.set_stream_messages(['Replace comment with print("Hello, world!")', "y", "q"])
 
     # Use / here since that should always be what the model outputs
     fake_file_path = temp_dir + "/" + temp_file_name
-    mock_call_llm_api.set_generator_values([dedent("""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                """\
         I will add a print statement.
         Steps:
         1. Add a print statement after the last line
@@ -174,10 +181,13 @@ async def test_without_os_join(
         }}
         @@code
         print("Hello, world!")
-        @@end""".format(file_name=fake_file_path))])
+        @@end""".format(file_name=fake_file_path)
+            )
+        ]
+    )
     session = Session(cwd=Path.cwd(), paths=[temp_file_path])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     mock_collect_user_input.reset_mock()
     with open(temp_file_path, "r") as f:
         content = f.read()
@@ -186,9 +196,7 @@ async def test_without_os_join(
 
 
 @pytest.mark.asyncio
-async def test_sub_directory(
-    mock_call_llm_api, mock_setup_api_key, mock_collect_user_input, monkeypatch
-):
+async def test_sub_directory(mock_call_llm_api, mock_setup_api_key, mock_collect_user_input, monkeypatch):
     with monkeypatch.context() as m:
         m.chdir("scripts")
         file_name = "calculator.py"
@@ -200,7 +208,10 @@ async def test_sub_directory(
             ]
         )
 
-        mock_call_llm_api.set_generator_values([dedent(f"""\
+        mock_call_llm_api.set_generator_values(
+            [
+                dedent(
+                    f"""\
             Conversation
 
             @@start
@@ -212,11 +223,14 @@ async def test_sub_directory(
             }}
             @@code
             print("Hello, world!")
-            @@end""")])
+            @@end"""
+                )
+            ]
+        )
 
         session = Session(cwd=Path.cwd(), paths=[file_name])
-        await session.start()
-        session.stream.stop()
+        session.start()
+        await session.stream.recv(channel="client_exit")
 
         # Check if the temporary file is modified as expected
         with open(file_name, "r") as f:

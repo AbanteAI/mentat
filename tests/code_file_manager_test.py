@@ -102,9 +102,9 @@ async def test_run_from_subdirectory(
         # Hello
         @@end""")])
 
-    session = Session(cwd=Path.cwd(), paths=[Path("calculator.py"), Path("../scripts")])
-    await session.start()
-    session.stream.stop()
+    session = Session(cwd=Path.cwd(), paths=cwd=Path.cwd(), paths=[Path("calculator.py"), Path("../scripts")])
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check that it works
     with open("calculator.py") as f:
@@ -149,8 +149,8 @@ async def test_change_after_creation(
         @@end""")])
 
     session = Session(cwd=Path.cwd())
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     with file_name.open() as f:
         output = f.read()

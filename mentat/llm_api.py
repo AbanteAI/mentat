@@ -10,12 +10,13 @@ from typing import Any, AsyncGenerator, Optional, cast
 import backoff
 import openai
 import openai.error
+import sentry_sdk
 import tiktoken
 from backoff.types import Details
 from dotenv import load_dotenv
 from openai.error import AuthenticationError, RateLimitError, Timeout
 
-from mentat.errors import MentatError
+from mentat.errors import MentatError, UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -27,7 +28,6 @@ package_name = __name__.split(".")[0]
 # Check for .env file or already exported API key
 # If no api key found, raise an error
 def setup_api_key():
-    ctx = SESSION_CONTEXT.get()
     if not load_dotenv(mentat_dir_path / ".env"):
         load_dotenv()
     key = os.getenv("OPENAI_API_KEY")
@@ -35,24 +35,15 @@ def setup_api_key():
     if base_url:
         openai.api_base = base_url
     if not key:
-        ctx.stream.send(
+        raise UserError(
             "No OpenAI api key detected.\nEither place your key into a .env"
-            " file or export it as an environment variable.",
-            color="red",
+            " file or export it as an environment variable."
         )
-        ctx.stream.send(None, channel="exit")
-        # TODO: This should be an exit code of 1, but right now GHA fails here and we want it to show as passed
-        sys.exit(0)
     try:
         openai.api_key = key
         openai.Model.list()  # type: ignore Test the API key
     except AuthenticationError as e:
-        ctx.stream.send(
-            f"OpenAI gave an Authentication Error:\n{e}",
-            color="red",
-        )
-        ctx.stream.send(None, channel="exit")
-        sys.exit(1)
+        raise UserError(f"OpenAI gave an Authentication Error:\n{e}")
 
 
 def is_test_environment():
@@ -107,7 +98,7 @@ def warn_user(message: str, max_tries: int, details: Details):
     exception=RateLimitError,
     max_tries=3,
     base=2,
-    factor=10,
+    factor=5,
     jitter=None,
     logger="",
     giveup_log_level=logging.INFO,
@@ -120,30 +111,36 @@ async def call_llm_api(
     session_context = SESSION_CONTEXT.get()
     config = session_context.config
 
-    response: AsyncGenerator[Any, None] = cast(
-        AsyncGenerator[Any, None],
-        await openai.ChatCompletion.acreate(  # type: ignore
-            model=model,
-            messages=messages,
-            temperature=config.temperature,
-            stream=True,
-        ),
-    )
+    with sentry_sdk.start_span(description="LLM Call") as span:
+        span.set_tag("model", model)
+        response: AsyncGenerator[Any, None] = cast(
+            AsyncGenerator[Any, None],
+            await openai.ChatCompletion.acreate(  # type: ignore
+                model=model,
+                messages=messages,
+                temperature=config.temperature,
+                stream=True,
+            ),
+        )
 
     return _add_newline(response)
 
 
+# TODO: We shouldn't have two separate functions; it means we need to duplicate backoff annotations,
+# sentry spans, and openai calls.
 async def call_llm_api_sync(model: str, messages: list[dict[str, str]]) -> str:
     raise_if_in_test_environment()
 
     session_context = SESSION_CONTEXT.get()
     config = session_context.config
 
-    response = await openai.ChatCompletion.acreate(  # type: ignore
-        model=model,
-        messages=messages,
-        temperature=config.temperature,
-    )
+    with sentry_sdk.start_span(description="LLM Call") as span:
+        span.set_tag("model", model)
+        response = await openai.ChatCompletion.acreate(  # type: ignore
+            model=model,
+            messages=messages,
+            temperature=config.temperature,
+        )
 
     # Create output features from the response
     return cast(str, response["choices"][0]["message"]["content"])  # type: ignore
@@ -163,18 +160,41 @@ def chunk_to_lines(chunk: Any) -> list[str]:
     return chunk["choices"][0]["delta"].get("content", "").splitlines(keepends=True)
 
 
-# NOTE: We may be calculating the length of Conversation messages incorrectly,
-# but the difference should be negligible (<5 tokens per message):
-# https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
-def count_tokens(message: str, model: str) -> int:
+def count_tokens(message: str, model: str, full_message: bool = False) -> int:
+    """
+    Calculates the tokens in this message. Will NOT be accurate for a full conversation!
+    Use conversation_tokens to get the exact amount of tokens in a conversation.
+    If full_message is true, will include the extra 4 tokens used in a chat completion by this message.
+    """
     try:
-        return len(
-            tiktoken.encoding_for_model(model).encode(message, disallowed_special=())
-        )
+        encoding = tiktoken.encoding_for_model(model)
     except KeyError:
-        return len(
-            tiktoken.encoding_for_model("gpt-4").encode(message, disallowed_special=())
-        )
+        encoding = tiktoken.get_encoding("cl100k_base")
+    return len(encoding.encode(message, disallowed_special=())) + (
+        4 if full_message else 0
+    )
+
+
+def conversation_tokens(messages: list[dict[str, str]], model: str):
+    """
+    Returns the number of tokens used by a full conversation.
+    Adapted from https://platform.openai.com/docs/guides/text-generation/managing-tokens
+    """
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        encoding = tiktoken.get_encoding("cl100k_base")
+
+    num_tokens = 0
+    for message in messages:
+        # every message follows <im_start>{role/name}\n{content}<im_end>\n
+        num_tokens += 4
+        for key, value in message.items():
+            num_tokens += len(encoding.encode(value))
+            if key == "name":  # if there's a name, the role is omitted
+                num_tokens -= 1  # role is always required and always 1 token
+    num_tokens += 2  # every reply is primed with <im_start>assistant
+    return num_tokens
 
 
 def is_model_available(model: str) -> bool:
@@ -228,10 +248,7 @@ def get_prompt_token_count(messages: list[dict[str, str]], model: str) -> int:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
-    prompt_token_count = 0
-    for message in messages:
-        prompt_token_count += count_tokens(message["content"], model)
-    stream.send(f"Total token count: {prompt_token_count}", color="cyan")
+    prompt_token_count = conversation_tokens(messages, model)
 
     token_buffer = 500
     context_size = model_context_size(model)

@@ -15,14 +15,16 @@ def replacement_parser(mocker):
 
 
 @pytest.mark.asyncio
-async def test_insert(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
-):
+async def test_insert(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -31,34 +33,44 @@ async def test_insert(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @ {temp_file_name} insert_line=2
         # I inserted this comment
-        @""")])
+        @"""
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
             # I inserted this comment
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
 
 @pytest.mark.asyncio
-async def test_delete(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
-):
+async def test_delete(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -67,31 +79,41 @@ async def test_delete(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @ {temp_file_name} starting_line=1 ending_line=1
-        @""")])
+        @"""
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
-            # with 2 lines""")
+        expected_content = dedent(
+            """\
+            # with 2 lines"""
+        )
     assert content == expected_content
 
 
 @pytest.mark.asyncio
-async def test_replace(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
-):
+async def test_replace(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -100,28 +122,34 @@ async def test_replace(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @ {temp_file_name} starting_line=2 ending_line=2
         # I inserted this comment
-        @""")])
+        @"""
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
-            # I inserted this comment""")
+            # I inserted this comment"""
+        )
     assert content == expected_content
 
 
 @pytest.mark.asyncio
-async def test_create_file(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
-):
+async def test_create_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser):
     temp_file_name = "temp.py"
     mock_collect_user_input.set_stream_messages(
         [
@@ -130,33 +158,43 @@ async def test_create_file(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @ {temp_file_name} +
         @ {temp_file_name} insert_line=1
         # New line
-        @""")])
+        @"""
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
-            # New line""")
+        expected_content = dedent(
+            """\
+            # New line"""
+        )
     assert content == expected_content
 
 
 @pytest.mark.asyncio
-async def test_delete_file(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
-):
+async def test_delete_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -166,27 +204,35 @@ async def test_delete_file(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
-        @ {temp_file_name} -""")])
+        @ {temp_file_name} -"""
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     assert not Path(temp_file_name).exists()
 
 
 @pytest.mark.asyncio
-async def test_rename_file(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser
-):
+async def test_rename_file(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, replacement_parser):
     temp_file_name = "temp.py"
     temp_file_name_2 = "temp2.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -195,20 +241,28 @@ async def test_rename_file(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
-        @ {temp_file_name} {temp_file_name_2}""")])
+        @ {temp_file_name} {temp_file_name_2}"""
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     assert not Path(temp_file_name).exists()
     with open(temp_file_name_2, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
 
@@ -219,9 +273,13 @@ async def test_change_then_rename_then_change(
     temp_file_name = "temp.py"
     temp_file_name_2 = "temp2.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -230,7 +288,10 @@ async def test_change_then_rename_then_change(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
         
         @ {temp_file_name} starting_line=1 ending_line=1
@@ -239,23 +300,26 @@ async def test_change_then_rename_then_change(
         @ {temp_file_name} {temp_file_name_2}
         @ {temp_file_name_2} insert_line=2
         # New line 2
-        @""")])
+        @"""
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
     assert not Path(temp_file_name).exists()
     with open(temp_file_name_2, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # New line 1
             # New line 2
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
 
 @pytest.mark.asyncio
-async def test_inverse(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, mock_session_context
-):
+async def test_inverse(mock_call_llm_api, mock_collect_user_input, mock_setup_api_key, mock_session_context):
     await verify_inverse(ReplacementParser())

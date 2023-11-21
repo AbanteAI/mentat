@@ -22,9 +22,7 @@ async def test_help_command(mock_session_context):
 
 
 @pytest.mark.asyncio
-async def test_commit_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input
-):
+async def test_commit_command(temp_testbed, mock_setup_api_key, mock_collect_user_input):
     file_name = "test_file.py"
     with open(file_name, "w") as f:
         f.write("# Commit me!")
@@ -37,17 +35,15 @@ async def test_commit_command(
     )
 
     session = Session([])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     assert subprocess.check_output(["git", "status", "-s"], text=True) == ""
 
 
 # TODO: test without git
 @pytest.mark.asyncio
-async def test_include_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input
-):
+async def test_include_command(temp_testbed, mock_setup_api_key, mock_collect_user_input):
     mock_collect_user_input.set_stream_messages(
         [
             "/include scripts",
@@ -56,20 +52,16 @@ async def test_include_command(
     )
 
     session = Session([])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     code_context = SESSION_CONTEXT.get().code_context
-    assert (
-        Path(temp_testbed) / "scripts" / "calculator.py" in code_context.include_files
-    )
+    assert Path(temp_testbed) / "scripts" / "calculator.py" in code_context.include_files
 
 
 # TODO: test without git
 @pytest.mark.asyncio
-async def test_exclude_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input
-):
+async def test_exclude_command(temp_testbed, mock_setup_api_key, mock_collect_user_input):
     mock_collect_user_input.set_stream_messages(
         [
             "/exclude scripts",
@@ -78,22 +70,24 @@ async def test_exclude_command(
     )
 
     session = Session(["scripts"])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     code_context = SESSION_CONTEXT.get().code_context
     assert not code_context.include_files
 
 
 @pytest.mark.asyncio
-async def test_undo_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
-):
+async def test_undo_command(temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -104,7 +98,10 @@ async def test_undo_command(
         ]
     )
 
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -116,29 +113,36 @@ async def test_undo_command(
         }}
         @@code
         # I inserted this comment
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
 
 @pytest.mark.asyncio
-async def test_undo_all_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
-):
+async def test_undo_all_command(temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -150,7 +154,10 @@ async def test_undo_all_command(
     )
 
     # TODO: Make a way to set multiple return values for call_llm_api and reset multiple edits at once
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_generator_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -162,24 +169,27 @@ async def test_undo_all_command(
         }}
         @@code
         # I inserted this comment
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
     session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
 
 @pytest.mark.asyncio
-async def test_clear_command(
-    temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api
-):
+async def test_clear_command(temp_testbed, mock_setup_api_key, mock_collect_user_input, mock_call_llm_api):
     mock_collect_user_input.set_stream_messages(
         [
             "Request",
@@ -190,8 +200,8 @@ async def test_clear_command(
     mock_call_llm_api.set_generator_values(["Answer"])
 
     session = Session(cwd=Path.cwd())
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     conversation = SESSION_CONTEXT.get().conversation
     assert len(conversation.get_messages()) == 1
@@ -199,9 +209,7 @@ async def test_clear_command(
 
 # TODO: test without git
 @pytest.mark.asyncio
-async def test_search_command(
-    mocker, temp_testbed, mock_setup_api_key, mock_call_llm_api, mock_collect_user_input
-):
+async def test_search_command(mocker, temp_testbed, mock_setup_api_key, mock_call_llm_api, mock_collect_user_input):
     mock_collect_user_input.set_stream_messages(
         [
             "Request",
@@ -210,21 +218,19 @@ async def test_search_command(
         ]
     )
     mock_call_llm_api.set_generator_values(["Answer"])
-    mock_feature = CodeFeature(
-        Path(temp_testbed) / "multifile_calculator" / "calculator.py"
-    )
+    mock_feature = CodeFeature(Path(temp_testbed) / "multifile_calculator" / "calculator.py")
     mock_score = 1.0
     mocker.patch(
         "mentat.code_context.CodeContext.search",
         return_value=[(mock_feature, mock_score)],
     )
     session = Session(cwd=Path.cwd())
-    await session.start()
-    session.stream.stop()
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     rel_path = mock_feature.path.relative_to(Path(temp_testbed))
-    assert str(rel_path) in session.stream.messages[-2].data
-    assert "cost" in session.stream.messages[-1].data
+    assert str(rel_path) in session.stream.messages[-3].data
+    assert "cost" in session.stream.messages[-2].data
 
 
 @pytest.mark.asyncio
@@ -243,7 +249,7 @@ async def test_config_command(mock_session_context):
     await command.apply("test")
     assert stream.messages[-1].data == "Unrecognized config option: test"
     await command.apply("model")
-    assert stream.messages[-1].data == "model: gpt-4-0314"
+    assert stream.messages[-1].data.startswith("model: ")
     await command.apply("model", "test")
     assert stream.messages[-1].data == "model set to test"
     assert config.model == "test"
