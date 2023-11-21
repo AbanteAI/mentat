@@ -13,9 +13,6 @@ def get_git_diff_for_path(path: Path) -> str:
     return subprocess.check_output(
         ["git", "diff", path], cwd=git_root, text=True, stderr=subprocess.DEVNULL
     )
-    return subprocess.check_output(
-        ["git", "diff", path], cwd=git_root, text=True, stderr=subprocess.DEVNULL
-    )
 
 
 def get_non_gitignored_files(path: Path) -> set[Path]:
