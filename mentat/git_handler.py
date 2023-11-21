@@ -72,7 +72,9 @@ def _get_git_root_for_path(path: Path) -> Path:
         )
         # --show-toplevel doesn't work in some windows environment with posix paths,
         # like msys2, so we have to use --show-prefix instead
-        git_root = os.path.abspath(os.path.join(dir_path, "../" * len(Path(relative_path).parts)))
+        git_root = os.path.abspath(
+            os.path.join(dir_path, "../" * len(Path(relative_path).parts))
+        )
         # call realpath to resolve symlinks, so all paths match
         return Path(os.path.realpath(git_root))
     except subprocess.CalledProcessError:
@@ -90,7 +92,10 @@ def get_shared_git_root_for_paths(paths: list[Path]) -> Path:
         git_roots.add(git_root)
 
     if len(git_roots) > 1:
-        logging.error("All paths must be part of the same git project! Projects provided:" f" {git_roots}")
+        logging.error(
+            "All paths must be part of the same git project! Projects provided:"
+            f" {git_roots}"
+        )
         raise UserError()
     elif len(git_roots) == 0:
         logging.error("No git projects provided.")
@@ -168,7 +173,9 @@ def check_head_exists() -> bool:
     git_root = session_context.git_root
 
     try:
-        subprocess.check_output(["git", "rev-parse", "HEAD", "--"], cwd=git_root, stderr=subprocess.DEVNULL)
+        subprocess.check_output(
+            ["git", "rev-parse", "HEAD", "--"], cwd=git_root, stderr=subprocess.DEVNULL
+        )
         return True
     except subprocess.CalledProcessError:
         return False
