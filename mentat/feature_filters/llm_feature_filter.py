@@ -2,7 +2,10 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from openai.types.chat import ChatCompletionMessageParam
+from openai.types.chat import (
+    ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+)
 
 from mentat.code_feature import (
     CodeFeature,
@@ -84,12 +87,16 @@ class LLMFeatureFilter(FeatureFilter):
         ]
         content_message += get_code_message_from_features(preselected_features)
         messages: list[ChatCompletionMessageParam] = [
-            {"role": "system", "content": system_prompt},
-            {"role": "system", "content": "\n".join(content_message)},
+            ChatCompletionSystemMessageParam(role="system", content=system_prompt),
+            ChatCompletionSystemMessageParam(
+                role="system", content="\n".join(content_message)
+            ),
         ]
         if self.expected_edits:
             messages.append(
-                {"role": "system", "content": f"Expected Edits:\n{self.expected_edits}"}
+                ChatCompletionSystemMessageParam(
+                    role="system", content=f"Expected Edits:\n{self.expected_edits}"
+                )
             )
 
         if self.loading_multiplier:

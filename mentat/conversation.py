@@ -6,7 +6,12 @@ from timeit import default_timer
 from typing import TYPE_CHECKING
 
 from openai import RateLimitError
-from openai.types.chat import ChatCompletionMessageParam
+from openai.types.chat import (
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+)
 
 from mentat.errors import MentatError
 from mentat.llm_api_handler import (
@@ -16,6 +21,7 @@ from mentat.llm_api_handler import (
     model_context_size,
 )
 from mentat.session_context import SESSION_CONTEXT
+from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
 
 if TYPE_CHECKING:
@@ -28,11 +34,8 @@ class Conversation:
     def __init__(self):
         self._messages = list[ChatCompletionMessageParam]()
 
-        # This contain the messages the user actually sends and the messages the model output
-        # along with a snapshot of exactly what the model got before that message
-        self.literal_messages = list[
-            tuple[str, list[ChatCompletionMessageParam] | None]
-        ]()
+        # This contains a list of messages used for transcripts
+        self.literal_messages = list[TranscriptMessage]()
 
     async def display_token_count(self):
         session_context = SESSION_CONTEXT.get()
@@ -69,10 +72,10 @@ class Conversation:
                 context_size = maximum_context
 
         messages = self.get_messages() + [
-            {
-                "role": "system",
-                "content": await code_context.get_code_message("", max_tokens=0),
-            }
+            ChatCompletionSystemMessageParam(
+                role="system",
+                content=await code_context.get_code_message("", max_tokens=0),
+            )
         ]
         tokens = conversation_tokens(
             messages,
@@ -110,18 +113,26 @@ class Conversation:
     def add_user_message(self, message: str):
         """Used for actual user input messages"""
         transcript_logger = logging.getLogger("transcript")
-        transcript_logger.info(json.dumps((message, None)))
-        self.literal_messages.append((message, None))
-        self.add_message({"role": "user", "content": message})
+        transcript_logger.info(
+            json.dumps(UserMessage(message=message, prior_messages=None))
+        )
+        self.literal_messages.append(UserMessage(message=message, prior_messages=None))
+        self.add_message(ChatCompletionUserMessageParam(role="user", content=message))
 
     def add_model_message(
         self, message: str, messages_snapshot: list[ChatCompletionMessageParam]
     ):
         """Used for actual model output messages"""
         transcript_logger = logging.getLogger("transcript")
-        transcript_logger.info(json.dumps((message, messages_snapshot)))
-        self.literal_messages.append((message, messages_snapshot))
-        self.add_message({"role": "assistant", "content": message})
+        transcript_logger.info(
+            json.dumps(ModelMessage(message=message, prior_messages=messages_snapshot))
+        )
+        self.literal_messages.append(
+            ModelMessage(message=message, prior_messages=messages_snapshot)
+        )
+        self.add_message(
+            ChatCompletionAssistantMessageParam(role="assistant", content=message)
+        )
 
     def add_message(self, message: ChatCompletionMessageParam):
         """Used for adding messages to the models conversation"""
@@ -138,10 +149,12 @@ class Conversation:
         else:
             parser = config.parser
             prompt = parser.get_system_prompt()
-            prompt_message: ChatCompletionMessageParam = {
-                "role": "system",
-                "content": prompt,
-            }
+            prompt_message: ChatCompletionMessageParam = (
+                ChatCompletionSystemMessageParam(
+                    role="system",
+                    content=prompt,
+                )
+            )
             return [prompt_message] + self._messages.copy()
 
     def clear_messages(self) -> None:
@@ -215,7 +228,9 @@ class Conversation:
                 self.max_tokens - tokens - response_buffer,
                 loading_multiplier=0.5 * loading_multiplier,
             )
-            messages_snapshot.append({"role": "system", "content": code_message})
+            messages_snapshot.append(
+                ChatCompletionSystemMessageParam(role="system", content=code_message)
+            )
             response = await self._stream_model_response(
                 messages_snapshot,
                 loading_multiplier=0.5 * loading_multiplier,
@@ -243,10 +258,9 @@ class Conversation:
         )
 
         messages_snapshot.append(
-            {
-                "role": "assistant",
-                "content": parsed_llm_response.full_response,
-            }
+            ChatCompletionAssistantMessageParam(
+                role="assistant", content=parsed_llm_response.full_response
+            )
         )
         self.add_model_message(parsed_llm_response.full_response, messages_snapshot)
         return parsed_llm_response.file_edits

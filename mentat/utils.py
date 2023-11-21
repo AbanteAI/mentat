@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import hashlib
 import sys
@@ -5,16 +7,20 @@ import time
 from importlib import resources
 from importlib.abc import Traversable
 from pathlib import Path
-from typing import AsyncIterator, Literal, Optional
+from typing import TYPE_CHECKING, AsyncIterator, Literal, Optional
 
 import packaging.version
 import requests
 from jinja2 import Environment, PackageLoader, select_autoescape
-from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
+from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
 
 from mentat import __version__
 from mentat.session_context import SESSION_CONTEXT
+
+if TYPE_CHECKING:
+    from mentat.transcripts import Transcript
+
 
 mentat_dir_path = Path.home() / ".mentat"
 
@@ -76,17 +82,13 @@ def fetch_resource(resource_path: Path) -> Traversable:
     return resource
 
 
-def create_viewer(
-    literal_messages: list[
-        tuple[str, list[tuple[str, list[ChatCompletionMessageParam] | None]]]
-    ]
-) -> Path:
+def create_viewer(transcripts: list[Transcript]) -> Path:
     env = Environment(
         loader=PackageLoader("mentat", "resources/templates"),
         autoescape=select_autoescape(["html", "xml"]),
     )
     template = env.get_template("conversation_viewer.jinja")
-    html = template.render(transcripts=literal_messages[:500])
+    html = template.render(transcripts=transcripts[:500])
 
     viewer_path = mentat_dir_path / conversation_viewer_path
     with viewer_path.open("w") as viewer_file:
