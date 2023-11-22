@@ -1,4 +1,5 @@
 import fnmatch
+import glob
 import os
 import re
 from pathlib import Path
@@ -71,7 +72,10 @@ def validate_and_format_path(
         pass
     # Glob pattern
     elif re.search(r"[\*\?\[\]]", str(path)):
-        pass
+        try:
+            glob.iglob(str(abs_path)).__next__()
+        except StopIteration:
+            raise PathValidationError(f"Unable to validate glob path {path}")
     else:
         raise PathValidationError(f"Unable to validate path {path}")
 
