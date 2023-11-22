@@ -104,7 +104,7 @@ def match_path_with_patterns(path: Path, patterns: Set[str]) -> bool:
 def get_paths_for_directory(
     path: Path,
     include_patterns: Iterable[Path | str] = [],
-    ignore_patterns: Iterable[Path | str] = [],
+    exclude_patterns: Iterable[Path | str] = [],
     recursive: bool = True,
 ) -> Set[Path]:
     """Get all file paths in a directory.
@@ -112,7 +112,7 @@ def get_paths_for_directory(
     Args:
         `path` - An absolute path to a directory on the filesystem
         `include_patterns` - An iterable of paths and/or glob patterns to include
-        `ignore_patterns` - An iterable of paths and/or glob patterns to exclude
+        `exclude_patterns` - An iterable of paths and/or glob patterns to exclude
         `recursive` - A boolean flag to recursive traverse child directories
 
     Return:
@@ -128,7 +128,7 @@ def get_paths_for_directory(
         raise PathValidationError(f"Path {path} is not absolute")
 
     all_include_patterns = set(str(p) for p in include_patterns)
-    all_ignore_patterns = set(str(p) for p in ignore_patterns)
+    all_exclude_patterns = set(str(p) for p in exclude_patterns)
 
     for root, dirs, files in os.walk(path, topdown=True):
         root = Path(root)
@@ -144,8 +144,8 @@ def get_paths_for_directory(
                     abs_git_path, all_include_patterns
                 ):
                     continue
-                if any(ignore_patterns) and match_path_with_patterns(
-                    abs_git_path, all_ignore_patterns
+                if any(exclude_patterns) and match_path_with_patterns(
+                    abs_git_path, all_exclude_patterns
                 ):
                     continue
                 paths.add(abs_git_path)
@@ -158,8 +158,8 @@ def get_paths_for_directory(
                     abs_dir_path, all_include_patterns
                 ):
                     continue
-                if any(ignore_patterns) and match_path_with_patterns(
-                    abs_dir_path, all_ignore_patterns
+                if any(exclude_patterns) and match_path_with_patterns(
+                    abs_dir_path, all_exclude_patterns
                 ):
                     continue
                 filtered_dirs.append(dir_)
@@ -171,8 +171,8 @@ def get_paths_for_directory(
                     abs_file_path, all_include_patterns
                 ):
                     continue
-                if any(ignore_patterns) and match_path_with_patterns(
-                    abs_file_path, all_ignore_patterns
+                if any(exclude_patterns) and match_path_with_patterns(
+                    abs_file_path, all_exclude_patterns
                 ):
                     continue
                 paths.add(abs_file_path)
@@ -187,14 +187,14 @@ def get_code_features_for_path(
     path: Path,
     cwd: Path,
     include_patterns: Iterable[Path | str] = [],
-    ignore_patterns: Iterable[Path | str] = [],
+    exclude_patterns: Iterable[Path | str] = [],
 ) -> Set[CodeFeature]:
     validated_path = validate_and_format_path(path, cwd)
 
     # Directory
     if validated_path.is_dir():
         paths = get_paths_for_directory(
-            validated_path, include_patterns, ignore_patterns
+            validated_path, include_patterns, exclude_patterns
         )
         code_features = set(CodeFeature(p) for p in paths)
     # File
@@ -222,13 +222,12 @@ def get_code_features_for_path(
         if pattern is None:
             raise PathValidationError(f"Unable to parse glob pattern {validated_path}")
         root = Path().joinpath(*root_parts)
-        all_include_patterns = [*include_patterns]
-        if pattern != "*":
-            all_include_patterns.append(pattern)
         paths = get_paths_for_directory(
             root,
-            include_patterns=all_include_patterns,
-            ignore_patterns=ignore_patterns,
+            include_patterns=(
+                [*include_patterns, pattern] if pattern != "*" else include_patterns
+            ),
+            exclude_patterns=exclude_patterns,
             recursive=True,
         )
         code_features = set(CodeFeature(p) for p in paths)

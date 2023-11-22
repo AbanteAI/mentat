@@ -39,11 +39,11 @@ class CodeContext:
         git_root: Optional[Path] = None,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
-        ignore_patterns: Iterable[Path | str] = [],
+        exclude_patterns: Iterable[Path | str] = [],
     ):
         self.diff = diff
         self.pr_diff = pr_diff
-        self.ignore_patterns = set(Path(p) for p in ignore_patterns)
+        self.exclude_patterns = set(Path(p) for p in exclude_patterns)
 
         self.diff_context = None
         if git_root:
@@ -244,8 +244,8 @@ class CodeContext:
         all_features: List[CodeFeature] = []
         for path in get_paths_for_directory(
             path=session_context.cwd,
-            ignore_patterns=[
-                *self.ignore_patterns,
+            exclude_patterns=[
+                *self.exclude_patterns,
                 *session_context.config.file_exclude_glob_list,
             ],
         ):
@@ -285,7 +285,7 @@ class CodeContext:
         return sorted(all_features, key=lambda f: f.path)
 
     def include(
-        self, path: Path | str, ignore_patterns: Iterable[Path | str] = []
+        self, path: Path | str, exclude_patterns: Iterable[Path | str] = []
     ) -> Set[Path]:
         """Add code to the context
 
@@ -308,9 +308,9 @@ class CodeContext:
             code_features = get_code_features_for_path(
                 path=path,
                 cwd=session_context.cwd,
-                ignore_patterns=[
-                    *ignore_patterns,
-                    *self.ignore_patterns,
+                exclude_patterns=[
+                    *exclude_patterns,
+                    *self.exclude_patterns,
                     *session_context.config.file_exclude_glob_list,
                 ],
             )

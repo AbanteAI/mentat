@@ -67,7 +67,7 @@ class Session:
         setup_api_key()
         config.send_errors_to_stream()
         for path in paths:
-            code_context.include(path, ignore_patterns=exclude_paths)
+            code_context.include(path, exclude_patterns=exclude_paths)
 
     async def _main(self):
         session_context = SESSION_CONTEXT.get()

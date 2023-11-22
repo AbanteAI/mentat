@@ -135,7 +135,7 @@ async def test_cli_glob_exclude(temp_testbed, mock_session_context):
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.include("**/*.py", ignore_patterns=["**/*.py", "**/*.ts"])
+    code_context.include("**/*.py", exclude_patterns=["**/*.py", "**/*.ts"])
 
     file_paths = [file_path for file_path in code_context.include_files]
     assert os.path.join(temp_testbed, glob_include_then_exclude_path) not in file_paths
@@ -197,7 +197,7 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
         mock_session_context.git_root,
     )
     code_context.include(
-        "multifile_calculator", ignore_patterns=["multifile_calculator/calculator.py"]
+        "multifile_calculator", exclude_patterns=["multifile_calculator/calculator.py"]
     )
 
     file = Path("multifile_calculator/operations.py")
@@ -236,7 +236,7 @@ async def test_get_code_message_include(mocker, temp_testbed, mock_session_conte
         mock_session_context.git_root,
     )
     code_context.include(
-        "multifile_calculator", ignore_patterns=["multifile_calculator/calculator.py"]
+        "multifile_calculator", exclude_patterns=["multifile_calculator/calculator.py"]
     )
 
     # If max tokens is less than include_files, return include_files without
@@ -347,7 +347,7 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        ignore_patterns=["scripts", "**/*.txt"],
+        exclude_patterns=["scripts", "**/*.txt"],
     )
     code_context.use_llm = False
     code_message = await code_context.get_code_message("", 1e6)
