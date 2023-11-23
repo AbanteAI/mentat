@@ -3,13 +3,13 @@ import json
 import re
 from typing import TypedDict
 
-from openai.types.chat import ChatCompletionMessageParam
+from openai.types.chat import ChatCompletionMessageParam, ChatCompletionContentPartParam
 
 from mentat.logging_config import logs_path
 
 
 class UserMessage(TypedDict):
-    message: str
+    message: list[ChatCompletionContentPartParam]
     # We need this field so that it is included when we convert to JSON
     prior_messages: None
 

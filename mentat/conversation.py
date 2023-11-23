@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 import logging
 from timeit import default_timer
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, List
 
 from openai import RateLimitError
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
+    ChatCompletionContentPartParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
@@ -107,33 +108,27 @@ class Conversation:
     # and (for LLM messages) the LLM conversation that led to that LLM response
     def add_user_message(self, message: str, image: Optional[str] = None):
         """Used for actual user input messages"""
+        content: List[ChatCompletionContentPartParam] = [
+            {
+                "type": "text",
+                "text": message,
+            },
+            ]
+        if image:
+            content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": image,
+                    },
+                },
+            )
         transcript_logger = logging.getLogger("transcript")
         transcript_logger.info(
-            json.dumps(UserMessage(message=message, prior_messages=None))
+            json.dumps(UserMessage(message=content, prior_messages=None))
         )
-        self.literal_messages.append(UserMessage(message=message, prior_messages=None))
-        if image:
-            self.add_message(
-                ChatCompletionUserMessageParam(
-                    role="user",
-                    content=[
-                        {
-                            "type": "text",
-                            "text": message,
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": image,
-                            },
-                        },
-                    ],
-                )
-            )
-        else:
-            self.add_message(
-                ChatCompletionUserMessageParam(role="user", content=message)
-            )
+        self.literal_messages.append(UserMessage(message=content, prior_messages=None))
+        self.add_message(ChatCompletionUserMessageParam(role="user", content=content))
 
     def add_model_message(
         self, message: str, messages_snapshot: list[ChatCompletionMessageParam]
