@@ -113,7 +113,7 @@ class Conversation:
                 "type": "text",
                 "text": message,
             },
-            ]
+        ]
         if image:
             content.append(
                 {
