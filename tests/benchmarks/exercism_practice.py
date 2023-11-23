@@ -7,7 +7,7 @@ from multiprocessing import Pool
 
 import pytest
 import tqdm
-from openai import InvalidRequestError
+from openai import BadRequestError
 
 from mentat.config import Config
 from mentat.llm_api import call_llm_api, setup_api_key
@@ -90,7 +90,7 @@ async def failure_analysis(exercise_runner, language):
         async for chunk in await call_llm_api(messages, model):
             content = chunk["choices"][0]["delta"].get("content", "")
             response += content
-    except InvalidRequestError:
+    except BadRequestError:
         response = "Unable to analyze test case\nreason: too many tokens to analyze"
 
     try:

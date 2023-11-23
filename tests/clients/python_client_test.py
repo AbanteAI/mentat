@@ -6,12 +6,14 @@ from mentat.python_client.client import PythonClient
 
 
 @pytest.mark.asyncio
-async def test_editing_file_auto_accept(mock_call_llm_api, mock_setup_api_key):
+async def test_editing_file_auto_accept(
+    mock_call_llm_api,
+):
     file_name = "test.py"
     with open(file_name, "w") as f:
         f.write("# Line 1")
 
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         @@start
@@ -37,12 +39,14 @@ async def test_editing_file_auto_accept(mock_call_llm_api, mock_setup_api_key):
 
 
 @pytest.mark.asyncio
-async def test_collects_mentat_response(mock_call_llm_api, mock_setup_api_key):
+async def test_collects_mentat_response(
+    mock_call_llm_api,
+):
     file_name = "test.py"
     with open(file_name, "w") as f:
         f.write("# Line 1")
 
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         @@start

@@ -11,7 +11,8 @@ if TYPE_CHECKING:
     from mentat.code_file_manager import CodeFileManager
     from mentat.config import Config
     from mentat.conversation import Conversation
-    from mentat.llm_api import CostTracker
+    from mentat.cost_tracker import CostTracker
+    from mentat.llm_api_handler import LlmApiHandler
     from mentat.session_stream import SessionStream
 
 SESSION_CONTEXT: ContextVar[SessionContext] = ContextVar("mentat:session_context")
@@ -21,6 +22,7 @@ SESSION_CONTEXT: ContextVar[SessionContext] = ContextVar("mentat:session_context
 class SessionContext:
     cwd: Path = attr.field()
     stream: SessionStream = attr.field()
+    llm_api_handler: LlmApiHandler = attr.field()
     cost_tracker: CostTracker = attr.field()
     git_root: Path = attr.field()
     config: Config = attr.field()

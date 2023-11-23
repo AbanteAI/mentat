@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 
 from mentat.diff_context import DiffContext
-from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
+from tests.clients.python_client_test import PythonClient
 
 
 def _update_ops(temp_testbed, last_line, commit_message=None):
@@ -25,7 +25,7 @@ def _update_ops(temp_testbed, last_line, commit_message=None):
 
 
 @pytest.fixture
-def git_history(temp_testbed, mock_session_context):
+def git_history(temp_testbed):
     """Load a git repo with the following branches/commits:
 
     main
@@ -88,7 +88,9 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
         ["git", "rev-parse", "HEAD~2"], cwd=temp_testbed, text=True
     ).strip()
     diff_context = DiffContext(
-        mock_session_context.stream, mock_session_context.git_root, diff=last_commit
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        diff=last_commit,
     )
     assert diff_context.target == last_commit
     assert diff_context.name == f"{last_commit[:8]}: add testbed"
@@ -106,7 +108,9 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
 @pytest.mark.asyncio
 async def test_diff_context_branch(temp_testbed, git_history, mock_session_context):
     diff_context = DiffContext(
-        mock_session_context.stream, mock_session_context.git_root, diff="test_branch"
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        diff="test_branch",
     )
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
@@ -151,7 +155,9 @@ async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
 
     subprocess.run(["git", "checkout", "test_branch"], cwd=temp_testbed)
     diff_context = DiffContext(
-        mock_session_context.stream, mock_session_context.git_root, pr_diff="master"
+        mock_session_context.stream,
+        mock_session_context.git_root,
+        pr_diff="master",
     )
 
     commit2 = subprocess.check_output(
@@ -164,14 +170,10 @@ async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
 
 
 @pytest.mark.asyncio
-async def test_diff_context_end_to_end(
-    temp_testbed, git_history, mock_call_llm_api, mock_setup_api_key
-):
+async def test_diff_context_end_to_end(temp_testbed, git_history, mock_call_llm_api):
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
-    # SESSION_CONTEXT isn't reset between tests
-    SESSION_CONTEXT.set(None)
-    mock_call_llm_api.set_generator_values([""])
+    mock_call_llm_api.set_streamed_values([""])
     python_client = PythonClient(paths=[], diff="HEAD~2")
     await python_client.startup()
 
@@ -186,6 +188,4 @@ async def test_diff_context_end_to_end(
     assert diff_context.files == [abs_path]
 
     assert "multifile_calculator" in code_message
-
-    await python_client.call_mentat("Conversation")
     await python_client.shutdown()

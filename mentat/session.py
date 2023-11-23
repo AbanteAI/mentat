@@ -9,17 +9,17 @@ from uuid import uuid4
 
 import attr
 import sentry_sdk
-from openai import InvalidRequestError
-from openai.error import RateLimitError, Timeout
+from openai import APITimeoutError, BadRequestError, RateLimitError
 
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
+from mentat.cost_tracker import CostTracker
 from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_shared_git_root_for_paths
-from mentat.llm_api import CostTracker, setup_api_key
+from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
 from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
@@ -58,9 +58,11 @@ class Session:
         # any singletons used in the constructor of another singleton must be passed in
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
 
+        llm_api_handler = LlmApiHandler()
+
         stream = SessionStream()
-        stream.start()
         self.stream = stream
+        self.stream.start()
 
         cost_tracker = CostTracker()
 
@@ -73,6 +75,7 @@ class Session:
         session_context = SessionContext(
             cwd,
             stream,
+            llm_api_handler,
             cost_tracker,
             git_root,
             config,
@@ -92,9 +95,9 @@ class Session:
         stream = session_context.stream
         code_context = session_context.code_context
         conversation = session_context.conversation
+        llm_api_handler = session_context.llm_api_handler
 
-        setup_api_key()
-
+        llm_api_handler.initizalize_client()
         code_context.display_context()
         await conversation.display_token_count()
 
@@ -120,7 +123,7 @@ class Session:
                 stream.send(bool(file_edits), channel="edits_complete")
         except SessionExit:
             pass
-        except (Timeout, RateLimitError, InvalidRequestError) as e:
+        except (APITimeoutError, RateLimitError, BadRequestError) as e:
             stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
 
     async def listen_for_session_exit(self):
@@ -150,10 +153,12 @@ class Session:
                 self.stream.send(str(e), color="red")
             except Exception as e:
                 # All unhandled exceptions end up here
+                error = f"Unhandled Exception: {traceback.format_exc()}"
+                # Helps us handle errors in tests
+                if is_test_environment():
+                    print(error)
                 sentry_sdk.capture_exception(e)
-                self.stream.send(
-                    f"Unhandled Exception: {traceback.format_exc()}", color="red"
-                )
+                self.stream.send(error, color="red")
             finally:
                 await self._stop()
                 sentry_sdk.flush()

@@ -3,7 +3,7 @@ from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session_context import SESSION_CONTEXT
 
 
-def test_midconveration_parser_change(mock_session_context):
+def test_midconveration_parser_change(mock_call_llm_api):
     session_context = SESSION_CONTEXT.get()
     config = session_context.config
     conversation = session_context.conversation
@@ -20,7 +20,7 @@ def test_midconveration_parser_change(mock_session_context):
     )
 
 
-def test_no_parser_prompt(mock_session_context):
+def test_no_parser_prompt(mock_call_llm_api):
     session_context = SESSION_CONTEXT.get()
     config = session_context.config
     conversation = session_context.conversation

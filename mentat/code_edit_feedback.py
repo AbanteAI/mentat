@@ -1,4 +1,5 @@
-from mentat.conversation import MessageRole
+from openai.types.chat import ChatCompletionSystemMessageParam
+
 from mentat.parsers.file_edit import FileEdit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import collect_user_input
@@ -24,37 +25,50 @@ async def get_user_feedback_on_edits(
     match user_response.lower():
         case "y" | "":
             edits_to_apply = file_edits
-            # TODO: All of the 'user messages' here feel like they should be system messages;
-            # if we decide to change this, make sure to change the clear command as well
             conversation.add_message(
-                MessageRole.User, "User chose to apply all your changes."
+                ChatCompletionSystemMessageParam(
+                    role="system", content="User chose to apply all your changes."
+                )
             )
         case "n":
             edits_to_apply = []
             conversation.add_message(
-                MessageRole.User, "User chose not to apply any of your changes."
+                ChatCompletionSystemMessageParam(
+                    role="system",
+                    content="User chose not to apply any of your changes.",
+                )
             )
         case "i":
             edits_to_apply = await _user_filter_changes(file_edits)
             if len(edits_to_apply) > 0:
                 conversation.add_message(
-                    MessageRole.User, "User chose to apply some of your changes."
+                    ChatCompletionSystemMessageParam(
+                        role="system",
+                        content="User chose to apply some of your changes.",
+                    )
                 )
             else:
                 conversation.add_message(
-                    MessageRole.User, "User chose not to apply any of your changes."
+                    ChatCompletionSystemMessageParam(
+                        role="system",
+                        content="User chose not to apply any of your changes.",
+                    )
                 )
 
         case _:
             need_user_request = False
             edits_to_apply = []
-            conversation.add_user_message(user_response)
             conversation.add_message(
-                MessageRole.User,
-                "User chose not to apply any of your changes. Please adjust your"
-                " previous plan and changes to reflect their feedback. Respond with a"
-                " full new set of changes.",
+                ChatCompletionSystemMessageParam(
+                    role="system",
+                    content=(
+                        "User chose not to apply any of your changes. Please adjust"
+                        " your previous plan and changes to reflect their feedback."
+                        " Respond with a full new set of changes."
+                    ),
+                )
             )
+            conversation.add_user_message(user_response)
 
     for file_edit in edits_to_apply:
         file_edit.resolve_conflicts()
