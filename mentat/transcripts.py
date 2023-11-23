@@ -3,7 +3,7 @@ import json
 import re
 from typing import TypedDict
 
-from openai.types.chat import ChatCompletionMessageParam, ChatCompletionContentPartParam
+from openai.types.chat import ChatCompletionContentPartParam, ChatCompletionMessageParam
 
 from mentat.logging_config import logs_path
 

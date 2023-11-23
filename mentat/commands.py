@@ -13,6 +13,7 @@ from mentat.include_files import print_invalid_path
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import Transcript, get_transcript_logs
 from mentat.utils import create_viewer
+from mentat.vision.vision_manager import ScreenShotException
 
 
 class Command(ABC):
@@ -394,19 +395,27 @@ class ConfigCommand(Command, command_name="config"):
 
 class ScreenshotCommand(Command, command_name="screenshot"):
     async def apply(self, *args: str) -> None:
-        if not args:
-            raise UserError("Screenshot command requires a URL or string to capture.")
-        url_or_string = args[0]
-        vision_manager = SESSION_CONTEXT.get().vision_manager
-        image = vision_manager.screenshot(url_or_string)
         session_context = SESSION_CONTEXT.get()
-        conversation = session_context.conversation
-        conversation.add_user_message(f"A screenshot of {url_or_string}", image=image)
+        vision_manager = session_context.vision_manager
         stream = session_context.stream
-        stream.send(
-            f"Screenshot taken for: {url_or_string}.",
-            color="green",
-        )
+        try:
+            image = vision_manager.screenshot(*args)
+
+            conversation = session_context.conversation
+            if len(args) == 0:
+                path = "the current screen"
+            else:
+                path = args[0]
+            conversation.add_user_message(f"A screenshot of {path}", image=image)
+            stream.send(
+                f"Screenshot taken for: {path}.",
+                color="green",
+            )
+        except ScreenShotException:
+            stream.send(
+                'No browser open. Run "/screenshot path" with a url or local file',
+                color="red",
+            )
 
     @classmethod
     def argument_names(cls) -> list[str]:
