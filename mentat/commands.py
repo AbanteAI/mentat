@@ -10,9 +10,8 @@ import attr
 from mentat.errors import MentatError, UserError
 from mentat.git_handler import commit
 from mentat.include_files import print_invalid_path
-from mentat.logging_config import get_transcript_logs
-from mentat.message import Message, MessageRole
 from mentat.session_context import SESSION_CONTEXT
+from mentat.transcripts import Transcript, get_transcript_logs
 from mentat.utils import create_viewer
 
 
@@ -312,7 +311,10 @@ class ConversationCommand(Command, command_name="conversation"):
 
         logs = get_transcript_logs()
 
-        viewer_path = create_viewer([("Current", conversation.literal_messages)] + logs)  # type: ignore
+        viewer_path = create_viewer(
+            [Transcript(timestamp="Current", messages=conversation.literal_messages)]
+            + logs
+        )
         webbrowser.open(f"file://{viewer_path.resolve()}")
 
     @classmethod
@@ -396,13 +398,10 @@ class ScreenshotCommand(Command, command_name="screenshot"):
             raise UserError("Screenshot command requires a URL or string to capture.")
         url_or_string = args[0]
         vision_manager = SESSION_CONTEXT.get().vision_manager
-        image_path = vision_manager.screenshot(url_or_string)
+        image = vision_manager.screenshot(url_or_string)
         session_context = SESSION_CONTEXT.get()
         conversation = session_context.conversation
-        message = Message(
-            MessageRole.User, f"A screenshot of {url_or_string}", image_path
-        )
-        conversation.add_message(message)
+        conversation.add_user_message(f"A screenshot of {url_or_string}", image=image)
         stream = session_context.stream
         stream.send(
             f"Screenshot taken for: {url_or_string}.",

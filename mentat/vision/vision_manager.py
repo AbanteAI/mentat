@@ -1,6 +1,6 @@
+import base64
 import datetime
 import os
-from pathlib import Path
 
 import attr
 from selenium import webdriver
@@ -24,7 +24,7 @@ class VisionManager:
         self.init()
         self.driver.get(path)  # type: ignore
 
-    def screenshot(self, path: str) -> Path:
+    def screenshot(self, path: str) -> str:
         expanded = os.path.expanduser(path)
         if os.path.exists(expanded):
             path = "file://" + expanded
@@ -46,4 +46,9 @@ class VisionManager:
         dir_path.mkdir(parents=True, exist_ok=True)
         image_path = dir_path / name
         self.driver.save_screenshot(image_path)  # type: ignore
-        return image_path
+
+        with open(image_path, "rb") as image_file:
+            decoded = base64.b64encode(image_file.read()).decode("utf-8")
+            image_data = f"data:image/png;base64,{decoded}"
+
+        return image_data

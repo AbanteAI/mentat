@@ -14,7 +14,7 @@ from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
 from mentat.interval import Interval, parse_intervals
-from mentat.llm_api import count_tokens
+from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import sha256
 
@@ -36,13 +36,11 @@ def split_file_into_intervals(
 
     # Get ctags data (name and start line) and determine end line
     ctags = list(get_ctags(git_root.joinpath(feature.path)))
-    ctags = sorted(ctags, key=lambda x: int(x[4]))  # type: ignore
+    ctags.sort(key=lambda x: int(x[4]))
     named_intervals = list[tuple[str, int, int]]()  # Name, Start, End
     _last_item = tuple[str, int]()
     for i, tag in enumerate(ctags):
         (scope, _, name, _, line_number) = tag  # Kind and Signature ignored
-        if name is None or line_number is None:
-            continue
         key = name
         if scope is not None:
             key = f"{scope}.{name}"
@@ -84,8 +82,8 @@ def split_file_into_intervals(
 
 
 class CodeMessageLevel(Enum):
-    CODE = ("code", 1, "Complete code")
-    INTERVAL = ("interval", 2, "Specific range(s)")
+    CODE = ("code", 1, "Full File")
+    INTERVAL = ("interval", 2, "Specific range")
     CMAP_FULL = ("cmap_full", 3, "Function/Class names and signatures")
     CMAP = ("cmap", 4, "Function/Class names")
     FILE_NAME = ("file_name", 5, "Relative path/filename")
@@ -217,7 +215,7 @@ class CodeFeature:
 
     def count_tokens(self, model: str) -> int:
         code_message = self.get_code_message()
-        return count_tokens("\n".join(code_message), model)
+        return count_tokens("\n".join(code_message), model, full_message=False)
 
 
 async def count_feature_tokens(features: list[CodeFeature], model: str) -> list[int]:

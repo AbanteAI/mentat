@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            {% include 'conversation_viewer.css' %}
+        </style>
+        <script>
+            {% include 'conversation_viewer.js' %}
+        </script>
+    </head>
+    <body>
+        {% for transcript in transcripts %}
+        <div class="container" id={{ transcript["timestamp"] }}>
+            <div class="left-viewer viewer">
+                <h1 class="history-title">Conversation History</h1>
+<a class="download_parent"><span class="download_icon"></span></a>
+                {% for message in transcript["messages"] %}
+                <div class="message {{'user' if message["prior_messages"] is none else 'assistant clickable'}}">
+                    {{ message["message"] |e|replace('\n', '<br>')|safe }}
+                    {% if message["prior_messages"] is not none %}
+                        {% for seen_message in message["prior_messages"] %}
+                        <div class="message viewpoint-message {{seen_message['role']}} hidden">
+                            {{ seen_message['content'] |e|replace('\n', '<br>')|safe }}
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="right-viewer viewer">
+                <h1 class="viewpoint-title">Model's Viewpoint {{ transcript["timestamp"] }}</h1>
+            </div>
+        </div>
+        {% endfor %}
+    </body>
+</html>

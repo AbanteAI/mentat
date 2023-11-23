@@ -14,6 +14,7 @@ from prompt_toolkit.styles import Style
 from mentat.config import Config
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
+from mentat.terminal.loading import LoadingHandler
 from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
@@ -56,14 +57,16 @@ class TerminalClient:
         async for message in self.session.stream.listen():
             print_stream_message(message)
 
+    async def _handle_loading_messages(self):
+        loading_handler = LoadingHandler()
+        async for message in self.session.stream.listen("loading"):
+            loading_handler.update(message)
+
     async def _handle_input_requests(self):
         while True:
             input_request_message = await self.session.stream.recv("input_request")
             # TODO: Make extra kwargs like plain constants
-            if (
-                input_request_message.extra is not None
-                and input_request_message.extra.get("plain")
-            ):
+            if input_request_message.extra.get("plain"):
                 prompt_session = self._plain_session
             else:
                 prompt_session = self._prompt_session
@@ -120,6 +123,7 @@ class TerminalClient:
     async def _run(self):
         self._init_signal_handlers()
         self.session = Session(
+            Path.cwd(),
             self.paths,
             self.exclude_paths,
             self.ignore_paths,
@@ -154,6 +158,7 @@ class TerminalClient:
         self._create_task(mentat_completer.refresh_completions())
         self._create_task(self._cprint_session_stream())
         self._create_task(self._handle_input_requests())
+        self._create_task(self._handle_loading_messages())
         self._create_task(self._listen_for_client_exit())
         self._create_task(self._listen_for_should_exit())
 
@@ -202,8 +207,10 @@ def run_cli():
     parser.add_argument(
         "--diff",
         "-d",
+        nargs="?",
         type=str,
         default=None,
+        const="HEAD",
         help="A git tree-ish (e.g. commit, branch, tag) to diff against",
     )
     parser.add_argument(

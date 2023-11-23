@@ -1,0 +1,119 @@
+html {
+    height: 100%;
+    font-size: 24px;
+    font-family: monospace;
+}
+
+body {
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    display: flex;
+}
+
+h1 {
+    margin: 10 0px;
+}
+
+.container {
+    position: relative;
+    width: 100%;
+    display: none;
+    flex-direction: row;
+    flex-grow: 1;
+}
+
+.hidden {
+    display: none;
+    height: 0;
+}
+
+.container.active {
+    display: flex;
+}
+
+.viewer {
+    border: 1px solid black;
+    overflow-y: auto;
+    text-align: center;
+}
+
+.left-viewer {
+    background-color: rgb(228, 254, 255);
+    flex: 1 0 19%;
+}
+
+.right-viewer {
+    background-color: rgb(220, 220, 220);
+    flex: 1 0 79%;
+}
+
+.message {
+    padding: 8px;
+    max-width: 65%;
+    width: fit-content;
+    border: 1px solid black;
+    border-radius: 16px;
+    margin: 32px 24px;
+    overflow-y: auto;
+    overflow-x: auto;
+    max-height: 500px;
+    text-align: left;
+}
+
+.system {
+    background-color: rgb(203, 203, 203);
+    width: 40%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.user {
+    background-color: rgb(187, 236, 255);
+    margin-left: auto;
+}
+
+.assistant {
+    transition: background-color 0.2s;
+    background-color: rgb(204, 243, 204);
+    margin-right: auto;
+}
+
+.clickable {
+    user-select: none;
+}
+
+.selected,
+.clickable:hover {
+    background-color: rgb(245, 245, 245);
+}
+
+.selected,
+.selected:hover {
+    background-color: rgb(255, 255, 255);
+}
+
+.download_parent {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    cursor: pointer;
+}
+
+.download_icon {
+    display: inline-block;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg>');
+    background-size: contain;
+    background-repeat: no-repeat;
+    width: 36px;
+    height: 36px;
+    border: 2px solid black; /* Darker border color */
+    border-radius: 18px;
+    padding: 4px;
+    transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.download_icon:hover {
+    transform: scale(1.1);
+    border-color: black; /* Darker border color on hover */
+}

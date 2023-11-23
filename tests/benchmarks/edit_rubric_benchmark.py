@@ -5,9 +5,9 @@ from itertools import islice
 from pathlib import Path
 from textwrap import dedent
 
-import openai
 import pytest
 from git import Repo
+from openai import OpenAI
 
 from mentat.python_client.client import PythonClient
 from tests.benchmarks.utils import clone_repo
@@ -68,12 +68,12 @@ def evaluate_diff(diff: str) -> dict[str, int]:
         {"role": "system", "content": diff},
     ]
 
-    response = openai.ChatCompletion.create(
+    client = OpenAI()
+    response = client.chat.completions.create(
         model="gpt-4-0314",
         messages=messages,
     )
-
-    message = response["choices"][0]["message"]["content"]
+    message = response.choices[0].message.content
 
     return json.loads(message)
 

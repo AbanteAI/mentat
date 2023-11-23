@@ -12,6 +12,7 @@ from mentat.session_stream import StreamMessageSource
 class PythonClient:
     def __init__(
         self,
+        cwd: Path = Path.cwd(),
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
         ignore_paths: List[Path] = [],
@@ -19,6 +20,7 @@ class PythonClient:
         pr_diff: str | None = None,
         config: Config = Config(),
     ):
+        self.cwd = cwd
         self.paths = paths
         self.exclude_paths = exclude_paths
         self.ignore_paths = ignore_paths
@@ -53,7 +55,7 @@ class PythonClient:
     async def _accumulate_messages(self):
         async for message in self.session.stream.listen():
             end = "\n"
-            if message.extra and isinstance(message.extra.get("end"), str):
+            if isinstance(message.extra.get("end"), str):
                 end = message.extra["end"]
             self._accumulated_message += message.data + end
 
@@ -63,6 +65,7 @@ class PythonClient:
 
     async def startup(self):
         self.session = Session(
+            self.cwd,
             self.paths,
             self.exclude_paths,
             self.ignore_paths,
