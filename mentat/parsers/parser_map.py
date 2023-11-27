@@ -8,6 +8,7 @@ parser_map: dict[str, Parser] = {
     "block": BlockParser(),
     "replacement": ReplacementParser(),
     "unified-diff": UnifiedDiffParser(),
-    # JsonParser is experimental and has no streaming or tests; don't use it yet!
+    # JsonParser is experimental and has no streaming or tests and seems worse than other formats
+    # Don't use it! But if you need to, make sure to set to a model that can use the JSON response_format
     "json": JsonParser(),
 }

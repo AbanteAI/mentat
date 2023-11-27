@@ -170,7 +170,7 @@ class LlmApiHandler:
         messages: list[ChatCompletionMessageParam],
         model: str,
         stream: Literal[True],
-        response_format: ResponseFormat,
+        response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> AsyncStream[ChatCompletionChunk]: ...
 
     @overload
@@ -179,7 +179,7 @@ class LlmApiHandler:
         messages: list[ChatCompletionMessageParam],
         model: str,
         stream: Literal[False],
-        response_format: ResponseFormat,
+        response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> ChatCompletion: ...
 
     async def call_llm_api(
@@ -187,7 +187,7 @@ class LlmApiHandler:
         messages: list[ChatCompletionMessageParam],
         model: str,
         stream: bool,
-        response_format: ResponseFormat,
+        response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> ChatCompletion | AsyncStream[ChatCompletionChunk]:
         raise_if_in_test_environment()
 
