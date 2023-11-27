@@ -46,11 +46,12 @@ def chunk_to_lines(chunk: ChatCompletionChunk) -> list[str]:
     return ("" if content is None else content).splitlines(keepends=True)
 
 
-def count_tokens(message: str, model: str, full_message: bool = False) -> int:
+def count_tokens(message: str, model: str, full_message: bool) -> int:
     """
-    Calculates the tokens in this message. Will NOT be accurate for a full conversation!
-    Use conversation_tokens to get the exact amount of tokens in a conversation.
-    If full_message is true, will include the extra 4 tokens used in a chat completion by this message.
+    Calculates the tokens in this message. Will NOT be accurate for a full prompt!
+    Use prompt_tokens to get the exact amount of tokens for a prompt.
+    If full_message is true, will include the extra 4 tokens used in a chat completion by this message
+    if this message is part of a prompt. The majority of the time, you'll want full_message to be true.
     """
     try:
         encoding = tiktoken.encoding_for_model(model)
@@ -61,9 +62,9 @@ def count_tokens(message: str, model: str, full_message: bool = False) -> int:
     )
 
 
-def conversation_tokens(messages: list[ChatCompletionMessageParam], model: str):
+def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str):
     """
-    Returns the number of tokens used by a full conversation.
+    Returns the number of tokens used by a prompt if it was sent to OpenAI for a chat completion.
     Adapted from https://platform.openai.com/docs/guides/text-generation/managing-tokens
     """
     try:
@@ -73,7 +74,8 @@ def conversation_tokens(messages: list[ChatCompletionMessageParam], model: str):
 
     num_tokens = 0
     for message in messages:
-        # every message follows <im_start>{role/name}\n{content}<im_end>\n
+        # every message follows <|start|>{role/name}\n{content}<|end|>\n
+        # this has 5 tokens (start token, role, \n, end token, \n), but we count the role token later
         num_tokens += 4
         for key, value in message.items():
             if isinstance(value, list) and key == "content":
@@ -98,7 +100,7 @@ def conversation_tokens(messages: list[ChatCompletionMessageParam], model: str):
                 num_tokens += len(encoding.encode(value))
             if key == "name":  # if there's a name, the role is omitted
                 num_tokens -= 1  # role is always required and always 1 token
-    num_tokens += 2  # every reply is primed with <im_start>assistant
+    num_tokens += 2  # every reply is primed with <|start|>assistant
     return num_tokens
 
 
