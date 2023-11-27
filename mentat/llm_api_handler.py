@@ -4,7 +4,7 @@ import base64
 import io
 import os
 import sys
-from typing import Literal, Optional, overload
+from typing import List, Literal, Optional, cast, overload
 
 import sentry_sdk
 import tiktoken
@@ -13,6 +13,7 @@ from openai import AsyncOpenAI, AsyncStream, AuthenticationError
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
+    ChatCompletionContentPartParam,
     ChatCompletionMessageParam,
 )
 from PIL import Image
@@ -74,13 +75,14 @@ def conversation_tokens(messages: list[ChatCompletionMessageParam], model: str):
         # every message follows <im_start>{role/name}\n{content}<im_end>\n
         num_tokens += 4
         for key, value in message.items():
-            if isinstance(value, list):
-                for entry in value:  # type: ignore
+            if isinstance(value, list) and key == "content":
+                value = cast(List[ChatCompletionContentPartParam], value)
+                for entry in value:
                     if entry["type"] == "text":
-                        num_tokens += len(encoding.encode(entry["text"]))  # type: ignore
+                        num_tokens += len(encoding.encode(entry["text"]))
                     if entry["type"] == "image_url":
-                        image_base64: str = entry["image_url"]["url"].split(",")[1]  # type: ignore
-                        image_bytes: bytes = base64.b64decode(image_base64)  # type: ignore
+                        image_base64: str = entry["image_url"]["url"].split(",")[1]
+                        image_bytes: bytes = base64.b64decode(image_base64)
                         image = Image.open(io.BytesIO(image_bytes))
                         size = image.size
                         # As described here: https://platform.openai.com/docs/guides/vision/calculating-costs
