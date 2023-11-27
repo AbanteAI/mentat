@@ -29,7 +29,7 @@ class VisionManager:
 
     def screenshot(self, path: Optional[str] = None) -> str:
         if path is not None:
-            expanded = os.path.abspath(path)
+            expanded = os.path.abspath(os.path.expanduser(path))
             if os.path.exists(expanded):
                 path = "file://" + expanded
             else:
