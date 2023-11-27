@@ -61,11 +61,7 @@ async def get_user_feedback_on_edits(
             conversation.add_message(
                 ChatCompletionSystemMessageParam(
                     role="system",
-                    content=(
-                        "User chose not to apply any of your changes. Please adjust"
-                        " your previous plan and changes to reflect their feedback."
-                        " Respond with a full new set of changes."
-                    ),
+                    content="User chose not to apply any of your changes.",
                 )
             )
             conversation.add_user_message(user_response)
