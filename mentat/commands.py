@@ -405,7 +405,7 @@ class ScreenshotCommand(Command, command_name="screenshot"):
         if "gpt" in model:
             if "vision" not in model:
                 stream.send(
-                    "Using a version of gpt-4 that doesn't support images. Changing to"
+                    "Using a version of gpt that doesn't support images. Changing to"
                     " gpt-4-vision-preview",
                     color="yellow",
                 )
