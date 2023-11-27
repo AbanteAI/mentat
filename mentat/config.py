@@ -48,6 +48,15 @@ class Config:
         converter=int_or_none,
         validator=validators.optional(validators.ge(0)),
     )
+    token_buffer: int = attr.field(
+        default=1000,
+        metadata={
+            "description": (
+                "The amount of tokens to always be reserved as a buffer for user and"
+                " model messages."
+            )
+        },
+    )
     parser: Parser = attr.field(  # pyright: ignore
         default="block",
         metadata={

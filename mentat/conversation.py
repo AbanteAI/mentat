@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import subprocess
 from timeit import default_timer
 from typing import TYPE_CHECKING
 
@@ -90,7 +92,7 @@ class Conversation:
                 f" {context_size}). Please try running again with a reduced"
                 " number of files."
             )
-        elif tokens + 1000 > context_size:
+        elif tokens + config.token_buffer > context_size:
             stream.send(
                 f"Warning: Included files are close to token limit ({tokens} /"
                 f" {context_size}), you may not be able to have a long"
@@ -170,10 +172,9 @@ class Conversation:
         start_time = default_timer()
 
         num_prompt_tokens = conversation_tokens(messages, config.model)
-        token_buffer = 500
         context_size = model_context_size(config.model)
         if context_size:
-            if num_prompt_tokens > context_size - token_buffer:
+            if num_prompt_tokens > context_size - config.token_buffer:
                 stream.send(
                     f"Warning: {config.model} has a maximum context length of"
                     f" {context_size} tokens. Attempting to run anyway:",
@@ -218,7 +219,6 @@ class Conversation:
 
         # Rebuild code context with active code and available tokens
         tokens = conversation_tokens(messages_snapshot, config.model)
-        response_buffer = 1000
 
         loading_multiplier = 1.0 if config.auto_context else 0.0
         try:
@@ -230,7 +230,7 @@ class Conversation:
                     if isinstance(prompt, str)
                     else ""
                 ),
-                self.max_tokens - tokens - response_buffer,
+                self.max_tokens - tokens - config.token_buffer,
                 loading_multiplier=0.5 * loading_multiplier,
             )
             messages_snapshot.append(
@@ -269,3 +269,76 @@ class Conversation:
         )
         self.add_model_message(parsed_llm_response.full_response, messages_snapshot)
         return parsed_llm_response.file_edits
+
+    def remaining_context(self) -> int | None:
+        ctx = SESSION_CONTEXT.get()
+        max_context = model_context_size(ctx.config.model)
+        if max_context is None:
+            return None
+
+        return max_context - conversation_tokens(self.get_messages(), ctx.config.model)
+
+    def can_add_to_context(self, message: str) -> bool:
+        """
+        Whether or not the model has enough context remaining to add this message.
+        Will take token buffer into account and uses full_message=True.
+        """
+        ctx = SESSION_CONTEXT.get()
+
+        remaining_context = self.remaining_context()
+        return (
+            remaining_context is not None
+            and remaining_context
+            - count_tokens(message, ctx.config.model, full_message=True)
+            - ctx.config.token_buffer
+            > 0
+        )
+
+    async def run_command(self, command: list[str]) -> bool:
+        """
+        Runs a command and, if there is room, adds the output to the conversation under the 'system' role.
+        """
+        ctx = SESSION_CONTEXT.get()
+        ctx.stream.send("Command output:", color="cyan")
+
+        process = subprocess.Popen(
+            command,
+            cwd=ctx.cwd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        output = list[str]()
+        while True:
+            if process.stdout is None:
+                break
+            line = process.stdout.readline()
+            if not line:
+                break
+            output.append(line)
+            ctx.stream.send(line, end="")
+            # This gives control back to the asyncio event loop so we can actually print what we sent
+            # Unfortunately asyncio.sleep(0) won't work https://stackoverflow.com/a/74505785
+            # Note: if subprocess doesn't flush, output can't and won't be streamed.
+            await asyncio.sleep(0.01)
+        output = "".join(output)
+        message = (
+            f"The user ran this command:\n{' '.join(command)}\nAnd recieved this"
+            f" output:\n{output}"
+        )
+
+        if self.can_add_to_context(message):
+            self.add_message(
+                ChatCompletionSystemMessageParam(role="system", content=message)
+            )
+            ctx.stream.send(
+                "Successfully added command output to model context.", color="cyan"
+            )
+            return True
+        else:
+            ctx.stream.send(
+                "Not enough tokens remaining in model's context to add command output"
+                " to model context.",
+                color="light_red",
+            )
+            return False
