@@ -203,7 +203,10 @@ class Conversation:
                 progress=50 * loading_multiplier,
             )
         response = await llm_api_handler.call_llm_api(
-            messages, config.model, stream=True
+            messages,
+            config.model,
+            stream=True,
+            response_format=parser.response_format(),
         )
         if loading_multiplier:
             stream.send(

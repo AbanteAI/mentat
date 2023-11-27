@@ -16,6 +16,7 @@ from openai.types.chat import (
     ChatCompletionContentPartParam,
     ChatCompletionMessageParam,
 )
+from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
 
 from mentat.errors import UserError
@@ -169,6 +170,7 @@ class LlmApiHandler:
         messages: list[ChatCompletionMessageParam],
         model: str,
         stream: Literal[True],
+        response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> AsyncStream[ChatCompletionChunk]: ...
 
     @overload
@@ -177,10 +179,15 @@ class LlmApiHandler:
         messages: list[ChatCompletionMessageParam],
         model: str,
         stream: Literal[False],
+        response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> ChatCompletion: ...
 
     async def call_llm_api(
-        self, messages: list[ChatCompletionMessageParam], model: str, stream: bool
+        self,
+        messages: list[ChatCompletionMessageParam],
+        model: str,
+        stream: bool,
+        response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> ChatCompletion | AsyncStream[ChatCompletionChunk]:
         raise_if_in_test_environment()
 
@@ -195,6 +202,7 @@ class LlmApiHandler:
                 temperature=config.temperature,
                 stream=stream,
                 max_tokens=4096,  # gpt-4-vision-preview returns a max of 30 by default.
+                response_format=response_format,
             )
 
         return response
