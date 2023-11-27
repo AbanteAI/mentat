@@ -1,6 +1,8 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from mentat.vision.vision_manager import VisionManager, ScreenshotException
+
+import pytest
+
+from mentat.vision.vision_manager import ScreenshotException, VisionManager
 
 
 @pytest.fixture
