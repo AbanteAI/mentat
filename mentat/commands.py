@@ -398,8 +398,8 @@ class RunCommand(Command, command_name="run"):
 
     @classmethod
     def argument_names(cls) -> list[str]:
-        return ["command"]
+        return ["command", "args..."]
 
     @classmethod
     def help_message(cls) -> str:
-        return "Run a shell command and send the output the model's conversation."
+        return "Run a shell command and put its output in context."

@@ -322,10 +322,7 @@ class Conversation:
             # Note: if subprocess doesn't flush, output can't and won't be streamed.
             await asyncio.sleep(0.01)
         output = "".join(output)
-        message = (
-            f"The user ran this command:\n{' '.join(command)}\nAnd recieved this"
-            f" output:\n{output}"
-        )
+        message = f"User ran:\n{' '.join(command)}\nOutput:\n{output}"
 
         if self.can_add_to_context(message):
             self.add_message(
