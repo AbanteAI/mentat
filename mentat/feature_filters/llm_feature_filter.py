@@ -23,7 +23,6 @@ from mentat.session_context import SESSION_CONTEXT
 
 class LLMFeatureFilter(FeatureFilter):
     feature_selection_prompt_path = Path("feature_selection_prompt.txt")
-    feature_selection_response_buffer = 500
 
     def __init__(
         self,
@@ -71,7 +70,7 @@ class LLMFeatureFilter(FeatureFilter):
             - system_prompt_tokens
             - user_prompt_tokens
             - expected_edits_tokens
-            - self.feature_selection_response_buffer
+            - config.token_buffer
         )
         truncate_filter = TruncateFilter(
             preselect_max_tokens, model, levels=self.levels

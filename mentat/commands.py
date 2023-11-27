@@ -45,8 +45,6 @@ class Command(ABC):
     def get_command_completions(cls) -> List[str]:
         return list(map(lambda name: "/" + name, cls.get_command_names()))
 
-    # Although we don't await anything inside an apply method currently, in the future we might
-    # ask ther user or a model something, which would require apply to be async
     @abstractmethod
     async def apply(self, *args: str) -> None:
         pass
@@ -391,6 +389,21 @@ class ConfigCommand(Command, command_name="config"):
     @classmethod
     def help_message(cls) -> str:
         return "Set a configuration option or omit value to see current value."
+
+
+class RunCommand(Command, command_name="run"):
+    async def apply(self, *args: str) -> None:
+        session_context = SESSION_CONTEXT.get()
+        conversation = session_context.conversation
+        await conversation.run_command(list(args))
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return ["command", "args..."]
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Run a shell command and put its output in context."
 
 
 class ScreenshotCommand(Command, command_name="screenshot"):
