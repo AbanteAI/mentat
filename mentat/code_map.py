@@ -1,3 +1,6 @@
+# Our code map implementation was inspired by Aider's repo map, which also uses ctags to create a map of a project.
+# Aider: https://github.com/paul-gauthier/aider
+
 import json
 import logging
 import subprocess
