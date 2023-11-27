@@ -205,7 +205,7 @@ class Conversation:
             )
         response = await llm_api_handler.call_llm_api(
             messages,
-            config.model
+            config.model,
             stream=True,
             response_format=parser.response_format(),
         )
@@ -295,7 +295,7 @@ class Conversation:
         if max_context is None:
             return None
 
-        return max_context - conversation_tokens(self.get_messages(), ctx.config.model)
+        return max_context - prompt_tokens(self.get_messages(), ctx.config.model)
 
     def can_add_to_context(self, message: str) -> bool:
         """
