@@ -93,3 +93,7 @@ class MentatPromptSession(PromptSession[str]):
                 event.current_buffer.reset()
             else:
                 event.app.exit(result="q")
+
+        @self.bindings.add("c-z")
+        def _(event: KeyPressEvent):
+            event.current_buffer.text = "/undo"
