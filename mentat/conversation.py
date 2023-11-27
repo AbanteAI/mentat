@@ -5,11 +5,12 @@ import json
 import logging
 import subprocess
 from timeit import default_timer
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 from openai import RateLimitError
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
+    ChatCompletionContentPartParam,
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
@@ -107,14 +108,29 @@ class Conversation:
 
     # The transcript logger logs tuples containing the actual message sent by the user or LLM
     # and (for LLM messages) the LLM conversation that led to that LLM response
-    def add_user_message(self, message: str):
+    def add_user_message(self, message: str, image: Optional[str] = None):
         """Used for actual user input messages"""
+        content: List[ChatCompletionContentPartParam] = [
+            {
+                "type": "text",
+                "text": message,
+            },
+        ]
+        if image:
+            content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": image,
+                    },
+                },
+            )
         transcript_logger = logging.getLogger("transcript")
         transcript_logger.info(
-            json.dumps(UserMessage(message=message, prior_messages=None))
+            json.dumps(UserMessage(message=content, prior_messages=None))
         )
-        self.literal_messages.append(UserMessage(message=message, prior_messages=None))
-        self.add_message(ChatCompletionUserMessageParam(role="user", content=message))
+        self.literal_messages.append(UserMessage(message=content, prior_messages=None))
+        self.add_message(ChatCompletionUserMessageParam(role="user", content=content))
 
     def add_model_message(
         self, message: str, messages_snapshot: list[ChatCompletionMessageParam]
@@ -188,7 +204,10 @@ class Conversation:
                 progress=50 * loading_multiplier,
             )
         response = await llm_api_handler.call_llm_api(
-            messages, config.model, stream=True
+            messages,
+            config.model,
+            stream=True,
+            response_format=parser.response_format(),
         )
         if loading_multiplier:
             stream.send(

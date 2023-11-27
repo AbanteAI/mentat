@@ -25,6 +25,7 @@ from mentat.llm_api_handler import LlmApiHandler
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
 from mentat.streaming_printer import StreamingPrinter
+from mentat.vision.vision_manager import VisionManager
 
 pytest_plugins = ("pytest_reportlog",)
 
@@ -263,6 +264,8 @@ def mock_session_context(temp_testbed):
     code_file_manager = CodeFileManager()
     conversation = Conversation()
 
+    vision_manager = VisionManager()
+
     session_context = SessionContext(
         Path.cwd(),
         stream,
@@ -273,6 +276,7 @@ def mock_session_context(temp_testbed):
         code_context,
         code_file_manager,
         conversation,
+        vision_manager,
     )
     token = SESSION_CONTEXT.set(session_context)
     yield session_context
