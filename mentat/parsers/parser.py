@@ -6,14 +6,16 @@ from abc import ABC, abstractmethod
 from asyncio import Event
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import AsyncIterator
 
 import attr
+from openai.types.chat import ChatCompletionChunk
+from openai.types.chat.completion_create_params import ResponseFormat
 from termcolor import colored
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
-from mentat.llm_api import chunk_to_lines
+from mentat.llm_api_handler import chunk_to_lines
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
@@ -66,12 +68,11 @@ class Parser(ABC):
     def get_system_prompt(self) -> str:
         pass
 
-    def api_kwargs(self) -> dict[str, Any]:
-        return {}
+    def response_format(self) -> ResponseFormat:
+        return ResponseFormat(type="text")
 
     async def stream_and_parse_llm_response(
-        self,
-        response: AsyncGenerator[Any, None],
+        self, response: AsyncIterator[ChatCompletionChunk]
     ) -> ParsedLLMResponse:
         """
         This general parsing structure relies on the assumption that all formats require three types of lines:

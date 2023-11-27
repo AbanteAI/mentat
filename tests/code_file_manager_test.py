@@ -4,7 +4,6 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.config import Config
 from mentat.include_files import get_include_files
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.session import Session
@@ -45,7 +44,6 @@ async def test_partial_files(mocker, mock_session_context):
     mock_session_context.code_context.include_files, _ = get_include_files(
         [file_path_partial], []
     )
-    mocker.patch.object(Config, "auto_tokens", new=0)
     mock_session_context.code_context.code_map = False
 
     code_message = await mock_session_context.code_context.get_code_message(
@@ -65,7 +63,8 @@ async def test_partial_files(mocker, mock_session_context):
 
 @pytest.mark.asyncio
 async def test_run_from_subdirectory(
-    mock_collect_user_input, mock_call_llm_api, mock_setup_api_key
+    mock_collect_user_input,
+    mock_call_llm_api,
 ):
     """Run mentat from a subdirectory of the git root"""
     # Change to the subdirectory
@@ -80,7 +79,7 @@ async def test_run_from_subdirectory(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent("""\
+    mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment in both files.
 
         @@start
@@ -104,9 +103,9 @@ async def test_run_from_subdirectory(
         # Hello
         @@end""")])
 
-    session = Session([Path("calculator.py"), Path("../scripts")])
-    await session.start()
-    session.stream.stop()
+    session = Session(cwd=Path.cwd(), paths=[Path("calculator.py"), Path("../scripts")])
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check that it works
     with open("calculator.py") as f:
@@ -119,7 +118,8 @@ async def test_run_from_subdirectory(
 
 @pytest.mark.asyncio
 async def test_change_after_creation(
-    mock_collect_user_input, mock_call_llm_api, mock_setup_api_key
+    mock_collect_user_input,
+    mock_call_llm_api,
 ):
     file_name = Path("hello_world.py")
     mock_collect_user_input.set_stream_messages(
@@ -129,7 +129,7 @@ async def test_change_after_creation(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         @@start
@@ -150,9 +150,9 @@ async def test_change_after_creation(
         print("Hello, World!")
         @@end""")])
 
-    session = Session()
-    await session.start()
-    session.stream.stop()
+    session = Session(cwd=Path.cwd())
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     with file_name.open() as f:
         output = f.read()

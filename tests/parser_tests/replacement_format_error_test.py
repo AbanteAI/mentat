@@ -1,3 +1,4 @@
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -14,7 +15,8 @@ def replacement_parser(mocker):
 
 @pytest.mark.asyncio
 async def test_invalid_line_numbers(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api,
+    mock_collect_user_input,
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -29,7 +31,7 @@ async def test_invalid_line_numbers(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         @ {temp_file_name} insert_line=2
@@ -42,9 +44,9 @@ async def test_invalid_line_numbers(
         # I also will not be used
         @""")])
 
-    session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\
@@ -56,7 +58,8 @@ async def test_invalid_line_numbers(
 
 @pytest.mark.asyncio
 async def test_invalid_special_line(
-    mock_call_llm_api, mock_collect_user_input, mock_setup_api_key
+    mock_call_llm_api,
+    mock_collect_user_input,
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -71,7 +74,7 @@ async def test_invalid_special_line(
             "q",
         ]
     )
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         @ {temp_file_name} insert_line=2
@@ -84,9 +87,9 @@ async def test_invalid_special_line(
         # I will not be used
         @""")])
 
-    session = Session([temp_file_name])
-    await session.start()
-    session.stream.stop()
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
+    session.start()
+    await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
         expected_content = dedent("""\

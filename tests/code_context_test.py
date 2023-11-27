@@ -10,7 +10,7 @@ from mentat.code_feature import CodeMessageLevel
 from mentat.config import Config
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
-from mentat.llm_api import count_tokens
+from mentat.llm_api_handler import count_tokens
 from tests.conftest import run_git_command
 
 
@@ -47,6 +47,32 @@ async def test_path_gitignoring(temp_testbed, mock_session_context):
 
     case = TestCase()
     file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
+    case.assertListEqual(sorted(expected_file_paths), sorted(file_paths))
+
+
+@pytest.mark.asyncio
+async def test_bracket_file(temp_testbed, mock_session_context):
+    file_path_1 = Path("[file].tsx")
+    file_path_2 = Path("test:[file].tsx")
+
+    with file_path_1.open("w") as file_1:
+        file_1.write("Testing")
+    with file_path_2.open("w") as file_2:
+        file_2.write("Testing")
+
+    paths = [file_path_1, file_path_2]
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+    )
+    code_context.set_paths(paths, [])
+    expected_file_paths = [
+        temp_testbed / file_path_1,
+        temp_testbed / file_path_2,
+    ]
+
+    case = TestCase()
+    file_paths = list(code_context.include_files.keys())
     case.assertListEqual(sorted(expected_file_paths), sorted(file_paths))
 
 
@@ -193,7 +219,7 @@ def features(mocker):
 
 @pytest.mark.asyncio
 async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context):
-    mocker.patch.object(Config, "auto_tokens", new=10)
+    mocker.patch.object(Config, "maximum_context", new=10)
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
@@ -218,8 +244,7 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
     assert value1 == value2
 
     # Regenerate if settings change
-    mocker.patch.object(Config, "auto_tokens", new=11)
-    value3 = await code_context.get_code_message(prompt="", max_tokens=1e6)
+    value3 = await code_context.get_code_message(prompt="", max_tokens=1e5)
     assert value1 != value3
 
     # Regenerate if feature files change
@@ -233,7 +258,7 @@ async def test_get_code_message_cache(mocker, temp_testbed, mock_session_context
 
 @pytest.mark.asyncio
 async def test_get_code_message_include(mocker, temp_testbed, mock_session_context):
-    mocker.patch.object(Config, "auto_tokens", new=0)
+    mocker.patch.object(Config, "maximum_context", new=0)
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
@@ -264,7 +289,7 @@ async def test_get_code_message_include(mocker, temp_testbed, mock_session_conte
 
 @pytest.mark.asyncio
 @pytest.mark.clear_testbed
-async def test_auto_tokens(mocker, temp_testbed, mock_session_context):
+async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     with open("file_1.py", "w") as f:
         f.write(dedent("""\
             def func_1(x, y):
@@ -290,18 +315,19 @@ async def test_auto_tokens(mocker, temp_testbed, mock_session_context):
         mock_session_context.git_root,
     )
     code_context.set_paths(["file_1.py"], [])
+    code_context.use_llm = False
+    mock_session_context.config.auto_context = True
 
-    async def _count_auto_tokens_where(limit: int) -> int:
-        mocker.patch.object(Config, "auto_tokens", new=limit)
+    async def _count_max_tokens_where(limit: int) -> int:
         code_message = await code_context.get_code_message(prompt="", max_tokens=limit)
-        return count_tokens(code_message, "gpt-4")
+        return count_tokens(code_message, "gpt-4", full_message=True)
 
-    assert await _count_auto_tokens_where(1e6) == 85  # Code
-    assert await _count_auto_tokens_where(84) == 65  # Cmap w/ signatures
-    assert await _count_auto_tokens_where(60) == 57  # Cmap
-    assert await _count_auto_tokens_where(52) == 47  # fnames
+    assert await _count_max_tokens_where(1e6) == 89  # Code
+    assert await _count_max_tokens_where(84) == 69  # Cmap w/ signatures
+    assert await _count_max_tokens_where(65) == 61  # Cmap
+    assert await _count_max_tokens_where(52) == 51  # fnames
     # Always return include_files, regardless of max
-    assert await _count_auto_tokens_where(0) == 42  # Include_files only
+    assert await _count_max_tokens_where(0) == 46  # Include_files only
 
 
 @pytest.mark.clear_testbed
@@ -344,11 +370,13 @@ def test_get_all_features(temp_testbed, mock_session_context):
 
 @pytest.mark.asyncio
 async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_context):
-    mocker.patch.object(Config, "auto_tokens", new=7000)
+    mock_session_context.config.auto_context = True
+    mocker.patch.object(Config, "maximum_context", new=7000)
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
     )
+    code_context.use_llm = False
     code_context.set_paths([], [], ["scripts", "**/*.txt"])
     code_message = await code_context.get_code_message("", 1e6)
 

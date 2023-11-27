@@ -1,10 +1,25 @@
+from __future__ import annotations
+
 import asyncio
 import hashlib
-import json
+import time
 from importlib import resources
 from importlib.abc import Traversable
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import TYPE_CHECKING, AsyncIterator, Literal, Optional
+
+import packaging.version
+import requests
+from jinja2 import Environment, PackageLoader, select_autoescape
+from openai.types.chat import ChatCompletionChunk
+from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
+
+from mentat import __version__
+from mentat.session_context import SESSION_CONTEXT
+
+if TYPE_CHECKING:
+    from mentat.transcripts import Transcript
+
 
 mentat_dir_path = Path.home() / ".mentat"
 
@@ -37,12 +52,26 @@ async def run_subprocess_async(*args: str) -> str:
 
 
 # Useful for using functions designed to work with LLMs on prepared strings
-async def convert_string_to_asyncgen(
-    input_str: str, chunk_size: int
-) -> AsyncGenerator[dict[str, list[dict[str, dict[str, str]]]], None]:
+async def convert_string_to_asynciter(
+    input_str: str,
+    chunk_size: int,
+    role: Optional[Literal["system", "user", "assistant", "tool"]] = "assistant",
+) -> AsyncIterator[ChatCompletionChunk]:
+    timestamp = int(time.time())
     for i in range(0, len(input_str), chunk_size):
-        yield {"choices": [{"delta": {"content": input_str[i : i + chunk_size]}}]}
-    return
+        yield ChatCompletionChunk(
+            id="asynciter-id",
+            choices=[
+                Choice(
+                    delta=ChoiceDelta(content=input_str[i : i + chunk_size], role=role),
+                    finish_reason=None,
+                    index=0,
+                )
+            ],
+            created=timestamp,
+            model="asynciter-model",
+            object="chat.completion.chunk",
+        )
 
 
 def fetch_resource(resource_path: Path) -> Traversable:
@@ -52,17 +81,66 @@ def fetch_resource(resource_path: Path) -> Traversable:
     return resource
 
 
-# TODO: Should we use a templating library (like jinja?) for this?
-def create_viewer(
-    literal_messages: list[tuple[str, list[tuple[str, list[dict[str, str]] | None]]]]
-) -> Path:
-    messages_json = json.dumps(literal_messages)
-    viewer_resource = fetch_resource(conversation_viewer_path)
-    with viewer_resource.open("r") as viewer_file:
-        html = viewer_file.read()
-    html = html.replace("{{ messages }}", messages_json)
+def create_viewer(transcripts: list[Transcript]) -> Path:
+    env = Environment(
+        loader=PackageLoader("mentat", "resources/templates"),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+    template = env.get_template("conversation_viewer.jinja")
+    html = template.render(transcripts=transcripts[:500])
 
     viewer_path = mentat_dir_path / conversation_viewer_path
     with viewer_path.open("w") as viewer_file:
         viewer_file.write(html)
     return viewer_path
+
+
+def check_version():
+    ctx = SESSION_CONTEXT.get()
+
+    try:
+        response = requests.get("https://pypi.org/pypi/mentat/json")
+        data = response.json()
+        latest_version = data["info"]["version"]
+        current_version = __version__
+
+        if packaging.version.parse(current_version) < packaging.version.parse(
+            latest_version
+        ):
+            ctx.stream.send(
+                f"Version v{latest_version} of Mentat is available. If pip was used to"
+                " install Mentat, upgrade with:",
+                color="light_red",
+            )
+            ctx.stream.send("pip install --upgrade mentat", color="yellow")
+    except Exception as err:
+        ctx.stream.send(f"Error checking for most recent version: {err}", color="red")
+
+
+async def add_newline(
+    iterator: AsyncIterator[ChatCompletionChunk],
+    role: Optional[Literal["system", "user", "assistant", "tool"]] = "assistant",
+) -> AsyncIterator[ChatCompletionChunk]:
+    """
+    The model often doesn't end it's responses in a newline;
+    adding a newline makes it significantly easier for us to parse.
+    """
+    last_chunk = None
+    async for chunk in iterator:
+        last_chunk = chunk
+        yield chunk
+    if last_chunk is not None:
+        yield ChatCompletionChunk(
+            id=last_chunk.id,
+            choices=[
+                Choice(
+                    delta=ChoiceDelta(content="\n", role=role),
+                    finish_reason=last_chunk.choices[0].finish_reason,
+                    index=0,
+                )
+            ],
+            created=last_chunk.created,
+            model=last_chunk.model,
+            object=last_chunk.object,
+            system_fingerprint=last_chunk.system_fingerprint,
+        )

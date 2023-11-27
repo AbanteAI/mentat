@@ -3,14 +3,16 @@ import json
 import logging
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict
+from typing import AsyncIterator, Dict
 
 from jsonschema import ValidationError, validate
+from openai.types.chat import ChatCompletionChunk
+from openai.types.chat.completion_create_params import ResponseFormat
 from termcolor import colored
 from typing_extensions import override
 
 from mentat.errors import ModelError
-from mentat.llm_api import chunk_to_lines
+from mentat.llm_api_handler import chunk_to_lines
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import ParsedLLMResponse, Parser
 from mentat.prompts.prompts import read_prompt
@@ -85,8 +87,8 @@ class JsonParser(Parser):
         return read_prompt(json_parser_prompt_filename)
 
     @override
-    def api_kwargs(self) -> dict[str, Any]:
-        return {"response_format": {"type": "json_object"}}
+    def response_format(self) -> ResponseFormat:
+        return ResponseFormat(type="json_object")
 
     @override
     def line_number_starting_index(self) -> int:
@@ -94,8 +96,7 @@ class JsonParser(Parser):
 
     @override
     async def stream_and_parse_llm_response(
-        self,
-        response: AsyncGenerator[Any, None],
+        self, response: AsyncIterator[ChatCompletionChunk]
     ) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream

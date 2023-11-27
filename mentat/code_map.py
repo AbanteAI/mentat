@@ -1,19 +1,15 @@
 import json
+import logging
 import subprocess
 import tempfile
 from functools import cache
 from pathlib import Path
 from typing import Any
 
-from mentat.session_context import SESSION_CONTEXT
+CTAG = tuple[str | None, str, str, str | None, int]
 
 
-def get_ctags(
-    abs_file_path: Path, exclude_signatures: bool = False
-) -> set[tuple[str | int | None, ...]]:
-    session_context = SESSION_CONTEXT.get()
-    stream = session_context.stream
-
+def get_ctags(abs_file_path: Path, exclude_signatures: bool = False) -> set[CTAG]:
     # Create ctags from executable in a subprocess
     ctags_cmd_args = [
         "--extras=-F",
@@ -33,29 +29,25 @@ def get_ctags(
     output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
-    ctags = set[tuple[str | int | None, ...]]()
+    ctags = set[CTAG]()
     for output_line in output_lines:
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            stream.send(
-                f"Error parsing ctags output: {err}\n{repr(output_line)}",
-                color="yellow",
-            )
+            logging.error(f"Error parsing ctags output: {err}\n{repr(output_line)}")
             continue
 
-        scope = tag.get("scope")
-        kind = tag.get("kind")
-        name = tag.get("name")
-        signature = tag.get("signature")
-        line_number = tag.get("line")
+        scope: str | None = tag.get("scope")
+        kind: str = tag.get("kind")
+        name: str = tag.get("name")
+        signature: str | None = tag.get("signature")
+        line_number: int = tag.get("line")
 
         ctags.add((scope, kind, name, signature, line_number))
-
     return ctags
 
 
-def _make_ctags_human_readable(ctags: set[tuple[Any, ...]]) -> list[str]:
+def _make_ctags_human_readable(ctags: set[CTAG]) -> list[str]:
     cleaned_tags = set[tuple[str, ...]]()
     for tag in ctags:
         (scope, kind, name, signature, _) = tag  # Line number currently unused

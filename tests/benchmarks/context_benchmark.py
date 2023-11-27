@@ -110,8 +110,7 @@ async def select_features_for_benchmark(
         model_context_size(model) - mentat_prompt_tokens - expected_edits_tokens
     )
     # Fill-in available context
-    config.auto_tokens = 1e6
-    config.use_embeddings = True
+    config.auto_context = True
     code_context.use_llm = use_llm
     await code_context.get_code_message(
         benchmark["prompt"], max_context_tokens, expected_edits

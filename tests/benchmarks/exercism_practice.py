@@ -7,7 +7,7 @@ from multiprocessing import Pool
 
 import pytest
 import tqdm
-from openai import InvalidRequestError
+from openai import BadRequestError
 
 from mentat.config import Config
 from mentat.llm_api import call_llm_api, setup_api_key
@@ -90,7 +90,7 @@ async def failure_analysis(exercise_runner, language):
         async for chunk in await call_llm_api(messages, model):
             content = chunk["choices"][0]["delta"].get("content", "")
             response += content
-    except InvalidRequestError:
+    except BadRequestError:
         response = "Unable to analyze test case\nreason: too many tokens to analyze"
 
     try:
@@ -108,10 +108,12 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
     client = PythonClient(
         paths=exercise_runner.include_files(),
         exclude_paths=exercise_runner.exclude_files(),
-        config=Config(no_code_map=True),
+        config=Config(),
     )
     await client.startup()
 
+    # These prompts are copied from Aider: https://aider.chat/docs/benchmarks.html to
+    # allow for direct comparison.
     prompt_1 = (
         f"Use the instructions in {exercise_runner.docs()} to modify"
         + f" {exercise_runner.file}. Keep and implement the existing"
@@ -124,7 +126,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
     )
 
     iterations = 0
-    while iterations < max_iterations and not client.exited.is_set():
+    while iterations < max_iterations and not client.stopped.is_set():
         if exercise_runner.passed():
             break
         message = (
@@ -138,8 +140,8 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         exercise_runner.run_test()
         iterations += 1
 
-    had_error = client.exited.is_set()
-    await client.stop()
+    had_error = client.stopped.is_set()
+    await client.shutdown()
     passed = exercise_runner.passed()
     result = {
         "iterations": iterations,

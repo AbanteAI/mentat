@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from textwrap import dedent
 from typing import Optional
 
 from mentat.code_feature import (
@@ -24,7 +23,7 @@ from mentat.include_files import (
     print_invalid_path,
     print_path_tree,
 )
-from mentat.llm_api import count_tokens
+from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import sha256
@@ -34,7 +33,6 @@ class CodeContext:
     include_files: dict[Path, list[CodeFeature]]
     ignore_files: set[Path]
     diff_context: DiffContext
-    code_map: bool = True
     features: list[CodeFeature] = []
     diff: Optional[str] = None
     pr_diff: Optional[str] = None
@@ -53,6 +51,7 @@ class CodeContext:
         # or the CodeFeatures (value) and their intervals. Redundant.
         self.include_files = {}
         self.ignore_files = set()
+        self.ctags_disabled = check_ctags_disabled()
 
     def set_paths(
         self,
@@ -66,27 +65,6 @@ class CodeContext:
         for invalid_path in invalid_paths:
             print_invalid_path(invalid_path)
         self.ignore_files = get_ignore_files(ignore_paths)
-
-    def code_map_enabled(self):
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        stream = session_context.stream
-
-        if config.no_code_map:
-            return False
-        else:
-            disabled_reason = check_ctags_disabled()
-            if disabled_reason:
-                ctags_disabled_message = f"""
-                    There was an error with your universal ctags installation, disabling CodeMap.
-                    Reason: {disabled_reason}
-                """
-                ctags_disabled_message = dedent(ctags_disabled_message)
-                stream.send(ctags_disabled_message, color="yellow")
-                config.no_code_map = True
-                return False
-            else:
-                return True
 
     def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
@@ -112,12 +90,16 @@ class CodeContext:
             )
         else:
             stream.send(f"{prefix}Included files: None", color="yellow")
-        auto = config.auto_tokens
-        if auto != 0:
-            stream.send(f"{prefix}Auto-token limit: {auto}")
-            stream.send(
-                f"{prefix}CodeMaps: {'Enabled' if self.code_map else 'Disabled'}"
-            )
+        if config.auto_context:
+            stream.send(f"{prefix}Auto-Context: Enabled", color="green")
+            stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
+            if self.ctags_disabled:
+                stream.send(
+                    f"{prefix}Code Maps Disbled: {self.ctags_disabled}",
+                    color="yellow",
+                )
+        else:
+            stream.send(f"{prefix}Auto-Context: Disabled")
 
     def display_features(self):
         """Display a summary of all active features"""
@@ -137,7 +119,9 @@ class CodeContext:
     _code_message: str | None = None
     _code_message_checksum: str | None = None
 
-    def _get_code_message_checksum(self, max_tokens: Optional[int] = None) -> str:
+    def _get_code_message_checksum(
+        self, prompt: str = "", max_tokens: Optional[int] = None
+    ) -> str:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         git_root = session_context.git_root
@@ -152,9 +136,9 @@ class CodeContext:
             ]
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
-            "code_map": self.code_map_enabled(),
-            "auto_tokens": config.auto_tokens,
-            "use_embeddings": config.use_embeddings,
+            "prompt": prompt,
+            "code_map_disabled": self.ctags_disabled,
+            "auto_context": config.auto_context,
             "use_llm": self.use_llm,
             "diff": self.diff,
             "pr_diff": self.pr_diff,
@@ -169,16 +153,19 @@ class CodeContext:
         prompt: str,
         max_tokens: int,
         expected_edits: Optional[list[str]] = None,  # for training/benchmarking
+        loading_multiplier: float = 0.0,
     ) -> str:
-        code_message_checksum = self._get_code_message_checksum(max_tokens)
+        code_message_checksum = self._get_code_message_checksum(prompt, max_tokens)
         if (
             self._code_message is None
             or code_message_checksum != self._code_message_checksum
         ):
             self._code_message = await self._get_code_message(
-                prompt, max_tokens, expected_edits
+                prompt, max_tokens, expected_edits, loading_multiplier
             )
-            self._code_message_checksum = self._get_code_message_checksum(max_tokens)
+            self._code_message_checksum = self._get_code_message_checksum(
+                prompt, max_tokens
+            )
         return self._code_message
 
     use_llm: bool = False
@@ -188,6 +175,7 @@ class CodeContext:
         prompt: str,
         max_tokens: int,
         expected_edits: Optional[list[str]] = None,
+        loading_multiplier: float = 0.0,
     ) -> str:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
@@ -204,25 +192,23 @@ class CodeContext:
                 "",
             ]
         code_message += ["Code Files:\n"]
-        meta_tokens = count_tokens("\n".join(code_message), model)
+        meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
+        remaining_tokens = max_tokens - meta_tokens
+        auto_tokens = min(remaining_tokens, config.auto_tokens)
 
-        auto_tokens = config.auto_tokens
-        remaining_tokens = max(0, min(auto_tokens, max_tokens - meta_tokens))
-
-        if remaining_tokens == 0:
+        if not config.auto_context or auto_tokens <= 0:
             self.features = self._get_include_features()
         else:
             self.features = self._get_all_features(
                 CodeMessageLevel.INTERVAL,
             )
             feature_filter = DefaultFilter(
-                remaining_tokens,
-                model,
-                self.code_map_enabled(),
-                config.use_embeddings,
+                auto_tokens,
+                not (bool(self.ctags_disabled)),
                 self.use_llm,
                 prompt,
                 expected_edits,
+                loading_multiplier=loading_multiplier,
             )
             self.features = await feature_filter.filter(self.features)
 
@@ -285,7 +271,7 @@ class CodeContext:
                     diff=diff_target,
                     user_included=user_included,
                 )
-                if not self.code_map_enabled():
+                if self.ctags_disabled:
                     all_features.append(full_feature)
                 else:
                     _split_features = split_file_into_intervals(
@@ -330,16 +316,6 @@ class CodeContext:
         level: CodeMessageLevel = CodeMessageLevel.INTERVAL,
     ) -> list[tuple[CodeFeature, float]]:
         """Return the top n features that are most similar to the query."""
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        stream = session_context.stream
-
-        if not config.use_embeddings:
-            stream.send(
-                "Embeddings are disabled. Enable with `/config use_embeddings true`",
-                color="light_red",
-            )
-            return []
 
         all_features = self._get_all_features(
             level,
