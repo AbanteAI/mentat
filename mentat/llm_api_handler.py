@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import base64
+import io
 import os
 import sys
-from typing import Literal, Optional, overload
+from typing import List, Literal, Optional, cast, overload
 
 import sentry_sdk
 import tiktoken
@@ -11,8 +13,10 @@ from openai import AsyncOpenAI, AsyncStream, AuthenticationError
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
+    ChatCompletionContentPartParam,
     ChatCompletionMessageParam,
 )
+from PIL import Image
 
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
@@ -71,9 +75,26 @@ def conversation_tokens(messages: list[ChatCompletionMessageParam], model: str):
         # every message follows <im_start>{role/name}\n{content}<im_end>\n
         num_tokens += 4
         for key, value in message.items():
-            if not isinstance(value, str):
-                continue
-            num_tokens += len(encoding.encode(value))
+            if isinstance(value, list) and key == "content":
+                value = cast(List[ChatCompletionContentPartParam], value)
+                for entry in value:
+                    if entry["type"] == "text":
+                        num_tokens += len(encoding.encode(entry["text"]))
+                    if entry["type"] == "image_url":
+                        image_base64: str = entry["image_url"]["url"].split(",")[1]
+                        image_bytes: bytes = base64.b64decode(image_base64)
+                        image = Image.open(io.BytesIO(image_bytes))
+                        size = image.size
+                        # As described here: https://platform.openai.com/docs/guides/vision/calculating-costs
+                        scale = min(1, 2048 / max(size))
+                        size = (int(size[0] * scale), int(size[1] * scale))
+                        scale = min(1, 768 / min(size))
+                        size = (int(size[0] * scale), int(size[1] * scale))
+                        num_tokens += 85 + 170 * ((size[0] + 511) // 512) * (
+                            (size[1] + 511) // 512
+                        )
+            elif isinstance(value, str):
+                num_tokens += len(encoding.encode(value))
             if key == "name":  # if there's a name, the role is omitted
                 num_tokens -= 1  # role is always required and always 1 token
     num_tokens += 2  # every reply is primed with <im_start>assistant
@@ -173,6 +194,7 @@ class LlmApiHandler:
                 messages=messages,
                 temperature=config.temperature,
                 stream=stream,
+                max_tokens=4096,  # gpt-4-vision-preview returns a max of 30 by default.
             )
 
         return response

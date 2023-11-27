@@ -8,6 +8,7 @@ from mentat.code_feature import CodeFeature
 from mentat.commands import Command, ContextCommand, HelpCommand, InvalidCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
+from mentat.vision.vision_manager import ScreenshotException
 
 
 def test_invalid_command():
@@ -236,3 +237,50 @@ async def test_config_command(mock_call_llm_api):
     assert config.model == "test"
     await command.apply("model", "test", "lol")
     assert stream.messages[-1].data == "Too many arguments"
+
+
+@pytest.mark.asyncio
+async def test_screenshot_command(mocker):
+    # Mock the session context and its attributes
+    session_context = SESSION_CONTEXT.get()
+    mock_vision_manager = mocker.MagicMock()
+    session_context.vision_manager = mock_vision_manager
+    config = session_context.config
+    stream = session_context.stream
+    conversation = session_context.conversation
+
+    assert config.model != "gpt-4-vision-preview"
+
+    mock_vision_manager.screenshot.return_value = "fake_image_data"
+
+    screenshot_command = Command.create_command("screenshot")
+    await screenshot_command.apply("fake_path")
+
+    mock_vision_manager.screenshot.assert_called_once_with("fake_path")
+    assert config.model == "gpt-4-vision-preview"
+    assert stream.messages[-1].data == "Screenshot taken for: fake_path."
+    assert conversation._messages[-1] == {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "A screenshot of fake_path"},
+            {"type": "image_url", "image_url": {"url": "fake_image_data"}},
+        ],
+    }
+
+    # Test the exception path where no browser is open
+    mock_vision_manager.screenshot.side_effect = ScreenshotException
+    await screenshot_command.apply("fake_path")
+    assert (
+        stream.messages[-1].data
+        == 'No browser open. Run "/screenshot path" with a url or local file'
+    )
+
+    # Test non-gpt models aren't changed
+    config.model = "test"
+    await screenshot_command.apply("fake_path")
+    assert config.model == "test"
+
+    # Test other models containing vision aren't changed
+    config.model = "gpt-vision"
+    await screenshot_command.apply("fake_path")
+    assert config.model == "gpt-vision"

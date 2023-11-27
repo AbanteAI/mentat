@@ -26,6 +26,7 @@ from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_input import collect_user_input
 from mentat.session_stream import SessionStream
 from mentat.utils import check_version, mentat_dir_path
+from mentat.vision.vision_manager import VisionManager
 
 
 class Session:
@@ -72,6 +73,8 @@ class Session:
 
         conversation = Conversation()
 
+        vision_manager = VisionManager()
+
         session_context = SessionContext(
             cwd,
             stream,
@@ -82,6 +85,7 @@ class Session:
             code_context,
             code_file_manager,
             conversation,
+            vision_manager,
         )
         SESSION_CONTEXT.set(session_context)
 

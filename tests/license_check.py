@@ -20,6 +20,10 @@ accepted_licenses = [
     "Apache 2.0",
     "BSD 3-Clause",
     "ISC License (ISCL)",
+    "Historical Permission Notice and Disclaimer (HPND)",
+    "BSD",
+    "GNU General Public License (GPL)",
+    "Public Domain",
 ]
 
 
