@@ -128,7 +128,9 @@ async def get_feature_similarity_scores(
     num_prompt_tokens = 0
     if not database.exists(prompt_checksum):
         items_to_embed[prompt_checksum] = prompt
-        items_to_embed_tokens[prompt_checksum] = count_tokens(prompt, embedding_model)
+        items_to_embed_tokens[prompt_checksum] = count_tokens(
+            prompt, embedding_model, False
+        )
     for feature, checksum, token in zip(features, checksums, tokens):
         if token > max_model_tokens:
             continue

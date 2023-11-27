@@ -15,7 +15,7 @@ from openai.types.chat import (
 )
 
 from mentat.errors import MentatError
-from mentat.llm_api_handler import conversation_tokens, count_tokens, model_context_size
+from mentat.llm_api_handler import count_tokens, model_context_size, prompt_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
@@ -73,7 +73,7 @@ class Conversation:
                 content=await code_context.get_code_message("", max_tokens=0),
             )
         ]
-        tokens = conversation_tokens(
+        tokens = prompt_tokens(
             messages,
             config.model,
         )
@@ -185,7 +185,7 @@ class Conversation:
 
         start_time = default_timer()
 
-        num_prompt_tokens = conversation_tokens(messages, config.model)
+        num_prompt_tokens = prompt_tokens(messages, config.model)
         token_buffer = 500
         context_size = model_context_size(config.model)
         if context_size:
@@ -233,7 +233,7 @@ class Conversation:
         messages_snapshot = self.get_messages()
 
         # Rebuild code context with active code and available tokens
-        tokens = conversation_tokens(messages_snapshot, config.model)
+        tokens = prompt_tokens(messages_snapshot, config.model)
         response_buffer = 1000
 
         loading_multiplier = 1.0 if config.auto_context else 0.0
@@ -272,7 +272,7 @@ class Conversation:
         cost_tracker.display_api_call_stats(
             num_prompt_tokens,
             count_tokens(
-                parsed_llm_response.full_response, config.model, full_message=True
+                parsed_llm_response.full_response, config.model, full_message=False
             ),
             config.model,
             time_elapsed,
