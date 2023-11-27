@@ -13,7 +13,7 @@ from mentat.include_files import print_invalid_path
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import Transcript, get_transcript_logs
 from mentat.utils import create_viewer
-from mentat.vision.vision_manager import ScreenShotException
+from mentat.vision.vision_manager import ScreenshotException
 
 
 class Command(ABC):
@@ -399,6 +399,7 @@ class ScreenshotCommand(Command, command_name="screenshot"):
         vision_manager = session_context.vision_manager
         stream = session_context.stream
         config = session_context.config
+        conversation = session_context.conversation
         model = config.model
 
         if "gpt" in model:
@@ -418,7 +419,6 @@ class ScreenshotCommand(Command, command_name="screenshot"):
         try:
             image = vision_manager.screenshot(*args)
 
-            conversation = session_context.conversation
             if len(args) == 0:
                 path = "the current screen"
             else:
@@ -428,7 +428,7 @@ class ScreenshotCommand(Command, command_name="screenshot"):
                 f"Screenshot taken for: {path}.",
                 color="green",
             )
-        except ScreenShotException:
+        except ScreenshotException:
             stream.send(
                 'No browser open. Run "/screenshot path" with a url or local file',
                 color="red",

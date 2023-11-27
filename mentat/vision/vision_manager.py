@@ -8,7 +8,7 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
 
-class ScreenShotException(Exception):
+class ScreenshotException(Exception):
     """
     Thrown when a screenshot is attempted before the browser is opened.
     """
@@ -38,7 +38,7 @@ class VisionManager:
             self.open(path)
         else:
             if self.driver is None:
-                raise ScreenShotException("No browser open")
+                raise ScreenshotException("No browser open")
 
         screenshot_data = self.driver.get_screenshot_as_png()  # type: ignore
 
