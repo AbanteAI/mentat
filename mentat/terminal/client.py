@@ -135,7 +135,9 @@ class TerminalClient:
 
         mentat_completer = MentatCompleter()
         self._prompt_session = MentatPromptSession(
-            completer=mentat_completer, style=Style(self.config.input_style)
+            completer=mentat_completer,
+            style=Style(self.config.input_style),
+            enable_suspend=True,
         )
 
         plain_bindings = KeyBindings()
@@ -153,6 +155,7 @@ class TerminalClient:
             style=Style(self.config.input_style),
             completer=None,
             key_bindings=plain_bindings,
+            enable_suspend=True,
         )
 
         self._create_task(mentat_completer.refresh_completions())
