@@ -126,22 +126,23 @@ def model_context_size(model: str) -> Optional[int]:
 
 def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
     """Returns (input, output) cost per 1000 tokens in USD"""
-    if model == "gpt-4-1106-preview":
-        return (0.01, 0.03)
-    elif "gpt-4" in model:
-        if "32k" in model:
-            return (0.06, 0.12)
-        else:
-            return (0.03, 0.06)
-    elif "gpt-3.5" in model:
-        if "16k" in model:
-            return (0.003, 0.004)
-        else:
-            return (0.0015, 0.002)
-    elif "ada-002" in model:
-        return (0.0001, 0)
-    else:
-        return None
+    prices = {
+        "gpt-4-1106-preview": (0.01, 0.03),
+        "gpt-4-vision-preview": (0.01, 0.03),
+        "gpt-4": (0.03, 0.06),
+        "gpt-4-32k": (0.06, 0.12),
+        "gpt-4-0613": (0.03, 0.06),
+        "gpt-4-32k-0613": (0.06, 0.12),
+        "gpt-4-0314": (0.03, 0.06),
+        "gpt-4-32k-0314": (0.06, 0.12),
+        "gpt-3.5-turbo-1106": (0.001, 0.002),
+        "gpt-3.5-turbo": (0.0015, 0.002),
+        "gpt-3.5-turbo-0613": (0.0015, 0.002),
+        "gpt-3.5-turbo-16k-0613": (0.003, 0.004),
+        "gpt-3.5-turbo-0301": (0.0015, 0.002),
+        "text-embedding-ada-002": (0.0001, 0),
+    }
+    return prices.get(model, None)
 
 
 class LlmApiHandler:
