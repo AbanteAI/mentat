@@ -50,6 +50,12 @@ def pytest_addoption(parser):
         help="The maximum number of exercises to run",
     )
     parser.addoption(
+        "--retries",
+        action="store",
+        default="1",
+        help="Number of times to retry a benchmark",
+    )
+    parser.addoption(
         "--max_iterations",
         action="store",
         default="1",
