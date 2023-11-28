@@ -65,6 +65,9 @@ class MentatCompleter(Completer):
         self.syntax_completions[file_path] = SyntaxCompletion(words=filtered_tokens)
 
     async def refresh_completions(self):
+        # TODO: The client shouldn't really be using SESSION_CONTEXT;
+        # clients other than the TerminalClient won't be able to;
+        # should we send this information via the stream?
         session_context = SESSION_CONTEXT.get()
         code_context = session_context.code_context
         git_root = session_context.git_root

@@ -46,7 +46,7 @@ class Session:
         pr_diff: Optional[str] = None,
         config: Config = Config(),
     ):
-        # TODO: All errors should be thrown in _main, and should never be thrown here
+        # All errors thrown here need to be caught here
         self.stopped = False
 
         if not mentat_dir_path.exists():
@@ -57,6 +57,7 @@ class Session:
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
+        # TODO: An error is thrown in this function; once git root is removed, the error will be removed
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
 
         llm_api_handler = LlmApiHandler()
