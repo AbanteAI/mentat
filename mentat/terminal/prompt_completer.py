@@ -14,7 +14,7 @@ from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
 from pygments.util import ClassNotFound
 
-from mentat.commands import Command
+from mentat.command.command import Command
 from mentat.session_context import SESSION_CONTEXT
 
 
