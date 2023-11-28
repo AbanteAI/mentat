@@ -198,14 +198,25 @@ class LlmApiHandler:
 
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
-            response = await self.async_client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=config.temperature,
-                stream=stream,
-                max_tokens=4096,  # gpt-4-vision-preview returns a max of 30 by default.
-                response_format=response_format,
-            )
+            # OpenAI's API is bugged; when gpt-4-vision-preview is used, including the response format
+            # at all returns a 400 error. Additionally, gpt-4-vision-preview has a max response of 30 tokens by default.
+            # Until this is fixed, we have to use this workaround.
+            if model == "gpt-4-vision-preview":
+                response = await self.async_client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=config.temperature,
+                    stream=stream,
+                    max_tokens=4096,
+                )
+            else:
+                response = await self.async_client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=config.temperature,
+                    stream=stream,
+                    response_format=response_format,
+                )
 
         return response
 
