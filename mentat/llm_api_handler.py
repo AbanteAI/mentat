@@ -104,24 +104,24 @@ def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str):
     return num_tokens
 
 
-# TODO: These two functions should be a dictionary
 def model_context_size(model: str) -> Optional[int]:
-    if model == "gpt-4-1106-preview":
-        return 128000
-    elif "gpt-4" in model:
-        if "32k" in model:
-            return 32768
-        else:
-            return 8192
-    elif "gpt-3.5" in model:
-        if "16k" in model:
-            return 16385
-        else:
-            return 4097
-    elif "ada-002" in model:
-        return 8191
-    else:
-        return None
+    context_sizes = {
+        "gpt-4-1106-preview": 128000,
+        "gpt-4-vision-preview": 128000,
+        "gpt-4": 8192,
+        "gpt-4-32k": 32768,
+        "gpt-4-0613": 8192,
+        "gpt-4-32k-0613": 32768,
+        "gpt-4-0314": 8192,
+        "gpt-4-32k-0314": 32768,
+        "gpt-3.5-turbo-1106": 16385,
+        "gpt-3.5-turbo": 16385,
+        "gpt-3.5-turbo-0613": 4096,
+        "gpt-3.5-turbo-16k-0613": 16385,
+        "gpt-3.5-turbo-0301": 4096,
+        "text-embedding-ada-002": 8191,
+    }
+    return context_sizes.get(model, None)
 
 
 def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
