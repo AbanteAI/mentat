@@ -84,9 +84,7 @@ def split_file_into_intervals(
 class CodeMessageLevel(Enum):
     CODE = ("code", 1, "Full File")
     INTERVAL = ("interval", 2, "Specific range")
-    CMAP_FULL = ("cmap_full", 3, "Function/Class names and signatures")
-    CMAP = ("cmap", 4, "Function/Class names")
-    FILE_NAME = ("file_name", 5, "Relative path/filename")
+    FILE_NAME = ("file_name", 3, "Relative path/filename")
 
     def __init__(self, key: str, rank: int, description: str):
         self.key = key
@@ -176,12 +174,6 @@ class CodeFeature:
                         )
                     else:
                         code_message.append(f"{line}")
-        elif self.level == CodeMessageLevel.CMAP_FULL:
-            cmap = get_code_map(git_root.joinpath(self.path))
-            code_message += cmap
-        elif self.level == CodeMessageLevel.CMAP:
-            cmap = get_code_map(git_root.joinpath(self.path), exclude_signatures=True)
-            code_message += cmap
         code_message.append("")
 
         if self.diff is not None:

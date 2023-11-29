@@ -25,11 +25,6 @@ class DefaultFilter(FeatureFilter):
         self.use_llm = use_llm
         self.user_prompt = user_prompt or ""
         self.levels = [CodeMessageLevel.FILE_NAME]
-        if self.code_map:
-            self.levels = [
-                CodeMessageLevel.CMAP_FULL,
-                CodeMessageLevel.CMAP,
-            ] + self.levels
         self.expected_edits = expected_edits
         self.loading_multiplier = loading_multiplier
 
