@@ -2,6 +2,7 @@ import fnmatch
 import glob
 import os
 import re
+from enum import Enum
 from pathlib import Path
 from typing import Any, Iterable, List, Set
 
@@ -22,6 +23,82 @@ def is_file_text_encoded(abs_path: Path):
         return True
     except UnicodeDecodeError:
         return False
+
+
+class PathType(Enum):
+    FILE = "file"
+    FILE_INTERVAL = "file_interval"
+    DIRECTORY = "directory"
+    GLOB = "glob"
+
+
+def get_path_type(path: Path) -> PathType:
+    """Get the type of path.
+
+    Args:
+        `path` - An absolute path
+
+    Return:
+        A PathType enum
+    """
+    if not path.is_absolute():
+        raise PathValidationError(f"Path {path} is not absolute")
+
+    if path.is_file():
+        return PathType.FILE
+    elif len(str(path).rsplit(":", 1)) > 1:
+        return PathType.FILE_INTERVAL
+    elif path.is_dir():
+        return PathType.DIRECTORY
+    elif re.search(r"[\*\?\[\]]", str(path)):
+        return PathType.GLOB
+    else:
+        raise PathValidationError(f"Unknown path type {path}")
+
+
+def validate_file_path(path: Path, check_for_text: bool = True):
+    if not path.is_absolute():
+        raise PathValidationError(f"File {path} is not absolute")
+    if not path.exists():
+        raise PathValidationError(f"File {path} does not exist")
+    if check_for_text and not is_file_text_encoded(path):
+        raise PathValidationError(f"Unable to read file {path}")
+
+
+def validate_file_interval_path(path: Path, check_for_text: bool = True):
+    _interval_path, interval_str = str(path).rsplit(":", 1)
+    interval_path = Path(_interval_path)
+    if not interval_path.is_absolute():
+        raise PathValidationError(f"File interval {path} is not absolute")
+    if not interval_path.exists():
+        raise PathValidationError(f"File {interval_path} does not exist")
+    if check_for_text and not is_file_text_encoded(interval_path):
+        raise PathValidationError(f"Unable to read file {interval_path}")
+
+    # check that there is at least one interval
+    intervals = parse_intervals(interval_str)
+    if len(intervals) == 0:
+        raise PathValidationError(f"Unable to parse intervals for path {interval_path}")
+
+    # check that each interval exists
+    if check_for_text:
+        with open(interval_path, "r") as f:
+            line_count = len(f.readlines())
+        for interval in intervals:
+            if interval.start < 0 or interval.end > line_count:
+                raise PathValidationError(
+                    f"Interval {interval.start}-{interval.end} is out of bounds for"
+                    f" file {interval_path}"
+                )
+
+
+def validate_glob_path(path: Path):
+    if not path.is_absolute():
+        raise PathValidationError(f"Glob path {path} is not absolute")
+    try:
+        glob.iglob(str(path)).__next__()
+    except StopIteration:
+        raise PathValidationError(f"Unable to validate glob path {path}")
 
 
 def validate_and_format_path(
@@ -47,37 +124,16 @@ def validate_and_format_path(
     # Resolve path (remove any '..')
     abs_path = abs_path.resolve()
 
-    # Validate different path types
-    # File
-    if abs_path.is_file():
-        if not abs_path.exists():
-            raise PathValidationError(f"File {abs_path} does not exist")
-        if check_for_text and not is_file_text_encoded(abs_path):
-            raise PathValidationError(f"Unable to read file {abs_path}")
-    # File interval
-    elif len(str(abs_path).rsplit(":", 1)) > 1:
-        _interval_path, interval_str = str(abs_path).rsplit(":", 1)
-        interval_path = Path(_interval_path)
-        if not interval_path.exists():
-            raise PathValidationError(f"File {interval_path} does not exist")
-        if check_for_text and not is_file_text_encoded(interval_path):
-            raise PathValidationError(f"Unable to read file {interval_path}")
-        intervals = parse_intervals(interval_str)
-        if len(intervals) == 0:
-            raise PathValidationError(
-                f"Unable to parse intervals for path {interval_path}"
-            )
-    # Directory
-    elif abs_path.is_dir():
-        pass
-    # Glob pattern
-    elif re.search(r"[\*\?\[\]]", str(path)):
-        try:
-            glob.iglob(str(abs_path)).__next__()
-        except StopIteration:
-            raise PathValidationError(f"Unable to validate glob path {path}")
-    else:
-        raise PathValidationError(f"Unable to validate path {path}")
+    # Validate path
+    match get_path_type(abs_path):
+        case PathType.FILE:
+            validate_file_path(abs_path, check_for_text)
+        case PathType.FILE_INTERVAL:
+            validate_file_interval_path(abs_path, check_for_text)
+        case PathType.DIRECTORY:
+            pass
+        case PathType.GLOB:
+            validate_glob_path(abs_path)
 
     return abs_path
 

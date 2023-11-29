@@ -17,8 +17,10 @@ from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
 from mentat.git_handler import get_paths_with_git_diffs
 from mentat.include_files import (
+    PathType,
     build_path_tree,
     get_code_features_for_path,
+    get_path_type,
     get_paths_for_directory,
     is_file_text_encoded,
     match_path_with_patterns,
@@ -289,9 +291,11 @@ class CodeContext:
     ) -> Set[Path]:
         """Add code to the context
 
+        Paths that are already in the context and invalid paths are ignored.
+
         The following are behaviors for each `path` type:
 
-        - File: the file is added to the context
+        - File: the file is added to the context.
         - File interval: the file is added to the context, and the interval is added to the file
         - Directory: all files in the directory are recursively added to the context
         - Glob pattern: all files that match the glob pattern are added to the context
@@ -300,7 +304,7 @@ class CodeContext:
             `path`: can be a relative or absolute file path, file interval path, directory, or glob pattern.
 
         Return:
-            A set of paths that have been successfully added to the context
+            A set of paths that have been successfully included in the context
         """
         session_context = SESSION_CONTEXT.get()
 
@@ -322,21 +326,92 @@ class CodeContext:
             return included_paths
 
         for code_feature in code_features:
-            if code_feature.path in self.include_files:
+            # Path in included files
+            if code_feature.path not in self.include_files:
+                self.include_files[code_feature.path] = [code_feature]
+                included_paths.add(Path(code_feature.ref()))
+            # Path not in included files
+            else:
                 code_feature_not_included = True
+                # NOTE: should have CodeFeatures in a hashtable
                 for included_code_feature in self.include_files[code_feature.path]:
                     if included_code_feature.interval == code_feature.interval:
                         code_feature_not_included = False
                         break
                 if code_feature_not_included:
                     self.include_files[code_feature.path].append(code_feature)
-            else:
-                self.include_files[code_feature.path] = [code_feature]
+                    included_paths.add(Path(code_feature.ref()))
 
         return included_paths
 
+    def _exclude_file(self, path: Path) -> Path | None:
+        session_context = SESSION_CONTEXT.get()
+        if path in self.include_files:
+            del self.include_files[path]
+            return path
+        else:
+            session_context.stream.send(
+                f"Path {path} not in context", color="light_red"
+            )
+
+    def _exclude_file_interval(self, path: Path) -> Set[Path]:
+        session_context = SESSION_CONTEXT.get()
+
+        excluded_paths: Set[Path] = set()
+
+        interval_path, interval_str = str(path).rsplit(":", 1)
+        interval_path = Path(interval_path)
+        if interval_path not in self.include_files:
+            session_context.stream.send(
+                f"Path {interval_path} not in context", color="light_red"
+            )
+            return excluded_paths
+
+        intervals = parse_intervals(interval_str)
+        included_code_features: List[CodeFeature] = []
+        for code_feature in self.include_files[interval_path]:
+            if code_feature.interval not in intervals:
+                included_code_features.append(code_feature)
+            else:
+                excluded_paths.add(Path(code_feature.ref()))
+
+        if len(included_code_features) == 0:
+            del self.include_files[interval_path]
+        else:
+            self.include_files[interval_path] = included_code_features
+
+        return excluded_paths
+
+    def _exclude_directory(self, path: Path) -> Set[Path]:
+        excluded_paths: Set[Path] = set()
+
+        paths_to_exclude: Set[Path] = set()
+        for included_path in self.include_files:
+            if path in included_path.parents:
+                paths_to_exclude.add(included_path)
+        for excluded_path in paths_to_exclude:
+            del self.include_files[excluded_path]
+            excluded_paths.add(excluded_path)
+
+        return excluded_paths
+
+    def _exclude_glob(self, path: Path) -> Set[Path]:
+        excluded_paths: Set[Path] = set()
+
+        paths_to_exclude: Set[Path] = set()
+        for included_path in self.include_files:
+            if match_path_with_patterns(included_path, set(str(path))):
+                paths_to_exclude.add(included_path)
+        for excluded_path in paths_to_exclude:
+            del self.include_files[excluded_path]
+            excluded_paths.add(excluded_path)
+
+        return excluded_paths
+
     def exclude(self, path: Path | str) -> Set[Path]:
         """Remove code from the context
+
+        Paths that are not in the context and invalid paths are ignored.
 
         The following are behaviors for each `path` type:
 
@@ -350,61 +425,29 @@ class CodeContext:
             `path`: can be a relative or absolute file path, file interval path, directory, or glob pattern.
 
         Return:
-            A set of paths that have been successfully removed from the context
+            A set of paths that have been successfully excluded from the context
         """
         session_context = SESSION_CONTEXT.get()
 
         path = Path(path)
-
         excluded_paths: Set[Path] = set()
-
         try:
             validated_path = validate_and_format_path(
                 path, session_context.cwd, check_for_text=False
             )
-            # file
-            if validated_path.is_file():
-                if validated_path not in self.include_files:
-                    session_context.stream.send(
-                        f"Path {validated_path} not in context", color="light_red"
-                    )
-                    return excluded_paths
-                excluded_paths.add(validated_path)
-            # file interval
-            elif len(str(validated_path).rsplit(":", 1)) > 1:
-                interval_path, interval_str = str(validated_path).rsplit(":", 1)
-                interval_path = Path(interval_path)
-                if interval_path not in self.include_files:
-                    session_context.stream.send(
-                        f"Path {interval_path} not in context", color="light_red"
-                    )
-                    return excluded_paths
-                intervals = parse_intervals(interval_str)
-                included_code_features: List[CodeFeature] = []
-                for code_feature in self.include_files[interval_path]:
-                    if code_feature.interval not in intervals:
-                        included_code_features.append(code_feature)
-                if len(included_code_features) == 0:
-                    excluded_paths.add(interval_path)
-                else:
-                    self.include_files[interval_path] = included_code_features
-            # directory
-            elif validated_path.is_dir():
-                for included_path in self.include_files.keys():
-                    if validated_path in included_path.parents:
-                        excluded_paths.add(included_path)
-            # glob
-            else:
-                for included_path in self.include_files.keys():
-                    if match_path_with_patterns(
-                        included_path, set(str(validated_path))
-                    ):
-                        excluded_paths.add(included_path)
+            match get_path_type(validated_path):
+                case PathType.FILE:
+                    excluded_path = self._exclude_file(validated_path)
+                    if excluded_path:
+                        excluded_paths.add(excluded_path)
+                case PathType.FILE_INTERVAL:
+                    excluded_paths.update(self._exclude_file_interval(validated_path))
+                case PathType.DIRECTORY:
+                    excluded_paths.update(self._exclude_directory(validated_path))
+                case PathType.GLOB:
+                    excluded_paths.update(self._exclude_glob(validated_path))
         except PathValidationError as e:
             session_context.stream.send(e, color="light_red")
-
-        for exclude_path in excluded_paths:
-            del self.include_files[exclude_path]
 
         return excluded_paths
 

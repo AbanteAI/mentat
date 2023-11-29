@@ -223,6 +223,15 @@ def mock_session_context(_mock_session_context):
     SESSION_CONTEXT.reset(token)
 
 
+@pytest.fixture
+def mock_code_context(temp_testbed, mock_session_context):
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.cwd,
+    )
+    return code_context
+
+
 ### Auto-used fixtures
 
 
