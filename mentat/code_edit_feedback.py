@@ -22,7 +22,7 @@ async def get_user_feedback_on_edits(
     user_response = user_response_message.data
 
     need_user_request = True
-    total_changes = sum([len(file_edit.replacements) for file_edit in file_edits])
+    total_changes = sum([len(file_edit.replacements) or 1 for file_edit in file_edits])
     match user_response.lower():
         case "y" | "":
             edits_to_apply = file_edits
