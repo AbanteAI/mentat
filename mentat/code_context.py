@@ -289,8 +289,6 @@ class CodeContext:
     ) -> Set[Path]:
         """Add code to the context
 
-        '.' is replaced with '*' (recusively search the cwd)
-
         Args:
             `path`: can be a relative or absolute file path, file interval path, directory, or glob pattern.
 
@@ -300,8 +298,6 @@ class CodeContext:
         session_context = SESSION_CONTEXT.get()
 
         path = Path(path)
-        if str(path) == ".":
-            path = Path("*")
 
         included_paths: Set[Path] = set()
         try:
