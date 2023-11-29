@@ -14,7 +14,6 @@ class DefaultFilter(FeatureFilter):
     def __init__(
         self,
         max_tokens: int,
-        model: str = "gpt-4",
         code_map: bool = False,
         use_llm: bool = False,
         user_prompt: Optional[str] = None,
@@ -22,7 +21,6 @@ class DefaultFilter(FeatureFilter):
         loading_multiplier: float = 0.0,
     ):
         self.max_tokens = max_tokens
-        self.model = model
         self.code_map = code_map
         self.use_llm = use_llm
         self.user_prompt = user_prompt or ""
@@ -38,6 +36,7 @@ class DefaultFilter(FeatureFilter):
     async def filter(self, features: list[CodeFeature]) -> list[CodeFeature]:
         session = SESSION_CONTEXT.get()
         stream = session.stream
+        model = session.config.model
 
         if self.user_prompt != "":
             features = await EmbeddingSimilarityFilter(
@@ -50,7 +49,6 @@ class DefaultFilter(FeatureFilter):
             try:
                 features = await LLMFeatureFilter(
                     self.max_tokens,
-                    self.model,
                     self.user_prompt,
                     self.levels,
                     self.expected_edits,
@@ -62,10 +60,10 @@ class DefaultFilter(FeatureFilter):
                     " instead."
                 )
                 features = await TruncateFilter(
-                    self.max_tokens, self.model, self.levels, True
+                    self.max_tokens, model, self.levels, True
                 ).filter(features)
         else:
             features = await TruncateFilter(
-                self.max_tokens, self.model, self.levels, True
+                self.max_tokens, model, self.levels, True
             ).filter(features)
         return features

@@ -25,7 +25,7 @@ from mentat.include_files import (
     print_invalid_path,
     print_path_tree,
 )
-from mentat.llm_api import count_tokens, is_test_environment
+from mentat.llm_api_handler import count_tokens, is_test_environment
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import sha256
@@ -86,6 +86,7 @@ class CodeContext:
 
         if config.auto_context:
             stream.send(f"{prefix}Auto-Context: Enabled")
+            stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
             if self.ctags_disabled:
                 stream.send(
                     f"{prefix}Code Maps Disbled: {self.ctags_disabled}",
@@ -153,6 +154,7 @@ class CodeContext:
         prompt: str,
         max_tokens: int,
         expected_edits: Optional[list[str]] = None,  # for training/benchmarking
+        loading_multiplier: float = 0.0,
     ) -> str:
         code_message_checksum = self._get_code_message_checksum(prompt, max_tokens)
         if (
@@ -160,7 +162,7 @@ class CodeContext:
             or code_message_checksum != self._code_message_checksum
         ):
             self._code_message = await self._get_code_message(
-                prompt, max_tokens, expected_edits
+                prompt, max_tokens, expected_edits, loading_multiplier
             )
             self._code_message_checksum = self._get_code_message_checksum(
                 prompt, max_tokens
@@ -174,9 +176,9 @@ class CodeContext:
         prompt: str,
         max_tokens: int,
         expected_edits: Optional[list[str]] = None,
+        loading_multiplier: float = 0.0,
     ) -> str:
         session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
         config = session_context.config
         model = config.model
 
@@ -193,6 +195,7 @@ class CodeContext:
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
         remaining_tokens = max_tokens - meta_tokens
+        auto_tokens = min(remaining_tokens, config.auto_tokens)
 
         if remaining_tokens < 0:
             self.features = []
@@ -208,28 +211,18 @@ class CodeContext:
                     remaining_tokens, model, respect_user_include=False
                 ).filter(self.features)
         else:
-            try:
-                stream.send(
-                    "Scanning current project...", channel="loading", progress=10
-                )
-                self.features = self._get_all_features(
-                    CodeMessageLevel.INTERVAL,
-                )
-                stream.send(
-                    "Generating feature filters...", channel="loading", progress=10
-                )
-                feature_filter = DefaultFilter(
-                    remaining_tokens,
-                    model,
-                    not (bool(self.ctags_disabled)),
-                    self.use_llm,
-                    prompt,
-                    expected_edits,
-                    loading_multiplier=0.8,
-                )
-                self.features = await feature_filter.filter(self.features)
-            finally:
-                stream.send(None, channel="loading", terminate=True)
+            self.features = self._get_all_features(
+                CodeMessageLevel.INTERVAL,
+            )
+            feature_filter = DefaultFilter(
+                auto_tokens,
+                not (bool(self.ctags_disabled)),
+                self.use_llm,
+                prompt,
+                expected_edits,
+                loading_multiplier=loading_multiplier,
+            )
+            self.features = await feature_filter.filter(self.features)
 
         # Group intervals by file, separated by ellipses if there are gaps
         code_message += get_code_message_from_features(self.features)

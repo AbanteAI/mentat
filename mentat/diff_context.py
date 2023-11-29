@@ -112,6 +112,13 @@ class DiffContext:
 
         name = ""
         treeish_type = _get_treeish_type(git_root, target)
+        if treeish_type is None:
+            stream.send(f"Invalid treeish: {target}", color="dark_red")
+            stream.send("Disabling diff and pr-diff.", color="light_yellow")
+            self.target = "HEAD"
+            self.name = "HEAD (last commit)"
+            return
+
         if treeish_type == "branch":
             name += f"Branch {target}: "
         elif treeish_type == "relative":
@@ -133,6 +140,8 @@ class DiffContext:
 
         meta = get_treeish_metadata(git_root, target)
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
+        if target == "HEAD":
+            name = "HEAD (last commit)"
 
         self.target = target
         self.name = name
@@ -196,11 +205,11 @@ def _git_command(git_root: Path, *args: str) -> str | None:
         return None
 
 
-def _get_treeish_type(git_root: Path, treeish: str) -> TreeishType:
+def _get_treeish_type(git_root: Path, treeish: str) -> TreeishType | None:
     object_type = _git_command(git_root, "cat-file", "-t", treeish)
 
     if not object_type:
-        raise UserError(f"Invalid treeish: {treeish}")
+        return None
 
     if object_type == "commit":
         if "~" in treeish or "^" in treeish:
@@ -210,5 +219,4 @@ def _get_treeish_type(git_root: Path, treeish: str) -> TreeishType:
             return "branch"
         else:
             return "commit"
-
-    raise UserError(f"Unsupported treeish type: {object_type}")
+    return None

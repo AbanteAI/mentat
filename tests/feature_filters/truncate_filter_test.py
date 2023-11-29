@@ -5,7 +5,7 @@ from mentat.feature_filters.truncate_filter import TruncateFilter
 
 
 @pytest.mark.asyncio
-async def test_truncate_feature_selector(temp_testbed, mock_session_context):
+async def test_truncate_feature_selector(temp_testbed, mock_call_llm_api):
     all_features = [
         CodeFeature(
             temp_testbed / "multifile_calculator" / "calculator.py"

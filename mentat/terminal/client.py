@@ -123,6 +123,7 @@ class TerminalClient:
     async def _run(self):
         self._init_signal_handlers()
         self.session = Session(
+            Path.cwd(),
             self.paths,
             self.exclude_paths,
             self.ignore_paths,
@@ -206,8 +207,10 @@ def run_cli():
     parser.add_argument(
         "--diff",
         "-d",
+        nargs="?",
         type=str,
         default=None,
+        const="HEAD",
         help="A git tree-ish (e.g. commit, branch, tag) to diff against",
     )
     parser.add_argument(

@@ -9,7 +9,7 @@ from mentat.code_feature import (
 )
 
 
-def test_split_file_into_intervals(temp_testbed, mock_session_context):
+def test_split_file_into_intervals(temp_testbed, mock_call_llm_api):
     with open("file_1.py", "w") as f:
         f.write(dedent("""\
             def func_1(x, y):

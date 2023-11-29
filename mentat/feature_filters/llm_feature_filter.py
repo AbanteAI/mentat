@@ -3,6 +3,11 @@ from pathlib import Path
 from timeit import default_timer
 from typing import Optional
 
+from openai.types.chat import (
+    ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+)
+
 from mentat.code_feature import (
     CodeFeature,
     CodeMessageLevel,
@@ -12,24 +17,17 @@ from mentat.errors import ModelError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.include_files import get_include_files
-from mentat.llm_api import (
-    call_llm_api_sync,
-    conversation_tokens,
-    count_tokens,
-    model_context_size,
-)
+from mentat.llm_api_handler import count_tokens, model_context_size, prompt_tokens
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
 
 class LLMFeatureFilter(FeatureFilter):
     feature_selection_prompt_path = Path("feature_selection_prompt.txt")
-    feature_selection_response_buffer = 500
 
     def __init__(
         self,
         max_tokens: int,
-        model: str = "gpt-4",
         user_prompt: Optional[str] = None,
         levels: list[CodeMessageLevel] = [],
         expected_edits: Optional[list[str]] = None,
@@ -46,11 +44,12 @@ class LLMFeatureFilter(FeatureFilter):
         features: list[CodeFeature],
     ) -> list[CodeFeature]:
         session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
         config = session_context.config
         cost_tracker = session_context.cost_tracker
+        llm_api_handler = session_context.llm_api_handler
 
         # Preselect as many features as fit in the context window
-        self.report_loading("Preselecting features", 10)
         model = config.feature_selection_model
         context_size = model_context_size(model)
         if context_size is None:
@@ -73,10 +72,10 @@ class LLMFeatureFilter(FeatureFilter):
             - system_prompt_tokens
             - user_prompt_tokens
             - expected_edits_tokens
-            - self.feature_selection_response_buffer
+            - config.token_buffer
         )
         truncate_filter = TruncateFilter(
-            preselect_max_tokens, model=model, levels=self.levels
+            preselect_max_tokens, model, levels=self.levels
         )
         preselected_features = await truncate_filter.filter(features)
 
@@ -88,24 +87,37 @@ class LLMFeatureFilter(FeatureFilter):
             "Code Files:",
         ]
         content_message += get_code_message_from_features(preselected_features)
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "system", "content": "\n".join(content_message)},
+        messages: list[ChatCompletionMessageParam] = [
+            ChatCompletionSystemMessageParam(role="system", content=system_prompt),
+            ChatCompletionSystemMessageParam(
+                role="system", content="\n".join(content_message)
+            ),
         ]
         if self.expected_edits:
             messages.append(
-                {"role": "system", "content": f"Expected Edits:\n{self.expected_edits}"}
+                ChatCompletionSystemMessageParam(
+                    role="system", content=f"Expected Edits:\n{self.expected_edits}"
+                )
             )
 
-        self.report_loading("Asking LLM to filter out irrelevant context...", 80)
+        if self.loading_multiplier:
+            stream.send(
+                "Asking LLM to filter out irrelevant context...",
+                channel="loading",
+                progress=50 * self.loading_multiplier,
+            )
         selected_refs = list[Path]()
         n_tries = 3
         for i in range(n_tries):
             start_time = default_timer()
-            message = await call_llm_api_sync(model, messages)
+            message = (
+                (await llm_api_handler.call_llm_api(messages, model, stream=False))
+                .choices[0]
+                .message.content
+            ) or ""
 
-            tokens = conversation_tokens(messages, model)
-            response_tokens = count_tokens(message, model)
+            tokens = prompt_tokens(messages, model)
+            response_tokens = count_tokens(message, model, full_message=True)
             cost_tracker.log_api_call_stats(
                 tokens,
                 response_tokens,
@@ -120,7 +132,12 @@ class LLMFeatureFilter(FeatureFilter):
                 # TODO: Update Loader
                 if i == n_tries - 1:
                     raise ModelError(f"The response is not valid json: {message}")
-        self.report_loading("Parsing LLM response...", 10)
+        if self.loading_multiplier:
+            stream.send(
+                "Parsing LLM response...",
+                channel="loading",
+                progress=50 * self.loading_multiplier,
+            )
         parsed_features, _ = get_include_files(selected_refs, [])
         postselected_features = [
             feature for features in parsed_features.values() for feature in features
@@ -146,5 +163,5 @@ class LLMFeatureFilter(FeatureFilter):
                 out_feat.name = next(f.name for f in matching_inputs if f.name)
 
         # Greedy again to enforce max_tokens
-        truncate_filter = TruncateFilter(self.max_tokens, model=model)
+        truncate_filter = TruncateFilter(self.max_tokens, config.model)
         return await truncate_filter.filter(postselected_features)

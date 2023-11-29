@@ -9,22 +9,24 @@ from uuid import uuid4
 
 import attr
 import sentry_sdk
-from openai.error import RateLimitError, Timeout
+from openai import APITimeoutError, BadRequestError, RateLimitError
 
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
+from mentat.cost_tracker import CostTracker
 from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_shared_git_root_for_paths
-from mentat.llm_api import CostTracker, setup_api_key
+from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
 from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_input import collect_user_input
 from mentat.session_stream import SessionStream
 from mentat.utils import check_version, mentat_dir_path
+from mentat.vision.vision_manager import VisionManager
 
 
 class Session:
@@ -36,6 +38,7 @@ class Session:
 
     def __init__(
         self,
+        cwd: Path,
         paths: List[Path] = [],
         exclude_paths: List[Path] = [],
         ignore_paths: List[Path] = [],
@@ -43,7 +46,7 @@ class Session:
         pr_diff: Optional[str] = None,
         config: Config = Config(),
     ):
-        # TODO: All errors should be thrown in _main, and should never be thrown here
+        # All errors thrown here need to be caught here
         self.stopped = False
 
         if not mentat_dir_path.exists():
@@ -54,11 +57,14 @@ class Session:
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
+        # TODO: An error is thrown in this function; once git root is removed, the error will be removed
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
 
+        llm_api_handler = LlmApiHandler()
+
         stream = SessionStream()
-        stream.start()
         self.stream = stream
+        self.stream.start()
 
         cost_tracker = CostTracker()
 
@@ -68,14 +74,19 @@ class Session:
 
         conversation = Conversation()
 
+        vision_manager = VisionManager()
+
         session_context = SessionContext(
+            cwd,
             stream,
+            llm_api_handler,
             cost_tracker,
             git_root,
             config,
             code_context,
             code_file_manager,
             conversation,
+            vision_manager,
         )
         SESSION_CONTEXT.set(session_context)
 
@@ -89,15 +100,11 @@ class Session:
         stream = session_context.stream
         code_context = session_context.code_context
         conversation = session_context.conversation
+        llm_api_handler = session_context.llm_api_handler
 
-        setup_api_key()
-
-        try:
-            code_context.display_context()
-            await conversation.display_token_count()
-        except MentatError as e:
-            stream.send(str(e), color="red")
-            return
+        llm_api_handler.initizalize_client()
+        code_context.display_context()
+        await conversation.display_token_count()
 
         try:
             stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
@@ -121,7 +128,7 @@ class Session:
                 stream.send(bool(file_edits), channel="edits_complete")
         except SessionExit:
             pass
-        except (Timeout, RateLimitError) as e:
+        except (APITimeoutError, RateLimitError, BadRequestError) as e:
             stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
 
     async def listen_for_session_exit(self):
@@ -149,11 +156,14 @@ class Session:
                 pass
             except (MentatError, UserError) as e:
                 self.stream.send(str(e), color="red")
-            except Exception:
+            except Exception as e:
                 # All unhandled exceptions end up here
-                self.stream.send(
-                    f"Unhandled Exception: {traceback.format_exc()}", color="red"
-                )
+                error = f"Unhandled Exception: {traceback.format_exc()}"
+                # Helps us handle errors in tests
+                if is_test_environment():
+                    print(error)
+                sentry_sdk.capture_exception(e)
+                self.stream.send(error, color="red")
             finally:
                 await self._stop()
                 sentry_sdk.flush()
@@ -171,7 +181,9 @@ class Session:
 
         session_context = SESSION_CONTEXT.get()
         cost_tracker = session_context.cost_tracker
+        vision_manager = session_context.vision_manager
 
+        vision_manager.close()
         cost_tracker.display_total_cost()
         logging.shutdown()
         self._exit_task.cancel()

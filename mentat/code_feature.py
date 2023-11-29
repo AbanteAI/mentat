@@ -14,7 +14,7 @@ from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
 from mentat.interval import Interval, parse_intervals
-from mentat.llm_api import count_tokens
+from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import sha256
 
@@ -168,10 +168,12 @@ class CodeFeature:
 
         if self.level in {CodeMessageLevel.CODE, CodeMessageLevel.INTERVAL}:
             file_lines = code_file_manager.read_file(abs_path)
-            for i, line in enumerate(file_lines, start=1):
-                if self.contains_line(i):
+            for i, line in enumerate(file_lines):
+                if self.contains_line(i + 1):
                     if parser.provide_line_numbers():
-                        code_message.append(f"{i}:{line}")
+                        code_message.append(
+                            f"{i + parser.line_number_starting_index()}:{line}"
+                        )
                     else:
                         code_message.append(f"{line}")
         elif self.level == CodeMessageLevel.CMAP_FULL:

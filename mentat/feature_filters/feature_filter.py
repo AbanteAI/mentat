@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 
 from mentat.code_feature import CodeFeature
-from mentat.session_context import SESSION_CONTEXT
 
 
 class FeatureFilter(ABC):
@@ -21,12 +20,3 @@ class FeatureFilter(ABC):
         features: list[CodeFeature],
     ) -> list[CodeFeature]:
         raise NotImplementedError()
-
-    loading_multiplier: float = 0.0
-
-    def report_loading(self, message: str, progress: int | float):
-        if self.loading_multiplier > 0:
-            session_context = SESSION_CONTEXT.get()
-            stream = session_context.stream
-            progress *= self.loading_multiplier
-            stream.send(message, channel="loading", progress=progress)

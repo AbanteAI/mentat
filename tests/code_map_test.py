@@ -6,7 +6,7 @@ from mentat.code_map import check_ctags_disabled, get_code_map, get_ctags
 
 
 @pytest.mark.no_git_testbed
-def test_get_ctags(temp_testbed, mock_session_context):
+def test_get_ctags(temp_testbed, mock_call_llm_api):
     echo_py_abs_file_path = temp_testbed.joinpath("scripts/echo.py")
 
     ctags_with_signatures = get_ctags(echo_py_abs_file_path)
@@ -23,7 +23,7 @@ def test_get_ctags(temp_testbed, mock_session_context):
 
 
 @pytest.mark.no_git_testbed
-def test_get_code_map(temp_testbed, mock_session_context):
+def test_get_code_map(temp_testbed, mock_call_llm_api):
     echo_py_abs_file_path = temp_testbed.joinpath("scripts/echo.py")
 
     code_map_with_signatures = get_code_map(echo_py_abs_file_path)

@@ -1,19 +1,15 @@
 import asyncio
 import json
-import logging
 import os
 import sqlite3
 from pathlib import Path
 from timeit import default_timer
-from typing import Callable, Optional
 
 import numpy as np
-from openai.error import RateLimitError
 
 from mentat.code_feature import CodeFeature, count_feature_tokens
 from mentat.errors import MentatError
-from mentat.llm_api import (
-    call_embedding_api,
+from mentat.llm_api_handler import (
     count_tokens,
     model_context_size,
     model_price_per_1000_tokens,
@@ -92,18 +88,12 @@ def _batch_ffd(data: dict[str, int], batch_size: int) -> list[list[str]]:
 embedding_api_semaphore = asyncio.Semaphore(MAX_SIMULTANEOUS_REQUESTS)
 
 
-async def _fetch_embeddings(
-    model: str, batch: list[str], retries: int = 3, wait_time: int = 20
-):
+async def _fetch_embeddings(model: str, batch: list[str]):
+    ctx = SESSION_CONTEXT.get()
+
     async with embedding_api_semaphore:
-        for _ in range(retries):
-            try:
-                response = await call_embedding_api(batch, model)
-                return response
-            except RateLimitError:
-                logging.warning("Rate limit error, retrying...")
-                await asyncio.sleep(wait_time)
-        raise RateLimitError("Rate limit error after retries.")
+        response = await ctx.llm_api_handler.call_embedding_api(batch, model)
+        return response
 
 
 def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
@@ -111,13 +101,13 @@ def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
     dot_product = np.dot(v1, v2)
     norm_v1 = np.linalg.norm(v1)
     norm_v2 = np.linalg.norm(v2)
-    return dot_product / (norm_v1 * norm_v2)
+    return dot_product / (norm_v1 * norm_v2)  # pyright: ignore
 
 
 async def get_feature_similarity_scores(
     prompt: str,
     features: list[CodeFeature],
-    report_loading: Optional[Callable[[str, int | float], None]] = None,
+    loading_multiplier: float = 0.0,
 ) -> list[float]:
     """Return the similarity scores for a given prompt and list of features."""
     global database
@@ -140,7 +130,9 @@ async def get_feature_similarity_scores(
     num_prompt_tokens = 0
     if not database.exists(prompt_checksum):
         items_to_embed[prompt_checksum] = prompt
-        items_to_embed_tokens[prompt_checksum] = count_tokens(prompt, embedding_model)
+        items_to_embed_tokens[prompt_checksum] = count_tokens(
+            prompt, embedding_model, False
+        )
     for feature, checksum, token in zip(features, checksums, tokens):
         if token > max_model_tokens:
             continue
@@ -171,8 +163,6 @@ async def get_feature_similarity_scores(
 
     # Fetch embeddings in batches
     batches = _batch_ffd(items_to_embed_tokens, max_model_tokens)
-    if report_loading:
-        report_loading(f"Fetching {len(batches)} batches of embeddings...", 10)
 
     tasks = list[tuple[asyncio.Task[list[list[float]]], list[str]]]()
     for batch in batches:
@@ -180,9 +170,11 @@ async def get_feature_similarity_scores(
         task = asyncio.create_task(_fetch_embeddings(embedding_model, batch_content))
         tasks.append((task, batch))
     for i, (task, batch) in enumerate(tasks):
-        if report_loading:
-            report_loading(
-                f"Processing embeddings, batch {i+1}/{len(tasks)}", 80 / len(tasks)
+        if loading_multiplier:
+            stream.send(
+                f"Fetching embeddings, batch {i+1}/{len(tasks)}",
+                channel="loading",
+                progress=(100 / len(tasks)) * loading_multiplier,
             )
         start_time = default_timer()
         response = await task
@@ -195,8 +187,6 @@ async def get_feature_similarity_scores(
         database.set({k: v for k, v in zip(batch, response)})
 
     # Calculate similarity score for each feature
-    if report_loading:
-        report_loading("Calculating similarity scores...", 10)
     prompt_embedding = database.get([prompt_checksum])[prompt_checksum]
     embeddings = database.get(checksums)
     scores = [_cosine_similarity(prompt_embedding, embeddings[k]) for k in checksums]
