@@ -22,7 +22,6 @@ async def get_user_feedback_on_edits(
     user_response = user_response_message.data
 
     need_user_request = True
-    total_changes = sum([len(file_edit.replacements) or 1 for file_edit in file_edits])
     match user_response.lower():
         case "y" | "":
             edits_to_apply = file_edits
@@ -69,20 +68,15 @@ async def get_user_feedback_on_edits(
 
     for file_edit in edits_to_apply:
         file_edit.resolve_conflicts()
-
+    
+    applied_edits = []
     if edits_to_apply:
         applied_edits = await code_file_manager.write_changes_to_files(
             edits_to_apply, code_context
         )
-        applied_changes = sum(
-            [len(file_edit.replacements) or 1 for file_edit in applied_edits]
-        )
-        stream.send(
-            f"{applied_changes}/{total_changes} changes applied.", color="light_blue"
-        )
-    else:
-        stream.send("No changes applied.", color="light_blue")
-
+    message = "Changes applied." if applied_edits else "No changes applied."
+    stream.send(message, color="light_blue")
+    
     if need_user_request:
         stream.send("Can I do anything else for you?", color="light_blue")
 
