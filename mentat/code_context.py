@@ -354,7 +354,6 @@ class CodeContext:
                     )
                     return excluded_paths
                 excluded_paths.add(validated_path)
-                del self.include_files[validated_path]
             # file interval
             elif len(str(validated_path).rsplit(":", 1)) > 1:
                 interval_path, interval_str = str(validated_path).rsplit(":", 1)
@@ -375,14 +374,9 @@ class CodeContext:
                 self.include_files[interval_path] = included_code_features
             # directory
             elif validated_path.is_dir():
-                if validated_path not in self.include_files:
-                    session_context.stream.send(
-                        f"Directory path {validated_path} not in context",
-                        color="light_red",
-                    )
-                    return excluded_paths
-                excluded_paths.add(validated_path)
-                del self.include_files[validated_path]
+                for included_path in self.include_files.keys():
+                    if validated_path in included_path.parents:
+                        excluded_paths.add(included_path)
             # glob
             else:
                 for included_path in self.include_files.keys():
@@ -390,9 +384,11 @@ class CodeContext:
                         included_path, set(str(validated_path))
                     ):
                         excluded_paths.add(included_path)
-                        del self.include_files[included_path]
         except PathValidationError as e:
             session_context.stream.send(e, color="light_red")
+
+        for exclude_path in excluded_paths:
+            del self.include_files[exclude_path]
 
         return excluded_paths
 

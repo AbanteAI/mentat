@@ -365,3 +365,49 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
             assert rel_path not in code_message
         else:
             assert rel_path in code_message
+
+
+@pytest.mark.no_git_testbed
+def test_include_directory(temp_testbed, mock_session_context):
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+    )
+    code_context.include("multifile_calculator")
+
+    assert len(code_context.include_files) == 3
+    assert (
+        Path("multifile_calculator/__init__.py").resolve() in code_context.include_files
+    )
+    assert (
+        Path("multifile_calculator/calculator.py").resolve()
+        in code_context.include_files
+    )
+    assert (
+        Path("multifile_calculator/operations.py").resolve()
+        in code_context.include_files
+    )
+
+
+@pytest.mark.no_git_testbed
+def test_exclude_directory(temp_testbed, mock_session_context):
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+    )
+    code_context.include("multifile_calculator")
+    code_context.include("scripts")
+    code_context.exclude("scripts")
+
+    assert len(code_context.include_files) == 3
+    assert (
+        Path("multifile_calculator/__init__.py").resolve() in code_context.include_files
+    )
+    assert (
+        Path("multifile_calculator/calculator.py").resolve()
+        in code_context.include_files
+    )
+    assert (
+        Path("multifile_calculator/operations.py").resolve()
+        in code_context.include_files
+    )
