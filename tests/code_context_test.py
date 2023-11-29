@@ -10,6 +10,7 @@ from mentat.code_feature import CodeMessageLevel
 from mentat.config import Config
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
+from mentat.interval import Interval
 from mentat.llm_api import count_tokens
 from tests.conftest import run_git_command
 
@@ -365,6 +366,78 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
             assert rel_path not in code_message
         else:
             assert rel_path in code_message
+
+
+@pytest.mark.no_git_testbed
+def test_include_file_interval(temp_testbed, mock_session_context):
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+    )
+
+    # test single file interval
+    code_context.include("multifile_calculator/calculator.py:10-12")
+    assert len(code_context.include_files) == 1
+    multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
+    assert multifile_calculator_path in code_context.include_files
+    assert len(code_context.include_files[multifile_calculator_path]) == 1
+    assert code_context.include_files[multifile_calculator_path][
+        0
+    ].interval == Interval(10, 12)
+
+    # test multiple file intervals
+    code_context.include("multifile_calculator/calculator.py:14-20")
+    assert len(code_context.include_files) == 1
+    assert len(code_context.include_files[multifile_calculator_path]) == 2
+    assert code_context.include_files[multifile_calculator_path][
+        1
+    ].interval == Interval(14, 20)
+
+    # test overlapping file interval
+    code_context.include("multifile_calculator/calculator.py:0-19")
+    assert len(code_context.include_files) == 1
+    assert len(code_context.include_files[multifile_calculator_path]) == 3
+    assert code_context.include_files[multifile_calculator_path][
+        2
+    ].interval == Interval(0, 19)
+
+    # test duplicate file interval
+    code_context.include("multifile_calculator/calculator.py:10-12")
+    assert len(code_context.include_files) == 1
+    assert len(code_context.include_files[multifile_calculator_path]) == 3
+
+
+@pytest.mark.no_git_testbed
+def test_exclude_file_interval(temp_testbed, mock_session_context):
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.git_root,
+    )
+
+    # test single file interval
+    code_context.include("multifile_calculator/calculator.py:10-12")
+    code_context.exclude("multifile_calculator/calculator.py:10-12")
+    assert len(code_context.include_files) == 0
+
+    # test multiple file intervals
+    code_context.include("multifile_calculator/calculator.py:0-5")
+    code_context.include("multifile_calculator/calculator.py:11-20")
+    code_context.exclude("multifile_calculator/calculator.py:0-5")
+    assert len(code_context.include_files) == 1
+    multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
+    assert len(code_context.include_files[multifile_calculator_path]) == 1
+    assert code_context.include_files[multifile_calculator_path][
+        0
+    ].interval == Interval(11, 20)
+
+    # test missing file interval
+    code_context.exclude("multifile_calculator/calculator.py:0-5")
+    assert len(code_context.include_files) == 1
+    multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
+    assert len(code_context.include_files[multifile_calculator_path]) == 1
+    assert code_context.include_files[multifile_calculator_path][
+        0
+    ].interval == Interval(11, 20)
 
 
 @pytest.mark.no_git_testbed

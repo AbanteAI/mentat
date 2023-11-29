@@ -289,6 +289,13 @@ class CodeContext:
     ) -> Set[Path]:
         """Add code to the context
 
+        The following are behaviors for each `path` type:
+
+        - File: the file is added to the context
+        - File interval: the file is added to the context, and the interval is added to the file
+        - Directory: all files in the directory are recursively added to the context
+        - Glob pattern: all files that match the glob pattern are added to the context
+
         Args:
             `path`: can be a relative or absolute file path, file interval path, directory, or glob pattern.
 
@@ -316,7 +323,13 @@ class CodeContext:
 
         for code_feature in code_features:
             if code_feature.path in self.include_files:
-                self.include_files[code_feature.path].append(code_feature)
+                code_feature_not_included = True
+                for included_code_feature in self.include_files[code_feature.path]:
+                    if included_code_feature.interval == code_feature.interval:
+                        code_feature_not_included = False
+                        break
+                if code_feature_not_included:
+                    self.include_files[code_feature.path].append(code_feature)
             else:
                 self.include_files[code_feature.path] = [code_feature]
 
@@ -325,10 +338,13 @@ class CodeContext:
     def exclude(self, path: Path | str) -> Set[Path]:
         """Remove code from the context
 
-        # NOTE: should this be the intended behavior?
-        Code Features are removed from the context and are excluded from any future `include` calls (unless explicity specified).
-        For paths that are files or file intervals, if they don't already exist in the Code Context an Exception is thrown.
-        For file intervals, if the interval doesn't *exactly match* any intervals in the code context, nothing is removed.
+        The following are behaviors for each `path` type:
+
+        - File: the file is removed from the context
+        - File interval: the interval is removed from the file. If the file doesn't have the exact interval specified,
+          nothing is removed.
+        - Directory: all files in the directory are removed from the context
+        - Glob pattern: all files that match the glob pattern are removed from the context
 
         Args:
             `path`: can be a relative or absolute file path, file interval path, directory, or glob pattern.
@@ -366,12 +382,12 @@ class CodeContext:
                 intervals = parse_intervals(interval_str)
                 included_code_features: List[CodeFeature] = []
                 for code_feature in self.include_files[interval_path]:
-                    if code_feature.interval in intervals:
-                        excluded_path = f"{interval_path}:{code_feature.interval.start}-{code_feature.interval.end}"
-                        excluded_paths.add(Path(excluded_path))
-                    else:
+                    if code_feature.interval not in intervals:
                         included_code_features.append(code_feature)
-                self.include_files[interval_path] = included_code_features
+                if len(included_code_features) == 0:
+                    excluded_paths.add(interval_path)
+                else:
+                    self.include_files[interval_path] = included_code_features
             # directory
             elif validated_path.is_dir():
                 for included_path in self.include_files.keys():
