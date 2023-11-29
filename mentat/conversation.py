@@ -243,7 +243,9 @@ class Conversation:
         try:
             prompt = messages_snapshot[-1]["content"]
             if isinstance(prompt, list):
-                text_prompts = [p.get("text", "") for p in prompt if p.get("type") == "text"]
+                text_prompts = [
+                    p.get("text", "") for p in prompt if p.get("type") == "text"
+                ]
                 prompt = " ".join(text_prompts)
             code_message = await code_context.get_code_message(
                 (
