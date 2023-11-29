@@ -95,7 +95,10 @@ def get_git_root_for_path(path: Path, raise_error: bool = True) -> Optional[Path
 def get_shared_git_root_for_paths(paths: list[Path]) -> Path:
     git_roots = set[Path]()
     for path in paths:
-        git_root = cast(Path, get_git_root_for_path(path))
+        git_root = get_git_root_for_path(path)
+        if git_root is None:
+            logging.error(f"File {path} isn't part of a git project.")
+            raise UserError()
         git_roots.add(git_root)
     if not paths:
         git_root = cast(Path, get_git_root_for_path(Path(os.getcwd())))
