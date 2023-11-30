@@ -102,7 +102,7 @@ class Session:
         conversation = session_context.conversation
         llm_api_handler = session_context.llm_api_handler
 
-        llm_api_handler.initizalize_client()
+        llm_api_handler.initialize_client()
         code_context.display_context()
         await conversation.display_token_count()
 
