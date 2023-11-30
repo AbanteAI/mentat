@@ -132,7 +132,7 @@ class CodeContext:
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
             "prompt": prompt,
-            "code_map_disabled": self.ctags_disabled,
+            "ctags_disabled": self.ctags_disabled,
             "auto_context": config.auto_context,
             "use_llm": self.use_llm,
             "diff": self.diff,
@@ -210,7 +210,6 @@ class CodeContext:
             )
             feature_filter = DefaultFilter(
                 auto_tokens,
-                not (bool(self.ctags_disabled)),
                 self.use_llm,
                 prompt,
                 expected_edits,
@@ -270,7 +269,7 @@ class CodeContext:
             )
             user_included = abs_path in self.include_files
             if level == CodeMessageLevel.INTERVAL:
-                # Return intervals if code_map is enabled, otherwise return the full file
+                # Return intervals if ctags enabled, otherwise return the full file
                 full_feature = CodeFeature(
                     abs_path,
                     level=CodeMessageLevel.CODE,
