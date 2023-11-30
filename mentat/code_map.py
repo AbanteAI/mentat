@@ -50,52 +50,11 @@ def get_ctags(abs_file_path: Path, exclude_signatures: bool = False) -> set[CTAG
     return ctags
 
 
-def _make_ctags_human_readable(ctags: set[CTAG]) -> list[str]:
-    cleaned_tags = set[tuple[str, ...]]()
-    for tag in ctags:
-        (scope, kind, name, signature, _) = tag  # Line number currently unused
-
-        last = name
-        if signature:
-            last += " " + signature
-
-        res: list[Any] = []
-        if scope:
-            res.append(scope)
-        res += [kind, last]
-
-        cleaned_tags.add(tuple(res))
-
-    sorted_tags = sorted(cleaned_tags)
-    output = ""
-    last = [None] * len(sorted_tags[0])
-    tab = "\t"
-    for tag in sorted_tags:
-        tag = list(tag)
-
-        num_common = 0
-        for i in range(len(last) + 1):
-            if i == len(last):
-                break
-            if last[i] != tag[i]:
-                num_common = i
-                break
-
-        indent = tab * num_common
-        rest = tag[num_common:]
-
-        for item in rest:
-            output += indent + str(item) + "\n"
-            indent += tab
-        last = tag
-    return output.splitlines()
-
-
 def get_code_map(abs_file_path: Path, exclude_signatures: bool = False) -> list[str]:
     ctags = get_ctags(abs_file_path, exclude_signatures)
     if not ctags:
         return []
-    return _make_ctags_human_readable(ctags)
+    return ctags
 
 
 @cache

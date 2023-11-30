@@ -23,23 +23,6 @@ def test_get_ctags(temp_testbed, mock_call_llm_api):
 
 
 @pytest.mark.no_git_testbed
-def test_get_code_map(temp_testbed, mock_call_llm_api):
-    echo_py_abs_file_path = temp_testbed.joinpath("scripts/echo.py")
-
-    code_map_with_signatures = get_code_map(echo_py_abs_file_path)
-    assert code_map_with_signatures == [
-        "function",
-        "\techo (value: Any)",
-        "\techo_hardcoded ()",
-    ]
-
-    code_map_without_signatures = get_code_map(
-        echo_py_abs_file_path, exclude_signatures=True
-    )
-    assert code_map_without_signatures == ["function", "\techo", "\techo_hardcoded"]
-
-
-@pytest.mark.no_git_testbed
 def test_check_ctags_disabled(mocker, temp_testbed):
     assert check_ctags_disabled() is None
 

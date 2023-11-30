@@ -86,11 +86,6 @@ class CodeContext:
         if config.auto_context:
             stream.send(f"{prefix}Auto-Context: Enabled")
             stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
-            if self.ctags_disabled:
-                stream.send(
-                    f"{prefix}Code Maps Disbled: {self.ctags_disabled}",
-                    color="yellow",
-                )
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 

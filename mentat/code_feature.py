@@ -9,7 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from mentat.code_map import get_code_map, get_ctags
+from mentat.code_map import get_ctags
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
