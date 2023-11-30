@@ -69,11 +69,13 @@ async def get_user_feedback_on_edits(
     for file_edit in edits_to_apply:
         file_edit.resolve_conflicts()
 
+    applied_edits = []
     if edits_to_apply:
-        await code_file_manager.write_changes_to_files(edits_to_apply, code_context)
-        stream.send("Changes applied.", color="light_blue")
-    else:
-        stream.send("No changes applied.", color="light_blue")
+        applied_edits = await code_file_manager.write_changes_to_files(
+            edits_to_apply, code_context
+        )
+    message = "Changes applied." if applied_edits else "No changes applied."
+    stream.send(message, color="light_blue")
 
     if need_user_request:
         stream.send("Can I do anything else for you?", color="light_blue")
