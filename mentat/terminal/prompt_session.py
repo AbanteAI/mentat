@@ -52,12 +52,13 @@ async def call_whisper(start_text: str, buffer: Buffer) -> None:
 async def transcribe_audio(session: PromptSession[str], buffer: Buffer) -> None:
     start_text = buffer.text
     data = []
+    default_device_index = audio.get_default_input_device_info().get('index')
     stream = audio.open(
         format=pyaudio.paInt16,
         channels=1,
         rate=RATE,
         input=True,
-        input_device_index=3,
+        input_device_index=default_device_index,
         frames_per_buffer=CHUNK * 50,
     )
     last_whisper_run = 0
