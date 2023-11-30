@@ -237,7 +237,7 @@ def mock_model_available(mocker):
 
 
 @pytest.fixture(autouse=True, scope="function")
-def mock_initizalize_client(mocker, request):
+def mock_initialize_client(mocker, request):
     if not request.config.getoption("--benchmark"):
         mocker.patch.object(LlmApiHandler, "initialize_client")
 
