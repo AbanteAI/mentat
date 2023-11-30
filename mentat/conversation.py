@@ -69,10 +69,16 @@ class Conversation:
             else:
                 context_size = maximum_context
 
+        included_code_message = ["Code Files:"] + [
+            line
+            for features_for_path in code_context.include_files.values()
+            for feature in features_for_path
+            for line in feature.get_code_message()
+        ]  # NOTE: missing diff info. negligible (0-30 tokens)
         messages = self.get_messages() + [
             ChatCompletionSystemMessageParam(
                 role="system",
-                content=await code_context.get_code_message("", max_tokens=0),
+                content="\n".join(included_code_message),
             )
         ]
         tokens = prompt_tokens(
@@ -87,10 +93,11 @@ class Conversation:
             )
         else:
             self.max_tokens = context_size
-        if context_size and tokens + 1000 > context_size:
+        if tokens + 1000 > context_size:
             stream.send(
-                f"Included files exceeds token limit ({tokens} / {context_size}). "
-                "Truncating based on task similarity.",
+                "Included files"
+                f" {'exceeds' if tokens > context_size else 'is close to'} token limit"
+                f" ({tokens} / {context_size}). Truncating based on task similarity.",
                 color="yellow",
             )
         else:
