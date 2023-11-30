@@ -148,7 +148,7 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
 class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
-    def initizalize_client(self):
+    def initialize_client(self):
         if not load_dotenv(mentat_dir_path / ".env"):
             load_dotenv()
         key = os.getenv("OPENAI_API_KEY")
