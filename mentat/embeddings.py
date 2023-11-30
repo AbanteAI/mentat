@@ -172,9 +172,9 @@ async def get_feature_similarity_scores(
     for i, (task, batch) in enumerate(tasks):
         if loading_multiplier:
             stream.send(
-                f"Fetching embeddings, batch {i+1}/{len(tasks)}",
+                f"Fetching embeddings, batch {i+1}/{len(batches)}",
                 channel="loading",
-                progress=(100 / len(tasks)) * loading_multiplier,
+                progress=(100 / len(batches)) * loading_multiplier,
             )
         start_time = default_timer()
         response = await task
