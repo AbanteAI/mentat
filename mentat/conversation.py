@@ -94,9 +94,16 @@ class Conversation:
         else:
             self.max_tokens = context_size
         if tokens + 1000 > context_size:
+            _plural = len(code_context.include_files) > 1
+            _exceed = tokens > context_size
+            message: dict[tuple[bool, bool], str] = {
+                (False, False): " is close to",
+                (False, True): " exceeds",
+                (True, False): "s are close to",
+                (True, True): "s exceed",
+            }
             stream.send(
-                "Included files"
-                f" {'exceeds' if tokens > context_size else 'is close to'} token limit"
+                f"Included file{message[(_plural, _exceed)]} token limit"
                 f" ({tokens} / {context_size}). Truncating based on task similarity.",
                 color="yellow",
             )

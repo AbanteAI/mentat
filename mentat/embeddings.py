@@ -189,6 +189,9 @@ async def get_feature_similarity_scores(
     # Calculate similarity score for each feature
     prompt_embedding = database.get([prompt_checksum])[prompt_checksum]
     embeddings = database.get(checksums)
-    scores = [_cosine_similarity(prompt_embedding, embeddings[k]) for k in checksums]
+    scores = [
+        _cosine_similarity(prompt_embedding, embeddings[k]) if k in embeddings else 0.0
+        for k in checksums
+    ]
 
     return scores
