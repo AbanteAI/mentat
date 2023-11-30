@@ -76,8 +76,7 @@ class CodeContext:
         git_root = session_context.git_root
         prefix = "  "
 
-        stream.send("")
-        stream.send("Code Context:", color="blue")
+        stream.send("Code Context:", color="cyan")
         stream.send(f"{prefix}Directory: {git_root}")
 
         diff = self.diff_context.get_display_context()
@@ -114,8 +113,6 @@ class CodeContext:
             )
         else:
             stream.send(f"{prefix}Included files: None", color="yellow")
-
-        stream.send("")
 
     _code_message: str | None = None
     _code_message_checksum: str | None = None
