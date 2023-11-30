@@ -32,6 +32,17 @@ class PathType(Enum):
     GLOB = "glob"
 
 
+def is_interval_path(path: Path) -> bool:
+    splits = str(path).rsplit(":", 1)
+    if len(splits) != 2:
+        return False
+    interval_str = splits[1]
+    intervals = parse_intervals(interval_str)
+    if len(intervals) == 0:
+        return False
+    return True
+
+
 def get_path_type(path: Path) -> PathType:
     """Get the type of path.
 
@@ -46,7 +57,7 @@ def get_path_type(path: Path) -> PathType:
 
     if path.is_file():
         return PathType.FILE
-    elif len(str(path).rsplit(":", 1)) > 1:
+    elif is_interval_path(path):
         return PathType.FILE_INTERVAL
     elif path.is_dir():
         return PathType.DIRECTORY
