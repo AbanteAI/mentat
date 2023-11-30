@@ -261,47 +261,45 @@ def get_code_features_for_path(
     exclude_patterns: Iterable[Path | str] = [],
 ) -> Set[CodeFeature]:
     validated_path = validate_and_format_path(path, cwd)
-
-    # Directory
-    if validated_path.is_dir():
-        paths = get_paths_for_directory(
-            validated_path, include_patterns, exclude_patterns
-        )
-        code_features = set(CodeFeature(p) for p in paths)
-    # File
-    elif validated_path.is_file():
-        code_features = set([CodeFeature(validated_path)])
-    # File interval
-    elif len(str(validated_path).rsplit(":", 1)) > 1:
-        interval_path, interval_str = str(validated_path).rsplit(":", 1)
-        intervals = parse_intervals(interval_str)
-        code_features: Set[CodeFeature] = set()
-        for interval in intervals:
-            code_feature = CodeFeature(
-                f"{interval_path}:{interval.start}-{interval.end}"
+    match get_path_type(validated_path):
+        case PathType.FILE:
+            code_features = set([CodeFeature(validated_path)])
+        case PathType.FILE_INTERVAL:
+            interval_path, interval_str = str(validated_path).rsplit(":", 1)
+            intervals = parse_intervals(interval_str)
+            code_features: Set[CodeFeature] = set()
+            for interval in intervals:
+                code_feature = CodeFeature(
+                    f"{interval_path}:{interval.start}-{interval.end}"
+                )
+                code_features.add(code_feature)
+        case PathType.DIRECTORY:
+            paths = get_paths_for_directory(
+                validated_path, include_patterns, exclude_patterns
             )
-            code_features.add(code_feature)
-    # Glob pattern
-    else:
-        root_parts: List[str] = []
-        pattern: str | None = None
-        for i, part in enumerate(validated_path.parts):
-            if re.search(r"[\*\?\[\]]", str(part)):
-                pattern = str(Path().joinpath(*validated_path.parts[i:]))
-                break
-            root_parts.append(part)
-        if pattern is None:
-            raise PathValidationError(f"Unable to parse glob pattern {validated_path}")
-        root = Path().joinpath(*root_parts)
-        paths = get_paths_for_directory(
-            root,
-            include_patterns=(
-                [*include_patterns, pattern] if pattern != "*" else include_patterns
-            ),
-            exclude_patterns=exclude_patterns,
-            recursive=True,
-        )
-        code_features = set(CodeFeature(p) for p in paths)
+            code_features = set(CodeFeature(p) for p in paths)
+        case PathType.GLOB:
+            root_parts: List[str] = []
+            pattern: str | None = None
+            for i, part in enumerate(validated_path.parts):
+                if re.search(r"[\*\?\[\]]", str(part)):
+                    pattern = str(Path().joinpath(*validated_path.parts[i:]))
+                    break
+                root_parts.append(part)
+            if pattern is None:
+                raise PathValidationError(
+                    f"Unable to parse glob pattern {validated_path}"
+                )
+            root = Path().joinpath(*root_parts)
+            paths = get_paths_for_directory(
+                root,
+                include_patterns=(
+                    [*include_patterns, pattern] if pattern != "*" else include_patterns
+                ),
+                exclude_patterns=exclude_patterns,
+                recursive=True,
+            )
+            code_features = set(CodeFeature(p) for p in paths)
 
     return code_features
 
