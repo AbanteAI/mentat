@@ -1,12 +1,17 @@
 import base64
 import os
 from typing import Optional
+from webbrowser import get
 
 import attr
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchWindowException
+from selenium.common.exceptions import NoSuchWindowException, WebDriverException
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.edge.service import Service as EdgeService
+from selenium.webdriver.firefox.service import Service as FirefoxService
 from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.firefox import GeckoDriverManager
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
 
 class ScreenshotException(Exception):
@@ -17,12 +22,30 @@ class ScreenshotException(Exception):
 
 @attr.define
 class VisionManager:
-    driver: webdriver.Chrome | None = attr.field(default=None)
+    driver: webdriver.Chrome | webdriver.Firefox | webdriver.Safari | webdriver.Edge | None = attr.field(
+        default=None
+    )
 
     def _open_browser(self) -> None:
-        if self.driver is None or not self.driver_running():
-            service = Service(ChromeDriverManager().install())
-            self.driver = webdriver.Chrome(service=service)
+        browser_type = get().name
+        try:
+            if self.driver is None or not self.driver_running():
+                if "firefox" in browser_type:
+                    service = FirefoxService(GeckoDriverManager().install())
+                    self.driver = webdriver.Firefox(service=service)
+                elif "safari" in browser_type:
+                    # Safari is prebundled with Selenium
+                    self.driver = webdriver.Safari()
+                elif "edge" in browser_type:
+                    service = EdgeService(EdgeChromiumDriverManager().install())
+                    self.driver = webdriver.Edge(service=service)
+                else:
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service)
+        except WebDriverException:
+            raise ScreenshotException(
+                f"There was an error opening your browser of type {browser_type}"
+            )
 
     def open(self, path: str) -> None:
         self._open_browser()
