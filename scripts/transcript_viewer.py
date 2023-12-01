@@ -7,6 +7,7 @@ import fire  # pyright: ignore[reportMissingTypeStubs]
 from mentat.utils import create_viewer
 
 
+# Currently will NOT work; because the /conversation command works well, no need to update
 def transcript_viewer(transcript_location: str):
     transcript_path = Path(transcript_location)
     with transcript_path.open("r") as transcript_file:

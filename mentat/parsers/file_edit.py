@@ -33,8 +33,7 @@ class Replacement:
 
     def __lt__(self, other: Replacement):
         return self.ending_line < other.ending_line or (
-            self.ending_line == other.ending_line
-            and self.starting_line < other.ending_line
+            self.ending_line == other.ending_line and self.starting_line < other.ending_line
         )
 
 
@@ -95,7 +94,14 @@ class FileEdit:
                     color="light_yellow",
                 )
                 return False
-            elif self.file_path not in code_context.include_files:
+            file_features_in_context = [
+                f for f in code_context.features if f.path == self.file_path
+            ] or code_context.include_files.get(self.file_path, [])
+            if not all(
+                any(f.contains_line(i) for f in file_features_in_context)
+                for r in self.replacements
+                for i in range(r.starting_line, r.ending_line)
+            ):
                 stream.send(
                     f"File {display_path} not in context, canceling all edits to file.",
                     color="light_yellow",
@@ -121,9 +127,7 @@ class FileEdit:
         code_file_manager = session_context.code_file_manager
 
         if self.is_creation:
-            display_information = DisplayInformation(
-                self.file_path, [], [], [], FileActionType.CreateFile
-            )
+            display_information = DisplayInformation(self.file_path, [], [], [], FileActionType.CreateFile)
             if not await _ask_user_change(display_information, "Create this file?"):
                 return False
             file_lines = []
@@ -131,9 +135,7 @@ class FileEdit:
             file_lines = code_file_manager.file_lines[self.file_path]
 
         if self.is_deletion:
-            display_information = DisplayInformation(
-                self.file_path, [], [], file_lines, FileActionType.DeleteFile
-            )
+            display_information = DisplayInformation(self.file_path, [], [], file_lines, FileActionType.DeleteFile)
             if not await _ask_user_change(display_information, "Delete this file?"):
                 return False
 
@@ -151,9 +153,7 @@ class FileEdit:
 
         new_replacements = list[Replacement]()
         for replacement in self.replacements:
-            removed_block = file_lines[
-                replacement.starting_line : replacement.ending_line
-            ]
+            removed_block = file_lines[replacement.starting_line : replacement.ending_line]
             display_information = DisplayInformation(
                 self.file_path,
                 file_lines,
@@ -168,12 +168,7 @@ class FileEdit:
                 new_replacements.append(replacement)
         self.replacements = new_replacements
 
-        return (
-            self.is_creation
-            or self.is_deletion
-            or (self.rename_file_path is not None)
-            or len(self.replacements) > 0
-        )
+        return self.is_creation or self.is_deletion or (self.rename_file_path is not None) or len(self.replacements) > 0
 
     def _print_resolution(self, first: Replacement, second: Replacement):
         session_context = SESSION_CONTEXT.get()
@@ -190,10 +185,7 @@ class FileEdit:
         self.replacements.sort(reverse=True)
         for index, replacement in enumerate(self.replacements):
             for other in self.replacements[index + 1 :]:
-                if (
-                    other.ending_line > replacement.starting_line
-                    and other.starting_line < replacement.ending_line
-                ):
+                if other.ending_line > replacement.starting_line and other.starting_line < replacement.ending_line:
                     # Overlap conflict
                     other.ending_line = replacement.starting_line
                     other.starting_line = min(other.starting_line, other.ending_line)
@@ -218,8 +210,6 @@ class FileEdit:
                 file_lines += [""] * (replacement.ending_line - len(file_lines))
             earliest_line = replacement.starting_line
             file_lines = (
-                file_lines[: replacement.starting_line]
-                + replacement.new_lines
-                + file_lines[replacement.ending_line :]
+                file_lines[: replacement.starting_line] + replacement.new_lines + file_lines[replacement.ending_line :]
             )
         return file_lines

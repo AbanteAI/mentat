@@ -55,7 +55,9 @@ jobs:
         run: |
           pytest
       - name: Can run Mentat
-        # Ensure that python doesn't import local mentat folder and that 'mentat' command calls mentat instead of switching folder
+        # Unfortunately Github Actions Runners have trouble with prompt toolkit, so we can't do this on Windows.
+        if: runner.os != 'Windows'
+        # Ensure that python doesn't import local mentat folder and that 'mentat' command calls mentat instead of switching folders.
         working-directory: ./testbed
         run: |
           mentat

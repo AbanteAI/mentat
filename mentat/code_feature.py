@@ -4,7 +4,7 @@ import asyncio
 import logging
 import math
 import os
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -14,7 +14,7 @@ from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
 from mentat.interval import Interval, parse_intervals
-from mentat.llm_api import count_tokens
+from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import sha256
 
@@ -36,13 +36,11 @@ def split_file_into_intervals(
 
     # Get ctags data (name and start line) and determine end line
     ctags = list(get_ctags(git_root.joinpath(feature.path)))
-    ctags = sorted(ctags, key=lambda x: int(x[4]))  # type: ignore
+    ctags.sort(key=lambda x: int(x[4]))
     named_intervals = list[tuple[str, int, int]]()  # Name, Start, End
     _last_item = tuple[str, int]()
     for i, tag in enumerate(ctags):
         (scope, _, name, _, line_number) = tag  # Kind and Signature ignored
-        if name is None or line_number is None:
-            continue
         key = name
         if scope is not None:
             key = f"{scope}.{name}"
@@ -84,8 +82,8 @@ def split_file_into_intervals(
 
 
 class CodeMessageLevel(Enum):
-    CODE = ("code", 1, "Complete code")
-    INTERVAL = ("interval", 2, "Specific range(s)")
+    CODE = ("code", 1, "Full File")
+    INTERVAL = ("interval", 2, "Specific range")
     CMAP_FULL = ("cmap_full", 3, "Function/Class names and signatures")
     CMAP = ("cmap", 4, "Function/Class names")
     FILE_NAME = ("file_name", 5, "Relative path/filename")
@@ -144,11 +142,18 @@ class CodeFeature:
             f" level={self.level.key}, diff={self.diff})"
         )
 
-    def ref(self):
+    def ref(self, cwd: Optional[Path] = None) -> str:
+        if cwd is not None and self.path.is_relative_to(cwd):
+            path_string = self.path.relative_to(cwd)
+        else:
+            path_string = str(self.path)
+
         if self.level == CodeMessageLevel.INTERVAL:
-            interval_string = f"{self.interval.start}-{self.interval.end}"
-            return f"{self.path}:{interval_string}"
-        return str(self.path)
+            interval_string = f":{self.interval.start}-{self.interval.end}"
+        else:
+            interval_string = ""
+
+        return f"{path_string}{interval_string}"
 
     def contains_line(self, line_number: int):
         return self.interval.contains(line_number)
@@ -170,10 +175,12 @@ class CodeFeature:
 
         if self.level in {CodeMessageLevel.CODE, CodeMessageLevel.INTERVAL}:
             file_lines = code_file_manager.read_file(abs_path)
-            for i, line in enumerate(file_lines, start=1):
-                if self.contains_line(i):
+            for i, line in enumerate(file_lines):
+                if self.contains_line(i + 1):
                     if parser.provide_line_numbers():
-                        code_message.append(f"{i}:{line}")
+                        code_message.append(
+                            f"{i + parser.line_number_starting_index()}:{line}"
+                        )
                     else:
                         code_message.append(f"{line}")
         elif self.level == CodeMessageLevel.CMAP_FULL:
@@ -217,7 +224,7 @@ class CodeFeature:
 
     def count_tokens(self, model: str) -> int:
         code_message = self.get_code_message()
-        return count_tokens("\n".join(code_message), model)
+        return count_tokens("\n".join(code_message), model, full_message=False)
 
 
 async def count_feature_tokens(features: list[CodeFeature], model: str) -> list[int]:
@@ -266,3 +273,34 @@ def get_code_message_from_features(features: list[CodeFeature]) -> list[str]:
         else:
             code_message += get_code_message_from_intervals(path_features)
     return code_message
+
+
+def get_consolidated_feature_refs(features: list[CodeFeature]) -> list[str]:
+    """Return a list of 'path:<interval>,<interval>' strings"""
+    level_info_by_path = defaultdict[Path, list[Interval | None]](list)
+    for f in features:
+        if f.level == CodeMessageLevel.CODE:
+            level_info_by_path[f.path].append(None)
+        elif f.level == CodeMessageLevel.INTERVAL:
+            level_info_by_path[f.path].append(f.interval)
+        else:
+            pass  # Skipping filename, code_maps
+
+    consolidated_refs = list[str]()
+    for path, level_info in level_info_by_path.items():
+        ref_string = str(path)
+        if not any(level is None for level in level_info):
+            intervals = sorted(
+                [level for level in level_info if isinstance(level, Interval)],
+                key=lambda i: i.start,
+            )
+            ref_string += f":{intervals[0].start}-"
+            last_end = intervals[0].end
+            for i in intervals[1:]:
+                if i.start > last_end + 1:
+                    ref_string += f"{last_end},{i.start}-"
+                last_end = i.end
+            ref_string += str(last_end)
+        consolidated_refs.append(ref_string)
+
+    return consolidated_refs
