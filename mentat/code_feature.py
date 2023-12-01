@@ -64,7 +64,9 @@ def split_file_into_intervals(
     # Create and return separate features for each interval
     _features = list[CodeFeature]()
     for name, start, end in named_intervals:
-        _user_included = any(u.contains_line(i) for u in user_features for i in range(start, end + 1))
+        _user_included = any(
+            u.contains_line(i) for u in user_features for i in range(start, end + 1)
+        )
         feature_string = f"{feature.path}:{start}-{end}"
         _feature = CodeFeature(
             feature_string,
@@ -177,7 +179,9 @@ class CodeFeature:
             for i, line in enumerate(file_lines):
                 if self.contains_line(i + 1):
                     if parser.provide_line_numbers():
-                        code_message.append(f"{i + parser.line_number_starting_index()}:{line}")
+                        code_message.append(
+                            f"{i + parser.line_number_starting_index()}:{line}"
+                        )
                     else:
                         code_message.append(f"{line}")
         elif self.level == CodeMessageLevel.CMAP_FULL:

@@ -23,7 +23,10 @@ def _make_code_feature(path, text):
 @pytest.mark.asyncio
 async def test_get_feature_similarity_scores(mocker, mock_call_embedding_api):
     prompt = "example prompt"
-    features = [_make_code_feature(Path(f"file{i}.txt").resolve(), f"File {i}") for i in range(3)]
+    features = [
+        _make_code_feature(Path(f"file{i}.txt").resolve(), f"File {i}")
+        for i in range(3)
+    ]
     mock_call_embedding_api.set_embedding_values(
         [
             [0.4, 0.4, 0.4],
