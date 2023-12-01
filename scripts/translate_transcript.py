@@ -10,7 +10,7 @@ from mentat.parsers.git_parser import GitParser
 from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT, SessionContext
-from mentat.utils import convert_string_to_asyncgen
+from mentat.utils import convert_string_to_asynciter
 
 parser_map["git"] = GitParser()
 
@@ -20,7 +20,7 @@ def translate_message(
 ) -> str:
     parsedLLMResponse = asyncio.run(
         starting_parser.stream_and_parse_llm_response(
-            convert_string_to_asyncgen(message, 100)
+            convert_string_to_asynciter(message, 100)
         )
     )
     return ending_parser.file_edits_to_llm_message(parsedLLMResponse)

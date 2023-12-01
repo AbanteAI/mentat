@@ -109,6 +109,19 @@ Exclude given paths, directories, or [glob patterns](https://docs.python.org/3/l
 mentat path/to/directory --exclude exclude_me.py dir1/dir2 **/*.ts
 ```
 
+### Auto Context
+
+The `Auto Context` feature in Mentat uses retrieval-augmented-generation (RAG) to select relevant snippets from your codebase to include with the user query. To enable `Auto Context`, use the `--auto-context` or `-a` flag when running Mentat:
+
+```
+mentat --auto-context
+```
+
+Auto-context will add code snippets in order of relevance up to the maximum (8000 tokens by default). Adjust the maximum number of tokens added by auto-context by using the `--auto-tokens` flag:
+
+```
+mentat -a --auto-tokens 8000
+```
 
 # 👩‍💻 Roadmap and Contributing
 

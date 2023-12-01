@@ -64,10 +64,11 @@ class CodeFileManager:
         self,
         file_edits: list[FileEdit],
         code_context: CodeContext,
-    ):
+    ) -> list[FileEdit]:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
 
+        applied_edits: list[FileEdit] = []
         for file_edit in file_edits:
             if file_edit.file_path.is_relative_to(session_context.cwd):
                 display_path = file_edit.file_path.relative_to(session_context.cwd)
@@ -82,27 +83,10 @@ class CodeFileManager:
                     )
                 self.history.add_action(CreationAction(file_edit.file_path))
                 self._create_file(code_context, file_edit.file_path)
-            else:
-                if not file_edit.file_path.exists():
-                    raise MentatError(
-                        f"Attempted to edit non-existent file {file_edit.file_path}"
-                    )
-                context_features = code_context.features or [
-                    feat
-                    for feats in code_context.include_files.values()
-                    for feat in feats
-                ]
-                missing_lines = False
-                for r in file_edit.replacements:
-                    for i in range(r.starting_line, r.ending_line):
-                        if not any(f.contains_line(i) for f in context_features):
-                            missing_lines = True
-                if not context_features or missing_lines:
-                    stream.send(
-                        f"Attempted to edit file {file_edit.file_path} not in context",
-                        color="yellow",
-                    )
-                    continue
+            elif not file_edit.file_path.exists():
+                raise MentatError(
+                    f"Attempted to edit non-existent file {file_edit.file_path}"
+                )
 
             if file_edit.is_deletion:
                 stream.send(
@@ -118,6 +102,7 @@ class CodeFileManager:
                         )
                     )
                     self._delete_file(code_context, file_edit.file_path)
+                    applied_edits.append(file_edit)
                     continue
                 else:
                     stream.send(f"Not deleting {display_path}", color="green")
@@ -161,7 +146,9 @@ class CodeFileManager:
                 )
                 with open(file_edit.file_path, "w") as f:
                     f.write("\n".join(new_lines))
+            applied_edits.append(file_edit)
         self.history.push_edits()
+        return applied_edits
 
     def get_file_checksum(self, path: Path, interval: Interval | None = None) -> str:
         if path.is_dir():

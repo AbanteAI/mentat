@@ -23,7 +23,7 @@ class Interval:
     end: int | float = attr.field()
 
     def contains(self, line_number: int):
-        return self.start <= line_number <= self.end
+        return self.start <= line_number < self.end
 
     def intersects(self, other: Interval) -> bool:
         return not (other.end < self.start or self.end < other.start)

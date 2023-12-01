@@ -18,6 +18,8 @@ def expand_paths(paths: list[Path]) -> tuple[list[Path], list[str]]:
         new_paths = glob.glob(pathname=str(path), recursive=True)
         if new_paths:
             globbed_paths.update(new_paths)
+        elif Path(path).exists():
+            globbed_paths.add(str(path))
         else:
             split = str(path).rsplit(":", 1)
             p = Path(split[0])
@@ -169,12 +171,7 @@ def print_path_tree(
 
         cur = cur_path / key
         star = "* " if cur in changed_files else ""
-        if tree[key]:
-            color = "blue"
-        elif star:
-            color = "green"
-        else:
-            color = None
+        color = "green" if star else None
         stream.send(f"{star}{key}", color=color)
         if tree[key]:
             print_path_tree(tree[key], changed_files, cur, new_prefix)

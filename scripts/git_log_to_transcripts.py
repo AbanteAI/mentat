@@ -8,8 +8,8 @@ import subprocess
 from pathlib import Path
 from textwrap import dedent
 
-import openai
 from git import Repo
+from openai import OpenAI
 
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
@@ -58,12 +58,12 @@ def gpt_commit_summary(hexsha, diff):
         {"role": "system", "content": system_prompt},
         {"role": "system", "content": diff},
     ]
-    response = openai.ChatCompletion.create(
+    client = OpenAI()
+    response = client.chat.completions.create(
         model="gpt-4-0314",
         messages=messages,
     )
-
-    message = response["choices"][0]["message"]["content"]
+    message = response.choices[0].message.content
 
     ans = json.loads(message)
 

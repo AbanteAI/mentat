@@ -19,7 +19,8 @@ async def _get_input_request(**kwargs: Any) -> StreamMessage:
 
 
 async def collect_user_input(plain: bool = False) -> StreamMessage:
-    """Listens for user input on a new channel
+    """
+    Listens for user input on a new channel
 
     send a message requesting user to send a response
     create a new broadcast channel that listens for the input

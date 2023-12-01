@@ -27,16 +27,17 @@ def mock_prompt_session_prompt(mocker):
 
 
 def test_empty_prompt(
-    mock_prompt_session_prompt, mock_call_llm_api, mock_setup_api_key
+    mocker,
+    mock_prompt_session_prompt,
 ):
     mock_prompt_session_prompt.side_effect = ["", "q"]
     terminal_client = TerminalClient(["."])
     terminal_client.run()
-    mock_call_llm_api.assert_not_called()
 
 
 def test_editing_file(
-    mock_prompt_session_prompt, mock_call_llm_api, mock_setup_api_key
+    mock_prompt_session_prompt,
+    mock_call_llm_api,
 ):
     file_name = "test.py"
     with open(file_name, "w") as f:
@@ -47,7 +48,7 @@ def test_editing_file(
         "q",
     ]
 
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         @@start
@@ -70,7 +71,8 @@ def test_editing_file(
 
 
 def test_request_and_command(
-    mock_prompt_session_prompt, mock_call_llm_api, mock_setup_api_key
+    mock_prompt_session_prompt,
+    mock_call_llm_api,
 ):
     file_name = "test.py"
     mock_prompt_session_prompt.side_effect = [
@@ -80,7 +82,7 @@ def test_request_and_command(
         "q",
     ]
 
-    mock_call_llm_api.set_generator_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         I will create a new file called temp.py
 
         Steps: 1. Create a new file called temp.py

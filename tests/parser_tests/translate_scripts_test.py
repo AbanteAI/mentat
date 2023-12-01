@@ -24,14 +24,14 @@ def git_diff_format():
         return f.read()
 
 
-def test_block_to_replacement(block_format, replacement_format, mock_session_context):
+def test_block_to_replacement(block_format, replacement_format, mock_call_llm_api):
     assert (
         translate_message(block_format, BlockParser(), ReplacementParser())
         == replacement_format
     )
 
 
-def test_replacement_to_block(block_format, replacement_format, mock_session_context):
+def test_replacement_to_block(block_format, replacement_format, mock_call_llm_api):
     assert (
         translate_message(replacement_format, ReplacementParser(), BlockParser())
         == block_format
@@ -39,7 +39,7 @@ def test_replacement_to_block(block_format, replacement_format, mock_session_con
 
 
 def test_git_diff_to_replacement(
-    git_diff_format, replacement_format, mock_session_context
+    git_diff_format, replacement_format, mock_call_llm_api
 ):
     assert (
         translate_message(git_diff_format, GitParser(), ReplacementParser())
@@ -47,7 +47,7 @@ def test_git_diff_to_replacement(
     )
 
 
-def test_git_diff_to_block(git_diff_format, block_format, mock_session_context):
+def test_git_diff_to_block(git_diff_format, block_format, mock_call_llm_api):
     assert (
         translate_message(git_diff_format, GitParser(), BlockParser()) == block_format
     )

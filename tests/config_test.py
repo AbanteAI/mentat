@@ -9,6 +9,13 @@ from mentat.config import Config, config_file_name
 from mentat.parsers.replacement_parser import ReplacementParser
 
 
+@pytest.fixture
+def mock_config_errors(mocker):
+    errors = []
+    mocker.patch.object(Config, "error", lambda self, message: errors.append(message))
+    return errors
+
+
 @pytest.mark.asyncio
 async def test_config_creation():
     "This test verifies the Config adds the parameters to the argparse object."
@@ -59,7 +66,7 @@ async def test_config_creation():
 
 
 @pytest.mark.asyncio
-async def test_invalid_config():
+async def test_invalid_config(mock_config_errors):
     # If invalid config file is found, it should use next config
     with open(config_file_name, "w") as project_config_file:
         project_config_file.write(dedent("""\
@@ -78,10 +85,11 @@ async def test_invalid_config():
 
     config = Config.create()
     assert (
-        config._errors[0]
+        mock_config_errors[0]
         == "Warning: Config .mentat_config.json1 contains unrecognized setting: foobar"
     )
     assert (
-        "contains invalid json; ignoring user configuration file" in config._errors[1]
+        "contains invalid json; ignoring user configuration file"
+        in mock_config_errors[1]
     )
     assert config.model == "test"
