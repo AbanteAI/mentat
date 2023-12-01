@@ -69,10 +69,16 @@ class Conversation:
             else:
                 context_size = maximum_context
 
+        included_code_message = ["Code Files:"] + [
+            line
+            for features_for_path in code_context.include_files.values()
+            for feature in features_for_path
+            for line in feature.get_code_message()
+        ]  # NOTE: missing diff info. negligible (0-30 tokens)
         messages = self.get_messages() + [
             ChatCompletionSystemMessageParam(
                 role="system",
-                content=await code_context.get_code_message("", max_tokens=0),
+                content="\n".join(included_code_message),
             )
         ]
         tokens = prompt_tokens(
@@ -87,18 +93,19 @@ class Conversation:
             )
         else:
             self.max_tokens = context_size
-        if context_size and tokens > context_size:
-            raise MentatError(
-                f"Included files already exceed token limit ({tokens} /"
-                f" {context_size}). Please try running again with a reduced"
-                " number of files."
-            )
-        elif tokens + config.token_buffer > context_size:
+        if tokens + 1000 > context_size:
+            _plural = len(code_context.include_files) > 1
+            _exceed = tokens > context_size
+            message: dict[tuple[bool, bool], str] = {
+                (False, False): " is close to",
+                (False, True): " exceeds",
+                (True, False): "s are close to",
+                (True, True): "s exceed",
+            }
             stream.send(
-                f"Warning: Included files are close to token limit ({tokens} /"
-                f" {context_size}), you may not be able to have a long"
-                " conversation.",
-                color="red",
+                f"Included file{message[(_plural, _exceed)]} token limit"
+                f" ({tokens} / {context_size}). Truncating based on task similarity.",
+                color="yellow",
             )
         else:
             stream.send(
@@ -277,13 +284,14 @@ class Conversation:
             if loading_multiplier:
                 stream.send(None, channel="loading", terminate=True)
 
-        cost_tracker.display_api_call_stats(
+        cost_tracker.log_api_call_stats(
             num_prompt_tokens,
             count_tokens(
                 parsed_llm_response.full_response, config.model, full_message=False
             ),
             config.model,
             time_elapsed,
+            display=True,
         )
 
         messages_snapshot.append(

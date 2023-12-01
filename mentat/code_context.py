@@ -8,12 +8,14 @@ from mentat.code_feature import (
     CodeFeature,
     CodeMessageLevel,
     get_code_message_from_features,
+    get_consolidated_feature_refs,
     split_file_into_intervals,
 )
 from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
+from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.git_handler import get_non_gitignored_files, get_paths_with_git_diffs
 from mentat.include_files import (
     build_path_tree,
@@ -23,7 +25,7 @@ from mentat.include_files import (
     print_invalid_path,
     print_path_tree,
 )
-from mentat.llm_api_handler import count_tokens
+from mentat.llm_api_handler import count_tokens, is_test_environment
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import sha256
@@ -72,26 +74,17 @@ class CodeContext:
         stream = session_context.stream
         config = session_context.config
         git_root = session_context.git_root
-
-        stream.send("Code Context:", color="blue")
         prefix = "  "
+
+        stream.send("Code Context:", color="cyan")
         stream.send(f"{prefix}Directory: {git_root}")
-        if self.diff_context.name:
-            stream.send(f"{prefix}Diff:", end=" ")
-            stream.send(self.diff_context.get_display_context(), color="green")
-        if self.include_files:
-            stream.send(f"{prefix}Included files:")
-            stream.send(f"{prefix + prefix}{git_root.name}")
-            print_path_tree(
-                build_path_tree(list(self.include_files.keys()), git_root),
-                get_paths_with_git_diffs(),
-                git_root,
-                prefix + prefix,
-            )
-        else:
-            stream.send(f"{prefix}Included files: None", color="yellow")
+
+        diff = self.diff_context.get_display_context()
+        if diff:
+            stream.send(f"{prefix}Diff: {diff}", color="green")
+
         if config.auto_context:
-            stream.send(f"{prefix}Auto-Context: Enabled", color="green")
+            stream.send(f"{prefix}Auto-Context: Enabled")
             stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
             if self.ctags_disabled:
                 stream.send(
@@ -101,20 +94,25 @@ class CodeContext:
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 
-    def display_features(self):
-        """Display a summary of all active features"""
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-
-        auto_features = {level: 0 for level in CodeMessageLevel}
-        for f in self.features:
-            if f.path not in self.include_files:
-                auto_features[f.level] += 1
-        if any(auto_features.values()):
-            stream.send("Auto-Selected Features:", color="blue")
-            for level, count in auto_features.items():
-                if count:
-                    stream.send(f"  {count} {level.description}")
+        features = None
+        if self.features:
+            stream.send(f"{prefix}Active Features:")
+            features = self.features
+        elif self.include_files:
+            stream.send(f"{prefix}Included files:")
+            features = [
+                _feat for _file in self.include_files.values() for _feat in _file
+            ]
+        if features is not None:
+            refs = get_consolidated_feature_refs(features)
+            print_path_tree(
+                build_path_tree([Path(r) for r in refs], git_root),
+                get_paths_with_git_diffs(),
+                git_root,
+                prefix + prefix,
+            )
+        else:
+            stream.send(f"{prefix}Included files: None", color="yellow")
 
     _code_message: str | None = None
     _code_message_checksum: str | None = None
@@ -198,8 +196,19 @@ class CodeContext:
         remaining_tokens = max_tokens - meta_tokens
         auto_tokens = min(remaining_tokens, config.auto_tokens)
 
-        if not config.auto_context or auto_tokens <= 0:
+        if remaining_tokens < 0:
+            self.features = []
+            return ""
+        elif not config.auto_context:
             self.features = self._get_include_features()
+            if sum(f.count_tokens(model) for f in self.features) > remaining_tokens:
+                if prompt and not is_test_environment():
+                    self.features = await EmbeddingSimilarityFilter(prompt).filter(
+                        self.features
+                    )
+                self.features = await TruncateFilter(
+                    remaining_tokens, model, respect_user_include=False
+                ).filter(self.features)
         else:
             self.features = self._get_all_features(
                 CodeMessageLevel.INTERVAL,

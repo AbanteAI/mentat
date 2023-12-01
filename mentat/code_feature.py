@@ -4,7 +4,7 @@ import asyncio
 import logging
 import math
 import os
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -266,3 +266,34 @@ def get_code_message_from_features(features: list[CodeFeature]) -> list[str]:
         else:
             code_message += get_code_message_from_intervals(path_features)
     return code_message
+
+
+def get_consolidated_feature_refs(features: list[CodeFeature]) -> list[str]:
+    """Return a list of 'path:<interval>,<interval>' strings"""
+    level_info_by_path = defaultdict[Path, list[Interval | None]](list)
+    for f in features:
+        if f.level == CodeMessageLevel.CODE:
+            level_info_by_path[f.path].append(None)
+        elif f.level == CodeMessageLevel.INTERVAL:
+            level_info_by_path[f.path].append(f.interval)
+        else:
+            pass  # Skipping filename, code_maps
+
+    consolidated_refs = list[str]()
+    for path, level_info in level_info_by_path.items():
+        ref_string = str(path)
+        if not any(level is None for level in level_info):
+            intervals = sorted(
+                [level for level in level_info if isinstance(level, Interval)],
+                key=lambda i: i.start,
+            )
+            ref_string += f":{intervals[0].start}-"
+            last_end = intervals[0].end
+            for i in intervals[1:]:
+                if i.start > last_end + 1:
+                    ref_string += f"{last_end},{i.start}-"
+                last_end = i.end
+            ref_string += str(last_end)
+        consolidated_refs.append(ref_string)
+
+    return consolidated_refs

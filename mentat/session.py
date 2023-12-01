@@ -107,8 +107,8 @@ class Session:
         await conversation.display_token_count()
 
         try:
-            stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
-            stream.send("What can I do for you?", color="light_blue")
+            stream.send("Type 'q' or use Ctrl-C to quit at any time.")
+            stream.send("\nWhat can I do for you?", color="light_blue")
             need_user_request = True
             while True:
                 if need_user_request:
