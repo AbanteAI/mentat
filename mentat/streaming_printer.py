@@ -44,7 +44,11 @@ class StreamingPrinter:
 
         while not self.shutdown:
             if self.strings_to_print:
-                next_string = self.strings_to_print.popleft()
+                if len(self.strings_to_print) > 500:
+                    next_string = "".join(self.strings_to_print)
+                    self.strings_to_print = deque[str]([])
+                else:
+                    next_string = self.strings_to_print.popleft()
                 stream.send(next_string, end="", flush=True)
                 self.chars_remaining -= 1
             elif self.finishing:

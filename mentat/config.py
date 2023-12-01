@@ -26,11 +26,11 @@ def int_or_none(s: str | None) -> int | None:
 
 @attr.define
 class Config:
-    _errors: list[str] = attr.field(default=[])
+    _errors: list[str] = attr.field(factory=list)
 
     # Model specific settings
-    model: str = attr.field(default="gpt-4-0314")
-    feature_selection_model: str = attr.field(default="gpt-4-0314")
+    model: str = attr.field(default="gpt-4-1106-preview")
+    feature_selection_model: str = attr.field(default="gpt-4-1106-preview")
     embedding_model: str = attr.field(default="text-embedding-ada-002")
     temperature: float = attr.field(
         default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)]
@@ -47,6 +47,15 @@ class Config:
         },
         converter=int_or_none,
         validator=validators.optional(validators.ge(0)),
+    )
+    token_buffer: int = attr.field(
+        default=1000,
+        metadata={
+            "description": (
+                "The amount of tokens to always be reserved as a buffer for user and"
+                " model messages."
+            )
+        },
     )
     parser: Parser = attr.field(  # pyright: ignore
         default="block",
@@ -72,7 +81,7 @@ class Config:
 
     # Context specific settings
     file_exclude_glob_list: list[str] = attr.field(
-        default=[],
+        factory=list,
         metadata={"description": "List of glob patterns to exclude from context"},
     )
     auto_context: bool = attr.field(
@@ -83,10 +92,17 @@ class Config:
         },
         converter=converters.optional(converters.to_bool),
     )
+    auto_tokens: int = attr.field(
+        default=8000,
+        metadata={
+            "description": "The number of tokens auto-context will add.",
+        },
+        converter=int,
+    )
 
     # Only settable by config file
     input_style: list[tuple[str, str]] = attr.field(
-        default=[
+        factory=lambda: [
             ["", "#9835bd"],
             ["prompt", "#ffffff bold"],
             ["continuation", "#ffffff bold"],
