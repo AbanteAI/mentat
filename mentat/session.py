@@ -11,6 +11,7 @@ import attr
 import sentry_sdk
 from openai import APITimeoutError, BadRequestError, RateLimitError
 
+from mentat.agent_handler import AgentHandler
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
@@ -23,7 +24,7 @@ from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
 from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
-from mentat.session_input import collect_user_input
+from mentat.session_input import collect_input_with_commands
 from mentat.session_stream import SessionStream
 from mentat.utils import check_version, mentat_dir_path
 from mentat.vision.vision_manager import VisionManager
@@ -75,6 +76,8 @@ class Session:
 
         vision_manager = VisionManager()
 
+        agent_handler = AgentHandler()
+
         session_context = SessionContext(
             cwd,
             stream,
@@ -86,6 +89,7 @@ class Session:
             code_file_manager,
             conversation,
             vision_manager,
+            agent_handler,
         )
         SESSION_CONTEXT.set(session_context)
 
@@ -100,6 +104,8 @@ class Session:
         code_context = session_context.code_context
         conversation = session_context.conversation
         llm_api_handler = session_context.llm_api_handler
+        code_file_manager = session_context.code_file_manager
+        agent_handler = session_context.agent_handler
 
         llm_api_handler.initizalize_client()
         code_context.display_context()
@@ -107,11 +113,12 @@ class Session:
 
         try:
             stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
-            stream.send("What can I do for you?", color="light_blue")
             need_user_request = True
             while True:
                 if need_user_request:
-                    message = await collect_user_input()
+                    # TODO: Once finished, allow user to undo all edits in agent mode
+                    stream.send("What can I do for you?", color="light_blue")
+                    message = await collect_input_with_commands()
                     if message.data.strip() == "":
                         continue
                     conversation.add_user_message(message.data)
@@ -121,7 +128,25 @@ class Session:
                     file_edit for file_edit in file_edits if file_edit.is_valid()
                 ]
                 if file_edits:
-                    need_user_request = await get_user_feedback_on_edits(file_edits)
+                    if not agent_handler.agent_enabled:
+                        file_edits, need_user_request = (
+                            await get_user_feedback_on_edits(file_edits)
+                        )
+                    for file_edit in file_edits:
+                        file_edit.resolve_conflicts()
+
+                    if file_edits:
+                        await code_file_manager.write_changes_to_files(
+                            file_edits, code_context
+                        )
+                        stream.send("Changes applied.", color="light_blue")
+                    else:
+                        stream.send("No changes applied.", color="light_blue")
+
+                    if agent_handler.agent_enabled:
+                        need_user_request = await agent_handler.add_agent_context(
+                            file_edits
+                        )
                 else:
                     need_user_request = True
                 stream.send(bool(file_edits), channel="edits_complete")

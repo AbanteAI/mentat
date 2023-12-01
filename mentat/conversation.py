@@ -318,6 +318,7 @@ class Conversation:
         Runs a command and, if there is room, adds the output to the conversation under the 'system' role.
         """
         ctx = SESSION_CONTEXT.get()
+        ctx.stream.send(f"Running command: {' '.join(command)}", color="cyan")
         ctx.stream.send("Command output:", color="cyan")
 
         process = subprocess.Popen(
@@ -341,7 +342,7 @@ class Conversation:
             # Note: if subprocess doesn't flush, output can't and won't be streamed.
             await asyncio.sleep(0.01)
         output = "".join(output)
-        message = f"User ran:\n{' '.join(command)}\nOutput:\n{output}"
+        message = f"Command ran:\n{' '.join(command)}\nCommand output:\n{output}"
 
         if self.can_add_to_context(message):
             self.add_message(

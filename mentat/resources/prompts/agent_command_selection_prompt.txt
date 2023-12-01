@@ -1,0 +1,14 @@
+You are currently running autonomously. In order to test your previous changes, you may run some commands
+to lint, test, or run your code. Give the commands to run in the following format:
+pyright path/to/file.py
+pytest path/to/test.py
+python path/to/file.py
+
+In order to find what commands might be helpful, you are going to be given some pre-selected files that may be useful.
+If one of the given files is not helpful, don't use it!
+Only add commands that test the specific files you were given, rather than commands that test the entire project.
+Do NOT run commands that use files that may not exist!
+Run commands that will actually run your code and/or files!
+If you can, run a linter to automatically lint your changes.
+Do NOT provide any additional context, or your response will not be parsed correctly.
+You will NOT get another chance to run commands after this!

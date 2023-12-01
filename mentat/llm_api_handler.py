@@ -51,7 +51,7 @@ def count_tokens(message: str, model: str, full_message: bool) -> int:
     Calculates the tokens in this message. Will NOT be accurate for a full prompt!
     Use prompt_tokens to get the exact amount of tokens for a prompt.
     If full_message is true, will include the extra 4 tokens used in a chat completion by this message
-    if this message is part of a prompt. The majority of the time, you'll want full_message to be true.
+    if this message is part of a prompt. You do NOT want full_message to be true for a response.
     """
     try:
         encoding = tiktoken.encoding_for_model(model)

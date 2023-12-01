@@ -199,7 +199,7 @@ class CodeContext:
         if not config.auto_context or auto_tokens <= 0:
             self.features = self._get_include_features()
         else:
-            self.features = self._get_all_features(
+            self.features = self.get_all_features(
                 CodeMessageLevel.INTERVAL,
             )
             feature_filter = DefaultFilter(
@@ -238,7 +238,7 @@ class CodeContext:
 
         return sorted(include_features, key=_feature_relative_path)
 
-    def _get_all_features(
+    def get_all_features(
         self,
         level: CodeMessageLevel,
         max_chars: int = 100000,
@@ -317,7 +317,7 @@ class CodeContext:
     ) -> list[tuple[CodeFeature, float]]:
         """Return the top n features that are most similar to the query."""
 
-        all_features = self._get_all_features(
+        all_features = self.get_all_features(
             level,
         )
 
