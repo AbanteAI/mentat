@@ -17,6 +17,7 @@ h1 {
 
 pre {
     margin: 0;
+    white-space: pre-wrap;
 }
 
 .container {
