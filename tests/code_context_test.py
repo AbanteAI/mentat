@@ -10,7 +10,7 @@ from mentat.code_feature import CodeMessageLevel
 from mentat.config import Config
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
-from mentat.llm_api import count_tokens
+from mentat.llm_api_handler import count_tokens
 from tests.conftest import run_git_command
 
 
@@ -326,8 +326,7 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     assert await _count_max_tokens_where(84) == 69  # Cmap w/ signatures
     assert await _count_max_tokens_where(65) == 61  # Cmap
     assert await _count_max_tokens_where(52) == 51  # fnames
-    # Always return include_files, regardless of max
-    assert await _count_max_tokens_where(0) == 46  # Include_files only
+    assert await _count_max_tokens_where(0) == 4  # empty
 
 
 @pytest.mark.clear_testbed

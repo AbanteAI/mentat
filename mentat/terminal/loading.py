@@ -36,5 +36,7 @@ class LoadingHandler:
         if self.pbar is not None:
             if message is not None:
                 self.pbar.set_description(message)
+            if self.pbar.total > self.pbar.n:
+                self.pbar.update(self.pbar.total - self.pbar.n)
             self.pbar.close()
             self.pbar = None

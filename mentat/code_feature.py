@@ -4,7 +4,7 @@ import asyncio
 import logging
 import math
 import os
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -14,7 +14,7 @@ from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
 from mentat.interval import Interval, parse_intervals
-from mentat.llm_api import count_tokens
+from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import sha256
 
@@ -175,10 +175,12 @@ class CodeFeature:
 
         if self.level in {CodeMessageLevel.CODE, CodeMessageLevel.INTERVAL}:
             file_lines = code_file_manager.read_file(abs_path)
-            for i, line in enumerate(file_lines, start=1):
-                if self.contains_line(i):
+            for i, line in enumerate(file_lines):
+                if self.contains_line(i + 1):
                     if parser.provide_line_numbers():
-                        code_message.append(f"{i}:{line}")
+                        code_message.append(
+                            f"{i + parser.line_number_starting_index()}:{line}"
+                        )
                     else:
                         code_message.append(f"{line}")
         elif self.level == CodeMessageLevel.CMAP_FULL:
@@ -271,3 +273,34 @@ def get_code_message_from_features(features: list[CodeFeature]) -> list[str]:
         else:
             code_message += get_code_message_from_intervals(path_features)
     return code_message
+
+
+def get_consolidated_feature_refs(features: list[CodeFeature]) -> list[str]:
+    """Return a list of 'path:<interval>,<interval>' strings"""
+    level_info_by_path = defaultdict[Path, list[Interval | None]](list)
+    for f in features:
+        if f.level == CodeMessageLevel.CODE:
+            level_info_by_path[f.path].append(None)
+        elif f.level == CodeMessageLevel.INTERVAL:
+            level_info_by_path[f.path].append(f.interval)
+        else:
+            pass  # Skipping filename, code_maps
+
+    consolidated_refs = list[str]()
+    for path, level_info in level_info_by_path.items():
+        ref_string = str(path)
+        if not any(level is None for level in level_info):
+            intervals = sorted(
+                [level for level in level_info if isinstance(level, Interval)],
+                key=lambda i: i.start,
+            )
+            ref_string += f":{intervals[0].start}-"
+            last_end = intervals[0].end
+            for i in intervals[1:]:
+                if i.start > last_end + 1:
+                    ref_string += f"{last_end},{i.start}-"
+                last_end = i.end
+            ref_string += str(last_end)
+        consolidated_refs.append(ref_string)
+
+    return consolidated_refs
