@@ -8,14 +8,6 @@ from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
 
 
-def get_git_diff_for_path(path: Path) -> str:
-    session_context = SESSION_CONTEXT.get()
-    git_root = session_context.git_root
-    return subprocess.check_output(
-        ["git", "diff", path], cwd=git_root, text=True, stderr=subprocess.DEVNULL
-    )
-
-
 def get_non_gitignored_files(path: Path) -> set[Path]:
     return set(
         # git returns / separated paths even on windows, convert so we can remove
@@ -31,6 +23,8 @@ def get_non_gitignored_files(path: Path) -> set[Path]:
                 stderr=subprocess.DEVNULL,
             ).split("\n"),
         )
+        # windows-safe check if p exists in path
+        if Path(path / p).exists()
     )
 
 

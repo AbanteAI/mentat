@@ -7,12 +7,12 @@ from typing import List
 
 import attr
 
-from mentat.code_feature import CodeMessageLevel
 from mentat.errors import MentatError, UserError
 from mentat.git_handler import commit
-from mentat.logging_config import get_transcript_logs
 from mentat.session_context import SESSION_CONTEXT
+from mentat.transcripts import Transcript, get_transcript_logs
 from mentat.utils import create_viewer
+from mentat.vision.vision_manager import ScreenshotException
 
 
 class Command(ABC):
@@ -44,8 +44,6 @@ class Command(ABC):
     def get_command_completions(cls) -> List[str]:
         return list(map(lambda name: "/" + name, cls.get_command_names()))
 
-    # Although we don't await anything inside an apply method currently, in the future we might
-    # ask ther user or a model something, which would require apply to be async
     @abstractmethod
     async def apply(self, *args: str) -> None:
         pass
@@ -268,12 +266,7 @@ class SearchCommand(Command, command_name="search"):
             return
 
         for i, (feature, score) in enumerate(results, start=1):
-            if feature.path.is_relative_to(session_context.cwd):
-                label = f"{feature.path.relative_to(session_context.cwd)}"
-                if feature.level == CodeMessageLevel.INTERVAL:
-                    label = f"{label}:{feature.interval.start}-{feature.interval.end}"
-            else:
-                label = feature.ref()
+            label = feature.ref(session_context.cwd)
             if feature.name:
                 label += f' "{feature.name}"'
             stream.send(f"{i:3} | {score:.3f} | {label}")
@@ -303,7 +296,10 @@ class ConversationCommand(Command, command_name="conversation"):
 
         logs = get_transcript_logs()
 
-        viewer_path = create_viewer([("Current", conversation.literal_messages)] + logs)
+        viewer_path = create_viewer(
+            [Transcript(timestamp="Current", messages=conversation.literal_messages)]
+            + logs
+        )
         webbrowser.open(f"file://{viewer_path.resolve()}")
 
     @classmethod
@@ -379,3 +375,68 @@ class ConfigCommand(Command, command_name="config"):
     @classmethod
     def help_message(cls) -> str:
         return "Set a configuration option or omit value to see current value."
+
+
+class RunCommand(Command, command_name="run"):
+    async def apply(self, *args: str) -> None:
+        session_context = SESSION_CONTEXT.get()
+        conversation = session_context.conversation
+        await conversation.run_command(list(args))
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return ["command", "args..."]
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Run a shell command and put its output in context."
+
+
+class ScreenshotCommand(Command, command_name="screenshot"):
+    async def apply(self, *args: str) -> None:
+        session_context = SESSION_CONTEXT.get()
+        vision_manager = session_context.vision_manager
+        stream = session_context.stream
+        config = session_context.config
+        conversation = session_context.conversation
+        model = config.model
+
+        if "gpt" in model:
+            if "vision" not in model:
+                stream.send(
+                    "Using a version of gpt that doesn't support images. Changing to"
+                    " gpt-4-vision-preview",
+                    color="yellow",
+                )
+                config.model = "gpt-4-vision-preview"
+        else:
+            stream.send(
+                "Can't determine if this model supports vision. Attempting anyway.",
+                color="yellow",
+            )
+
+        try:
+            image = vision_manager.screenshot(*args)
+
+            if len(args) == 0:
+                path = "the current screen"
+            else:
+                path = args[0]
+            conversation.add_user_message(f"A screenshot of {path}", image=image)
+            stream.send(
+                f"Screenshot taken for: {path}.",
+                color="green",
+            )
+        except ScreenshotException:
+            stream.send(
+                'No browser open. Run "/screenshot path" with a url or local file',
+                color="red",
+            )
+
+    @classmethod
+    def argument_names(cls) -> list[str]:
+        return ["url or local file"]
+
+    @classmethod
+    def help_message(cls) -> str:
+        return "Opens the url or local file in chrome and takes a screenshot."

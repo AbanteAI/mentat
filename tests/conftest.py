@@ -3,23 +3,29 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
+from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
+from openai.types.chat.chat_completion import Choice
+from openai.types.chat.chat_completion_chunk import Choice as AsyncChoice
+from openai.types.chat.chat_completion_chunk import ChoiceDelta
 
 from mentat import config
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config, config_file_name
 from mentat.conversation import Conversation
-from mentat.llm_api import CostTracker
+from mentat.cost_tracker import CostTracker
+from mentat.llm_api_handler import LlmApiHandler
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
 from mentat.streaming_printer import StreamingPrinter
+from mentat.vision.vision_manager import VisionManager
 
 pytest_plugins = ("pytest_reportlog",)
 
@@ -42,6 +48,12 @@ def pytest_addoption(parser):
         action="store",
         default="1",
         help="The maximum number of exercises to run",
+    )
+    parser.addoption(
+        "--retries",
+        action="store",
+        default="1",
+        help="Number of times to retry a benchmark",
     )
     parser.addoption(
         "--max_iterations",
@@ -131,23 +143,6 @@ def get_marks(request):
     return [mark.name for mark in request.node.iter_markers()]
 
 
-@pytest.fixture(scope="function")
-def mock_call_llm_api(mocker):
-    mock = mocker.patch("mentat.conversation.call_llm_api")
-
-    def set_generator_values(values):
-        async def async_generator():
-            for value in values:
-                yield {"choices": [{"delta": {"content": value}}]}
-            yield {"choices": [{"delta": {"content": "\n"}}]}
-
-        mock.return_value = async_generator()
-
-    mock.set_generator_values = set_generator_values
-
-    return mock
-
-
 @pytest.fixture
 def mock_collect_user_input(mocker):
     async_mock = AsyncMock()
@@ -161,7 +156,7 @@ def mock_collect_user_input(mocker):
                 channel="default",
                 source=StreamMessageSource.CLIENT,
                 data=value,
-                extra=None,
+                extra={},
                 created_at=datetime.utcnow(),
             )
             for value in values
@@ -172,10 +167,79 @@ def mock_collect_user_input(mocker):
 
 
 @pytest.fixture(scope="function")
-def mock_setup_api_key(mocker):
-    mocker.patch("mentat.session.setup_api_key")
-    mocker.patch("mentat.conversation.is_model_available")
-    return
+def mock_call_llm_api(mocker):
+    completion_mock = mocker.patch.object(LlmApiHandler, "call_llm_api")
+
+    def set_streamed_values(values):
+        async def _async_generator():
+            timestamp = int(time.time())
+            for value in values:
+                yield ChatCompletionChunk(
+                    id="test-id",
+                    choices=[
+                        AsyncChoice(
+                            delta=ChoiceDelta(content=value, role="assistant"),
+                            finish_reason=None,
+                            index=0,
+                        )
+                    ],
+                    created=timestamp,
+                    model="test-model",
+                    object="chat.completion.chunk",
+                )
+
+        completion_mock.return_value = _async_generator()
+
+    completion_mock.set_streamed_values = set_streamed_values
+
+    def set_unstreamed_values(value):
+        timestamp = int(time.time())
+        completion_mock.return_value = ChatCompletion(
+            id="test-id",
+            choices=[
+                Choice(
+                    finish_reason="stop",
+                    index=0,
+                    message=ChatCompletionMessage(
+                        content=value,
+                        role="assistant",
+                    ),
+                )
+            ],
+            created=timestamp,
+            model="test-model",
+            object="chat.completion",
+        )
+
+    completion_mock.set_unstreamed_values = set_unstreamed_values
+    return completion_mock
+
+
+@pytest.fixture(scope="function")
+def mock_call_embedding_api(mocker):
+    embedding_mock = mocker.patch.object(LlmApiHandler, "call_embedding_api")
+
+    def set_embedding_values(value):
+        embedding_mock.return_value = value
+
+    embedding_mock.set_embedding_values = set_embedding_values
+    return embedding_mock
+
+
+### Auto-used fixtures
+
+
+@pytest.fixture(autouse=True, scope="function")
+def mock_model_available(mocker):
+    model_available_mock = mocker.patch.object(LlmApiHandler, "is_model_available")
+    model_available_mock.return_value = True
+    return model_available_mock
+
+
+@pytest.fixture(autouse=True, scope="function")
+def mock_initialize_client(mocker, request):
+    if not request.config.getoption("--benchmark"):
+        mocker.patch.object(LlmApiHandler, "initialize_client")
 
 
 # ContextVars need to be set in a synchronous fixture due to pytest not propagating
@@ -183,43 +247,46 @@ def mock_setup_api_key(mocker):
 # https://github.com/pytest-dev/pytest-asyncio/issues/127
 
 
-# Despite not using any awaits here, this has to be async or there won't be a running event loop
-@pytest_asyncio.fixture()
-async def _mock_session_context(temp_testbed):
+@pytest.fixture(autouse=True)
+def mock_session_context(temp_testbed):
+    """
+    This is autoused to make it easier to write tests without having to worry about whether
+    or not SessionContext is set; however, this SessionContext will be overwritten by the SessionContext
+    set by a Session if the test creates a Session.
+    If you create a Session or Client in your test, do NOT use this SessionContext!
+    """
     # TODO make this `None` if there's no git (SessionContext needs to allow it)
     git_root = temp_testbed
 
     stream = SessionStream()
-    stream.start()
 
     cost_tracker = CostTracker()
 
     config = Config()
 
+    llm_api_handler = LlmApiHandler()
+
     code_context = CodeContext(stream, git_root)
 
     code_file_manager = CodeFileManager()
-
     conversation = Conversation()
+
+    vision_manager = VisionManager()
 
     session_context = SessionContext(
         Path.cwd(),
         stream,
+        llm_api_handler,
         cost_tracker,
         git_root,
         config,
         code_context,
         code_file_manager,
         conversation,
+        vision_manager,
     )
+    token = SESSION_CONTEXT.set(session_context)
     yield session_context
-    session_context.stream.stop()
-
-
-@pytest.fixture
-def mock_session_context(_mock_session_context):
-    token = SESSION_CONTEXT.set(_mock_session_context)
-    yield _mock_session_context
     SESSION_CONTEXT.reset(token)
 
 
