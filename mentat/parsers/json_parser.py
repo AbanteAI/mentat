@@ -100,7 +100,6 @@ class JsonParser(Parser):
     ) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        git_root = session_context.git_root
 
         printer = StreamingPrinter()
         printer_task = asyncio.create_task(printer.print_lines())
@@ -144,7 +143,7 @@ class JsonParser(Parser):
 
         file_edits: Dict[Path, FileEdit] = {}
         for obj in response_json["content"]:
-            filename = git_root / obj.get("filename", "")
+            filename = session_context.cwd / obj.get("filename", "")
             if filename in rename_map:
                 filename = rename_map[filename]
             match obj["type"]:
@@ -170,7 +169,7 @@ class JsonParser(Parser):
                 case "deletion":
                     fileedit = FileEdit(filename, [], False, True, None)
                 case "rename":
-                    new_filename = git_root / obj["new-filename"]
+                    new_filename = session_context.cwd / obj["new-filename"]
                     fileedit = FileEdit(filename, [], False, False, new_filename)
                     rename_map[new_filename] = filename
                 case _:

@@ -84,7 +84,6 @@ class Parser(ABC):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_file_manager = session_context.code_file_manager
-        git_root = session_context.git_root
 
         printer = StreamingPrinter()
         printer_task = asyncio.create_task(printer.print_lines())
@@ -193,7 +192,10 @@ class Parser(ABC):
                                 file_edit,
                                 in_code_lines,
                             ) = self._special_block(
-                                code_file_manager, git_root, rename_map, cur_block
+                                code_file_manager,
+                                session_context.cwd,
+                                rename_map,
+                                cur_block,
                             )
                         except ModelError as e:
                             printer.add_string(str(e), color="red")
@@ -219,7 +221,8 @@ class Parser(ABC):
                             )
                         if display_information.file_name in rename_map:
                             file_edit.file_path = (
-                                git_root / rename_map[display_information.file_name]
+                                session_context.cwd
+                                / rename_map[display_information.file_name]
                             )
 
                         # New file_edit creation and merging
@@ -385,7 +388,7 @@ class Parser(ABC):
     def _special_block(
         self,
         code_file_manager: CodeFileManager,
-        git_root: Path,
+        cwd: Path,
         rename_map: dict[Path, Path],
         special_block: str,
     ) -> tuple[DisplayInformation, FileEdit, bool]:
