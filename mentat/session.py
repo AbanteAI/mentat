@@ -144,9 +144,7 @@ class Session:
                         stream.send("No changes applied.", color="light_blue")
 
                     if agent_handler.agent_enabled:
-                        need_user_request = await agent_handler.add_agent_context(
-                            file_edits
-                        )
+                        need_user_request = await agent_handler.add_agent_context()
                 else:
                     need_user_request = True
                 stream.send(bool(file_edits), channel="edits_complete")

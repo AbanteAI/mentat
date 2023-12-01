@@ -108,6 +108,11 @@ class Conversation:
 
     # The transcript logger logs tuples containing the actual message sent by the user or LLM
     # and (for LLM messages) the LLM conversation that led to that LLM response
+    def add_transcript_message(self, transcript_message: TranscriptMessage):
+        transcript_logger = logging.getLogger("transcript")
+        transcript_logger.info(json.dumps(transcript_message))
+        self.literal_messages.append(transcript_message)
+
     def add_user_message(self, message: str, image: Optional[str] = None):
         """Used for actual user input messages"""
         content: List[ChatCompletionContentPartParam] = [
@@ -125,22 +130,14 @@ class Conversation:
                     },
                 },
             )
-        transcript_logger = logging.getLogger("transcript")
-        transcript_logger.info(
-            json.dumps(UserMessage(message=content, prior_messages=None))
-        )
-        self.literal_messages.append(UserMessage(message=content, prior_messages=None))
+        self.add_transcript_message(UserMessage(message=content, prior_messages=None))
         self.add_message(ChatCompletionUserMessageParam(role="user", content=content))
 
     def add_model_message(
         self, message: str, messages_snapshot: list[ChatCompletionMessageParam]
     ):
         """Used for actual model output messages"""
-        transcript_logger = logging.getLogger("transcript")
-        transcript_logger.info(
-            json.dumps(ModelMessage(message=message, prior_messages=messages_snapshot))
-        )
-        self.literal_messages.append(
+        self.add_transcript_message(
             ModelMessage(message=message, prior_messages=messages_snapshot)
         )
         self.add_message(
@@ -148,7 +145,7 @@ class Conversation:
         )
 
     def add_message(self, message: ChatCompletionMessageParam):
-        """Used for adding messages to the models conversation"""
+        """Used for adding messages to the models conversation. Does not add a left-side message to the transcript!"""
         self._messages.append(message)
 
     def get_messages(self) -> list[ChatCompletionMessageParam]:

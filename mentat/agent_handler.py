@@ -10,10 +10,10 @@ from openai.types.chat import (
 
 from mentat.code_feature import CodeMessageLevel
 from mentat.llm_api_handler import count_tokens, prompt_tokens
-from mentat.parsers.file_edit import FileEdit
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no, collect_user_input
+from mentat.transcripts import ModelMessage
 
 agent_file_selection_prompt_path = Path("agent_file_selection_prompt.txt")
 agent_command_prompt_path = Path("agent_command_selection_prompt.txt")
@@ -64,7 +64,7 @@ class AgentHandler:
         self.agent_file_message = ""
         for path in paths:
             file_contents = "\n".join(ctx.code_file_manager.read_file(path))
-            self.agent_file_message += f"{path}\n{file_contents}"
+            self.agent_file_message += f"{path}\n\n\n{file_contents}"
 
         ctx.stream.send(
             "The model has chosen these files to help it determine how to test its"
@@ -81,16 +81,21 @@ class AgentHandler:
         messages.append(
             ChatCompletionAssistantMessageParam(role="assistant", content=content)
         )
-        ctx.conversation.add_model_message(content, messages)
+        ctx.conversation.add_transcript_message(
+            ModelMessage(message=content, prior_messages=messages)
+        )
 
-    async def _determine_commands(self, file_edits: List[FileEdit]):
+    async def _determine_commands(self):
         ctx = SESSION_CONTEXT.get()
 
         model = ctx.config.model
+        # TODO: Should we give prompt/tokens?
+        code_message = await ctx.code_context.get_code_message("", 0)
         messages = ctx.conversation.get_messages() + [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_command_prompt
             ),
+            ChatCompletionSystemMessageParam(role="system", content=code_message),
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_file_message
             ),
@@ -111,16 +116,13 @@ class AgentHandler:
         commands = content.strip().split("\n")
         return commands
 
-    async def add_agent_context(
-        self,
-        file_edits: List[FileEdit],
-    ) -> bool:
+    async def add_agent_context(self) -> bool:
         """
         Returns
         """
         ctx = SESSION_CONTEXT.get()
 
-        commands = await self._determine_commands(file_edits)
+        commands = await self._determine_commands()
         ctx.stream.send(
             "The model has chosen these commands to test its changes:", color="cyan"
         )
