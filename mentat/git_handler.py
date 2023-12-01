@@ -2,7 +2,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional, cast
+from typing import Optional
 
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
@@ -101,8 +101,8 @@ def get_shared_git_root_for_paths(paths: list[Path]) -> Path:
             raise UserError()
         git_roots.add(git_root)
     if not paths:
-        git_root = cast(Path, get_git_root_for_path(Path(os.getcwd())))
-        git_roots.add(git_root)
+        git_root = get_git_root_for_path(Path(os.getcwd()))
+        git_roots.add(git_root)  # pyright: ignore
 
     if len(git_roots) > 1:
         logging.error(
