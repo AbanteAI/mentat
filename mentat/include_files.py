@@ -67,7 +67,7 @@ def get_path_type(path: Path) -> PathType:
         raise PathValidationError(f"Unknown path type {path}")
 
 
-def validate_file_path(path: Path, check_for_text: bool = True):
+def validate_file_path(path: Path, check_for_text: bool = True) -> None:
     if not path.is_absolute():
         raise PathValidationError(f"File {path} is not absolute")
     if not path.exists():
@@ -76,7 +76,7 @@ def validate_file_path(path: Path, check_for_text: bool = True):
         raise PathValidationError(f"Unable to read file {path}")
 
 
-def validate_file_interval_path(path: Path, check_for_text: bool = True):
+def validate_file_interval_path(path: Path, check_for_text: bool = True) -> None:
     _interval_path, interval_str = str(path).rsplit(":", 1)
     interval_path = Path(_interval_path)
     if not interval_path.is_absolute():
@@ -103,7 +103,7 @@ def validate_file_interval_path(path: Path, check_for_text: bool = True):
                 )
 
 
-def validate_glob_path(path: Path):
+def validate_glob_path(path: Path) -> None:
     if not path.is_absolute():
         raise PathValidationError(f"Glob path {path} is not absolute")
     try:
