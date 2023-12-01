@@ -11,18 +11,16 @@ from mentat.code_feature import (
 
 def test_split_file_into_intervals(temp_testbed, mock_session_context):
     with open("file_1.py", "w") as f:
-        f.write(
-            dedent(
-                """\
+        f.write(dedent("""\
             def func_1(x, y):
                 return x + y
             
             def func_2():
                 return 3
-            """
-            )
-        )
-    code_feature = CodeFeature(mock_session_context.cwd / "file_1.py", CodeMessageLevel.CODE)
+            """))
+    code_feature = CodeFeature(
+        mock_session_context.cwd / "file_1.py", CodeMessageLevel.CODE
+    )
     interval_features = split_file_into_intervals(code_feature, 1)
 
     assert len(interval_features) == 2
