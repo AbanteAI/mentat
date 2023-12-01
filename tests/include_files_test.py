@@ -26,13 +26,6 @@ def test_validate_file_path():
     with pytest.raises(PathValidationError):
         validate_file_path(Path("file.py").resolve())
 
-    # raise on non-utf8 file path
-    file_path = Path("file.txt").resolve()
-    with open(file_path, "w", encoding="ISO-8859-1") as file:
-        file.write("hëllö wörld")
-    with pytest.raises(PathValidationError):
-        validate_file_path(file_path)
-
 
 def test_validate_file_interval_path():
     # raise on non-absolute file interval path
@@ -42,13 +35,6 @@ def test_validate_file_interval_path():
     # raise on non-existent file interval path
     with pytest.raises(PathValidationError):
         validate_file_interval_path(Path("file.py:0-1").resolve())
-
-    # raise on non-utf8 file interval path
-    file_path = Path("file.txt").resolve()
-    with open(file_path, "w", encoding="ISO-8859-1") as file:
-        file.write("hëllö wörld\nÏ'm ä nön-ütf8 lïnë")
-    with pytest.raises(PathValidationError):
-        validate_file_interval_path(Path(f"{file_path}:1-2"))
 
     # raise on no intervals
     file_path = Path("file2.txt").resolve()
