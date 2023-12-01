@@ -1,7 +1,7 @@
 import base64
 import os
+import webbrowser
 from typing import Optional
-from webbrowser import get
 
 import attr
 from selenium import webdriver
@@ -27,7 +27,7 @@ class VisionManager:
     )
 
     def _open_browser(self) -> None:
-        browser_type = get().name
+        browser_type = webbrowser.get().name
         try:
             if self.driver is None or not self.driver_running():
                 if "firefox" in browser_type:

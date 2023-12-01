@@ -7,12 +7,19 @@ from mentat.vision.vision_manager import ScreenshotException, VisionManager
 
 @pytest.fixture
 def mock_webdriver():
-    with patch("selenium.webdriver.Chrome") as mock:
+    with patch("selenium.webdriver.Safari") as mock:
         yield mock
 
 
-def test_vision_manager_screenshot(mock_webdriver, temp_testbed):
+@pytest.fixture
+def mock_browser_type():
+    with patch("webbrowser.get") as mock:
+        yield mock
+
+
+def test_vision_manager_screenshot(mock_webdriver, mock_browser_type, temp_testbed):
     mock_driver_instance = MagicMock()
+    mock_browser_type.return_value.name = "safari"
     mock_webdriver.return_value = mock_driver_instance
     mock_driver_instance.get_screenshot_as_png.return_value = b"fake_screenshot_data"
 
