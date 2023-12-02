@@ -48,10 +48,3 @@ def get_ctags(abs_file_path: Path, exclude_signatures: bool = False) -> set[CTAG
 
         ctags.add((scope, kind, name, signature, line_number))
     return ctags
-
-
-def get_code_map(abs_file_path: Path, exclude_signatures: bool = False) -> list[str]:
-    ctags = get_ctags(abs_file_path, exclude_signatures)
-    if not ctags:
-        return []
-    return ctags

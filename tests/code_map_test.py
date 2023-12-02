@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mentat.code_map import get_code_map, get_ctags
+from mentat.code_map import get_ctags
 
 
 @pytest.mark.no_git_testbed
