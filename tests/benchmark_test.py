@@ -1,7 +1,6 @@
 import os
 import shutil
 import subprocess
-from textwrap import dedent
 
 import pytest
 
