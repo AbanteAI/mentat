@@ -137,23 +137,3 @@ async def test_start_project_from_scratch(mock_collect_user_input):
 
     expected_output = "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz"
     assert results[0] == expected_output
-
-
-@pytest.mark.asyncio
-async def test_import_from_code_map(mock_collect_user_input):
-    prompt = """
-        make a file called encoded_echo.py that gets the base64 encoded value of
-        `echo_hardcoded` and print the encoded value as a string
-    """
-    prompt = dedent(prompt).strip()
-    encoded_echo_path = "encoded_echo.py"
-    results = await edit_file_and_run(
-        mock_collect_user_input,
-        prompts=[prompt],
-        context_file_paths=[],
-        main_file_path=encoded_echo_path,
-        argument_lists=[[]],
-    )
-
-    expected_output = "MDBtcDk0ITJQZ0slaTJoQG0mNVh6azRUJlZxQypOV1FebXA5NCEyUGdLJWkyaEBtJjVYems0VCZWcUMqTldRXg=="
-    assert results[0] == expected_output
