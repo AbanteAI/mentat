@@ -55,28 +55,3 @@ def get_code_map(abs_file_path: Path, exclude_signatures: bool = False) -> list[
     if not ctags:
         return []
     return ctags
-
-
-@cache
-def check_ctags_disabled() -> str | None:
-    try:
-        cmd = ["ctags", "--version"]
-        output = subprocess.check_output(cmd, stderr=subprocess.PIPE).decode("utf-8")
-        output = output.lower()
-
-        cmd = " ".join(cmd)
-        if "universal ctags" not in output:
-            return f"{cmd} does not claim to be universal ctags"
-        if "+json" not in output:
-            return f"{cmd} does not list +json support"
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            hello_py = Path(tempdir) / "hello.py"
-            with open(hello_py, "w", encoding="utf-8") as f:
-                f.write("def hello():\n    print('Hello, world!')\n")
-            get_code_map(hello_py)
-        return
-    except FileNotFoundError:
-        return "ctags executable not found"
-    except Exception as e:
-        return f"error running universal-ctags: {e}"

@@ -11,7 +11,6 @@ from mentat.code_feature import (
     get_consolidated_feature_refs,
     split_file_into_intervals,
 )
-from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
@@ -53,7 +52,6 @@ class CodeContext:
         # or the CodeFeatures (value) and their intervals. Redundant.
         self.include_files = {}
         self.ignore_files = set()
-        self.ctags_disabled = check_ctags_disabled()
 
     def set_paths(
         self,
@@ -132,7 +130,6 @@ class CodeContext:
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
             "prompt": prompt,
-            "ctags_disabled": self.ctags_disabled,
             "auto_context": config.auto_context,
             "use_llm": self.use_llm,
             "diff": self.diff,
@@ -269,22 +266,18 @@ class CodeContext:
             )
             user_included = abs_path in self.include_files
             if level == CodeMessageLevel.INTERVAL:
-                # Return intervals if ctags enabled, otherwise return the full file
                 full_feature = CodeFeature(
                     abs_path,
                     level=CodeMessageLevel.CODE,
                     diff=diff_target,
                     user_included=user_included,
                 )
-                if self.ctags_disabled:
-                    all_features.append(full_feature)
-                else:
-                    _split_features = split_file_into_intervals(
-                        git_root,
-                        full_feature,
-                        user_features=self.include_files.get(abs_path, []),
-                    )
-                    all_features += _split_features
+                _split_features = split_file_into_intervals(
+                    git_root,
+                    full_feature,
+                    user_features=self.include_files.get(abs_path, []),
+                )
+                all_features += _split_features
             else:
                 _feature = CodeFeature(
                     abs_path, level=level, diff=diff_target, user_included=user_included
