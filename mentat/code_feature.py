@@ -47,10 +47,10 @@ def split_file_into_intervals(
         for name, start, end in zip(names, lines, lines[1:] + [n_lines])
     ]
 
-    def length(interval):
+    def length(interval: tuple[str, int, int]):
         return interval[2] - interval[1]
 
-    def merge_intervals(int1, int2):
+    def merge_intervals(int1: tuple[str, int, int], int2: tuple[str, int, int]):
         return (f"{int1[0]},{int2[0]}", int1[1], int2[2])
 
     named_intervals = [draft_named_intervals[0]]

@@ -2,12 +2,13 @@ import json
 import platform
 import subprocess
 from functools import cache
+from pathlib import Path
 
 from mentat.errors import MentatError
 
 
 @cache
-def ensure_ctags_installed() -> bool:
+def ensure_ctags_installed() -> None:
     try:
         subprocess.run(
             ["ctags", "--help"],
@@ -39,12 +40,12 @@ def ensure_ctags_installed() -> bool:
     raise MentatError(error_message)
 
 
-def get_ctag_lines_and_names(path: str) -> list[tuple[int, str]]:
+def get_ctag_lines_and_names(path: Path) -> list[tuple[int, str]]:
     ensure_ctags_installed()
 
     json_tags = (
         subprocess.check_output(
-            ["ctags", "--output-format=json", "--fields=+n", path],
+            ["ctags", "--output-format=json", "--fields=+n", str(path)],
             stderr=subprocess.DEVNULL,
             start_new_session=True,
             text=True,
@@ -53,7 +54,7 @@ def get_ctag_lines_and_names(path: str) -> list[tuple[int, str]]:
         .splitlines()
     )
 
-    lines_and_names = []
+    lines_and_names: list[tuple[int, str]] = []
     for json_tag in json_tags:
         tag_dict = json.loads(json_tag)
         name = tag_dict["name"]
