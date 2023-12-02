@@ -46,7 +46,7 @@ A list of key-value pairs defining a custom [Pygment Style](https://pygments.org
 If you're using a model other than gpt-3.5 or gpt-4 we won't be able to infer the model's context size so you need to manually set the maximum context like so. 
 ```json
 {
-    "maximum-context": "16000"
+    "maximum-context": 16000
 }
 ```
 This can also be used to save costs for instance if you want to use a maximum of 16k tokens when using gpt-4-32k.
@@ -65,3 +65,16 @@ and then setting your model in `~/.mentat/.mentat_config.json`:
 }
 ```
 For models other than gpt-3.5 and gpt-4 we may not be able to infer a maximum context size so you'll also have to set the maximum-context.
+
+### Alternative Formats
+
+Mentat is able to edit files by parsing a specific format that the model is told to follow. We are always working to improve the format we use, and have multiple formats available. Although we expect the default format to perform the best, you can test out other formats using the configuration.
+```json
+{
+    "format": "block"
+}
+```
+Available formats:
+* block
+* replacement
+* unified-diff

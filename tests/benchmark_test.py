@@ -5,7 +5,7 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.app import run
+from mentat.session import Session
 
 # These benchmarks use GPT and won't run automatically.
 # Run them with python tests/record_benchmark.py True
@@ -14,13 +14,18 @@ from mentat.app import run
 pytestmark = pytest.mark.benchmark
 
 
-def edit_file_and_run(
+async def edit_file_and_run(
     mock_collect_user_input, prompts, context_file_paths, main_file_path, argument_lists
 ):
-    mock_collect_user_input.side_effect = [
-        prompt for pair in zip(prompts, ["y"] * len(prompts)) for prompt in pair
-    ] + [KeyboardInterrupt]
-    run(context_file_paths)
+    mock_collect_user_input.set_stream_messages(
+        [prompt for pair in zip(prompts, ["y"] * len(prompts)) for prompt in pair]
+        + ["q"]
+    )
+
+    session = Session(context_file_paths)
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
     assert os.path.exists(main_file_path)
 
     results = []
@@ -32,9 +37,10 @@ def edit_file_and_run(
     return results
 
 
-def test_calculator_add_power(mock_collect_user_input):
+@pytest.mark.asyncio
+async def test_calculator_add_power(mock_collect_user_input):
     calculator_path = "scripts/calculator.py"
-    results = edit_file_and_run(
+    results = await edit_file_and_run(
         mock_collect_user_input,
         prompts=[
             "Add power as a possible operation, raising the first arg to the power of"
@@ -47,9 +53,10 @@ def test_calculator_add_power(mock_collect_user_input):
     assert float(results[0]) == 3375.0
 
 
-def test_calculator_add_exp_then_log(mock_collect_user_input):
+@pytest.mark.asyncio
+async def test_calculator_add_exp_then_log(mock_collect_user_input):
     calculator_path = "scripts/calculator.py"
-    results = edit_file_and_run(
+    results = await edit_file_and_run(
         mock_collect_user_input,
         prompts=[
             "Add exponentation operation, called with 'exp'",
@@ -63,7 +70,8 @@ def test_calculator_add_exp_then_log(mock_collect_user_input):
     assert float(results[1]) == 3.3219280948873626
 
 
-def test_calculator_continue_change(mock_collect_user_input):
+@pytest.mark.asyncio
+async def test_calculator_continue_change(mock_collect_user_input):
     calculator_path = "scripts/calculator.py"
 
     with open(calculator_path, "r") as f:
@@ -81,7 +89,7 @@ def test_calculator_continue_change(mock_collect_user_input):
     with open(calculator_path, "w") as f:
         f.writelines(calculator_lines)
 
-    results = edit_file_and_run(
+    results = await edit_file_and_run(
         mock_collect_user_input,
         prompts=["complete the change I started"],
         context_file_paths=[calculator_path],
@@ -91,10 +99,11 @@ def test_calculator_continue_change(mock_collect_user_input):
     assert float(results[0]) == 3375.0
 
 
-def test_multifile_calculator(mock_collect_user_input):
+@pytest.mark.asyncio
+async def test_multifile_calculator(mock_collect_user_input):
     multifile_calculator_path = "multifile_calculator"
     calculator_path = os.path.join(multifile_calculator_path, "calculator.py")
-    results = edit_file_and_run(
+    results = await edit_file_and_run(
         mock_collect_user_input,
         prompts=["add exp and log functions to take a^b and log a base b"],
         context_file_paths=[multifile_calculator_path],
@@ -106,7 +115,8 @@ def test_multifile_calculator(mock_collect_user_input):
     assert float(results[1]) == 3.3219280948873626
 
 
-def test_start_project_from_scratch(mock_collect_user_input):
+@pytest.mark.asyncio
+async def test_start_project_from_scratch(mock_collect_user_input):
     # Clear the testbed so we can test that it works with empty directories
     for item in os.listdir("."):
         if os.path.isfile(item):
@@ -117,7 +127,7 @@ def test_start_project_from_scratch(mock_collect_user_input):
     subprocess.run(["git", "rm", "-r", "--cached", "."])
 
     fizzbuzz_path = "fizzbuzz.py"
-    results = edit_file_and_run(
+    results = await edit_file_and_run(
         mock_collect_user_input,
         prompts=["make a file that does fizzbuzz, named fizzbuzz.py, going up to 10"],
         context_file_paths=["."],
@@ -129,14 +139,15 @@ def test_start_project_from_scratch(mock_collect_user_input):
     assert results[0] == expected_output
 
 
-def test_import_from_code_map(mock_collect_user_input):
+@pytest.mark.asyncio
+async def test_import_from_code_map(mock_collect_user_input):
     prompt = """
-        make a file that gets the base64 encoded value of echo_hardcoded, named 
-        encoded_echo.py, and print the encoded value as a string
+        make a file called encoded_echo.py that gets the base64 encoded value of
+        `echo_hardcoded` and print the encoded value as a string
     """
     prompt = dedent(prompt).strip()
     encoded_echo_path = "encoded_echo.py"
-    results = edit_file_and_run(
+    results = await edit_file_and_run(
         mock_collect_user_input,
         prompts=[prompt],
         context_file_paths=[],

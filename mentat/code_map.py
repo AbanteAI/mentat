@@ -1,64 +1,72 @@
+# Our code map implementation was inspired by Aider's repo map, which also uses ctags to create a map of a project.
+# Aider: https://github.com/paul-gauthier/aider
+
 import json
+import logging
 import subprocess
 import tempfile
-from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
-from termcolor import cprint
-
-from .config_manager import ConfigManager
-from .git_handler import get_non_gitignored_files
-from .llm_api import count_tokens
+CTAG = tuple[str | None, str, str, str | None, int]
 
 
-def _get_code_map(root: Path, file_path: Path, exclude_signatures: bool = False) -> str:
+def get_ctags(abs_file_path: Path, exclude_signatures: bool = False) -> set[CTAG]:
     # Create ctags from executable in a subprocess
     ctags_cmd_args = [
         "--extras=-F",
         "--input-encoding=utf-8",
         "--output-format=json",
         "--output-encoding=utf-8",
+        "--fields=+n",
     ]
     if exclude_signatures:
         ctags_cmd_args.append("--fields=-s")
     else:
         ctags_cmd_args.append("--fields=+S")
-    ctags_cmd = ["ctags", *ctags_cmd_args, str(Path(root).joinpath(file_path))]
-    output = subprocess.check_output(ctags_cmd, stderr=subprocess.PIPE, text=True)
+    ctags_cmd = ["ctags", *ctags_cmd_args, str(abs_file_path)]
+    output = subprocess.check_output(
+        ctags_cmd, stderr=subprocess.DEVNULL, start_new_session=True, text=True
+    ).strip()
     output_lines = output.splitlines()
 
     # Extract subprocess stdout into python objects
-    ctags = set[tuple[Path, ...]]()
+    ctags = set[CTAG]()
     for output_line in output_lines:
         try:
             tag = json.loads(output_line)
         except json.decoder.JSONDecodeError as err:
-            cprint(f"Error parsing ctags output: {err}", color="yellow")
-            cprint(f"{repr(output_line)}\n", color="yellow")
+            logging.error(f"Error parsing ctags output: {err}\n{repr(output_line)}")
             continue
 
-        scope = tag.get("scope")
-        kind = tag.get("kind")
-        name = tag.get("name")
-        signature = tag.get("signature")
+        scope: str | None = tag.get("scope")
+        kind: str = tag.get("kind")
+        name: str = tag.get("name")
+        signature: str | None = tag.get("signature")
+        line_number: int = tag.get("line")
+
+        ctags.add((scope, kind, name, signature, line_number))
+    return ctags
+
+
+def _make_ctags_human_readable(ctags: set[CTAG]) -> list[str]:
+    cleaned_tags = set[tuple[str, ...]]()
+    for tag in ctags:
+        (scope, kind, name, signature, _) = tag  # Line number currently unused
 
         last = name
         if signature:
             last += " " + signature
 
-        res = [file_path]
+        res: list[Any] = []
         if scope:
             res.append(scope)
         res += [kind, last]
 
-        ctags.add(tuple(res))
+        cleaned_tags.add(tuple(res))
 
-    if len(ctags) == 0:
-        return f"{file_path}\n"
-
-    # Build LLM-readable string representation of ctag objects
-    sorted_tags = sorted(ctags)
+    sorted_tags = sorted(cleaned_tags)
     output = ""
     last = [None] * len(sorted_tags[0])
     tab = "\t"
@@ -80,153 +88,36 @@ def _get_code_map(root: Path, file_path: Path, exclude_signatures: bool = False)
             output += indent + str(item) + "\n"
             indent += tab
         last = tag
-
-    return output
-
-
-def _get_file_map(file_paths: set[Path]) -> str:
-    tree = dict[str, Any]()
-    for file_path in file_paths:
-        parts = file_path.parts
-        node = tree
-        for part in parts:
-            if part not in node:
-                node[part] = {}
-            node = node[part]
-
-    def tree_to_string(tree: dict[str, Any], indent: int = 0) -> str:
-        s = ""
-        sorted_keys = sorted(tree.keys())
-        for key in sorted_keys:
-            s += "\t" * indent + key + "\n"
-            s += tree_to_string(tree[key], indent + 1)
-        return s
-
-    file_map_tree = tree_to_string(tree)
-    return file_map_tree
+    return output.splitlines()
 
 
-@dataclass
-class CodeMapMessage:
-    level: Literal["signatures", "no_signatures", "filenames"]
-    content: str
+def get_code_map(abs_file_path: Path, exclude_signatures: bool = False) -> list[str]:
+    ctags = get_ctags(abs_file_path, exclude_signatures)
+    if not ctags:
+        return []
+    return _make_ctags_human_readable(ctags)
 
 
-class CodeMap:
-    def __init__(self, config: ConfigManager, token_limit: int | None = None):
-        self.config = config
-        self.git_root = self.config.git_root
-        self.token_limit = token_limit
+@cache
+def check_ctags_disabled() -> str | None:
+    try:
+        cmd = ["ctags", "--version"]
+        output = subprocess.check_output(cmd, stderr=subprocess.PIPE).decode("utf-8")
+        output = output.lower()
 
-        self.ctags_disabled = True
-        self.ctags_disabled_reason = ""
+        cmd = " ".join(cmd)
+        if "universal ctags" not in output:
+            return f"{cmd} does not claim to be universal ctags"
+        if "+json" not in output:
+            return f"{cmd} does not list +json support"
 
-        self._check_ctags_executable()
-
-    def _check_ctags_executable(self):
-        try:
-            cmd = ["ctags", "--version"]
-            output = subprocess.check_output(cmd, stderr=subprocess.PIPE).decode(
-                "utf-8"
-            )
-            output = output.lower()
-
-            cmd = " ".join(cmd)
-            if "universal ctags" not in output:
-                self.ctags_disabled_reason = (
-                    f"{cmd} does not claim to be universal ctags"
-                )
-                return
-            if "+json" not in output:
-                self.ctags_disabled_reason = f"{cmd} does not list +json support"
-                return
-
-            with tempfile.TemporaryDirectory() as tempdir:
-                hello_py = Path(tempdir) / "hello.py"
-                with open(hello_py, "w", encoding="utf-8") as f:
-                    f.write("def hello():\n    print('Hello, world!')\n")
-                _get_code_map(Path(tempdir), hello_py)
-        except FileNotFoundError:
-            self.ctags_disabled_reason = "ctags executable not found"
-            return
-        except Exception as e:
-            self.ctags_disabled_reason = f"error running universal-ctags: {e}"
-            return
-
-        self.ctags_disabled = False
-
-    def _get_message_from_ctags(
-        self,
-        root: Path,
-        file_paths: set[Path],
-        exclude_signatures: bool = False,
-        token_limit: int | None = None,
-    ) -> CodeMapMessage | None:
-        token_limit = token_limit or self.token_limit
-
-        code_maps = list[str]()
-        code_maps_token_count = 0
-        for file_path in file_paths:
-            code_map = _get_code_map(
-                root, file_path, exclude_signatures=exclude_signatures
-            )
-            code_map_token_count = count_tokens(code_map, self.config.model())
-
-            if token_limit is not None and code_maps_token_count > token_limit:
-                if exclude_signatures is True:
-                    return
-                return self._get_message_from_ctags(
-                    root, file_paths, exclude_signatures=True, token_limit=token_limit
-                )
-
-            code_maps.append(code_map)
-            code_maps_token_count += code_map_token_count
-
-        message = "Code Map:" + "\n\n" + "\n".join(code_maps)
-
-        message_token_count = count_tokens(message, self.config.model())
-        if token_limit is not None and message_token_count > token_limit:
-            if exclude_signatures is True:
-                return
-            return self._get_message_from_ctags(
-                root, file_paths, exclude_signatures=True
-            )
-
-        code_map_message = CodeMapMessage(
-            level="signatures" if not exclude_signatures else "no_signatures",
-            content=message,
-        )
-
-        return code_map_message
-
-    def _get_message_from_file_map(
-        self, file_paths: set[Path], token_limit: int | None = None
-    ) -> CodeMapMessage | None:
-        file_map_tree = _get_file_map(file_paths)
-
-        message = "Code Map:" + "\n\n" + file_map_tree
-
-        message_token_count = count_tokens(message, self.config.model())
-        token_limit = token_limit or self.token_limit
-        if token_limit is not None and message_token_count > token_limit:
-            return
-
-        code_map_message = CodeMapMessage(level="filenames", content=message)
-
-        return code_map_message
-
-    def get_message(self, token_limit: int | None = None) -> CodeMapMessage | None:
-        git_file_paths = get_non_gitignored_files(self.git_root)
-
-        if not self.ctags_disabled:
-            code_map_message = self._get_message_from_ctags(
-                self.git_root, git_file_paths, token_limit=token_limit
-            )
-            if code_map_message is not None:
-                return code_map_message
-
-        file_map_message = self._get_message_from_file_map(
-            git_file_paths, token_limit=token_limit
-        )
-        if file_map_message is not None:
-            return file_map_message
+        with tempfile.TemporaryDirectory() as tempdir:
+            hello_py = Path(tempdir) / "hello.py"
+            with open(hello_py, "w", encoding="utf-8") as f:
+                f.write("def hello():\n    print('Hello, world!')\n")
+            get_code_map(hello_py)
+        return
+    except FileNotFoundError:
+        return "ctags executable not found"
+    except Exception as e:
+        return f"error running universal-ctags: {e}"

@@ -1,10 +1,14 @@
 [tool.isort]
 profile = "black"
 known_first_party = "mentat"
+skip = ["vscode/bundled", "tests/benchmarks/repos"]
 
 [tool.ruff]
 line-length = 120
 ignore = ["E731"]
 
 [tool.pytest.ini_options]
-addopts = "--ignore=vscode/bundled"
+addopts = "--ignore=vscode/bundled --ignore=tests/benchmarks/repos"
+
+[tool.black]
+preview = "true"

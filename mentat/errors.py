@@ -1,15 +1,28 @@
-# Raised when model output doesn't adhere to the specified format for changes
 class ModelError(Exception):
-    def __init__(self, message: str, already_added_to_changelist: bool):
-        super().__init__(message)
-        self.already_added_to_changelist = already_added_to_changelist
+    """
+    Raised when model output doesn't adhere to the specified format for changes.
+    Handled by the parser; shouldn't be thrown outside of parsing!
+    """
 
 
-# Used to indicate an issue with Mentat's code
+class RemoteKeyboardInterrupt(Exception):
+    """Used to indicate a KeyboardInterupt thrown by a remote client"""
+
+
+# TODO: Combine MentatError and UserError into just MentatError
 class MentatError(Exception):
-    pass
+    """
+    Will show the user the exception, but not the stacktrace. Used for known errors.
+    """
 
 
-# Used to indicate an issue with the user's usage of Mentat
 class UserError(Exception):
-    pass
+    """
+    Will show the user the exception, but not the stacktrace. Used for known errors.
+    """
+
+
+class SessionExit(Exception):
+    """
+    Stops the session without any sign of error.
+    """

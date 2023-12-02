@@ -1,37 +1,33 @@
 import os
+from pathlib import Path
 from textwrap import dedent
 
-from mentat.app import run
-from mentat.code_context import CodeContext
-from mentat.code_file_manager import CodeFileManager
-from mentat.user_input_manager import UserInputManager
+import pytest
+
+from mentat.include_files import get_include_files
+from mentat.parsers.file_edit import FileEdit, Replacement
+from mentat.session import Session
 
 
 # Make sure we always give posix paths to GPT
-def test_posix_paths(mock_config):
+@pytest.mark.asyncio
+async def test_posix_paths(mock_session_context):
     dir_name = "dir"
     file_name = "file.txt"
-    file_path = os.path.join(dir_name, file_name)
+    file_path = Path(os.path.join(dir_name, file_name))
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
         file_file.write("I am a file")
-    code_context = CodeContext(
-        config=mock_config,
-        paths=[file_path],
-        exclude_paths=[],
+    mock_session_context.code_context.include_files, _ = get_include_files(
+        [file_path], []
     )
-    code_file_manager = CodeFileManager(
-        user_input_manager=UserInputManager(
-            config=mock_config, code_context=code_context
-        ),
-        config=mock_config,
-        code_context=code_context,
-    )
-    code_message = code_file_manager.get_code_message(mock_config.model())
+
+    code_message = await mock_session_context.code_context.get_code_message("", 1e6)
     assert dir_name + "/" + file_name in code_message.split("\n")
 
 
-def test_partial_files(mock_config):
+@pytest.mark.asyncio
+async def test_partial_files(mocker, mock_session_context):
     dir_name = "dir"
     file_name = "file.txt"
     file_path = os.path.join(dir_name, file_name)
@@ -43,48 +39,47 @@ def test_partial_files(mock_config):
              third
              fourth
              fifth"""))
-    file_path_partial = file_path + ":1,3-5"
 
-    code_context = CodeContext(
-        config=mock_config,
-        paths=[file_path_partial],
-        exclude_paths=[],
-        no_code_map=True,
+    file_path_partial = file_path + ":1-2,3-6"
+    mock_session_context.code_context.include_files, _ = get_include_files(
+        [file_path_partial], []
     )
-    code_file_manager = CodeFileManager(
-        user_input_manager=UserInputManager(
-            config=mock_config, code_context=code_context
-        ),
-        config=mock_config,
-        code_context=code_context,
+    mock_session_context.code_context.code_map = False
+
+    code_message = await mock_session_context.code_context.get_code_message(
+        "", max_tokens=1e6
     )
-    code_message = code_file_manager.get_code_message(mock_config.model())
     assert code_message == dedent("""\
             Code Files:
 
             dir/file.txt
             1:I am a file
+            ...
             3:third
             4:fourth
             5:fifth
               """)
 
 
-def test_run_from_subdirectory(
-    mock_collect_user_input, mock_call_llm_api, mock_setup_api_key
+@pytest.mark.asyncio
+async def test_run_from_subdirectory(
+    mock_collect_user_input,
+    mock_call_llm_api,
 ):
     """Run mentat from a subdirectory of the git root"""
     # Change to the subdirectory
     os.chdir("multifile_calculator")
-    mock_collect_user_input.side_effect = [
-        (
-            "Insert the comment # Hello on the first line of"
-            " multifile_calculator/calculator.py and scripts/echo.py"
-        ),
-        "y",
-        KeyboardInterrupt,
-    ]
-    mock_call_llm_api.set_generator_values([dedent("""\
+    mock_collect_user_input.set_stream_messages(
+        [
+            (
+                "Insert the comment # Hello on the first line of"
+                " multifile_calculator/calculator.py and scripts/echo.py"
+            ),
+            "y",
+            "q",
+        ]
+    )
+    mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment in both files.
 
         @@start
@@ -108,7 +103,9 @@ def test_run_from_subdirectory(
         # Hello
         @@end""")])
 
-    run(["calculator.py", "../scripts"])
+    session = Session(cwd=Path.cwd(), paths=[Path("calculator.py"), Path("../scripts")])
+    session.start()
+    await session.stream.recv(channel="client_exit")
 
     # Check that it works
     with open("calculator.py") as f:
@@ -117,3 +114,89 @@ def test_run_from_subdirectory(
         echo_output = f.readlines()
     assert calculator_output[0].strip() == "# Hello"
     assert echo_output[0].strip() == "# Hello"
+
+
+@pytest.mark.asyncio
+async def test_change_after_creation(
+    mock_collect_user_input,
+    mock_call_llm_api,
+):
+    file_name = Path("hello_world.py")
+    mock_collect_user_input.set_stream_messages(
+        [
+            "Conversation",
+            "y",
+            "q",
+        ]
+    )
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
+        Conversation
+
+        @@start
+        {{
+            "file": "{file_name}",
+            "action": "create-file"
+        }}
+        @@code
+        @@end
+        @@start
+        {{
+            "file": "{file_name}",
+            "action": "insert",
+            "insert-after-line": 0,
+            "insert-before-line": 1
+        }}
+        @@code
+        print("Hello, World!")
+        @@end""")])
+
+    session = Session(cwd=Path.cwd())
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    with file_name.open() as f:
+        output = f.read()
+    assert output == 'print("Hello, World!")'
+
+
+@pytest.mark.asyncio
+async def test_changed_file(
+    mocker,
+    temp_testbed,
+    mock_collect_user_input,
+    mock_session_context,
+):
+    dir_name = "dir"
+    file_name = "file.txt"
+    file_path = Path(temp_testbed) / dir_name / file_name
+    os.makedirs(dir_name, exist_ok=True)
+    with open(file_path, "w") as file_file:
+        file_file.write("I am a file")
+
+    code_context = mock_session_context.code_context
+    code_context.include_files, _ = get_include_files([file_path], [])
+
+    # Load code_file_manager's file_lines
+    code_file_manager = mock_session_context.code_file_manager
+    code_file_manager.read_file(file_path)
+
+    # Update the included files
+    with open(file_path, "w") as file_file:
+        file_file.write("I was a file")
+
+    # Try to write_changes
+    file_edit = FileEdit(
+        file_path=file_path,
+        replacements=[Replacement(0, 1, ["I am a file", "with edited lines"])],
+    )
+    assert file_edit.is_valid()
+
+    # Decline overwrite
+    mock_collect_user_input.set_stream_messages(["n", "q"])
+    await code_file_manager.write_changes_to_files([file_edit], code_context)
+    assert file_path.read_text().splitlines() == ["I was a file"]
+
+    # Accept overwrite
+    mock_collect_user_input.set_stream_messages(["y", "q"])
+    await code_file_manager.write_changes_to_files([file_edit], code_context)
+    assert file_path.read_text().splitlines() == ["I am a file", "with edited lines"]

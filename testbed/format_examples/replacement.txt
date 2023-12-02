@@ -1,0 +1,19 @@
+Fifth commit
+
+@ a starting_line=2 ending_line=11
+3
+4
+5
+6
+0
+10
+11
+12
+@
+@ d -
+@ c e
+@ c starting_line=8 ending_line=8
+@
+@ f starting_line=1 ending_line=1
+bar
+@

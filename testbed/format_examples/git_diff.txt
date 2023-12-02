@@ -1,0 +1,64 @@
+commit 07aa8bae2d4170767b427a56e044f393e86b462f
+Author: Jake Koenig <jakethekoenig@gmail.com>
+Date:   Thu Oct 19 07:28:08 2023 -0700
+
+    Fifth commit
+
+diff --git a/a b/a
+index ec588a0..248c392 100644
+--- a/a
++++ b/a
+@@ -1,11 +1,9 @@
+ 1
+-2
+ 3
+ 4
+ 5
+ 6
+-7
+-8
+-9
+ 0
+-
++10
++11
++12
+diff --git a/d b/d
+deleted file mode 100644
+index ec588a0..0000000
+--- a/d
++++ /dev/null
+@@ -1,11 +0,0 @@
+-1
+-2
+-3
+-4
+-5
+-6
+-7
+-8
+-9
+-0
+-
+diff --git a/c b/e
+similarity index 90%
+rename from c
+rename to e
+index ec588a0..720a0a7 100644
+--- a/c
++++ b/e
+@@ -5,7 +5,6 @@
+ 5
+ 6
+ 7
+-8
+ 9
+ 0
+ 
+diff --git a/f b/f
+index ec588a0..720a0a7 100644
+--- a/f
++++ b/f
+@@ -1 +1 @@
+-foo
++bar

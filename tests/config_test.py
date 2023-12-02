@@ -1,47 +1,95 @@
+import argparse
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
 
-from mentat.config_manager import ConfigManager, config_file_name
+import mentat.config
+from mentat.config import Config, config_file_name
+from mentat.parsers.replacement_parser import ReplacementParser
 
 
-def test_config_priority(temp_testbed):
-    # First project config should be considered, then user config, then default config, then error
+@pytest.fixture
+def mock_config_errors(mocker):
+    errors = []
+    mocker.patch.object(Config, "error", lambda self, message: errors.append(message))
+    return errors
+
+
+@pytest.mark.asyncio
+async def test_config_creation():
+    "This test verifies the Config adds the parameters to the argparse object."
+    "Those take precedence over the config files and the project config takes"
+    "precedence over the user config."
+    parser = argparse.ArgumentParser()
+    Config.add_fields_to_argparse(parser)
+    args = parser.parse_args(
+        [
+            "--model",
+            "model",
+            "--temperature",
+            "0.2",
+            "--maximum-context",
+            "1",
+            "-a",
+        ]
+    )
+    assert args.model == "model"
+    assert args.temperature == 0.2
+    assert args.maximum_context == "1"
+    assert args.parser is None
+    assert args.auto_context is True
+
     with open(config_file_name, "w") as project_config_file:
         project_config_file.write(dedent("""\
         {
-            "project-first": "project"
+            "input_style": [[ "project", "yes" ]]
         }"""))
 
-    # Since we don't want to actually change user config file or default config file,
-    # we have to just mock them
-    config = ConfigManager(Path(temp_testbed))
-    config.user_config = {"project-first": "I will not be used", "user-second": "user"}
-    config.default_config = {
-        "project-first": "I also am not used",
-        "user-second": "Neither am I",
-        "default-last": "default",
-    }
+    mentat.config.user_config_path = Path(str(config_file_name) + "1")
+    with open(mentat.config.user_config_path, "w") as user_config_file:
+        user_config_file.write(dedent("""\
+        {
+            "model": "test",
+            "parser": "replacement",
+            "input_style": [[ "user", "yes" ]]
+        }"""))
 
-    assert config._get_key("project-first") == "project"
-    assert config._get_key("user-second") == "user"
-    assert config._get_key("default-last") == "default"
+    config = Config.create(args)
 
-    with pytest.raises(ValueError) as e_info:
-        config._get_key("non-existent")
-    assert e_info.type == ValueError
+    assert config.model == "model"
+    assert config.temperature == 0.2
+    assert config.maximum_context == 1
+    assert type(config.parser) == ReplacementParser
+    assert config.auto_context is True
+    assert config.input_style == [["project", "yes"]]
 
 
-def test_invalid_config(temp_testbed):
+@pytest.mark.asyncio
+async def test_invalid_config(mock_config_errors):
     # If invalid config file is found, it should use next config
     with open(config_file_name, "w") as project_config_file:
         project_config_file.write(dedent("""\
         {
-            "mykey": "project",
-            "invalid-json: []]
+            "model": "project",
+            "format": "I have a trailing comma",
         }"""))
 
-    config = ConfigManager(Path(temp_testbed))
-    config.user_config = {"mykey": "user"}
-    assert config._get_key("mykey") == "user"
+    mentat.config.user_config_path = Path(str(config_file_name) + "1")
+    with open(mentat.config.user_config_path, "w") as user_config_file:
+        user_config_file.write(dedent("""\
+        {
+            "model": "test",
+            "foobar": "Not a real setting"
+        }"""))
+
+    config = Config.create()
+    assert (
+        mock_config_errors[0]
+        == "Warning: Config .mentat_config.json1 contains unrecognized setting: foobar"
+    )
+    assert (
+        "contains invalid json; ignoring user configuration file"
+        in mock_config_errors[1]
+    )
+    assert config.model == "test"
