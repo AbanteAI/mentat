@@ -7,7 +7,7 @@ class FeatureFilter(ABC):
     """
     Tools to pare down a list of Features to a final list to be put in an LLMs context.
     Despite the name they may not be pure filters:
-    * New CodeFeatures may be introduced by splitting Features into intervals or reducing their level to cmap.
+    * New CodeFeatures may be introduced by splitting Features into intervals.
     * The CodeFeatures may be reordered by priority in future steps.
 
     A feature filter may want more information than the list of features and user prompt. If so it

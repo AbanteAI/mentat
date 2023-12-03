@@ -45,20 +45,6 @@ core/hello_world.py
 3:    print("Hello, World!")
 4:
 
-Code Map:
-
-.gitignore
-
-core/hello_world.py
-        function
-                hello_world ()
-
-core/script.py
-        function
-                main (name)
-                say_goodbye ()
-                say_hello (name)
-
 User Request:
 After saying hello, if the user's name is "Bob", say "Nice to see you again!" on another line.
 Add a function to get the user's name and use it in main instead of taking name as an argument.
@@ -156,20 +142,6 @@ core/hello_world.py
 2:def hello_world():
 3:    print("Hello, World!")
 4:
-
-Code Map:
-
-.gitignore
-
-core/hello_world.py
-        function
-                hello_world ()
-
-core/script.py
-        function
-                main (name)
-                say_goodbye ()
-                say_hello (name)
 
 User Request:
 Call say_goodbye after printing hello world
