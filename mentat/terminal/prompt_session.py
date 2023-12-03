@@ -59,7 +59,7 @@ class MentatPromptSession(PromptSession[str]):
             "" if is_soft_wrap else [("class:continuation", " " * (width - 2) + "> ")]
         )
 
-    async def _toggle_audio(self):
+    def _toggle_audio(self):
         app = get_app()
         buffer = app.current_buffer
         if self._transcriber is None:
@@ -67,7 +67,7 @@ class MentatPromptSession(PromptSession[str]):
             app.invalidate()
             self._transcriber = Transcriber(buffer)
         else:
-            await self._transcriber.close()
+            self._transcriber.close()
             buffer.cursor_position = len(buffer.text)
             self._transcriber = None
             self.message = ">>> "
@@ -105,14 +105,14 @@ class MentatPromptSession(PromptSession[str]):
         # TODO: should also cancel voice
         @self.bindings.add("c-c")
         @self.bindings.add("c-d")
-        async def _(event: KeyPressEvent):
+        def _(event: KeyPressEvent):
             if self._transcriber is not None:
-                await self._toggle_audio()
+                self._toggle_audio()
             elif event.current_buffer.text != "":
                 event.current_buffer.reset()
             else:
                 event.app.exit(result="q")
 
         @self.bindings.add("c-u")
-        async def _(event: KeyPressEvent):
-            await self._toggle_audio()
+        def _(event: KeyPressEvent):
+            self._toggle_audio()
