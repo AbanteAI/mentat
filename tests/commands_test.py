@@ -89,7 +89,6 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
 
     file_path = str(temp_testbed / "multifile_calculator" / "calculator.py")
     assert sample.get("repo") == "https://github.com/AbanteAI/mentat"
-    assert sample.get("merge_base") == "HEAD"
     assert sample.get("args") == [file_path]
     assert len(sample.get("messages")) == 2
     message_0 = sample.get("messages")[0].get("content") == "Make the edits."

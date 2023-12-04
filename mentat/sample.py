@@ -29,7 +29,6 @@ def parse_message(message: ChatCompletionMessageParam) -> str:
 @attr.define
 class Sample:
     repo: str = attr.field(default="")
-    merge_base: str = attr.field(default="")
     diff: str = attr.field(default="")
     args: list[str] = attr.field(default=[])  # type: ignore
     messages: list[dict[str, str]] = attr.field(default=[])  # type: ignore
@@ -95,7 +94,6 @@ class Sample:
 
         return cls(
             repo=config.sample_repo,
-            merge_base=config.sample_merge_base,
             diff=diff,
             args=args,
             messages=messages,
