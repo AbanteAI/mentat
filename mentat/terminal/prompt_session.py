@@ -63,9 +63,9 @@ class MentatPromptSession(PromptSession[str]):
         app = get_app()
         buffer = app.current_buffer
         if self._transcriber is None:
+            self._transcriber = Transcriber(buffer)
             self.message = "(Transcribing audio. c-u to stop) "
             app.invalidate()
-            self._transcriber = Transcriber(buffer)
         else:
             self._transcriber.close()
             buffer.cursor_position = len(buffer.text)

@@ -1,5 +1,5 @@
 import os
-from typing import Iterable, Mapping
+from typing import Any, Iterable
 
 import numpy as np
 import sounddevice as sd
@@ -7,9 +7,6 @@ from faster_whisper import WhisperModel
 from faster_whisper.transcribe import Segment
 from prompt_toolkit.buffer import Buffer
 
-from mentat.utils import mentat_dir_path
-
-AUDIO_FILE = mentat_dir_path / "temp.wav"
 CHUNK = 512
 RATE = 16000
 WHISPER_BATCH_SECS = 1
@@ -27,18 +24,27 @@ def segments_to_transcript(segments: Iterable[Segment]):
     fixed_transcript = ""
     freeze_start_time = 0
     for segment in segments:
-        for word in segment.words:
-            if word.start + DELAY_TO_FREEZE < end:
-                freeze_start_time = word.end
-                fixed_transcript += word.word
-            transcript += word.word
+        if segment.words is not None:
+            for word in segment.words:
+                if word.start + DELAY_TO_FREEZE < end:
+                    freeze_start_time = word.end
+                    fixed_transcript += word.word
+                transcript += word.word
 
     return transcript.strip(), fixed_transcript.strip(), freeze_start_time
 
 
+# The timeinfo expected by the sounddevice callback is a cdata PaStreamCallbackTimeInfo object
+# In sounddevice's example programs they don't provide type annotations or show any examples of
+# acutally using the time_info.
+class TimeInfo:
+    currentTime: float
+    inputBufferAdcTime: float
+
+
 class Transcriber:
     def __init__(self, buffer: Buffer) -> None:
-        self.data: list[bytes] = []
+        self.data: list[np.ndarray[Any, Any]] = []
         self.buffer = buffer
         self.start_text = buffer.text
         self.fixed = ""
@@ -64,9 +70,9 @@ class Transcriber:
 
     def process_audio(
         self,
-        in_data: np.ndarray,
+        in_data: np.ndarray[Any, Any],
         frames: int,
-        time: Mapping[str, float],
+        time: TimeInfo,
         status: int,
     ):
         self.data.append(in_data.flatten())
@@ -84,7 +90,7 @@ class Transcriber:
         start = int(RATE * self.frozen_timestamp / CHUNK)
         send = np.concatenate(self.data[start:])
 
-        segments, _ = self.whisper_model.transcribe(
+        segments, _ = self.whisper_model.transcribe(  # type: ignore
             audio=send, beam_size=5, vad_filter=True, word_timestamps=True
         )
         transcript, fixed_transcript, end = segments_to_transcript(segments)
