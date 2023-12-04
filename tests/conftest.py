@@ -21,6 +21,7 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config, config_file_name
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
+from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
@@ -255,8 +256,7 @@ def mock_session_context(temp_testbed):
     set by a Session if the test creates a Session.
     If you create a Session or Client in your test, do NOT use this SessionContext!
     """
-    # TODO make this `None` if there's no git (SessionContext needs to allow it)
-    git_root = temp_testbed
+    git_root = get_git_root_for_path(temp_testbed, raise_error=False)
 
     stream = SessionStream()
 
@@ -278,7 +278,6 @@ def mock_session_context(temp_testbed):
         stream,
         llm_api_handler,
         cost_tracker,
-        git_root,
         config,
         code_context,
         code_file_manager,
@@ -292,11 +291,7 @@ def mock_session_context(temp_testbed):
 
 @pytest.fixture
 def mock_code_context(temp_testbed, mock_session_context):
-    code_context = CodeContext(
-        mock_session_context.stream,
-        mock_session_context.cwd,
-    )
-    return code_context
+    return mock_session_context.code_context
 
 
 ### Auto-used fixtures

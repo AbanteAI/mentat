@@ -85,6 +85,7 @@ class SessionStream:
 
         self.messages.append(message)
         self._broadcast.publish(channel=channel, message=message)
+        # print(f"STREAM: channel={message.channel} data={message.data} extra={message.extra}")
 
         return message
 

@@ -80,7 +80,6 @@ class Session:
             stream,
             llm_api_handler,
             cost_tracker,
-            git_root,  # pyright: ignore
             config,
             code_context,
             code_file_manager,

@@ -25,7 +25,6 @@ class SessionContext:
     stream: SessionStream = attr.field()
     llm_api_handler: LlmApiHandler = attr.field()
     cost_tracker: CostTracker = attr.field()
-    git_root: Path = attr.field()
     config: Config = attr.field()
     code_context: CodeContext = attr.field()
     code_file_manager: CodeFileManager = attr.field()
