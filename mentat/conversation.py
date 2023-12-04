@@ -27,13 +27,26 @@ if TYPE_CHECKING:
 
 
 class Conversation:
-    max_tokens: int
-
     def __init__(self):
         self._messages = list[ChatCompletionMessageParam]()
 
         # This contains a list of messages used for transcripts
         self.literal_messages = list[TranscriptMessage]()
+
+    def _get_max_tokens(self) -> Optional[int]:
+        session_context = SESSION_CONTEXT.get()
+        config = session_context.config
+
+        context_size = model_context_size(config.model)
+        maximum_context = config.maximum_context
+        print(maximum_context, context_size)
+        if maximum_context is not None:
+            if context_size:
+                return min(context_size, maximum_context)
+            else:
+                return maximum_context
+        else:
+            return context_size
 
     async def display_token_count(self):
         session_context = SESSION_CONTEXT.get()
@@ -86,14 +99,13 @@ class Conversation:
             config.model,
         )
 
+        context_size = self._get_max_tokens()
         if not context_size:
             raise MentatError(
                 f"Context size for {config.model} is not known. Please set"
                 " maximum-context with `/config maximum_context value`."
             )
-        else:
-            self.max_tokens = context_size
-        if tokens + 1000 > context_size:
+        if tokens + config.token_buffer > context_size:
             _plural = len(code_context.include_files) > 1
             _exceed = tokens > context_size
             message: dict[tuple[bool, bool], str] = {
@@ -175,7 +187,7 @@ class Conversation:
                     content=prompt,
                 )
             )
-            return [prompt_message] + self._messages.copy()
+            return self._messages.copy() + [prompt_message]
 
     def clear_messages(self) -> None:
         """Clears the messages in the conversation"""
@@ -254,6 +266,34 @@ class Conversation:
                     p.get("text", "") for p in prompt if p.get("type") == "text"
                 ]
                 prompt = " ".join(text_prompts)
+            max_tokens = self._get_max_tokens()
+            if max_tokens is None:
+                stream.send(
+                    f"Context size for {config.model} is not known. Please set"
+                    " maximum-context with `/config maximum_context value`.",
+                    color="light_red",
+                )
+                return []
+
+            if max_tokens - tokens < config.token_buffer:
+                if max_tokens - tokens < 0:
+                    stream.send(
+                        f"The context size is limited to {max_tokens} tokens and"
+                        f" previous messages plus system prompts use {tokens} tokens."
+                        " Please use `/clear` to reset or restart the session.",
+                        color="light_red",
+                    )
+                else:
+                    stream.send(
+                        f"The context size is limited to {max_tokens} tokens and"
+                        f" previous messages plus system prompts use {tokens} tokens,"
+                        " leaving insufficent tokens for a response. Please use"
+                        " `/clear` to reset, `/config token_buffer n` to change the"
+                        " response buffer size or restart the session.",
+                        color="light_red",
+                    )
+                return []
+
             code_message = await code_context.get_code_message(
                 (
                     # Prompt can be image as well as text
@@ -261,7 +301,7 @@ class Conversation:
                     if isinstance(prompt, str)
                     else ""
                 ),
-                self.max_tokens - tokens - config.token_buffer,
+                max_tokens - tokens - config.token_buffer,
                 loading_multiplier=0.5 * loading_multiplier,
             )
             messages_snapshot.append(
@@ -304,7 +344,7 @@ class Conversation:
 
     def remaining_context(self) -> int | None:
         ctx = SESSION_CONTEXT.get()
-        max_context = model_context_size(ctx.config.model)
+        max_context = self._get_max_tokens()
         if max_context is None:
             return None
 
