@@ -13,10 +13,7 @@ from mentat.terminal.voice.transcriber import (
 
 
 def test_transcriber_with_frozen_timestamp(mocker):
-    try:
-        mocker.patch("mentat.terminal.voice.transcriber.sd")
-    except AttributeError:
-        return  # Test skipped on Ubuntu
+    mocker.patch("mentat.terminal.voice.transcriber.sd")
     mock_whisper_model = mocker.patch("mentat.terminal.voice.transcriber.WhisperModel")
 
     mock_buffer = Mock()

@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Install universal-ctags (Ubuntu)
         if: runner.os == 'Linux'
-        run: sudo apt update && sudo apt install universal-ctags
+        run: sudo apt update && sudo apt install universal-ctags && sudo apt install libportaudio2
       - name: Install universal-ctags (OSX)
         if: runner.os == 'macOS'
         run: brew update && brew install universal-ctags
