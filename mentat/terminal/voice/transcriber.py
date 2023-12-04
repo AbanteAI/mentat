@@ -18,6 +18,7 @@ CHUNK = 512
 RATE = 16000
 WHISPER_BATCH_SECS = 1
 DELAY_TO_FREEZE = 1.5
+REAL_TIME_THRESHOLD = 0.3
 
 
 def segments_to_transcript(segments: Iterable[Segment]):
@@ -85,10 +86,10 @@ class Transcriber:
         self.data.append(in_data.flatten())
         if not self.whisper_semafore:
             # During call_whisper the time gets out of sync. This check lets us catch up.
-            if time.currentTime - time.inputBufferAdcTime < 0.3:
+            if time.currentTime - time.inputBufferAdcTime < REAL_TIME_THRESHOLD:
                 if (
                     len(self.data) - self.processed_frames
-                ) * frames / RATE > WHISPER_BATCH_SECS:
+                ) * frames / RATE >= WHISPER_BATCH_SECS:
                     self.call_whisper()
 
     def call_whisper(self) -> None:
@@ -103,7 +104,7 @@ class Transcriber:
         transcript, fixed_transcript, end = segments_to_transcript(segments)
         self.frozen_timestamp += end
 
-        self.buffer.text = self.start_text + self.fixed + " " + transcript
+        self.buffer.text = self.start_text + (self.fixed + " " + transcript).strip()
 
         self.fixed = (self.fixed + " " + fixed_transcript).strip()
 
