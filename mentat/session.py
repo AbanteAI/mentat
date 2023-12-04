@@ -18,6 +18,7 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
+from mentat.ctags import ensure_ctags_installed
 from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_shared_git_root_for_paths
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
@@ -47,7 +48,7 @@ class Session:
         pr_diff: Optional[str] = None,
         config: Config = Config(),
     ):
-        # TODO: All errors should be thrown in _main, and should never be thrown here
+        # All errors thrown here need to be caught here
         self.stopped = False
 
         if not mentat_dir_path.exists():
@@ -58,6 +59,7 @@ class Session:
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
+        # TODO: An error is thrown in this function; once git root is removed, the error will be removed
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
 
         llm_api_handler = LlmApiHandler()
@@ -107,17 +109,21 @@ class Session:
         code_file_manager = session_context.code_file_manager
         agent_handler = session_context.agent_handler
 
-        llm_api_handler.initizalize_client()
+        # check early for ctags so we can fail fast
+        if session_context.config.auto_context:
+            ensure_ctags_installed()
+
+        llm_api_handler.initialize_client()
         code_context.display_context()
         await conversation.display_token_count()
 
         try:
-            stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
+            stream.send("Type 'q' or use Ctrl-C to quit at any time.")
             need_user_request = True
             while True:
                 if need_user_request:
                     # TODO: Once finished, allow user to undo all edits in agent mode
-                    stream.send("What can I do for you?", color="light_blue")
+                    stream.send("\nWhat can I do for you?", color="light_blue")
                     message = await collect_input_with_commands()
                     if message.data.strip() == "":
                         continue
@@ -135,13 +141,13 @@ class Session:
                     for file_edit in file_edits:
                         file_edit.resolve_conflicts()
 
-                    if file_edits:
-                        await code_file_manager.write_changes_to_files(
-                            file_edits, code_context
-                        )
-                        stream.send("Changes applied.", color="light_blue")
-                    else:
-                        stream.send("No changes applied.", color="light_blue")
+                    applied_edits = await code_file_manager.write_changes_to_files(
+                        file_edits
+                    )
+                    stream.send(
+                        "Changes applied." if applied_edits else "No changes applied.",
+                        color="light_blue",
+                    )
 
                     if agent_handler.agent_enabled:
                         need_user_request = await agent_handler.add_agent_context()

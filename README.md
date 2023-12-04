@@ -70,9 +70,9 @@ You'll need to have API access to GPT-4 to run Mentat. There are a few options t
 
 For custom configuration options see [configuration.md](docs/configuration.md)
 
-## (Optional) Install universal ctags 
+## Install universal-ctags (required to use auto-context)
 
-Installing [universal ctags](https://github.com/universal-ctags/ctags) is helpful if you want to use Mentat with many files. This enables Mentat to better understand your code by building a map of your entire codebase. 
+Installing [universal ctags](https://github.com/universal-ctags/ctags) is helpful if you want to use the auto-context system to have Mentat find relevant parts of files for you.
 
 See the [official instructions](https://github.com/universal-ctags/ctags#the-latest-build-and-package) for installing univeresal ctags for your specific operating system, however you may be able to install a compatible version with one of the following commands:
 
@@ -109,6 +109,19 @@ Exclude given paths, directories, or [glob patterns](https://docs.python.org/3/l
 mentat path/to/directory --exclude exclude_me.py dir1/dir2 **/*.ts
 ```
 
+### Auto Context
+
+The `Auto Context` feature in Mentat uses retrieval-augmented-generation (RAG) to select relevant snippets from your codebase to include with the user query. To enable `Auto Context`, use the `--auto-context` or `-a` flag when running Mentat:
+
+```
+mentat --auto-context
+```
+
+Auto-context will add code snippets in order of relevance up to the maximum (8000 tokens by default). Adjust the maximum number of tokens added by auto-context by using the `--auto-tokens` flag:
+
+```
+mentat -a --auto-tokens 8000
+```
 
 # 👩‍💻 Roadmap and Contributing
 

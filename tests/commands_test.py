@@ -5,7 +5,9 @@ from textwrap import dedent
 import pytest
 
 from mentat.code_feature import CodeFeature
-from mentat.commands import Command, ContextCommand, HelpCommand, InvalidCommand
+from mentat.command.command import Command, InvalidCommand
+from mentat.command.commands.context import ContextCommand
+from mentat.command.commands.help import HelpCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
 from mentat.vision.vision_manager import ScreenshotException

@@ -72,7 +72,7 @@ class AgentHandler:
             color="cyan",
         )
         ctx.stream.send("\n".join(str(path) for path in paths))
-        ctx.cost_tracker.display_api_call_stats(
+        ctx.cost_tracker.log_api_call_stats(
             prompt_tokens(messages, model),
             count_tokens(content, model, full_message=False),
             model,
@@ -102,7 +102,7 @@ class AgentHandler:
         ]
         response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
         content = response.choices[0].message.content or ""
-        ctx.cost_tracker.display_api_call_stats(
+        ctx.cost_tracker.log_api_call_stats(
             prompt_tokens(messages, model),
             count_tokens(content, model, full_message=False),
             model,

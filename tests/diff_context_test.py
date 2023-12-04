@@ -35,6 +35,16 @@ def git_history(temp_testbed):
     test_branch (from commit2)
       'commit4'
     """
+    # sometimes the testbed is set up with main, sometimes master,
+    # so we just make sure it's master for the tests
+    branch_name = (
+        subprocess.check_output(["git", "branch"], cwd=temp_testbed, text=True)
+        .split()[1]
+        .strip()
+    )
+    if branch_name != "master":
+        subprocess.run(["git", "checkout", "-b", "master"], cwd=temp_testbed)
+
     _update_ops(temp_testbed, "commit2", "commit2")
     _update_ops(temp_testbed, "commit3", "commit3")
     subprocess.run(["git", "checkout", "HEAD~1"], cwd=temp_testbed)
@@ -179,7 +189,7 @@ async def test_diff_context_end_to_end(temp_testbed, git_history, mock_call_llm_
 
     session_context = SESSION_CONTEXT.get()
     code_context = session_context.code_context
-    code_message = await code_context.get_code_message("test", 1)
+    code_message = await code_context.get_code_message("", 500)
     diff_context = code_context.diff_context
 
     assert diff_context.target == "HEAD~2"

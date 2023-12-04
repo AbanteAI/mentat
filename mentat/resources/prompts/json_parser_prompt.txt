@@ -60,15 +60,6 @@ core/hello_world.py
 6:    print(f"Hello, {name}!")
 7:
 
-Code Map:
-
-.gitignore
-
-core/hello_world.py
-        function
-                hello_world ()
-                main (name)
-
 User Request:
 Replace the hello_world function with a goodbye_world function. Insert a new line saying Goodbye, name after the Hello, name line. Rename this file to goodbye_world.py.
 Create a new file called test.py that prints "testing...".

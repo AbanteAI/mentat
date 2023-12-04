@@ -11,13 +11,14 @@ class CostTracker:
     total_tokens: int = 0
     total_cost: float = 0
 
-    def display_api_call_stats(
+    def log_api_call_stats(
         self,
         num_prompt_tokens: int,
         num_sampled_tokens: int,
         model: str,
         call_time: Optional[float] = None,
         decimal_places: int = 2,
+        display: bool = False,
     ) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
@@ -38,7 +39,8 @@ class CostTracker:
             if speed_and_cost_string:
                 speed_and_cost_string += " | "
             speed_and_cost_string += f"Cost: ${call_cost:.{decimal_places}f}"
-        stream.send(speed_and_cost_string, color="cyan")
+        if display:
+            stream.send(speed_and_cost_string, color="cyan")
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
@@ -46,4 +48,4 @@ class CostTracker:
     def display_total_cost(self) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        stream.send(f"Total session cost: ${self.total_cost:.2f}", color="light_blue")
+        stream.send(f"Total session cost: ${self.total_cost:.2f}", color="cyan")

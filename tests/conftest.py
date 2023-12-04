@@ -237,8 +237,9 @@ def mock_model_available(mocker):
 
 
 @pytest.fixture(autouse=True, scope="function")
-def mock_initizalize_client(mocker):
-    mocker.patch.object(LlmApiHandler, "initizalize_client")
+def mock_initialize_client(mocker, request):
+    if not request.config.getoption("--benchmark"):
+        mocker.patch.object(LlmApiHandler, "initialize_client")
 
 
 # ContextVars need to be set in a synchronous fixture due to pytest not propagating
@@ -365,8 +366,3 @@ def mock_user_config(mocker):
 @pytest.fixture(autouse=True)
 def mock_sleep_time(mocker):
     mocker.patch.object(StreamingPrinter, "sleep_time", new=lambda self: 0)
-
-
-@pytest.fixture(autouse=True)
-def mock_get_codemaps(mocker):
-    mocker.patch("mentat.code_map.get_code_map", return_value=[])

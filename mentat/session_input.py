@@ -3,7 +3,7 @@ import logging
 import shlex
 from typing import Any, Coroutine
 
-from mentat.commands import Command
+from mentat.command.command import Command
 from mentat.errors import RemoteKeyboardInterrupt, SessionExit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import StreamMessage

@@ -14,22 +14,15 @@ class DefaultFilter(FeatureFilter):
     def __init__(
         self,
         max_tokens: int,
-        code_map: bool = False,
         use_llm: bool = False,
         user_prompt: Optional[str] = None,
         expected_edits: Optional[list[str]] = None,
         loading_multiplier: float = 0.0,
     ):
         self.max_tokens = max_tokens
-        self.code_map = code_map
         self.use_llm = use_llm
         self.user_prompt = user_prompt or ""
         self.levels = [CodeMessageLevel.FILE_NAME]
-        if self.code_map:
-            self.levels = [
-                CodeMessageLevel.CMAP_FULL,
-                CodeMessageLevel.CMAP,
-            ] + self.levels
         self.expected_edits = expected_edits
         self.loading_multiplier = loading_multiplier
 
