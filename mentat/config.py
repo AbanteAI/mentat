@@ -100,6 +100,10 @@ class Config:
         converter=int,
     )
 
+    # Sample specific settings
+    sample_repo: str = attr.field(default=None)
+    sample_merge_base: str = attr.field(default=None)
+
     # Only settable by config file
     input_style: list[tuple[str, str]] = attr.field(
         factory=lambda: [

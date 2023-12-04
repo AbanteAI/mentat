@@ -47,15 +47,13 @@ async def test_commit_command(temp_testbed, mock_collect_user_input):
 
 
 @pytest.mark.asyncio
-async def test_sample_command(
-    temp_testbed, mock_collect_user_input, mock_call_llm_api
-):
+async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
     mock_collect_user_input.set_stream_messages(
         [
             "Make the edits.",
             "y",
             "/sample",
-            "",
+            "https://github.com/AbanteAI/mentat",
             "HEAD",
             "q",
         ]
@@ -91,16 +89,15 @@ async def test_sample_command(
 
     file_path = str(temp_testbed / "multifile_calculator" / "calculator.py")
     assert sample.get("repo") == "https://github.com/AbanteAI/mentat"
-    assert sample.get("commit") == "HEAD"
-    assert sample.get("config") == [file_path]
-    assert len(sample.get("convo")) == 2
-    assert sample.get("convo")[0].get("content")[0].get("text") == "Make the edits."
+    assert sample.get("merge_base") == "HEAD"
+    assert sample.get("args") == [file_path]
+    assert len(sample.get("messages")) == 2
+    message_0 = sample.get("messages")[0].get("content") == "Make the edits."
     assert len(sample.get("edits")) == 1
-    sample["edits"] = [FileEdit.from_json(e) for e in sample["edits"]]
-    assert sample.get("edits")[0].file_path == Path(file_path)
+    sample["edits"] = [FileEdit(**e) for e in sample["edits"]]
+    assert sample.get("edits")[0].file_path == file_path
     assert len(sample.get("edits")[0].replacements) == 1
-    assert sample.get("context") == [file_path]
-    assert sample.get("diff") == []
+    assert sample.get("diff") == ""
 
 
 @pytest.mark.asyncio
