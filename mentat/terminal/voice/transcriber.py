@@ -2,10 +2,17 @@ import os
 from typing import Any, Iterable
 
 import numpy as np
-import sounddevice as sd
 from faster_whisper import WhisperModel
 from faster_whisper.transcribe import Segment
 from prompt_toolkit.buffer import Buffer
+
+try:
+    import sounddevice as sd
+
+    sounddevice_available = True
+except OSError:
+    # Sounddevice automagically installs portaudio only on windows and macos.
+    sounddevice_available = False
 
 CHUNK = 512
 RATE = 16000

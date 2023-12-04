@@ -11,7 +11,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 
-from mentat.terminal.voice.transcriber import Transcriber
+from mentat.terminal.voice.transcriber import Transcriber, sounddevice_available
 from mentat.utils import mentat_dir_path
 
 
@@ -63,9 +63,12 @@ class MentatPromptSession(PromptSession[str]):
         app = get_app()
         buffer = app.current_buffer
         if self._transcriber is None:
-            self._transcriber = Transcriber(buffer)
-            self.message = "(Transcribing audio. c-u to stop) "
-            app.invalidate()
+            if sounddevice_available:
+                self._transcriber = Transcriber(buffer)
+                self.message = "(Transcribing audio. c-u to stop) "
+                app.invalidate()
+            else:
+                print("Audio transcription not available. Is PortAudio installed?")
         else:
             self._transcriber.close()
             buffer.cursor_position = len(buffer.text)
