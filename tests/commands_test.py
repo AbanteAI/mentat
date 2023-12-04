@@ -35,7 +35,7 @@ async def test_commit_command(temp_testbed, mock_collect_user_input):
         ]
     )
 
-    session = Session([])
+    session = Session(cwd=temp_testbed, paths=[])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -52,7 +52,7 @@ async def test_include_command(temp_testbed, mock_collect_user_input):
         ]
     )
 
-    session = Session([])
+    session = Session(cwd=temp_testbed, paths=[])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -72,7 +72,7 @@ async def test_exclude_command(temp_testbed, mock_collect_user_input):
         ]
     )
 
-    session = Session(["scripts"])
+    session = Session(cwd=temp_testbed, paths=["scripts"])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -111,7 +111,7 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         # I inserted this comment
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -157,7 +157,7 @@ async def test_undo_all_command(
         # I inserted this comment
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 

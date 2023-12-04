@@ -44,7 +44,6 @@ async def test_partial_files(mocker, mock_session_context):
     code_message = await mock_session_context.code_context.get_code_message(
         "", max_tokens=1e6
     )
-    # set_trace()
     assert code_message == dedent("""\
             Code Files:
 
@@ -59,6 +58,7 @@ async def test_partial_files(mocker, mock_session_context):
 
 @pytest.mark.asyncio
 async def test_run_from_subdirectory(
+    temp_testbed,
     mock_collect_user_input,
     mock_call_llm_api,
 ):
@@ -99,7 +99,9 @@ async def test_run_from_subdirectory(
         # Hello
         @@end""")])
 
-    session = Session(cwd=Path.cwd(), paths=[Path("calculator.py"), Path("../scripts")])
+    session = Session(
+        cwd=temp_testbed, paths=["multifile_calculator/calculator.py", "scripts"]
+    )
     session.start()
     await session.stream.recv(channel="client_exit")
 

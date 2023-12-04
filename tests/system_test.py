@@ -172,7 +172,9 @@ async def test_without_os_join(mock_call_llm_api, mock_collect_user_input):
 
 
 @pytest.mark.asyncio
-async def test_sub_directory(mock_call_llm_api, mock_collect_user_input, monkeypatch):
+async def test_sub_directory(
+    temp_testbed, mock_call_llm_api, mock_collect_user_input, monkeypatch
+):
     with monkeypatch.context() as m:
         m.chdir("scripts")
         file_name = "calculator.py"
@@ -198,7 +200,7 @@ async def test_sub_directory(mock_call_llm_api, mock_collect_user_input, monkeyp
             print("Hello, world!")
             @@end""")])
 
-        session = Session(cwd=Path.cwd(), paths=[file_name])
+        session = Session(cwd=temp_testbed, paths=[Path("scripts", file_name)])
         session.start()
         await session.stream.recv(channel="client_exit")
 
