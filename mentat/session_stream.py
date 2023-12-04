@@ -96,7 +96,9 @@ class SessionStream:
                 return stream_message
             raise Exception("recv should not complete without receiving an Event")
 
-    async def listen(self, channel: str = "default") -> AsyncGenerator[StreamMessage, None]:
+    async def listen(
+        self, channel: str = "default"
+    ) -> AsyncGenerator[StreamMessage, None]:
         """Listen to all messages on a channel indefinitely"""
         with self._broadcast.subscribe(channel) as subscriber:
             async for event in subscriber:
