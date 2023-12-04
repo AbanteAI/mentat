@@ -39,7 +39,6 @@ class Conversation:
 
         context_size = model_context_size(config.model)
         maximum_context = config.maximum_context
-        print(maximum_context, context_size)
         if maximum_context is not None:
             if context_size:
                 return min(context_size, maximum_context)
@@ -187,7 +186,7 @@ class Conversation:
                     content=prompt,
                 )
             )
-            return self._messages.copy() + [prompt_message]
+            return [prompt_message] + self._messages.copy()
 
     def clear_messages(self) -> None:
         """Clears the messages in the conversation"""
@@ -259,41 +258,40 @@ class Conversation:
         tokens = prompt_tokens(messages_snapshot, config.model)
 
         loading_multiplier = 1.0 if config.auto_context else 0.0
-        try:
-            prompt = messages_snapshot[-1]["content"]
-            if isinstance(prompt, list):
-                text_prompts = [
-                    p.get("text", "") for p in prompt if p.get("type") == "text"
-                ]
-                prompt = " ".join(text_prompts)
-            max_tokens = self._get_max_tokens()
-            if max_tokens is None:
+        prompt = messages_snapshot[-1]["content"]
+        if isinstance(prompt, list):
+            text_prompts = [
+                p.get("text", "") for p in prompt if p.get("type") == "text"
+            ]
+            prompt = " ".join(text_prompts)
+        max_tokens = self._get_max_tokens()
+        if max_tokens is None:
+            stream.send(
+                f"Context size for {config.model} is not known. Please set"
+                " maximum-context with `/config maximum_context value`.",
+                color="light_red",
+            )
+            return []
+
+        if max_tokens - tokens < config.token_buffer:
+            if max_tokens - tokens < 0:
                 stream.send(
-                    f"Context size for {config.model} is not known. Please set"
-                    " maximum-context with `/config maximum_context value`.",
+                    f"The context size is limited to {max_tokens} tokens and"
+                    f" previous messages plus system prompts use {tokens} tokens."
+                    " Please use `/clear` to reset or restart the session.",
                     color="light_red",
                 )
-                return []
+            else:
+                stream.send(
+                    f"The context size is limited to {max_tokens} tokens and"
+                    f" previous messages plus system prompts use {tokens} tokens,"
+                    " leaving insufficent tokens for a response. Please use"
+                    " `/clear` to reset or restart the session.",
+                    color="light_red",
+                )
+            return []
 
-            if max_tokens - tokens < config.token_buffer:
-                if max_tokens - tokens < 0:
-                    stream.send(
-                        f"The context size is limited to {max_tokens} tokens and"
-                        f" previous messages plus system prompts use {tokens} tokens."
-                        " Please use `/clear` to reset or restart the session.",
-                        color="light_red",
-                    )
-                else:
-                    stream.send(
-                        f"The context size is limited to {max_tokens} tokens and"
-                        f" previous messages plus system prompts use {tokens} tokens,"
-                        " leaving insufficent tokens for a response. Please use"
-                        " `/clear` to reset, `/config token_buffer n` to change the"
-                        " response buffer size or restart the session.",
-                        color="light_red",
-                    )
-                return []
-
+        try:
             code_message = await code_context.get_code_message(
                 (
                     # Prompt can be image as well as text
