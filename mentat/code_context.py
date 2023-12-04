@@ -45,13 +45,16 @@ class CodeContext:
         pr_diff: Optional[str] = None,
         exclude_patterns: Iterable[Path | str] = [],
     ):
+        self.git_root = git_root
         self.diff = diff
         self.pr_diff = pr_diff
         self.exclude_patterns = set(Path(p) for p in exclude_patterns)
 
         self.diff_context = None
-        if git_root:
-            self.diff_context = DiffContext(stream, git_root, self.diff, self.pr_diff)
+        if self.git_root:
+            self.diff_context = DiffContext(
+                stream, self.git_root, self.diff, self.pr_diff
+            )
 
         # TODO: This is a dict so we can quickly reference either a path (key)
         # or the CodeFeatures (value) and their intervals. Redundant.
@@ -77,7 +80,7 @@ class CodeContext:
             stream.send(f"{prefix + prefix}{session_context.cwd.name}")
             print_path_tree(
                 build_path_tree(list(self.include_files.keys()), session_context.cwd),
-                get_paths_with_git_diffs(),
+                get_paths_with_git_diffs(self.git_root) if self.git_root else set(),
                 session_context.cwd,
                 prefix + prefix,
             )
@@ -107,7 +110,7 @@ class CodeContext:
             refs = get_consolidated_feature_refs(features)
             print_path_tree(
                 build_path_tree([Path(r) for r in refs], session_context.cwd),
-                get_paths_with_git_diffs(),
+                get_paths_with_git_diffs(self.git_root) if self.git_root else set(),
                 session_context.cwd,
                 prefix + prefix,
             )

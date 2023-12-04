@@ -28,10 +28,7 @@ def get_non_gitignored_files(path: Path) -> set[Path]:
     )
 
 
-def get_paths_with_git_diffs() -> set[Path]:
-    session_context = SESSION_CONTEXT.get()
-    git_root = session_context.git_root
-
+def get_paths_with_git_diffs(git_root: Path) -> set[Path]:
     changed = subprocess.check_output(
         ["git", "diff", "--name-only"],
         cwd=git_root,
@@ -122,12 +119,11 @@ def commit(message: str) -> None:
 def get_diff_for_file(target: str, path: Path) -> str:
     """Return commit data & diff for target versus active code"""
     session_context = SESSION_CONTEXT.get()
-    git_root = session_context.git_root
 
     try:
         diff_content = subprocess.check_output(
             ["git", "diff", "-U0", f"{target}", "--", path],
-            cwd=git_root,
+            cwd=session_context.cwd,
             text=True,
             stderr=subprocess.DEVNULL,
         ).strip()
@@ -157,12 +153,11 @@ def get_treeish_metadata(git_root: Path, target: str) -> dict[str, str]:
 def get_files_in_diff(target: str) -> list[Path]:
     """Return commit data & diff for target versus active code"""
     session_context = SESSION_CONTEXT.get()
-    git_root = session_context.git_root
 
     try:
         diff_content = subprocess.check_output(
             ["git", "diff", "--name-only", f"{target}", "--"],
-            cwd=git_root,
+            cwd=session_context.cwd,
             text=True,
             stderr=subprocess.DEVNULL,
         ).strip()
@@ -177,11 +172,12 @@ def get_files_in_diff(target: str) -> list[Path]:
 
 def check_head_exists() -> bool:
     session_context = SESSION_CONTEXT.get()
-    git_root = session_context.git_root
 
     try:
         subprocess.check_output(
-            ["git", "rev-parse", "HEAD", "--"], cwd=git_root, stderr=subprocess.DEVNULL
+            ["git", "rev-parse", "HEAD", "--"],
+            cwd=session_context.cwd,
+            stderr=subprocess.DEVNULL,
         )
         return True
     except subprocess.CalledProcessError:
@@ -190,13 +186,12 @@ def check_head_exists() -> bool:
 
 def get_default_branch() -> str:
     session_context = SESSION_CONTEXT.get()
-    git_root = session_context.git_root
 
     try:
         # Fetch the symbolic ref of HEAD which points to the default branch
         default_branch = subprocess.check_output(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=git_root,
+            cwd=session_context.cwd,
             text=True,
             stderr=subprocess.DEVNULL,
         ).strip()
