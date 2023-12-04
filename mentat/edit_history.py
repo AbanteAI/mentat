@@ -103,7 +103,6 @@ class EditHistory:
             self.edits.append(self.cur_edit)
             self.cur_edit = list[HistoryAction]()
 
-    # TODO: Add redo
     def undo(self) -> str:
         if not self.edits:
             return colored("No edits available to undo", color="light_red")
