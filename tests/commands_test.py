@@ -47,14 +47,14 @@ async def test_commit_command(temp_testbed, mock_collect_user_input):
 
 
 @pytest.mark.asyncio
-async def test_example_command(
+async def test_sample_command(
     temp_testbed, mock_collect_user_input, mock_call_llm_api
 ):
     mock_collect_user_input.set_stream_messages(
         [
             "Make the edits.",
             "y",
-            "/example",
+            "/sample",
             "",
             "HEAD",
             "q",
@@ -82,25 +82,25 @@ async def test_example_command(
     assert SESSION_CONTEXT.get().conversation.get_messages()[-1]["content"]
 
     try:
-        fn = next(f for f in Path.cwd().glob("*.json") if f.name.startswith("example_"))
+        fn = next(f for f in Path.cwd().glob("*.json") if f.name.startswith("sample_"))
         # Read in the json file
         with open(fn) as f:
-            example = json.load(f)
+            sample = json.load(f)
     except StopIteration:
-        example = False
+        sample = False
 
     file_path = str(temp_testbed / "multifile_calculator" / "calculator.py")
-    assert example.get("repo") == "https://github.com/AbanteAI/mentat"
-    assert example.get("commit") == "HEAD"
-    assert example.get("config") == [file_path]
-    assert len(example.get("convo")) == 2
-    assert example.get("convo")[0].get("content")[0].get("text") == "Make the edits."
-    assert len(example.get("edits")) == 1
-    example["edits"] = [FileEdit.from_json(e) for e in example["edits"]]
-    assert example.get("edits")[0].file_path == Path(file_path)
-    assert len(example.get("edits")[0].replacements) == 1
-    assert example.get("context") == [file_path]
-    assert example.get("diff") == []
+    assert sample.get("repo") == "https://github.com/AbanteAI/mentat"
+    assert sample.get("commit") == "HEAD"
+    assert sample.get("config") == [file_path]
+    assert len(sample.get("convo")) == 2
+    assert sample.get("convo")[0].get("content")[0].get("text") == "Make the edits."
+    assert len(sample.get("edits")) == 1
+    sample["edits"] = [FileEdit.from_json(e) for e in sample["edits"]]
+    assert sample.get("edits")[0].file_path == Path(file_path)
+    assert len(sample.get("edits")[0].replacements) == 1
+    assert sample.get("context") == [file_path]
+    assert sample.get("diff") == []
 
 
 @pytest.mark.asyncio

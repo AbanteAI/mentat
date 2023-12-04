@@ -8,7 +8,7 @@ from mentat.git_handler import get_diff_for_file, get_paths_with_git_diffs
 from mentat.session_context import SESSION_CONTEXT
 
 
-class ExampleCommand(Command, command_name="example"):
+class SampleCommand(Command, command_name="sample"):
     async def apply(self, *args: str) -> None:
         from mentat.parsers.git_parser import GitParser
         from mentat.session_input import collect_user_input
@@ -77,7 +77,7 @@ class ExampleCommand(Command, command_name="example"):
 
         await code_file_manager.history.redo()
 
-        example = {
+        sample = {
             "repo": url,
             "commit": commit,
             "config": [str(f) for f in include_files],
@@ -87,9 +87,9 @@ class ExampleCommand(Command, command_name="example"):
             "diff": diff_edits,
         }
 
-        fname = f"example_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+        fname = f"sample_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
         with open(fname, "w") as f:
-            json.dump(example, f, indent=4)
+            json.dump(sample, f, indent=4)
         fpath = Path(fname).resolve()
         assert fpath
 
