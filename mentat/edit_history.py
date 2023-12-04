@@ -1,9 +1,9 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 import attr
 from termcolor import colored
-from typing import Optional
 
 from mentat.errors import MentatError
 from mentat.parsers.file_edit import FileEdit, Replacement
@@ -19,13 +19,13 @@ class RenameAction:
     def undo(self) -> FileEdit:
         if self.old_file_name.exists():
             raise MentatError(
-                f"File {self.old_file_name} already exists; unable to undo rename from {self.cur_file_name}"
+                f"File {self.old_file_name} already exists; unable to undo rename from"
+                f" {self.cur_file_name}"
             )
         else:
             os.rename(self.cur_file_name, self.old_file_name)
             return FileEdit(
-                file_path=self.old_file_name,
-                rename_file_path=self.cur_file_name
+                file_path=self.old_file_name, rename_file_path=self.cur_file_name
             )
 
 
@@ -40,10 +40,7 @@ class CreationAction:
             )
         else:
             self.cur_file_name.unlink()
-            return FileEdit(
-                file_path=self.cur_file_name,
-                is_creation=True
-            )
+            return FileEdit(file_path=self.cur_file_name, is_creation=True)
 
 
 @attr.define()
@@ -59,10 +56,7 @@ class DeletionAction:
         else:
             with open(self.old_file_name, "w") as f:
                 f.write("\n".join(self.old_file_lines))
-            return FileEdit(
-                file_path=self.old_file_name,
-                is_deletion=True
-            )
+            return FileEdit(file_path=self.old_file_name, is_deletion=True)
 
 
 @attr.define()
@@ -81,11 +75,13 @@ class EditAction:
                 f.write("\n".join(self.old_file_lines))
             return FileEdit(
                 file_path=self.cur_file_name,
-                replacements=[Replacement(
-                    starting_line=0,
-                    ending_line=len(self.old_file_lines),
-                    new_lines=new_file_lines
-                )]
+                replacements=[
+                    Replacement(
+                        starting_line=0,
+                        ending_line=len(self.old_file_lines),
+                        new_lines=new_file_lines,
+                    )
+                ],
             )
 
 
@@ -130,16 +126,14 @@ class EditHistory:
     async def redo(self) -> Optional[str]:
         if not self.undone_edits:
             return colored("No edits available to redo", color="light_red")
-        
+
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
         code_context = session_context.code_context
 
         edits_to_redo = self.undone_edits.pop()
         edits_to_redo.reverse()
-        await code_file_manager.write_changes_to_files(
-            edits_to_redo, code_context
-        )
+        await code_file_manager.write_changes_to_files(edits_to_redo, code_context)
 
     def undo_all(self) -> str:
         if not self.edits:
