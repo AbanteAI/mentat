@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from timeit import default_timer
 from typing import Optional
 
 from openai.types.chat import (
@@ -16,7 +17,7 @@ from mentat.errors import ModelError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.include_files import get_include_files
-from mentat.llm_api_handler import count_tokens, model_context_size
+from mentat.llm_api_handler import count_tokens, model_context_size, prompt_tokens
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
@@ -45,6 +46,7 @@ class LLMFeatureFilter(FeatureFilter):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
+        cost_tracker = session_context.cost_tracker
         llm_api_handler = session_context.llm_api_handler
 
         # Preselect as many features as fit in the context window
@@ -104,22 +106,38 @@ class LLMFeatureFilter(FeatureFilter):
                 channel="loading",
                 progress=50 * self.loading_multiplier,
             )
-        message = (
-            (await llm_api_handler.call_llm_api(messages, model, stream=False))
-            .choices[0]
-            .message.content
-        )
+        selected_refs = list[Path]()
+        n_tries = 3
+        for i in range(n_tries):
+            start_time = default_timer()
+            message = (
+                (await llm_api_handler.call_llm_api(messages, model, stream=False))
+                .choices[0]
+                .message.content
+            ) or ""
+
+            tokens = prompt_tokens(messages, model)
+            response_tokens = count_tokens(message, model, full_message=True)
+            cost_tracker.log_api_call_stats(
+                tokens,
+                response_tokens,
+                model,
+                default_timer() - start_time,
+            )
+            try:
+                response = json.loads(message)  # type: ignore
+                selected_refs = [Path(r) for r in response]
+                break
+            except json.JSONDecodeError:
+                # TODO: Update Loader
+                if i == n_tries - 1:
+                    raise ModelError(f"The response is not valid json: {message}")
         if self.loading_multiplier:
             stream.send(
                 "Parsing LLM response...",
                 channel="loading",
                 progress=50 * self.loading_multiplier,
             )
-
-        try:
-            selected_refs = json.loads("" if message is None else message)
-        except json.JSONDecodeError:
-            raise ModelError(f"The response is not valid json: {message}")
         parsed_features, _ = get_include_files(selected_refs, [])
         postselected_features = [
             feature for features in parsed_features.values() for feature in features

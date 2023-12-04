@@ -202,9 +202,7 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
 def features(mocker):
     features_meta = [
         ("somefile.txt", CodeMessageLevel.CODE, "some diff"),
-        ("somefile.txt", CodeMessageLevel.CMAP_FULL, "some diff"),
-        ("somefile.txt", CodeMessageLevel.CMAP_FULL, None),
-        ("somefile.txt", CodeMessageLevel.CMAP, None),
+        ("somefile.txt", CodeMessageLevel.CODE, None),
         ("differentfile.txt", CodeMessageLevel.CODE, "some diff"),
     ]
     features = []
@@ -323,11 +321,8 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
         return count_tokens(code_message, "gpt-4", full_message=True)
 
     assert await _count_max_tokens_where(1e6) == 89  # Code
-    assert await _count_max_tokens_where(84) == 69  # Cmap w/ signatures
-    assert await _count_max_tokens_where(65) == 61  # Cmap
     assert await _count_max_tokens_where(52) == 51  # fnames
-    # Always return include_files, regardless of max
-    assert await _count_max_tokens_where(0) == 46  # Include_files only
+    assert await _count_max_tokens_where(0) == 4  # empty
 
 
 @pytest.mark.clear_testbed

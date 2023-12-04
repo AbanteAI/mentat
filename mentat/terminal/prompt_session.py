@@ -79,12 +79,16 @@ class MentatPromptSession(PromptSession[str]):
     def _setup_bindings(self):
         self.bindings = KeyBindings()
 
-        @self.bindings.add("s-down")
-        @self.bindings.add("c-j")
+        @Condition
+        def not_searching() -> bool:
+            return not get_app().layout.is_searching
+
+        @self.bindings.add("s-down", filter=not_searching)
+        @self.bindings.add("c-j", filter=not_searching)
         def _(event: KeyPressEvent):
             event.current_buffer.insert_text("\n")
 
-        @self.bindings.add("enter")
+        @self.bindings.add("enter", filter=not_searching)
         def _(event: KeyPressEvent):
             event.current_buffer.validate_and_handle()
 
@@ -105,9 +109,8 @@ class MentatPromptSession(PromptSession[str]):
             if suggestion:
                 event.current_buffer.insert_text(suggestion.text)
 
-        # TODO: should also cancel voice
-        @self.bindings.add("c-c")
-        @self.bindings.add("c-d")
+        @self.bindings.add("c-c", filter=not_searching)
+        @self.bindings.add("c-d", filter=not_searching)
         def _(event: KeyPressEvent):
             if self._transcriber is not None:
                 self._toggle_audio()

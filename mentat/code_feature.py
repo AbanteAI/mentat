@@ -4,12 +4,12 @@ import asyncio
 import logging
 import math
 import os
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from mentat.code_map import get_code_map, get_ctags
+from mentat.ctags import get_ctag_lines_and_names
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
@@ -27,38 +27,45 @@ def split_file_into_intervals(
     min_lines: int | None = None,
     user_features: list[CodeFeature] = [],
 ) -> list[CodeFeature]:
+    if feature.level != CodeMessageLevel.CODE:
+        return [feature]
+
+    min_lines = min_lines or MIN_INTERVAL_LINES
     session_context = SESSION_CONTEXT.get()
     code_file_manager = session_context.code_file_manager
     n_lines = len(code_file_manager.read_file(feature.path))
 
-    if feature.level != CodeMessageLevel.CODE:
+    lines_and_names = get_ctag_lines_and_names(git_root.joinpath(feature.path))
+
+    if len(lines_and_names) == 0:
         return [feature]
 
-    # Get ctags data (name and start line) and determine end line
-    ctags = list(get_ctags(git_root.joinpath(feature.path)))
-    ctags.sort(key=lambda x: int(x[4]))
-    named_intervals = list[tuple[str, int, int]]()  # Name, Start, End
-    _last_item = tuple[str, int]()
-    for i, tag in enumerate(ctags):
-        (scope, _, name, _, line_number) = tag  # Kind and Signature ignored
-        key = name
-        if scope is not None:
-            key = f"{scope}.{name}"
-        if _last_item:
-            _last_item_length = int(line_number) - _last_item[1]
-            min_lines = min_lines or MIN_INTERVAL_LINES
-            if _last_item_length < min_lines:
-                line_number = _last_item[1]
-            else:
-                named_intervals.append(
-                    (_last_item[0], _last_item[1], int(line_number))  # type: ignore
-                )
+    lines, names = map(list, zip(*sorted(lines_and_names)))
+    lines[0] = 1  # first interval covers from start of file
+    draft_named_intervals = [
+        (name, start, end)
+        for name, start, end in zip(names, lines, lines[1:] + [n_lines])
+    ]
+
+    def length(interval: tuple[str, int, int]):
+        return interval[2] - interval[1]
+
+    def merge_intervals(int1: tuple[str, int, int], int2: tuple[str, int, int]):
+        return (f"{int1[0]},{int2[0]}", int1[1], int2[2])
+
+    named_intervals = [draft_named_intervals[0]]
+    for next_interval in draft_named_intervals[1:]:
+        last_interval = named_intervals[-1]
+        if length(last_interval) < min_lines:
+            named_intervals[-1] = merge_intervals(last_interval, next_interval)
+        elif (
+            length(next_interval) < min_lines
+            and next_interval == draft_named_intervals[-1]
+        ):
+            # this is the last interval it's too short, so merge it with previous
+            named_intervals[-1] = merge_intervals(last_interval, next_interval)
         else:
-            line_number = 1
-        if i == len(ctags) - 1:
-            named_intervals.append((str(key), int(line_number), n_lines))
-        else:
-            _last_item = (key, int(line_number))
+            named_intervals.append(next_interval)
 
     if len(named_intervals) <= 1:
         return [feature]
@@ -84,9 +91,7 @@ def split_file_into_intervals(
 class CodeMessageLevel(Enum):
     CODE = ("code", 1, "Full File")
     INTERVAL = ("interval", 2, "Specific range")
-    CMAP_FULL = ("cmap_full", 3, "Function/Class names and signatures")
-    CMAP = ("cmap", 4, "Function/Class names")
-    FILE_NAME = ("file_name", 5, "Relative path/filename")
+    FILE_NAME = ("file_name", 3, "Relative path/filename")
 
     def __init__(self, key: str, rank: int, description: str):
         self.key = key
@@ -176,12 +181,6 @@ class CodeFeature:
                         )
                     else:
                         code_message.append(f"{line}")
-        elif self.level == CodeMessageLevel.CMAP_FULL:
-            cmap = get_code_map(git_root.joinpath(self.path))
-            code_message += cmap
-        elif self.level == CodeMessageLevel.CMAP:
-            cmap = get_code_map(git_root.joinpath(self.path), exclude_signatures=True)
-            code_message += cmap
         code_message.append("")
 
         if self.diff is not None:
@@ -266,3 +265,34 @@ def get_code_message_from_features(features: list[CodeFeature]) -> list[str]:
         else:
             code_message += get_code_message_from_intervals(path_features)
     return code_message
+
+
+def get_consolidated_feature_refs(features: list[CodeFeature]) -> list[str]:
+    """Return a list of 'path:<interval>,<interval>' strings"""
+    level_info_by_path = defaultdict[Path, list[Interval | None]](list)
+    for f in features:
+        if f.level == CodeMessageLevel.CODE:
+            level_info_by_path[f.path].append(None)
+        elif f.level == CodeMessageLevel.INTERVAL:
+            level_info_by_path[f.path].append(f.interval)
+        else:
+            pass  # Skipping filename, code_maps
+
+    consolidated_refs = list[str]()
+    for path, level_info in level_info_by_path.items():
+        ref_string = str(path)
+        if not any(level is None for level in level_info):
+            intervals = sorted(
+                [level for level in level_info if isinstance(level, Interval)],
+                key=lambda i: i.start,
+            )
+            ref_string += f":{intervals[0].start}-"
+            last_end = intervals[0].end
+            for i in intervals[1:]:
+                if i.start > last_end + 1:
+                    ref_string += f"{last_end},{i.start}-"
+                last_end = i.end
+            ref_string += str(last_end)
+        consolidated_refs.append(ref_string)
+
+    return consolidated_refs

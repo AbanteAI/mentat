@@ -40,11 +40,10 @@ async def test_partial_files(mocker, mock_session_context):
              fourth
              fifth"""))
 
-    file_path_partial = file_path + ":1,3-5"
+    file_path_partial = file_path + ":1-2,3-6"
     mock_session_context.code_context.include_files, _ = get_include_files(
         [file_path_partial], []
     )
-    mock_session_context.code_context.code_map = False
 
     code_message = await mock_session_context.code_context.get_code_message(
         "", max_tokens=1e6

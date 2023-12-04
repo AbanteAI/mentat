@@ -104,50 +104,51 @@ def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str):
     return num_tokens
 
 
-# TODO: These two functions should be a dictionary
 def model_context_size(model: str) -> Optional[int]:
-    if model == "gpt-4-1106-preview":
-        return 128000
-    elif "gpt-4" in model:
-        if "32k" in model:
-            return 32768
-        else:
-            return 8192
-    elif "gpt-3.5" in model:
-        if "16k" in model:
-            return 16385
-        else:
-            return 4097
-    elif "ada-002" in model:
-        return 8191
-    else:
-        return None
+    context_sizes = {
+        "gpt-4-1106-preview": 128000,
+        "gpt-4-vision-preview": 128000,
+        "gpt-4": 8192,
+        "gpt-4-32k": 32768,
+        "gpt-4-0613": 8192,
+        "gpt-4-32k-0613": 32768,
+        "gpt-4-0314": 8192,
+        "gpt-4-32k-0314": 32768,
+        "gpt-3.5-turbo-1106": 16385,
+        "gpt-3.5-turbo": 16385,
+        "gpt-3.5-turbo-0613": 4096,
+        "gpt-3.5-turbo-16k-0613": 16385,
+        "gpt-3.5-turbo-0301": 4096,
+        "text-embedding-ada-002": 8191,
+    }
+    return context_sizes.get(model, None)
 
 
 def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
     """Returns (input, output) cost per 1000 tokens in USD"""
-    if model == "gpt-4-1106-preview":
-        return (0.01, 0.03)
-    elif "gpt-4" in model:
-        if "32k" in model:
-            return (0.06, 0.12)
-        else:
-            return (0.03, 0.06)
-    elif "gpt-3.5" in model:
-        if "16k" in model:
-            return (0.003, 0.004)
-        else:
-            return (0.0015, 0.002)
-    elif "ada-002" in model:
-        return (0.0001, 0)
-    else:
-        return None
+    prices = {
+        "gpt-4-1106-preview": (0.01, 0.03),
+        "gpt-4-vision-preview": (0.01, 0.03),
+        "gpt-4": (0.03, 0.06),
+        "gpt-4-32k": (0.06, 0.12),
+        "gpt-4-0613": (0.03, 0.06),
+        "gpt-4-32k-0613": (0.06, 0.12),
+        "gpt-4-0314": (0.03, 0.06),
+        "gpt-4-32k-0314": (0.06, 0.12),
+        "gpt-3.5-turbo-1106": (0.001, 0.002),
+        "gpt-3.5-turbo": (0.001, 0.002),
+        "gpt-3.5-turbo-0613": (0.0015, 0.002),
+        "gpt-3.5-turbo-16k-0613": (0.003, 0.004),
+        "gpt-3.5-turbo-0301": (0.0015, 0.002),
+        "text-embedding-ada-002": (0.0001, 0),
+    }
+    return prices.get(model, None)
 
 
 class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
-    def initizalize_client(self):
+    def initialize_client(self):
         if not load_dotenv(mentat_dir_path / ".env"):
             load_dotenv()
         key = os.getenv("OPENAI_API_KEY")
@@ -198,14 +199,25 @@ class LlmApiHandler:
 
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
-            response = await self.async_client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=config.temperature,
-                stream=stream,
-                max_tokens=4096,  # gpt-4-vision-preview returns a max of 30 by default.
-                response_format=response_format,
-            )
+            # OpenAI's API is bugged; when gpt-4-vision-preview is used, including the response format
+            # at all returns a 400 error. Additionally, gpt-4-vision-preview has a max response of 30 tokens by default.
+            # Until this is fixed, we have to use this workaround.
+            if model == "gpt-4-vision-preview":
+                response = await self.async_client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=config.temperature,
+                    stream=stream,
+                    max_tokens=4096,
+                )
+            else:
+                response = await self.async_client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=config.temperature,
+                    stream=stream,
+                    response_format=response_format,
+                )
 
         return response
 

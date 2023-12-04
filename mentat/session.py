@@ -17,6 +17,7 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
+from mentat.ctags import ensure_ctags_installed
 from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_shared_git_root_for_paths
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
@@ -46,7 +47,7 @@ class Session:
         pr_diff: Optional[str] = None,
         config: Config = Config(),
     ):
-        # TODO: All errors should be thrown in _main, and should never be thrown here
+        # All errors thrown here need to be caught here
         self.stopped = False
 
         if not mentat_dir_path.exists():
@@ -57,6 +58,7 @@ class Session:
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
+        # TODO: An error is thrown in this function; once git root is removed, the error will be removed
         git_root = get_shared_git_root_for_paths([Path(path) for path in paths])
 
         llm_api_handler = LlmApiHandler()
@@ -101,13 +103,17 @@ class Session:
         conversation = session_context.conversation
         llm_api_handler = session_context.llm_api_handler
 
-        llm_api_handler.initizalize_client()
+        # check early for ctags so we can fail fast
+        if session_context.config.auto_context:
+            ensure_ctags_installed()
+
+        llm_api_handler.initialize_client()
         code_context.display_context()
         await conversation.display_token_count()
 
         try:
-            stream.send("Type 'q' or use Ctrl-C to quit at any time.", color="cyan")
-            stream.send("What can I do for you?", color="light_blue")
+            stream.send("Type 'q' or use Ctrl-C to quit at any time.")
+            stream.send("\nWhat can I do for you?", color="light_blue")
             need_user_request = True
             while True:
                 if need_user_request:
