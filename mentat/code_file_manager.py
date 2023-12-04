@@ -70,6 +70,7 @@ class CodeFileManager:
         stream = session_context.stream
         git_root = session_context.git_root
         code_context = session_context.code_context
+        agent_handler = session_context.agent_handler
 
         if not file_edits:
             return []
@@ -146,7 +147,8 @@ class CodeFileManager:
                 with open(file_edit.file_path, "w") as f:
                     f.write("\n".join(new_lines))
             applied_edits.append(file_edit)
-        self.history.push_edits()
+        if not agent_handler.agent_enabled:
+            self.history.push_edits()
         return applied_edits
 
     def get_file_checksum(self, path: Path, interval: Interval | None = None) -> str:

@@ -118,7 +118,7 @@ class AgentHandler:
 
     async def add_agent_context(self) -> bool:
         """
-        Returns
+        Returns whether or not control should be handed back to user
         """
         ctx = SESSION_CONTEXT.get()
 

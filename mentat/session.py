@@ -122,7 +122,14 @@ class Session:
             need_user_request = True
             while True:
                 if need_user_request:
-                    # TODO: Once finished, allow user to undo all edits in agent mode
+                    # Normally, the code_file_manager pushes the edits; but when agent mode is on, we want all
+                    # edits made between user input to be collected together.
+                    if agent_handler.agent_enabled:
+                        code_file_manager.history.push_edits()
+                        stream.send(
+                            "Use /undo to undo all automatic changes.",
+                            color="light_green",
+                        )
                     stream.send("\nWhat can I do for you?", color="light_blue")
                     message = await collect_input_with_commands()
                     if message.data.strip() == "":
