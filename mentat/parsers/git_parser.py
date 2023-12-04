@@ -37,10 +37,16 @@ class GitParser:
         split_on_diff = git_diff.split("\ndiff --git ")
 
         # Use commit message for conversation
-        commit_message = dedent(split_on_diff[0].split("\n\n")[1].strip())
+        commit_message = ""
+        start_from = 0
+        try:
+            commit_message = dedent(split_on_diff[0].split("\n\n")[1].strip())
+            start_from = 1
+        except IndexError:  # Handle diffs generated file-by-file
+            split_on_diff[0] = split_on_diff[0].replace("diff --git ", "")
 
         file_edits: List[FileEdit] = []
-        for diff in split_on_diff[1:]:
+        for diff in split_on_diff[start_from:]:
             is_creation = "new file mode" in diff
             is_deletion = "deleted file mode" in diff
             first_line = diff.split("\n")[0]

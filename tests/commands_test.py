@@ -1,3 +1,4 @@
+import json
 import subprocess
 from pathlib import Path
 from textwrap import dedent
@@ -8,6 +9,7 @@ from mentat.code_feature import CodeFeature
 from mentat.command.command import Command, InvalidCommand
 from mentat.command.commands.context import ContextCommand
 from mentat.command.commands.help import HelpCommand
+from mentat.parsers.file_edit import FileEdit
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
 from mentat.vision.vision_manager import ScreenshotException
@@ -42,6 +44,63 @@ async def test_commit_command(temp_testbed, mock_collect_user_input):
     await session.stream.recv(channel="client_exit")
 
     assert subprocess.check_output(["git", "status", "-s"], text=True) == ""
+
+
+@pytest.mark.asyncio
+async def test_example_command(
+    temp_testbed, mock_collect_user_input, mock_call_llm_api
+):
+    mock_collect_user_input.set_stream_messages(
+        [
+            "Make the edits.",
+            "y",
+            "/example",
+            "",
+            "HEAD",
+            "q",
+        ]
+    )
+
+    mock_call_llm_api.set_streamed_values([dedent("""\
+        Conversation
+                                                  
+        @@start
+        {
+            "file": "multifile_calculator/calculator.py",
+            "action": "insert",
+            "insert-after-line": 1,
+            "insert-before-line": 2
+        }
+        @@code
+        # I inserted this comment
+        @@end""")])
+
+    session = Session(cwd=Path.cwd(), paths=["multifile_calculator/calculator.py"])
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    assert SESSION_CONTEXT.get().conversation.get_messages()[-1]["content"]
+
+    try:
+        fn = next(f for f in Path.cwd().glob("*.json") if f.name.startswith("example_"))
+        # Read in the json file
+        with open(fn) as f:
+            example = json.load(f)
+    except StopIteration:
+        example = False
+
+    file_path = str(temp_testbed / "multifile_calculator" / "calculator.py")
+    assert example.get("repo") == "https://github.com/AbanteAI/mentat"
+    assert example.get("commit") == "HEAD"
+    assert example.get("config") == [file_path]
+    assert len(example.get("convo")) == 2
+    assert example.get("convo")[0].get("content")[0].get("text") == "Make the edits."
+    assert len(example.get("edits")) == 1
+    example["edits"] = [FileEdit.from_json(e) for e in example["edits"]]
+    assert example.get("edits")[0].file_path == Path(file_path)
+    assert len(example.get("edits")[0].replacements) == 1
+    assert example.get("context") == [file_path]
+    assert example.get("diff") == []
 
 
 @pytest.mark.asyncio

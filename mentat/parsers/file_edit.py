@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -35,6 +36,24 @@ class Replacement:
         return self.ending_line < other.ending_line or (
             self.ending_line == other.ending_line
             and self.starting_line < other.ending_line
+        )
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {
+                "starting_line": self.starting_line,
+                "ending_line": self.ending_line,
+                "new_lines": self.new_lines,
+            }
+        )
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Replacement":
+        data = json.loads(json_str)
+        return cls(
+            starting_line=data["starting_line"],
+            ending_line=data["ending_line"],
+            new_lines=data["new_lines"],
         )
 
 
@@ -109,6 +128,36 @@ class FileEdit:
             )
             self.rename_file_path = None
         return True
+
+    def to_json(self) -> str:
+        replacements_json = [r.to_json() for r in self.replacements]
+        return json.dumps(
+            {
+                "file_path": str(self.file_path),
+                "replacements": replacements_json,
+                "is_creation": self.is_creation,
+                "is_deletion": self.is_deletion,
+                "rename_file_path": (
+                    str(self.rename_file_path) if self.rename_file_path else None
+                ),
+            }
+        )
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "FileEdit":
+        data = json.loads(json_str)
+        replacements = [
+            Replacement.from_json(r_json) for r_json in data["replacements"]
+        ]
+        return cls(
+            file_path=Path(data["file_path"]),
+            replacements=replacements,
+            is_creation=data["is_creation"],
+            is_deletion=data["is_deletion"],
+            rename_file_path=(
+                Path(data["rename_file_path"]) if data["rename_file_path"] else None
+            ),
+        )
 
     async def filter_replacements(
         self,

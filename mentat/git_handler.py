@@ -27,12 +27,12 @@ def get_non_gitignored_files(path: Path) -> set[Path]:
     )
 
 
-def get_paths_with_git_diffs() -> set[Path]:
+def get_paths_with_git_diffs(target: str = "HEAD") -> set[Path]:
     session_context = SESSION_CONTEXT.get()
     git_root = session_context.git_root
 
     changed = subprocess.check_output(
-        ["git", "diff", "--name-only"],
+        ["git", "diff", "--name-only", target],
         cwd=git_root,
         text=True,
         stderr=subprocess.DEVNULL,
@@ -46,7 +46,7 @@ def get_paths_with_git_diffs() -> set[Path]:
     return set(
         map(
             lambda path: Path(os.path.realpath(os.path.join(git_root, Path(path)))),
-            changed + new,
+            [p for p in changed + new if p != ""],
         )
     )
 
