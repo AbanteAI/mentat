@@ -37,7 +37,7 @@ async def test_commit_command(temp_testbed, mock_collect_user_input):
         ]
     )
 
-    session = Session([])
+    session = Session(cwd=Path.cwd())
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -53,7 +53,7 @@ async def test_include_command(temp_testbed, mock_collect_user_input):
         ]
     )
 
-    session = Session([])
+    session = Session(cwd=Path.cwd())
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -72,7 +72,7 @@ async def test_exclude_command(temp_testbed, mock_collect_user_input):
         ]
     )
 
-    session = Session(["scripts"])
+    session = Session(cwd=Path.cwd(), paths=["scripts"])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -90,7 +90,7 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "Edit the file",
             "y",
             "/undo",
             "q",
@@ -111,7 +111,7 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         # I inserted this comment
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -120,6 +120,67 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         expected_content = dedent("""\
             # This is a temporary file
             # with 2 lines""")
+    assert content == expected_content
+
+
+@pytest.mark.asyncio
+async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
+    temp_file_name = "temp.py"
+    with open(temp_file_name, "w") as f:
+        f.write(dedent("""\
+            # This is a temporary file
+            # with 2 lines"""))
+
+    mock_collect_user_input.set_stream_messages(
+        [
+            "Edit the file",
+            "y",
+            "/undo",
+            "/redo",
+            "q",
+        ]
+    )
+
+    new_file_name = "new_temp.py"
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
+        Conversation
+
+        @@start
+        {{
+            "file": "{temp_file_name}",
+            "action": "insert",
+            "insert-after-line": 1,
+            "insert-before-line": 2
+        }}
+        @@code
+        # I inserted this comment
+        @@end
+        @@start
+        {{
+            "file": "{new_file_name}",
+            "action": "create-file"
+        }}
+        @@code
+        # I created this file
+        @@end
+        """)])
+
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    with open(temp_file_name, "r") as f:
+        content = f.read()
+        expected_content = dedent("""\
+            # This is a temporary file
+            # I inserted this comment
+            # with 2 lines""")
+    assert content == expected_content
+
+    with open(new_file_name, "r") as f:
+        content = f.read()
+        expected_content = dedent("""\
+            # I created this file""")
     assert content == expected_content
 
 
@@ -157,7 +218,7 @@ async def test_undo_all_command(
         # I inserted this comment
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
