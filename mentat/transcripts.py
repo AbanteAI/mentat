@@ -1,7 +1,7 @@
 import glob
 import json
 import re
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from openai.types.chat import ChatCompletionContentPartParam, ChatCompletionMessageParam
 
@@ -17,6 +17,9 @@ class UserMessage(TypedDict):
 class ModelMessage(TypedDict):
     message: str
     prior_messages: list[ChatCompletionMessageParam]
+
+    # Used to mark different types of messages; e.g., an agent message that isn't part of the regular conversation
+    message_type: NotRequired[str]
 
 
 TranscriptMessage = UserMessage | ModelMessage

@@ -82,7 +82,7 @@ class AgentHandler:
             ChatCompletionAssistantMessageParam(role="assistant", content=content)
         )
         ctx.conversation.add_transcript_message(
-            ModelMessage(message=content, prior_messages=messages)
+            ModelMessage(message=content, prior_messages=messages, message_type="agent")
         )
 
     async def _determine_commands(self):
