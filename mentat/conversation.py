@@ -31,6 +31,7 @@ class Conversation:
 
     def __init__(self):
         self._messages = list[ChatCompletionMessageParam]()
+        self.default_prompt = ""
 
         # This contains a list of messages used for transcripts
         self.literal_messages = list[TranscriptMessage]()

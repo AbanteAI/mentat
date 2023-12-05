@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application.current import get_app
@@ -11,7 +11,6 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 
-from mentat.terminal.voice.transcriber import Transcriber, sounddevice_available
 from mentat.utils import mentat_dir_path
 
 
@@ -50,7 +49,6 @@ class MentatPromptSession(PromptSession[str]):
             *args,
             **kwargs,
         )
-        self._transcriber: Optional[Transcriber] = None
 
     def prompt_continuation(
         self, width: int, line_number: int, is_soft_wrap: int
@@ -58,23 +56,6 @@ class MentatPromptSession(PromptSession[str]):
         return (
             "" if is_soft_wrap else [("class:continuation", " " * (width - 2) + "> ")]
         )
-
-    def _toggle_audio(self):
-        app = get_app()
-        buffer = app.current_buffer
-        if self._transcriber is None:
-            if sounddevice_available:
-                self._transcriber = Transcriber(buffer)
-                self.message = "(Transcribing audio. c-u to stop) "
-                app.invalidate()
-            else:
-                print("Audio transcription not available. Is PortAudio installed?")
-        else:
-            self._transcriber.close()
-            buffer.cursor_position = len(buffer.text)
-            self._transcriber = None
-            self.message = ">>> "
-            app.invalidate()
 
     def _setup_bindings(self):
         self.bindings = KeyBindings()
@@ -112,13 +93,7 @@ class MentatPromptSession(PromptSession[str]):
         @self.bindings.add("c-c", filter=not_searching)
         @self.bindings.add("c-d", filter=not_searching)
         def _(event: KeyPressEvent):
-            if self._transcriber is not None:
-                self._toggle_audio()
-            elif event.current_buffer.text != "":
+            if event.current_buffer.text != "":
                 event.current_buffer.reset()
             else:
                 event.app.exit(result="q")
-
-        @self.bindings.add("c-u")
-        def _(event: KeyPressEvent):
-            self._toggle_audio()

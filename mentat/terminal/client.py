@@ -71,7 +71,9 @@ class TerminalClient:
             else:
                 prompt_session = self._prompt_session
 
-            user_input = await prompt_session.prompt_async(handle_sigint=False)
+            user_input = await prompt_session.prompt_async(
+                handle_sigint=False, default=input_request_message.data.strip()
+            )
             if user_input == "q":
                 self._should_exit.set()
                 return
