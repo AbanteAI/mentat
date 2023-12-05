@@ -10,7 +10,6 @@ class IncludeCommand(Command, command_name="include"):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
-        git_root = session_context.git_root
 
         if len(args) == 0:
             stream.send("No files specified", color="yellow")
@@ -22,8 +21,11 @@ class IncludeCommand(Command, command_name="include"):
             for invalid_path in invalid_paths:
                 print_invalid_path(invalid_path)
             for included_path in included_paths:
-                rel_path = included_path.relative_to(git_root)
-                stream.send(f"{rel_path} added to context", color="green")
+                if included_path.is_relative_to(session_context.cwd):
+                    display_path = included_path.relative_to(session_context.cwd)
+                else:
+                    display_path = included_path
+                stream.send(f"{display_path} added to context", color="green")
 
     @classmethod
     def argument_names(cls) -> list[str]:
