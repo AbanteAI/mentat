@@ -17,6 +17,7 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
+from mentat.ctags import ensure_ctags_installed
 from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_shared_git_root_for_paths
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
@@ -101,6 +102,10 @@ class Session:
         code_context = session_context.code_context
         conversation = session_context.conversation
         llm_api_handler = session_context.llm_api_handler
+
+        # check early for ctags so we can fail fast
+        if session_context.config.auto_context:
+            ensure_ctags_installed()
 
         llm_api_handler.initialize_client()
         code_context.display_context()
