@@ -50,4 +50,4 @@ class CostTracker:
     def display_total_cost(self) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        stream.send(f"Total session cost: ${self.total_cost:.4f}", color="cyan")
+        stream.send(f"Total session cost: ${self.total_cost:.2f}", color="cyan")
