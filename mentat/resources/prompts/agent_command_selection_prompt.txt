@@ -9,5 +9,5 @@ In order to find what commands might be helpful, you are going to be given some 
 Only run commands that test the specific files you were given; do NOT run commands that will test, lint or run the entire project!
 Do NOT run commands that use files that may not exist!
 If you can, try to run the actual files that you edited (or files that will use the files you edited).
-If you can, run a linter to automatically lint the files you changed.
+If you can, run a linter to automatically lint the files you changed. Don't run a linter check, run the command that will actually lint the file!
 Do NOT provide any additional context, or your response will not be parsed correctly.

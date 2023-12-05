@@ -90,7 +90,8 @@ class AgentHandler:
 
         model = ctx.config.model
         # TODO: Should we give prompt/tokens?
-        code_message = await ctx.code_context.get_code_message("", 0)
+        # TODO: Change this from 100k tokens. Don't merge with this in!
+        code_message = await ctx.code_context.get_code_message("", 100000)
         messages = ctx.conversation.get_messages() + [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_command_prompt
@@ -100,6 +101,7 @@ class AgentHandler:
                 role="system", content=self.agent_file_message
             ),
         ]
+        # TODO: Should this even be a separate call or should we collect commands in the edit call?
         response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
         content = response.choices[0].message.content or ""
         ctx.cost_tracker.log_api_call_stats(

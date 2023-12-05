@@ -289,20 +289,32 @@ class Conversation:
                 )
             return ParsedLLMResponse("", "", list[FileEdit]())
 
+        code_message = await code_context.get_code_message(
+            (
+                # Prompt can be image as well as text
+                prompt
+                if isinstance(prompt, str)
+                else ""
+            ),
+            max_tokens - tokens - config.token_buffer,
+            loading_multiplier=0.5 * loading_multiplier,
+        )
+        messages_snapshot.append(
+            ChatCompletionSystemMessageParam(role="system", content=code_message)
+        )
+
+        # Doesn't seem to improve performance much
+        # if agent_handler.agent_enabled:
+        # agent_message = (
+        #    "You are currently being run autonomously. After making your changes,"
+        #    " you will have the chance to lint and test your code. If applicable,"
+        #    " add tests that you can use to test your code."
+        # )
+        # messages_snapshot.append(
+        #    ChatCompletionSystemMessageParam(role="system", content=agent_message)
+        # )
+
         try:
-            code_message = await code_context.get_code_message(
-                (
-                    # Prompt can be image as well as text
-                    prompt
-                    if isinstance(prompt, str)
-                    else ""
-                ),
-                max_tokens - tokens - config.token_buffer,
-                loading_multiplier=0.5 * loading_multiplier,
-            )
-            messages_snapshot.append(
-                ChatCompletionSystemMessageParam(role="system", content=code_message)
-            )
             response = await self._stream_model_response(
                 messages_snapshot,
                 loading_multiplier=0.5 * loading_multiplier,
@@ -367,29 +379,34 @@ class Conversation:
         Runs a command and, if there is room, adds the output to the conversation under the 'system' role.
         """
         ctx = SESSION_CONTEXT.get()
+
         ctx.stream.send(f"Running command: {' '.join(command)}", color="cyan")
         ctx.stream.send("Command output:", color="cyan")
 
-        process = subprocess.Popen(
-            command,
-            cwd=ctx.cwd,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-        output = list[str]()
-        while True:
-            if process.stdout is None:
-                break
-            line = process.stdout.readline()
-            if not line:
-                break
-            output.append(line)
-            ctx.stream.send(line, end="")
-            # This gives control back to the asyncio event loop so we can actually print what we sent
-            # Unfortunately asyncio.sleep(0) won't work https://stackoverflow.com/a/74505785
-            # Note: if subprocess doesn't flush, output can't and won't be streamed.
-            await asyncio.sleep(0.01)
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=ctx.cwd,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            output = list[str]()
+            while True:
+                if process.stdout is None:
+                    break
+                line = process.stdout.readline()
+                if not line:
+                    break
+                output.append(line)
+                ctx.stream.send(line, end="")
+                # This gives control back to the asyncio event loop so we can actually print what we sent
+                # Unfortunately asyncio.sleep(0) won't work https://stackoverflow.com/a/74505785
+                # Note: if subprocess doesn't flush, output can't and won't be streamed.
+                await asyncio.sleep(0.01)
+        except FileNotFoundError:
+            output = [f"Invalid command: {' '.join(command)}"]
+            ctx.stream.send(output[0])
         output = "".join(output)
         message = f"Command ran:\n{' '.join(command)}\nCommand output:\n{output}"
 
