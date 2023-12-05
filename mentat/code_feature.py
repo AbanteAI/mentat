@@ -15,7 +15,7 @@ from mentat.git_handler import get_diff_for_file
 from mentat.interval import Interval, parse_intervals
 from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import sha256
+from mentat.utils import get_relative_path, sha256
 
 MIN_INTERVAL_LINES = 10
 
@@ -175,11 +175,8 @@ class CodeFeature:
         code_message: list[str] = []
 
         # We always want to give GPT posix paths
-        if self.path.is_relative_to(session_context.cwd):
-            code_message_path = self.path.relative_to(session_context.cwd).as_posix()
-        else:
-            code_message_path = self.path.as_posix()
-        code_message.append(str(code_message_path))
+        code_message_path = get_relative_path(self.path, session_context.cwd)
+        code_message.append(str(code_message_path.as_posix()))
 
         if self.level in {CodeMessageLevel.CODE, CodeMessageLevel.INTERVAL}:
             file_lines = code_file_manager.read_file(self.path)

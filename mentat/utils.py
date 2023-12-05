@@ -6,7 +6,7 @@ import time
 from importlib import resources
 from importlib.abc import Traversable
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Literal, Optional
+from typing import TYPE_CHECKING, AsyncIterator, List, Literal, Optional, Union
 
 import packaging.version
 import requests
@@ -144,3 +144,33 @@ async def add_newline(
             object=last_chunk.object,
             system_fingerprint=last_chunk.system_fingerprint,
         )
+
+
+def get_relative_path(path: Path, target: Path) -> Path:
+    """Get the relative path of a file from a given directory.
+
+    This function is a 'backport' of `PurePath.relative_to` from Python 3.12 and later which has directory walk-up
+    support. See https://docs.python.org/3.12/library/pathlib.html#pathlib.PurePath.relative_to.
+
+    Args:
+        path (Path): The path to get the relative path of. This path must exist on the filesystem.
+        target (Path): The target path to base the relative path off of. This path must exist on the filesystem.
+
+    Returns:
+        Path: A relative path
+    """
+    path = path.resolve()
+    target = target.resolve()
+
+    if path.is_relative_to(target):
+        relative_path = path.relative_to(target)
+    else:
+        relative_parts: List[Union[str, Path]] = []
+        parent = target
+        while not path.is_relative_to(parent):
+            relative_parts.append("..")
+            parent = parent.parent
+        relative_parts.append(path.relative_to(parent))
+        relative_path = Path(*relative_parts)
+
+    return relative_path
