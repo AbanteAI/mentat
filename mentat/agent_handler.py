@@ -150,7 +150,10 @@ class AgentHandler:
                     "You are currently being run autonomously. The following commands"
                     " are being run to test your previous changes. If the commands show"
                     " any errors with your changes, fix them. In order to return"
-                    " control to the user, make no more changes to the files. "
+                    " control to the user, make no more changes to the files. If you"
+                    " don't know how to fix a problem, do not waste time trying to"
+                    " solve it! The user would much prefer to regain control if you"
+                    " can't solve a problem."
                 ),
             )
         )
