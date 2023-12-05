@@ -11,7 +11,6 @@ from mentat.code_feature import (
     get_consolidated_feature_refs,
     split_file_into_intervals,
 )
-from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
@@ -53,7 +52,6 @@ class CodeContext:
         # or the CodeFeatures (value) and their intervals. Redundant.
         self.include_files = {}
         self.ignore_files = set()
-        self.ctags_disabled = check_ctags_disabled()
 
     def set_paths(
         self,
@@ -86,11 +84,6 @@ class CodeContext:
         if config.auto_context:
             stream.send(f"{prefix}Auto-Context: Enabled")
             stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
-            if self.ctags_disabled:
-                stream.send(
-                    f"{prefix}Code Maps Disbled: {self.ctags_disabled}",
-                    color="yellow",
-                )
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 
@@ -137,7 +130,6 @@ class CodeContext:
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
             "prompt": prompt,
-            "code_map_disabled": self.ctags_disabled,
             "auto_context": config.auto_context,
             "use_llm": self.use_llm,
             "diff": self.diff,
@@ -215,7 +207,6 @@ class CodeContext:
             )
             feature_filter = DefaultFilter(
                 auto_tokens,
-                not (bool(self.ctags_disabled)),
                 self.use_llm,
                 prompt,
                 expected_edits,
@@ -275,20 +266,17 @@ class CodeContext:
             )
             user_included = abs_path in self.include_files
             if level == CodeMessageLevel.INTERVAL:
-                # Return intervals if code_map is enabled, otherwise return the full file
                 full_feature = CodeFeature(
                     abs_path,
                     level=CodeMessageLevel.CODE,
                     diff=diff_target,
                     user_included=user_included,
                 )
-                if self.ctags_disabled:
-                    all_features.append(full_feature)
-                else:
-                    _split_features = split_file_into_intervals(
-                        full_feature, user_features=self.include_files.get(abs_path, [])
-                    )
-                    all_features += _split_features
+                _split_features = split_file_into_intervals(
+                    full_feature,
+                    user_features=self.include_files.get(abs_path, []),
+                )
+                all_features += _split_features
             else:
                 _feature = CodeFeature(
                     abs_path, level=level, diff=diff_target, user_included=user_included
