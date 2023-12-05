@@ -331,11 +331,13 @@ class Parser(ABC):
         rename_map: dict[Path, Path],
         rel_path: Path,
     ) -> list[str]:
+        ctx = SESSION_CONTEXT.get()
+
         path = rename_map.get(
             rel_path,
             rel_path,
         )
-        return code_file_manager.file_lines.get(path, [])
+        return code_file_manager.file_lines.get(ctx.cwd / path, [])
 
     # These methods aren't abstract, since most parsers will use this implementation, but can be overriden easily
     def provide_line_numbers(self) -> bool:
