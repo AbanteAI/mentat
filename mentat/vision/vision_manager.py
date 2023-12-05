@@ -9,6 +9,7 @@ from selenium.common.exceptions import NoSuchWindowException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
+from selenium.webdriver.remote.webdriver import WebDriver
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.firefox import GeckoDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
@@ -22,9 +23,7 @@ class ScreenshotException(Exception):
 
 @attr.define
 class VisionManager:
-    driver: webdriver.Chrome | webdriver.Firefox | webdriver.Safari | webdriver.Edge | None = attr.field(
-        default=None
-    )
+    driver: Optional[WebDriver] = attr.field(default=None)
 
     def _open_browser(self) -> None:
         os_name = platform.system()
