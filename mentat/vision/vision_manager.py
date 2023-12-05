@@ -1,6 +1,5 @@
 import base64
 import os
-import platform
 from typing import Optional
 
 import attr
@@ -26,33 +25,20 @@ class VisionManager:
     driver: Optional[WebDriver] = attr.field(default=None)
 
     def _open_browser(self) -> None:
-        os_name = platform.system()
-        try:
-            if self.driver is None or not self.driver_running():
-                if os_name == "Darwin":  # macOS
-                    self.driver = webdriver.Safari()
-                elif os_name == "Windows":
-                    try:
-                        service = EdgeService(EdgeChromiumDriverManager().install())
-                        self.driver = webdriver.Edge(service=service)
-                    except Exception:
-                        try:
-                            service = Service(ChromeDriverManager().install())
-                            self.driver = webdriver.Chrome(service=service)
-                        except Exception:
-                            service = FirefoxService(GeckoDriverManager().install())
-                            self.driver = webdriver.Firefox(service=service)
-                elif os_name == "Linux":
-                    try:
-                        service = Service(ChromeDriverManager().install())
-                        self.driver = webdriver.Chrome(service=service)
-                    except Exception:
-                        service = FirefoxService(GeckoDriverManager().install())
-                        self.driver = webdriver.Firefox(service=service)
-                else:
-                    raise ScreenshotException("Unsupported operating system.")
-        except Exception:
-            raise ScreenshotException("Please install Chrome or Firefox")
+        if self.driver is None or not self.driver_running():
+            try:
+                self.driver = webdriver.Safari()
+            except Exception:
+                service = Service(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=service)
+            except Exception:
+                service = EdgeService(EdgeChromiumDriverManager().install())
+                self.driver = webdriver.Edge(service=service)
+            except Exception:
+                service = FirefoxService(GeckoDriverManager().install())
+                self.driver = webdriver.Firefox(service=service)
+            except Exception:
+                raise ScreenshotException("Please install Chrome or Firefox")
 
     def open(self, path: str) -> None:
         self._open_browser()
