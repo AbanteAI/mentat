@@ -17,6 +17,7 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
+from mentat.ctags import ensure_ctags_installed
 from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
@@ -101,14 +102,13 @@ class Session:
         code_context = session_context.code_context
         conversation = session_context.conversation
 
-        try:
-            code_context.display_context()
-            await conversation.display_token_count()
-        except MentatError as e:
-            # BUG: this is not getting streamed in the Python and Terminal clients.
-            # It makes it look like Mentat is hanging forever.
-            stream.send(str(e), color="red")
-            return
+        # check early for ctags so we can fail fast
+        if session_context.config.auto_context:
+            ensure_ctags_installed()
+
+        session_context.llm_api_handler.initialize_client()
+        code_context.display_context()
+        await conversation.display_token_count()
 
         try:
             stream.send("Type 'q' or use Ctrl-C to quit at any time.")

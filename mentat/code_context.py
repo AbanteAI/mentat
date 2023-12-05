@@ -11,7 +11,6 @@ from mentat.code_feature import (
     get_consolidated_feature_refs,
     split_file_into_intervals,
 )
-from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.errors import PathValidationError
 from mentat.feature_filters.default_filter import DefaultFilter
@@ -55,10 +54,9 @@ class CodeContext:
 
         # TODO: This is a dict so we can quickly reference either a path (key)
         # or the CodeFeatures (value) and their intervals. Redundant.
-        # NOTE: this should be a set of CodeFeatures, not a list
         self.include_files: Dict[Path, List[CodeFeature]] = {}
+        self.ignore_files: Set[Path] = set()
         self.features: List[CodeFeature] = []
-        self.ctags_disabled = check_ctags_disabled()
 
     def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
@@ -86,11 +84,6 @@ class CodeContext:
         if config.auto_context:
             stream.send(f"{prefix}Auto-Context: Enabled")
             stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
-            if self.ctags_disabled:
-                stream.send(
-                    f"{prefix}Code Maps Disbled: {self.ctags_disabled}",
-                    color="yellow",
-                )
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 
@@ -134,7 +127,6 @@ class CodeContext:
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
             "prompt": prompt,
-            "code_map_disabled": self.ctags_disabled,
             "auto_context": config.auto_context,
             "use_llm": self.use_llm,
             "diff": self.diff,
@@ -218,7 +210,6 @@ class CodeContext:
             )
             feature_filter = DefaultFilter(
                 auto_tokens,
-                not (bool(self.ctags_disabled)),
                 self.use_llm,
                 prompt,
                 expected_edits,
@@ -285,26 +276,42 @@ class CodeContext:
                 )
 
             user_included = path in self.include_files
+
             if level == CodeMessageLevel.INTERVAL:
-                # Return intervals if code_map is enabled, otherwise return the full file
                 full_feature = CodeFeature(
                     path,
                     level=CodeMessageLevel.CODE,
                     diff=diff_target,
                     user_included=user_included,
                 )
-                if self.ctags_disabled:
-                    all_features.append(full_feature)
-                else:
-                    _split_features = split_file_into_intervals(
-                        full_feature, user_features=self.include_files.get(path, [])
-                    )
-                    all_features += _split_features
+                _split_features = split_file_into_intervals(
+                    full_feature,
+                    user_features=self.include_files.get(path, []),
+                )
+                all_features += _split_features
             else:
                 _feature = CodeFeature(
                     path, level=level, diff=diff_target, user_included=user_included
                 )
                 all_features.append(_feature)
+
+            # if level == CodeMessageLevel.INTERVAL:
+            #     full_feature = CodeFeature(
+            #         path,
+            #         level=CodeMessageLevel.CODE,
+            #         diff=diff_target,
+            #         user_included=user_included,
+            #     )
+            #     if self.ctags_disabled:
+            #         all_features.append(full_feature)
+            #     else:
+            #         _split_features = split_file_into_intervals(
+            #             full_feature, user_features=self.include_files.get(path, [])
+            #         )
+            #         all_features += _split_features
+            # else:
+            #     _feature = CodeFeature(path, level=level, diff=diff_target, user_included=user_included)
+            #     all_features.append(_feature)
 
         return sorted(all_features, key=lambda f: f.path)
 
