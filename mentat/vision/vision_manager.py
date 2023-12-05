@@ -29,16 +29,19 @@ class VisionManager:
             try:
                 self.driver = webdriver.Safari()
             except Exception:
-                service = Service(ChromeDriverManager().install())
-                self.driver = webdriver.Chrome(service=service)
-            except Exception:
-                service = EdgeService(EdgeChromiumDriverManager().install())
-                self.driver = webdriver.Edge(service=service)
-            except Exception:
-                service = FirefoxService(GeckoDriverManager().install())
-                self.driver = webdriver.Firefox(service=service)
-            except Exception:
-                raise ScreenshotException("Please install Chrome or Firefox")
+                try:
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service)
+                except Exception:
+                    try:
+                        service = EdgeService(EdgeChromiumDriverManager().install())
+                        self.driver = webdriver.Edge(service=service)
+                    except Exception:
+                        try:
+                            service = FirefoxService(GeckoDriverManager().install())
+                            self.driver = webdriver.Firefox(service=service)
+                        except Exception:
+                            raise ScreenshotException("Please install Chrome or Firefox")
 
     def open(self, path: str) -> None:
         self._open_browser()
