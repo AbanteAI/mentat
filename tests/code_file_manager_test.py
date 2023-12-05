@@ -44,7 +44,6 @@ async def test_partial_files(mocker, mock_session_context):
     mock_session_context.code_context.include_files, _ = get_include_files(
         [file_path_partial], []
     )
-    mock_session_context.code_context.code_map = False
 
     code_message = await mock_session_context.code_context.get_code_message(
         "", max_tokens=1e6
@@ -160,6 +159,7 @@ async def test_change_after_creation(
 
 
 @pytest.mark.asyncio
+@pytest.mark.no_git_testbed
 async def test_changed_file(
     mocker,
     temp_testbed,

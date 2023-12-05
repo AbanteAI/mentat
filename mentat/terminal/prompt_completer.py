@@ -14,7 +14,7 @@ from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
 from pygments.util import ClassNotFound
 
-from mentat.commands import Command
+from mentat.command.command import Command
 from mentat.session_context import SESSION_CONTEXT
 
 
@@ -39,6 +39,11 @@ class MentatCompleter(Completer):
 
     def refresh_completions_for_file_path(self, file_path: Path):
         """Add/edit/delete completions for some filepath"""
+
+        # paths are relative to the git root, but Mentat may be run in subdirectory
+        git_root = SESSION_CONTEXT.get().git_root
+        file_path = git_root / file_path
+
         try:
             with open(file_path, "r") as f:
                 file_content = f.read()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
+from typing import Any
 
 import attr
 
@@ -64,24 +64,34 @@ class FileEdit:
     # Should be abs path
     rename_file_path: Path | None = attr.field(default=None)
 
+    @file_path.validator  # pyright: ignore
+    def is_abs_path(self, attribute: attr.Attribute[Path], value: Any):
+        if not isinstance(value, Path):
+            raise ValueError(f"file_path must be a Path, got {type(value)}")
+        if not value.is_absolute():
+            raise ValueError(f"file_path must be an absolute path, got {value}")
+
     def is_valid(self) -> bool:
         session_context = SESSION_CONTEXT.get()
-        git_root = session_context.git_root
         stream = session_context.stream
         code_context = session_context.code_context
 
-        rel_path = Path(os.path.relpath(self.file_path, git_root))
+        if self.file_path.is_relative_to(session_context.cwd):
+            display_path = self.file_path.relative_to(session_context.cwd)
+        else:
+            display_path = self.file_path
+
         if self.is_creation:
             if self.file_path.exists():
                 stream.send(
-                    f"File {rel_path} already exists, canceling creation.",
+                    f"File {display_path} already exists, canceling creation.",
                     color="light_yellow",
                 )
                 return False
         else:
             if not self.file_path.exists():
                 stream.send(
-                    f"File {rel_path} does not exist, canceling all edits to file.",
+                    f"File {display_path} does not exist, canceling all edits to file.",
                     color="light_yellow",
                 )
                 return False
@@ -94,17 +104,18 @@ class FileEdit:
                 for i in range(r.starting_line, r.ending_line)
             ):
                 stream.send(
-                    f"Edits to {rel_path} include lines not in context, "
-                    "canceling all edits to file.",
+                    f"File {display_path} not in context, canceling all edits to file.",
                     color="light_yellow",
                 )
                 return False
 
         if self.rename_file_path is not None and self.rename_file_path.exists():
-            rel_rename_path = Path(os.path.relpath(self.rename_file_path, git_root))
+            rel_rename_path = None
+            if self.rename_file_path.is_relative_to(session_context.cwd):
+                rel_rename_path = self.rename_file_path.relative_to(session_context.cwd)
             stream.send(
-                f"File {rel_path} being renamed to existing file {rel_rename_path},"
-                " canceling rename.",
+                f"File {display_path} being renamed to existing file"
+                f" {rel_rename_path or self.rename_file_path}, canceling rename.",
                 color="light_yellow",
             )
             self.rename_file_path = None
@@ -114,7 +125,6 @@ class FileEdit:
         self,
     ) -> bool:
         session_context = SESSION_CONTEXT.get()
-        git_root = session_context.git_root
         code_file_manager = session_context.code_file_manager
 
         if self.is_creation:
@@ -125,8 +135,7 @@ class FileEdit:
                 return False
             file_lines = []
         else:
-            rel_path = Path(os.path.relpath(self.file_path, git_root))
-            file_lines = code_file_manager.file_lines[rel_path]
+            file_lines = code_file_manager.file_lines[self.file_path]
 
         if self.is_deletion:
             display_information = DisplayInformation(
