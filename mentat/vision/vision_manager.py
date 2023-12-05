@@ -41,7 +41,9 @@ class VisionManager:
                             service = FirefoxService(GeckoDriverManager().install())
                             self.driver = webdriver.Firefox(service=service)
                         except Exception:
-                            raise ScreenshotException("Please install Chrome or Firefox")
+                            raise ScreenshotException(
+                                "Please install Chrome or Firefox"
+                            )
 
     def open(self, path: str) -> None:
         self._open_browser()
