@@ -5,7 +5,9 @@ from textwrap import dedent
 import pytest
 
 from mentat.code_feature import CodeFeature
-from mentat.commands import Command, ContextCommand, HelpCommand, InvalidCommand
+from mentat.command.command import Command, InvalidCommand
+from mentat.command.commands.context import ContextCommand
+from mentat.command.commands.help import HelpCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
 from mentat.vision.vision_manager import ScreenshotException
@@ -52,7 +54,7 @@ async def test_include_command(temp_testbed, mock_collect_user_input):
         ]
     )
 
-    session = Session([])
+    session = Session(cwd=temp_testbed)
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -72,7 +74,7 @@ async def test_exclude_command(temp_testbed, mock_collect_user_input):
         ]
     )
 
-    session = Session(["scripts"])
+    session = Session(cwd=temp_testbed, paths=["scripts"])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -111,7 +113,7 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         # I inserted this comment
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -157,7 +159,7 @@ async def test_undo_all_command(
         # I inserted this comment
         @@end""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
 

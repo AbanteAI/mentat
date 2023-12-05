@@ -44,7 +44,6 @@ async def test_partial_files(mocker, mock_session_context):
     code_message = await mock_session_context.code_context.get_code_message(
         "", max_tokens=1e6
     )
-    # set_trace()
     assert code_message == dedent("""\
             Code Files:
 

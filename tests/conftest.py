@@ -378,8 +378,3 @@ def mock_user_config(mocker):
 @pytest.fixture(autouse=True)
 def mock_sleep_time(mocker):
     mocker.patch.object(StreamingPrinter, "sleep_time", new=lambda self: 0)
-
-
-@pytest.fixture(autouse=True)
-def mock_get_codemaps(mocker):
-    mocker.patch("mentat.code_map.get_code_map", return_value=[])
