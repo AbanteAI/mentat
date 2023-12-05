@@ -18,7 +18,7 @@ async def test_replacement(
     mock_call_llm_api,
     mock_collect_user_input,
 ):
-    temp_file_name = Path("temp.py")
+    temp_file_name = Path("temp.py").absolute()
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
             # This is
@@ -63,7 +63,7 @@ async def test_multiple_replacements(
     mock_call_llm_api,
     mock_collect_user_input,
 ):
-    temp_file_name = Path("temp.py")
+    temp_file_name = Path.cwd().joinpath("temp.py")
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
             # This
@@ -123,7 +123,7 @@ async def test_multiple_replacement_spots(
     mock_call_llm_api,
     mock_collect_user_input,
 ):
-    temp_file_name = Path("temp.py")
+    temp_file_name = Path("temp.py").absolute()
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
             # This
@@ -178,7 +178,7 @@ async def test_little_context_addition(
     mock_call_llm_api,
     mock_collect_user_input,
 ):
-    temp_file_name = Path("temp.py")
+    temp_file_name = Path("temp.py").absolute()
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
             # This
@@ -234,7 +234,7 @@ async def test_empty_file(
     mock_call_llm_api,
     mock_collect_user_input,
 ):
-    temp_file_name = Path("temp.py")
+    temp_file_name = Path("temp.py").absolute()
     with open(temp_file_name, "w") as f:
         f.write("")
 
@@ -344,7 +344,7 @@ async def test_no_ending_marker(
     mock_call_llm_api,
     mock_collect_user_input,
 ):
-    temp_file_name = Path("temp.py")
+    temp_file_name = Path("temp.py").absolute()
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
             # This is

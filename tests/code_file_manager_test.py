@@ -159,6 +159,7 @@ async def test_change_after_creation(
 
 
 @pytest.mark.asyncio
+@pytest.mark.no_git_testbed
 async def test_changed_file(
     mocker,
     temp_testbed,

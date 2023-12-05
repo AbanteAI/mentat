@@ -23,6 +23,7 @@ from mentat.terminal.prompt_session import MentatPromptSession
 class TerminalClient:
     def __init__(
         self,
+        cwd: Path = Path.cwd(),
         paths: List[str] = [],
         exclude_paths: List[str] = [],
         ignore_paths: List[str] = [],
@@ -30,6 +31,7 @@ class TerminalClient:
         pr_diff: str | None = None,
         config: Config = Config(),
     ):
+        self.cwd = cwd
         self.paths = [Path(path) for path in paths]
         self.exclude_paths = [Path(path) for path in exclude_paths]
         self.ignore_paths = [Path(path) for path in ignore_paths]
@@ -123,7 +125,7 @@ class TerminalClient:
     async def _run(self):
         self._init_signal_handlers()
         self.session = Session(
-            Path.cwd(),
+            self.cwd,
             self.paths,
             self.exclude_paths,
             self.ignore_paths,
@@ -223,11 +225,15 @@ def run_cli():
         default=None,
         help="A git tree-ish to diff against the latest common ancestor of",
     )
+    parser.add_argument(
+        "--cwd", default=Path.cwd(), help="The current working directory"
+    )
 
     Config.add_fields_to_argparse(parser)
     args = parser.parse_args()
 
     config = Config.create(args)
+    cwd = args.cwd
     paths = args.paths
     exclude_paths = args.exclude
     ignore_paths = args.ignore
@@ -235,6 +241,7 @@ def run_cli():
     pr_diff = args.pr_diff
 
     terminal_client = TerminalClient(
+        cwd,
         paths,
         exclude_paths,
         ignore_paths,
