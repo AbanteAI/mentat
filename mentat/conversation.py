@@ -5,7 +5,7 @@ import json
 import logging
 import subprocess
 from timeit import default_timer
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
 from openai import RateLimitError
 from openai.types.chat import (
@@ -18,12 +18,10 @@ from openai.types.chat import (
 
 from mentat.errors import MentatError
 from mentat.llm_api_handler import count_tokens, model_context_size, prompt_tokens
+from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
-
-if TYPE_CHECKING:
-    from mentat.parsers.file_edit import FileEdit
 
 
 class Conversation:
@@ -231,7 +229,7 @@ class Conversation:
         time_elapsed = default_timer() - start_time
         return (parsed_llm_response, time_elapsed, num_prompt_tokens)
 
-    async def get_model_response(self) -> list[FileEdit]:
+    async def get_model_response(self) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
@@ -276,7 +274,7 @@ class Conversation:
                 " different model.",
                 color="light_red",
             )
-            return []
+            return ParsedLLMResponse("", "", [])
         finally:
             if loading_multiplier:
                 stream.send(None, channel="loading", terminate=True)
@@ -297,7 +295,7 @@ class Conversation:
             )
         )
         self.add_model_message(parsed_llm_response.full_response, messages_snapshot)
-        return parsed_llm_response.file_edits
+        return parsed_llm_response
 
     def remaining_context(self) -> int | None:
         ctx = SESSION_CONTEXT.get()

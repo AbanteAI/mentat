@@ -35,6 +35,7 @@ class ParsedLLMResponse:
     full_response: str = attr.field()
     conversation: str = attr.field()
     file_edits: list[FileEdit] = attr.field()
+    interrupted: bool = attr.field(default=False)
 
 
 class Parser(ABC):
@@ -103,8 +104,10 @@ class Parser(ABC):
         in_conversation = True
         printed_delimiter = False
         rename_map = dict[Path, Path]()
+        interrupted = False
         async for chunk in response:
             if self.shutdown.is_set():
+                interrupted = True
                 printer.shutdown_printer()
                 await printer_task
                 stream.send(
@@ -318,6 +321,7 @@ class Parser(ABC):
             message,
             conversation,
             [file_edit for file_edit in file_edits.values()],
+            interrupted,
         )
 
     # Ideally this would be called in this class instead of subclasses

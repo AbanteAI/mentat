@@ -127,8 +127,9 @@ class Session:
                     if agent_handler.agent_enabled:
                         code_file_manager.history.push_edits()
                         stream.send(
-                            "Use /undo to undo all automatic changes.",
-                            color="light_green",
+                            "Use /undo to undo all changes from agent mode since last"
+                            " input.",
+                            color="green",
                         )
                     stream.send("\nWhat can I do for you?", color="light_blue")
                     message = await collect_input_with_commands()
@@ -136,9 +137,11 @@ class Session:
                         continue
                     conversation.add_user_message(message.data)
 
-                file_edits = await conversation.get_model_response()
+                parsed_llm_response = await conversation.get_model_response()
                 file_edits = [
-                    file_edit for file_edit in file_edits if file_edit.is_valid()
+                    file_edit
+                    for file_edit in parsed_llm_response.file_edits
+                    if file_edit.is_valid()
                 ]
                 if file_edits:
                     if not agent_handler.agent_enabled:
@@ -157,7 +160,10 @@ class Session:
                     )
 
                     if agent_handler.agent_enabled:
-                        need_user_request = await agent_handler.add_agent_context()
+                        if parsed_llm_response.interrupted:
+                            need_user_request = True
+                        else:
+                            need_user_request = await agent_handler.add_agent_context()
                 else:
                     need_user_request = True
                 stream.send(bool(file_edits), channel="edits_complete")

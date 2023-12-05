@@ -123,6 +123,8 @@ class AgentHandler:
         ctx = SESSION_CONTEXT.get()
 
         commands = await self._determine_commands()
+        if not commands:
+            return True
         ctx.stream.send(
             "The model has chosen these commands to test its changes:", color="cyan"
         )
@@ -135,7 +137,7 @@ class AgentHandler:
                 " return control to the user:",
                 color="cyan",
             )
-            commands: list[str] = (await collect_user_input()).data.strip().split("\n")
+            commands: list[str] = (await collect_user_input()).data.strip().splitlines()
             if not commands:
                 return True
 
