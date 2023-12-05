@@ -5,7 +5,7 @@ import json
 import logging
 import subprocess
 from timeit import default_timer
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from openai import RateLimitError
 from openai.types.chat import (
@@ -22,6 +22,9 @@ from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
+
+if TYPE_CHECKING:
+    from mentat.parsers.file_edit import FileEdit
 
 
 class Conversation:
@@ -274,7 +277,7 @@ class Conversation:
                 " different model.",
                 color="light_red",
             )
-            return ParsedLLMResponse("", "", [])
+            return ParsedLLMResponse("", "", list[FileEdit]())
         finally:
             if loading_multiplier:
                 stream.send(None, channel="loading", terminate=True)
