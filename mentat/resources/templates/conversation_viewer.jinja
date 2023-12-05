@@ -1,10 +1,10 @@
 {% macro display_message(message, content_key) %}
 {% if message[content_key] is string %}
-    {{ message[content_key] |e|replace('\n', '<br>')|safe }}
+    <pre>{{ message[content_key] }}</pre>
 {% else %}
     {% for submessage in message[content_key] %}
         {% if submessage["type"] == "text" %}
-            {{ submessage["text"] |e|replace('\n', '<br>')|safe }}
+            <pre>{{ submessage["text"] }}</pre>
         {% elif submessage["type"] == "image_url" %}
             <img src="{{ submessage['image_url']['url'] }}">
         {% endif %}
