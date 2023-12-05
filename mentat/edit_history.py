@@ -5,7 +5,7 @@ from typing import Optional
 import attr
 from termcolor import colored
 
-from mentat.errors import MentatError
+from mentat.errors import HistoryError
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.session_context import SESSION_CONTEXT
 
@@ -18,7 +18,7 @@ class RenameAction:
 
     def undo(self) -> FileEdit:
         if self.old_file_name.exists():
-            raise MentatError(
+            raise HistoryError(
                 f"File {self.old_file_name} already exists; unable to undo rename from"
                 f" {self.cur_file_name}"
             )
@@ -35,7 +35,7 @@ class CreationAction:
 
     def undo(self) -> FileEdit:
         if not self.cur_file_name.exists():
-            raise MentatError(
+            raise HistoryError(
                 f"File {self.cur_file_name} does not exist; unable to delete"
             )
         else:
@@ -50,7 +50,7 @@ class DeletionAction:
 
     def undo(self) -> FileEdit:
         if self.old_file_name.exists():
-            raise MentatError(
+            raise HistoryError(
                 f"File {self.old_file_name} already exists; unable to re-create"
             )
         else:
@@ -66,7 +66,7 @@ class EditAction:
 
     def undo(self) -> FileEdit:
         if not self.cur_file_name.exists():
-            raise MentatError(
+            raise HistoryError(
                 f"File {self.cur_file_name} does not exist; unable to undo edit"
             )
         else:
@@ -116,7 +116,7 @@ class EditHistory:
             try:
                 redo_edit = cur_action.undo()
                 undone_edit.append(redo_edit)
-            except MentatError as e:
+            except HistoryError as e:
                 errors.append(colored(str(e), color="light_red"))
         if undone_edit:
             self.undone_edits.append(undone_edit)
