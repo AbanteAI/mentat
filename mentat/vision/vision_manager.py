@@ -1,11 +1,11 @@
 import base64
 import os
-import webbrowser
+import platform
 from typing import Optional
 
 import attr
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchWindowException, WebDriverException
+from selenium.common.exceptions import NoSuchWindowException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
@@ -27,25 +27,33 @@ class VisionManager:
     )
 
     def _open_browser(self) -> None:
-        browser_type = webbrowser.get().name
+        os_name = platform.system()
         try:
             if self.driver is None or not self.driver_running():
-                if "firefox" in browser_type:
-                    service = FirefoxService(GeckoDriverManager().install())
-                    self.driver = webdriver.Firefox(service=service)
-                elif "safari" in browser_type:
-                    # Safari is prebundled with Selenium
+                if os_name == "Darwin":  # macOS
                     self.driver = webdriver.Safari()
-                elif "edge" in browser_type:
-                    service = EdgeService(EdgeChromiumDriverManager().install())
-                    self.driver = webdriver.Edge(service=service)
+                elif os_name == "Windows":
+                    try:
+                        service = EdgeService(EdgeChromiumDriverManager().install())
+                        self.driver = webdriver.Edge(service=service)
+                    except Exception:
+                        try:
+                            service = Service(ChromeDriverManager().install())
+                            self.driver = webdriver.Chrome(service=service)
+                        except Exception:
+                            service = FirefoxService(GeckoDriverManager().install())
+                            self.driver = webdriver.Firefox(service=service)
+                elif os_name == "Linux":
+                    try:
+                        service = Service(ChromeDriverManager().install())
+                        self.driver = webdriver.Chrome(service=service)
+                    except Exception:
+                        service = FirefoxService(GeckoDriverManager().install())
+                        self.driver = webdriver.Firefox(service=service)
                 else:
-                    service = Service(ChromeDriverManager().install())
-                    self.driver = webdriver.Chrome(service=service)
-        except WebDriverException:
-            raise ScreenshotException(
-                f"There was an error opening your browser of type {browser_type}"
-            )
+                    raise ScreenshotException("Unsupported operating system.")
+        except Exception:
+            raise ScreenshotException("Please install Chrome or Firefox")
 
     def open(self, path: str) -> None:
         self._open_browser()

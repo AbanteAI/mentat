@@ -12,15 +12,16 @@ def mock_webdriver():
 
 
 @pytest.fixture
-def mock_browser_type():
-    with patch("webbrowser.get") as mock:
+def mock_platform():
+    with patch("platform.system") as mock:
         yield mock
 
 
-def test_vision_manager_screenshot(mock_webdriver, mock_browser_type, temp_testbed):
+def test_vision_manager_screenshot(mock_platform, mock_webdriver, temp_testbed):
     mock_driver_instance = MagicMock()
-    mock_browser_type.return_value.name = "safari"
     mock_webdriver.return_value = mock_driver_instance
+
+    mock_platform.return_value = "Darwin"
     mock_driver_instance.get_screenshot_as_png.return_value = b"fake_screenshot_data"
 
     vision_manager = VisionManager()
