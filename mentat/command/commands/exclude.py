@@ -10,7 +10,6 @@ class ExcludeCommand(Command, command_name="exclude"):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
-        git_root = session_context.git_root
 
         if len(args) == 0:
             stream.send("No files specified", color="yellow")
@@ -22,8 +21,11 @@ class ExcludeCommand(Command, command_name="exclude"):
             for invalid_path in invalid_paths:
                 print_invalid_path(invalid_path)
             for excluded_path in excluded_paths:
-                rel_path = excluded_path.relative_to(git_root)
-                stream.send(f"{rel_path} removed from context", color="red")
+                if excluded_path.is_relative_to(session_context.cwd):
+                    display_path = excluded_path.relative_to(session_context.cwd)
+                else:
+                    display_path = excluded_path
+                stream.send(f"{display_path} removed from context", color="red")
 
     @classmethod
     def argument_names(cls) -> list[str]:
