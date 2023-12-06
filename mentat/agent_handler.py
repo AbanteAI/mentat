@@ -2,6 +2,7 @@ import shlex
 from pathlib import Path
 from typing import List
 
+from openai import BadRequestError
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
@@ -9,7 +10,7 @@ from openai.types.chat import (
 )
 
 from mentat.code_feature import CodeMessageLevel
-from mentat.llm_api_handler import count_tokens, prompt_tokens
+from mentat.llm_api_handler import count_tokens, get_max_tokens, prompt_tokens
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no, collect_user_input
@@ -85,7 +86,7 @@ class AgentHandler:
             ModelMessage(message=content, prior_messages=messages, message_type="agent")
         )
 
-    async def _determine_commands(self):
+    async def _determine_commands(self) -> List[str]:
         ctx = SESSION_CONTEXT.get()
 
         model = ctx.config.model
@@ -97,20 +98,20 @@ class AgentHandler:
                 role="system", content=self.agent_file_message
             ),
         ]
-        max_tokens = None
-        if ctx.config.maximum_context:
-            max_tokens = (
-                ctx.config.maximum_context
-                - prompt_tokens(messages, model)
-                - ctx.config.token_buffer
-            )
+        max_tokens = get_max_tokens()
+        if max_tokens is not None:
+            max_tokens -= prompt_tokens(messages, model) + ctx.config.token_buffer
         code_message = await ctx.code_context.get_code_message(max_tokens=max_tokens)
         code_message = ChatCompletionSystemMessageParam(
             role="system", content=code_message
         )
         messages = messages[:-1] + [code_message] + messages[-1:]
         # TODO: Should this even be a separate call or should we collect commands in the edit call?
-        response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
+        try:
+            response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
+        except BadRequestError as e:
+            ctx.stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
+            return []
         content = response.choices[0].message.content or ""
         ctx.cost_tracker.log_api_call_stats(
             prompt_tokens(messages, model),

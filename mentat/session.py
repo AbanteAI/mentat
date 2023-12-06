@@ -170,7 +170,7 @@ class Session:
         except SessionExit:
             pass
         except (APITimeoutError, RateLimitError, BadRequestError) as e:
-            stream.send(f"Error accessing OpenAI API: {str(e)}", color="red")
+            stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
 
     async def listen_for_session_exit(self):
         await self.stream.recv(channel="session_exit")

@@ -17,7 +17,12 @@ from openai.types.chat import (
 )
 
 from mentat.errors import MentatError
-from mentat.llm_api_handler import count_tokens, model_context_size, prompt_tokens
+from mentat.llm_api_handler import (
+    count_tokens,
+    get_max_tokens,
+    model_context_size,
+    prompt_tokens,
+)
 from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
@@ -33,20 +38,6 @@ class Conversation:
 
         # This contains a list of messages used for transcripts
         self.literal_messages = list[TranscriptMessage]()
-
-    def _get_max_tokens(self) -> Optional[int]:
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-
-        context_size = model_context_size(config.model)
-        maximum_context = config.maximum_context
-        if maximum_context is not None:
-            if context_size:
-                return min(context_size, maximum_context)
-            else:
-                return maximum_context
-        else:
-            return context_size
 
     async def display_token_count(self):
         session_context = SESSION_CONTEXT.get()
@@ -99,7 +90,7 @@ class Conversation:
             config.model,
         )
 
-        context_size = self._get_max_tokens()
+        context_size = get_max_tokens()
         if not context_size:
             raise MentatError(
                 f"Context size for {config.model} is not known. Please set"
@@ -262,7 +253,7 @@ class Conversation:
                 p.get("text", "") for p in prompt if p.get("type") == "text"
             ]
             prompt = " ".join(text_prompts)
-        max_tokens = self._get_max_tokens()
+        max_tokens = get_max_tokens()
         if max_tokens is None:
             stream.send(
                 f"Context size for {config.model} is not known. Please set"
@@ -352,7 +343,7 @@ class Conversation:
 
     def remaining_context(self) -> int | None:
         ctx = SESSION_CONTEXT.get()
-        max_context = self._get_max_tokens()
+        max_context = get_max_tokens()
         if max_context is None:
             return None
 
