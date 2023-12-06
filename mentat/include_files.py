@@ -222,20 +222,6 @@ def get_paths_for_directory(
                 paths.add(abs_git_path)
 
         else:
-            filtered_dirs: List[str] = []
-            for dir_ in dirs:
-                abs_dir_path = root.joinpath(dir_)
-                if any(include_patterns) and not match_path_with_patterns(
-                    abs_dir_path, all_include_patterns
-                ):
-                    continue
-                if any(exclude_patterns) and match_path_with_patterns(
-                    abs_dir_path, all_exclude_patterns
-                ):
-                    continue
-                filtered_dirs.append(dir_)
-            dirs[:] = filtered_dirs
-
             for file in files:
                 abs_file_path = root.joinpath(file)
                 if any(include_patterns) and not match_path_with_patterns(
@@ -250,6 +236,20 @@ def get_paths_for_directory(
 
             if not recursive:
                 break
+
+            filtered_dirs: List[str] = []
+            for dir_ in dirs:
+                abs_dir_path = root.joinpath(dir_)
+                if any(include_patterns) and not match_path_with_patterns(
+                    abs_dir_path, all_include_patterns
+                ):
+                    continue
+                if any(exclude_patterns) and match_path_with_patterns(
+                    abs_dir_path, all_exclude_patterns
+                ):
+                    continue
+                filtered_dirs.append(dir_)
+            dirs[:] = filtered_dirs
 
     return paths
 
