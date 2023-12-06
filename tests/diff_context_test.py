@@ -5,7 +5,7 @@ import pytest
 
 from mentat.diff_context import DiffContext
 from mentat.session_context import SESSION_CONTEXT
-from tests.clients.python_client_test import PythonClient
+from mentat.python_client.client import PythonClient
 
 
 def _update_ops(temp_testbed, last_line, commit_message=None):
