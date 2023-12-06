@@ -1,5 +1,3 @@
-from selenium.common.exceptions import WebDriverException
-
 from mentat.command.command import Command
 from mentat.session_context import SESSION_CONTEXT
 from mentat.vision.vision_manager import ScreenshotException
@@ -42,11 +40,6 @@ class ScreenshotCommand(Command, command_name="screenshot"):
             )
         except ScreenshotException:
             return  # Screenshot manager will print the error to stream.
-        except WebDriverException:
-            stream.send(
-                "Error taking screenshot. Please run with a valid url or local path.",
-                color="light_red",
-            )
 
     @classmethod
     def argument_names(cls) -> list[str]:

@@ -4,7 +4,7 @@ from typing import Optional
 
 import attr
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchWindowException
+from selenium.common.exceptions import NoSuchWindowException, WebDriverException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
@@ -50,13 +50,12 @@ class VisionManager:
                             if safari_installed:
                                 ctx.stream.send(
                                     "No suitable browser found. To use Safari, enable"
-                                    " remote automation. Alternatively install Chrome.",
+                                    " remote automation.",
                                     color="light_red",
                                 )
                             else:
                                 ctx.stream.send(
-                                    "No suitable browser found. Install Chrome or"
-                                    " Firefox.",
+                                    "No suitable browser found.",
                                     color="light_red",
                                 )
 
@@ -78,12 +77,20 @@ class VisionManager:
         ctx = SESSION_CONTEXT.get()
         if path is not None:
             expanded = os.path.abspath(os.path.expanduser(path))
+            browser_path = path
             if os.path.exists(expanded):
-                path = "file://" + expanded
+                browser_path = "file://" + expanded
             else:
                 if not path.startswith("http"):
-                    path = "https://" + path
-            self.open(path)
+                    browser_path = "https://" + path
+            try:
+                self.open(browser_path)
+            except WebDriverException:
+                ctx.stream.send(
+                    f"Error taking screenshot. Is {path} a valid url or local file?",
+                    color="light_red",
+                )
+                raise ScreenshotException()
         else:
             if self.driver is None:
                 ctx.stream.send(
