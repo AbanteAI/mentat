@@ -111,7 +111,7 @@ class CodeContext:
     _code_message_checksum: str | None = None
 
     def _get_code_message_checksum(
-        self, prompt: str = "", max_tokens: Optional[int] = None
+        self, prompt: Optional[str] = None, max_tokens: Optional[int] = None
     ) -> str:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
@@ -129,12 +129,12 @@ class CodeContext:
             ]
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
-            "prompt": prompt,
+            "prompt": prompt or "",
             "auto_context": config.auto_context,
             "use_llm": self.use_llm,
             "diff": self.diff,
             "pr_diff": self.pr_diff,
-            "max_tokens": max_tokens,
+            "max_tokens": max_tokens or "",
             "include_files": self.include_files,
         }
         settings_checksum = sha256(str(settings))
@@ -142,8 +142,8 @@ class CodeContext:
 
     async def get_code_message(
         self,
-        prompt: str,
-        max_tokens: int,
+        prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
         expected_edits: Optional[list[str]] = None,  # for training/benchmarking
         loading_multiplier: float = 0.0,
     ) -> str:
@@ -164,8 +164,8 @@ class CodeContext:
 
     async def _get_code_message(
         self,
-        prompt: str,
-        max_tokens: int,
+        prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
         expected_edits: Optional[list[str]] = None,
         loading_multiplier: float = 0.0,
     ) -> str:
@@ -185,34 +185,38 @@ class CodeContext:
             ]
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
-        remaining_tokens = max_tokens - meta_tokens
-        auto_tokens = min(remaining_tokens, config.auto_tokens)
+        remaining_tokens = None if max_tokens is None else max_tokens - meta_tokens
+        auto_tokens = (
+            None if remaining_tokens is None else min(remaining_tokens, config.auto_tokens)
+        )
 
-        if remaining_tokens < 0:
+        if remaining_tokens is not None and remaining_tokens <= 0:
             self.features = []
             return ""
         elif not config.auto_context:
             self.features = self._get_include_features()
-            if sum(f.count_tokens(model) for f in self.features) > remaining_tokens:
+            if remaining_tokens is not None:
                 if prompt and not is_test_environment():
                     self.features = await EmbeddingSimilarityFilter(prompt).filter(
                         self.features
                     )
-                self.features = await TruncateFilter(
-                    remaining_tokens, model, respect_user_include=False
-                ).filter(self.features)
+                if sum(f.count_tokens(model) for f in self.features) > remaining_tokens:
+                    self.features = await TruncateFilter(
+                        remaining_tokens, model, respect_user_include=False
+                    ).filter(self.features)
         else:
             self.features = self.get_all_features(
                 CodeMessageLevel.INTERVAL,
             )
-            feature_filter = DefaultFilter(
-                auto_tokens,
-                self.use_llm,
-                prompt,
-                expected_edits,
-                loading_multiplier=loading_multiplier,
-            )
-            self.features = await feature_filter.filter(self.features)
+            if auto_tokens:
+                feature_filter = DefaultFilter(
+                    auto_tokens,
+                    self.use_llm,
+                    prompt,
+                    expected_edits,
+                    loading_multiplier=loading_multiplier,
+                )
+                self.features = await feature_filter.filter(self.features)
 
         # Group intervals by file, separated by ellipses if there are gaps
         code_message += get_code_message_from_features(self.features)

@@ -89,9 +89,7 @@ class AgentHandler:
         ctx = SESSION_CONTEXT.get()
 
         model = ctx.config.model
-        # TODO: Should we give prompt/tokens?
-        # TODO: Change this from 100k tokens. Don't merge with this in!
-        code_message = await ctx.code_context.get_code_message("", 100000)
+        code_message = await ctx.code_context.get_code_message()
         messages = ctx.conversation.get_messages() + [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_command_prompt
