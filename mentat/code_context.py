@@ -120,7 +120,11 @@ class CodeContext:
         if not self.features:
             features_checksum = ""
         else:
-            feature_files = {session_context.cwd / f.path for f in self.features}
+            feature_files = {
+                session_context.cwd / f.path
+                for f in self.features
+                if (session_context.cwd / f.path).exists()
+            }
             feature_file_checksums = [
                 code_file_manager.get_file_checksum(f) for f in feature_files
             ]
