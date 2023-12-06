@@ -182,7 +182,7 @@ class CodeContext:
                     "",
                 ]
 
-                if len(self.include_files) == 0:
+                if len(self.include_files) == 0 and (self.diff or self.pr_diff):
                     for file in self.diff_context.files:
                         self.include(file)
 
