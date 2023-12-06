@@ -187,7 +187,9 @@ class CodeContext:
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
         remaining_tokens = None if max_tokens is None else max_tokens - meta_tokens
         auto_tokens = (
-            None if remaining_tokens is None else min(remaining_tokens, config.auto_tokens)
+            None
+            if remaining_tokens is None
+            else min(remaining_tokens, config.auto_tokens)
         )
 
         if remaining_tokens is not None and remaining_tokens <= 0:

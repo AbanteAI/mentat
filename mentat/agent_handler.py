@@ -89,16 +89,25 @@ class AgentHandler:
         ctx = SESSION_CONTEXT.get()
 
         model = ctx.config.model
-        code_message = await ctx.code_context.get_code_message()
         messages = ctx.conversation.get_messages() + [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_command_prompt
             ),
-            ChatCompletionSystemMessageParam(role="system", content=code_message),
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_file_message
             ),
         ]
+        max_tokens = None
+        if ctx.config.maximum_context:
+            buf = 1000  # Buffer for response tokens
+            max_tokens = (
+                ctx.config.maximum_context - prompt_tokens(messages, model) - buf
+            )
+        code_message = await ctx.code_context.get_code_message(max_tokens=max_tokens)
+        code_message = ChatCompletionSystemMessageParam(
+            role="system", content=code_message
+        )
+        messages = messages[:-1] + [code_message] + messages[-1:]
         # TODO: Should this even be a separate call or should we collect commands in the edit call?
         response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
         content = response.choices[0].message.content or ""
