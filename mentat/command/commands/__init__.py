@@ -14,5 +14,6 @@ from .include import IncludeCommand
 from .run import RunCommand
 from .screenshot import ScreenshotCommand
 from .search import SearchCommand
+from .talk import TalkCommand
 from .undo import UndoCommand
 from .undoall import UndoAllCommand

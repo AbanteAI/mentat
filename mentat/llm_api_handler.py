@@ -4,6 +4,7 @@ import base64
 import io
 import os
 import sys
+from pathlib import Path
 from typing import List, Literal, Optional, cast, overload
 
 import sentry_sdk
@@ -238,3 +239,13 @@ class LlmApiHandler:
             model.id async for model in self.async_client.models.list()
         ]
         return model in available_models
+
+    async def call_whisper_api(self, audio_path: Path) -> str:
+        raise_if_in_test_environment()
+
+        audio_file = open(audio_path, "rb")
+        transcript = await self.async_client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file,
+        )
+        return transcript.text

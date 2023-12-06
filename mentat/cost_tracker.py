@@ -45,6 +45,9 @@ class CostTracker:
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
 
+    def log_whisper_call_stats(self, seconds: float):
+        self.total_cost += seconds * 0.0001
+
     def display_total_cost(self) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
