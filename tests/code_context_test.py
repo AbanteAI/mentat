@@ -369,7 +369,7 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        exclude_patterns=["scripts", "**/*.txt"],
+        ignore_patterns=["scripts", "**/*.txt"],
     )
     code_context.use_llm = False
     code_message = await code_context.get_code_message("", 1e6)

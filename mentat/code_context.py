@@ -42,11 +42,11 @@ class CodeContext:
         git_root: Optional[Path] = None,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
-        exclude_patterns: Iterable[Path | str] = [],
+        ignore_patterns: Iterable[Path | str] = [],
     ):
         self.diff = diff
         self.pr_diff = pr_diff
-        self.exclude_patterns = set(Path(p) for p in exclude_patterns)
+        self.ignore_patterns = set(Path(p) for p in ignore_patterns)
 
         self.diff_context = None
         if git_root:
@@ -260,7 +260,7 @@ class CodeContext:
         for path in get_paths_for_directory(
             path=session_context.cwd,
             exclude_patterns=[
-                *self.exclude_patterns,
+                *self.ignore_patterns,
                 *session_context.config.file_exclude_glob_list,
             ],
         ):
@@ -346,7 +346,7 @@ class CodeContext:
                 cwd=session_context.cwd,
                 exclude_patterns=[
                     *exclude_patterns,
-                    *self.exclude_patterns,
+                    *self.ignore_patterns,
                     *session_context.config.file_exclude_glob_list,
                 ],
             )
