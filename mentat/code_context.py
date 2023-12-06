@@ -295,24 +295,6 @@ class CodeContext:
                 )
                 all_features.append(_feature)
 
-            # if level == CodeMessageLevel.INTERVAL:
-            #     full_feature = CodeFeature(
-            #         path,
-            #         level=CodeMessageLevel.CODE,
-            #         diff=diff_target,
-            #         user_included=user_included,
-            #     )
-            #     if self.ctags_disabled:
-            #         all_features.append(full_feature)
-            #     else:
-            #         _split_features = split_file_into_intervals(
-            #             full_feature, user_features=self.include_files.get(path, [])
-            #         )
-            #         all_features += _split_features
-            # else:
-            #     _feature = CodeFeature(path, level=level, diff=diff_target, user_included=user_included)
-            #     all_features.append(_feature)
-
         return sorted(all_features, key=lambda f: f.path)
 
     def include(
