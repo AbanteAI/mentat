@@ -6,7 +6,7 @@ from mentat.session_input import collect_user_input
 
 
 async def get_user_feedback_on_edits(
-    file_edits: list[FileEdit]
+    file_edits: list[FileEdit],
 ) -> tuple[list[FileEdit], bool]:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream

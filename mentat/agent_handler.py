@@ -99,9 +99,10 @@ class AgentHandler:
         ]
         max_tokens = None
         if ctx.config.maximum_context:
-            buf = 1000  # Buffer for response tokens
             max_tokens = (
-                ctx.config.maximum_context - prompt_tokens(messages, model) - buf
+                ctx.config.maximum_context
+                - prompt_tokens(messages, model)
+                - ctx.config.token_buffer
             )
         code_message = await ctx.code_context.get_code_message(max_tokens=max_tokens)
         code_message = ChatCompletionSystemMessageParam(
