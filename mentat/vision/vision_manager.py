@@ -13,6 +13,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.firefox import GeckoDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
+from mentat.session_context import SESSION_CONTEXT
+
 
 class ScreenshotException(Exception):
     """
@@ -25,10 +27,14 @@ class VisionManager:
     driver: Optional[WebDriver] = attr.field(default=None)
 
     def _open_browser(self) -> None:
+        ctx = SESSION_CONTEXT.get()
+        safari_installed = False
         if self.driver is None or not self.driver_running():
             try:
                 self.driver = webdriver.Safari()
-            except Exception:
+            except Exception as e:
+                if "remote automation" in str(e).lower():
+                    safari_installed = True
                 try:
                     service = Service(ChromeDriverManager().install())
                     self.driver = webdriver.Chrome(service=service)
@@ -41,9 +47,20 @@ class VisionManager:
                             service = FirefoxService(GeckoDriverManager().install())
                             self.driver = webdriver.Firefox(service=service)
                         except Exception:
-                            raise ScreenshotException(
-                                "Please install Chrome or Firefox"
-                            )
+                            if safari_installed:
+                                ctx.stream.send(
+                                    "No suitable browser found. To use Safari, enable"
+                                    " remote automation. Alternatively install Chrome.",
+                                    color="light_red",
+                                )
+                            else:
+                                ctx.stream.send(
+                                    "No suitable browser found. Install Chrome or"
+                                    " Firefox.",
+                                    color="light_red",
+                                )
+
+                            raise ScreenshotException()
 
     def open(self, path: str) -> None:
         self._open_browser()
@@ -58,6 +75,7 @@ class VisionManager:
             return False
 
     def screenshot(self, path: Optional[str] = None) -> str:
+        ctx = SESSION_CONTEXT.get()
         if path is not None:
             expanded = os.path.abspath(os.path.expanduser(path))
             if os.path.exists(expanded):
@@ -68,7 +86,11 @@ class VisionManager:
             self.open(path)
         else:
             if self.driver is None:
-                raise ScreenshotException("No browser open")
+                ctx.stream.send(
+                    'No browser open. Run "/screenshot path" with a url or local file',
+                    color="light_red",
+                )
+                raise ScreenshotException()
 
         screenshot_data = self.driver.get_screenshot_as_png()  # type: ignore
 
