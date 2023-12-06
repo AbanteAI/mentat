@@ -1,5 +1,4 @@
 import asyncio
-import datetime
 import logging
 import queue
 from asyncio import Event
@@ -30,9 +29,8 @@ class Recorder:
         self.shutdown = Event()
         self._interrupt_task = None
         (logs_path / "audio").mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        self.file = logs_path / "audio" / f"{timestamp}.wav"
+        self.file = logs_path / "audio/talk_transcription.wav"
 
     async def listen_for_interrupt(self):
         session_context = SESSION_CONTEXT.get()
