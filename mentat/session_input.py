@@ -12,10 +12,8 @@ from mentat.session_stream import StreamMessage
 async def _get_input_request(**kwargs: Any) -> StreamMessage:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
-    default_prompt = session_context.conversation.default_prompt
-    session_context.conversation.default_prompt = ""
 
-    message = stream.send(default_prompt, channel="input_request", **kwargs)
+    message = stream.send("", channel="input_request", **kwargs)
     response = await stream.recv(f"input_request:{message.id}")
     return response
 

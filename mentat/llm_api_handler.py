@@ -10,7 +10,7 @@ from typing import List, Literal, Optional, cast, overload
 import sentry_sdk
 import tiktoken
 from dotenv import load_dotenv
-from openai import AsyncOpenAI, AsyncStream, AuthenticationError, OpenAI
+from openai import AsyncOpenAI, AsyncStream, AuthenticationError
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -162,7 +162,6 @@ class LlmApiHandler:
 
         # We don't have any use for a synchronous client, but if we ever do we can easily make it here
         self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
-        self.client = OpenAI(api_key=key, base_url=base_url)
         try:
             self.async_client.api_key = key
             self.async_client.models.list()  # Test the key
@@ -245,7 +244,7 @@ class LlmApiHandler:
         raise_if_in_test_environment()
 
         audio_file = open(audio_path, "rb")
-        transcript = self.client.audio.transcriptions.create(
+        transcript = await self.async_client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file,
         )

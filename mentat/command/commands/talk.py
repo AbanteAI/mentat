@@ -77,7 +77,6 @@ class TalkCommand(Command, command_name="talk"):
         llm_api_handler = session_context.llm_api_handler
         stream = session_context.stream
         cost_tracker = session_context.cost_tracker
-        conversation = session_context.conversation
 
         stream.send("Listening on your default microphone. Press Ctrl+C to end.")
         recorder = Recorder()
@@ -86,8 +85,8 @@ class TalkCommand(Command, command_name="talk"):
         stream.send("Processing audio with whisper...")
         await asyncio.sleep(0.01)
         transcript = await llm_api_handler.call_whisper_api(recorder.file)
+        stream.send(transcript, channel="default_prompt")
         cost_tracker.log_whisper_call_stats(recorder.recording_time)
-        conversation.default_prompt = transcript
 
     @classmethod
     def argument_names(cls) -> list[str]:

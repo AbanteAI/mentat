@@ -57,6 +57,11 @@ class TerminalClient:
         async for message in self.session.stream.listen():
             print_stream_message(message)
 
+    async def _default_prompt_stream(self):
+        self._default_prompt = ""
+        async for message in self.session.stream.listen("default_prompt"):
+            self._default_prompt += message.data
+
     async def _handle_loading_messages(self):
         loading_handler = LoadingHandler()
         async for message in self.session.stream.listen("loading"):
@@ -71,8 +76,11 @@ class TerminalClient:
             else:
                 prompt_session = self._prompt_session
 
+            default_prompt = self._default_prompt.strip()
+            self._default_prompt = ""
+
             user_input = await prompt_session.prompt_async(
-                handle_sigint=False, default=input_request_message.data.strip()
+                handle_sigint=False, default=default_prompt
             )
             if user_input == "q":
                 self._should_exit.set()
@@ -164,6 +172,7 @@ class TerminalClient:
         self._create_task(self._cprint_session_stream())
         self._create_task(self._handle_input_requests())
         self._create_task(self._handle_loading_messages())
+        self._create_task(self._default_prompt_stream())
         self._create_task(self._listen_for_client_exit())
         self._create_task(self._listen_for_should_exit())
 
