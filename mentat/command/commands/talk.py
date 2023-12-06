@@ -8,8 +8,15 @@ from timeit import default_timer
 from typing import Any
 
 import numpy as np
-import sounddevice as sd
-import soundfile as sf
+
+try:
+    import sounddevice as sd
+    import soundfile as sf
+
+    audio_available = True
+except Exception:
+    audio_available = False
+
 
 from mentat.command.command import Command
 from mentat.logging_config import logs_path
@@ -73,20 +80,26 @@ class Recorder:
 
 class TalkCommand(Command, command_name="talk"):
     async def apply(self, *args: str) -> None:
-        session_context = SESSION_CONTEXT.get()
-        llm_api_handler = session_context.llm_api_handler
-        stream = session_context.stream
-        cost_tracker = session_context.cost_tracker
-
-        stream.send("Listening on your default microphone. Press Ctrl+C to end.")
-        recorder = Recorder()
-        async with recorder.interrupt_catcher():
-            await recorder.record()
-        stream.send("Processing audio with whisper...")
-        await asyncio.sleep(0.01)
-        transcript = await llm_api_handler.call_whisper_api(recorder.file)
-        stream.send(transcript, channel="default_prompt")
-        cost_tracker.log_whisper_call_stats(recorder.recording_time)
+        ctx = SESSION_CONTEXT.get()
+        if not audio_available:
+            # sounddevice manages port audio on Mac and Windows so we print an apt specific message
+            ctx.stream.send(
+                "Audio is not available on this system. You probably need to install"
+                " PortAudio. For example `sudo apt install libportaudio2` on Ubuntu.",
+                color="light_red",
+            )
+        else:
+            ctx.stream.send(
+                "Listening on your default microphone. Press Ctrl+C to end."
+            )
+            recorder = Recorder()
+            async with recorder.interrupt_catcher():
+                await recorder.record()
+            ctx.stream.send("Processing audio with whisper...")
+            await asyncio.sleep(0.01)
+            transcript = await ctx.llm_api_handler.call_whisper_api(recorder.file)
+            ctx.stream.send(transcript, channel="default_prompt")
+            ctx.cost_tracker.log_whisper_call_stats(recorder.recording_time)
 
     @classmethod
     def argument_names(cls) -> list[str]:
