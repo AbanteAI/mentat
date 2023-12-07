@@ -82,7 +82,7 @@ def evaluate_diff(diff: str) -> dict[str, int]:
 async def test_edit_quality(
     benchmarks, max_benchmarks, evaluate_baseline, repo, refresh_repo
 ):
-    repo_path = Path(__file__).parent / f"repos/{repo}"
+    repo_path = Path(__file__).parent / f"../../benchmark_repos/{repo}"
     tests = load_tests(repo_path)
     results = load_results(repo_path)
 

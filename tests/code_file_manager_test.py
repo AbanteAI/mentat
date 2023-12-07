@@ -193,10 +193,10 @@ async def test_changed_file(
 
     # Decline overwrite
     mock_collect_user_input.set_stream_messages(["n", "q"])
-    await code_file_manager.write_changes_to_files([file_edit], code_context)
+    await code_file_manager.write_changes_to_files([file_edit])
     assert file_path.read_text().splitlines() == ["I was a file"]
 
     # Accept overwrite
     mock_collect_user_input.set_stream_messages(["y", "q"])
-    await code_file_manager.write_changes_to_files([file_edit], code_context)
+    await code_file_manager.write_changes_to_files([file_edit])
     assert file_path.read_text().splitlines() == ["I am a file", "with edited lines"]

@@ -98,6 +98,10 @@ pre {
     background-color: rgb(255, 255, 255);
 }
 
+.agent {
+    background-color: rgb(255, 197, 197);
+}
+
 .download_parent {
     position: absolute;
     top: 20px;

@@ -39,10 +39,7 @@ class ScreenshotCommand(Command, command_name="screenshot"):
                 color="green",
             )
         except ScreenshotException:
-            stream.send(
-                'No browser open. Run "/screenshot path" with a url or local file',
-                color="red",
-            )
+            return  # Screenshot manager will print the error to stream.
 
     @classmethod
     def argument_names(cls) -> list[str]:

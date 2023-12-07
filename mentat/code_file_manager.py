@@ -63,10 +63,14 @@ class CodeFileManager:
     async def write_changes_to_files(
         self,
         file_edits: list[FileEdit],
-        code_context: CodeContext,
     ) -> list[FileEdit]:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
+        code_context = session_context.code_context
+        agent_handler = session_context.agent_handler
+
+        if not file_edits:
+            return []
 
         applied_edits: list[FileEdit] = []
         for file_edit in file_edits:
@@ -147,7 +151,8 @@ class CodeFileManager:
                 with open(file_edit.file_path, "w") as f:
                     f.write("\n".join(new_lines))
             applied_edits.append(file_edit)
-        self.history.push_edits()
+        if not agent_handler.agent_enabled:
+            self.history.push_edits()
         return applied_edits
 
     def get_file_checksum(self, path: Path, interval: Interval | None = None) -> str:

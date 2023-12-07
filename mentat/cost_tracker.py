@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from typing import Optional
 
 from mentat.llm_api_handler import model_price_per_1000_tokens
 from mentat.session_context import SESSION_CONTEXT
@@ -15,7 +16,7 @@ class CostTracker:
         num_prompt_tokens: int,
         num_sampled_tokens: int,
         model: str,
-        call_time: float,
+        call_time: Optional[float] = None,
         decimal_places: int = 2,
         display: bool = False,
     ) -> None:
@@ -24,7 +25,7 @@ class CostTracker:
 
         speed_and_cost_string = ""
         self.total_tokens += num_prompt_tokens + num_sampled_tokens
-        if num_sampled_tokens > 0:
+        if num_sampled_tokens > 0 and call_time is not None:
             tokens_per_second = num_sampled_tokens / call_time
             speed_and_cost_string += (
                 f"Speed: {tokens_per_second:.{decimal_places}f} tkns/s"
@@ -43,6 +44,9 @@ class CostTracker:
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
+
+    def log_whisper_call_stats(self, seconds: float):
+        self.total_cost += seconds * 0.0001
 
     def display_total_cost(self) -> None:
         session_context = SESSION_CONTEXT.get()

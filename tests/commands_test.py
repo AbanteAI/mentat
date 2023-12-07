@@ -10,7 +10,6 @@ from mentat.command.commands.context import ContextCommand
 from mentat.command.commands.help import HelpCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
-from mentat.vision.vision_manager import ScreenshotException
 
 
 def test_invalid_command():
@@ -271,14 +270,6 @@ async def test_screenshot_command(mocker):
             {"type": "image_url", "image_url": {"url": "fake_image_data"}},
         ],
     }
-
-    # Test the exception path where no browser is open
-    mock_vision_manager.screenshot.side_effect = ScreenshotException
-    await screenshot_command.apply("fake_path")
-    assert (
-        stream.messages[-1].data
-        == 'No browser open. Run "/screenshot path" with a url or local file'
-    )
 
     # Test non-gpt models aren't changed
     config.model = "test"

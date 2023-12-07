@@ -19,11 +19,13 @@ accepted_licenses = [
     "Python Software Foundation License",
     "Apache 2.0",
     "BSD 3-Clause",
+    "3-Clause BSD License",
     "ISC License (ISCL)",
     "Historical Permission Notice and Disclaimer (HPND)",
     "BSD",
     "GNU General Public License (GPL)",
     "Public Domain",
+    "The Unlicense (Unlicense)",
 ]
 
 
