@@ -11,6 +11,7 @@ import attr
 import sentry_sdk
 from openai import APITimeoutError, BadRequestError, RateLimitError
 
+from mentat.agent_handler import AgentHandler
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
@@ -24,7 +25,7 @@ from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
 from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
-from mentat.session_input import collect_user_input
+from mentat.session_input import collect_input_with_commands
 from mentat.session_stream import SessionStream
 from mentat.utils import check_version, mentat_dir_path
 from mentat.vision.vision_manager import VisionManager
@@ -77,6 +78,8 @@ class Session:
 
         vision_manager = VisionManager()
 
+        agent_handler = AgentHandler()
+
         session_context = SessionContext(
             cwd,
             stream,
@@ -88,6 +91,7 @@ class Session:
             code_file_manager,
             conversation,
             vision_manager,
+            agent_handler,
         )
         SESSION_CONTEXT.set(session_context)
 
@@ -102,6 +106,8 @@ class Session:
         stream = session_context.stream
         code_context = session_context.code_context
         conversation = session_context.conversation
+        code_file_manager = session_context.code_file_manager
+        agent_handler = session_context.agent_handler
 
         # check early for ctags so we can fail fast
         if session_context.config.auto_context:
@@ -113,21 +119,51 @@ class Session:
 
         try:
             stream.send("Type 'q' or use Ctrl-C to quit at any time.")
-            stream.send("\nWhat can I do for you?", color="light_blue")
             need_user_request = True
             while True:
                 if need_user_request:
-                    message = await collect_user_input()
+                    # Normally, the code_file_manager pushes the edits; but when agent mode is on, we want all
+                    # edits made between user input to be collected together.
+                    if agent_handler.agent_enabled:
+                        code_file_manager.history.push_edits()
+                        stream.send(
+                            "Use /undo to undo all changes from agent mode since last"
+                            " input.",
+                            color="green",
+                        )
+                    stream.send("\nWhat can I do for you?", color="light_blue")
+                    message = await collect_input_with_commands()
                     if message.data.strip() == "":
                         continue
                     conversation.add_user_message(message.data)
 
-                file_edits = await conversation.get_model_response()
+                parsed_llm_response = await conversation.get_model_response()
                 file_edits = [
-                    file_edit for file_edit in file_edits if file_edit.is_valid()
+                    file_edit
+                    for file_edit in parsed_llm_response.file_edits
+                    if file_edit.is_valid()
                 ]
                 if file_edits:
-                    need_user_request = await get_user_feedback_on_edits(file_edits)
+                    if not agent_handler.agent_enabled:
+                        file_edits, need_user_request = (
+                            await get_user_feedback_on_edits(file_edits)
+                        )
+                    for file_edit in file_edits:
+                        file_edit.resolve_conflicts()
+
+                    applied_edits = await code_file_manager.write_changes_to_files(
+                        file_edits
+                    )
+                    stream.send(
+                        "Changes applied." if applied_edits else "No changes applied.",
+                        color="light_blue",
+                    )
+
+                    if agent_handler.agent_enabled:
+                        if parsed_llm_response.interrupted:
+                            need_user_request = True
+                        else:
+                            need_user_request = await agent_handler.add_agent_context()
                 else:
                     need_user_request = True
                 stream.send(bool(file_edits), channel="edits_complete")

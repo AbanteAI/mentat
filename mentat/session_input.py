@@ -15,6 +15,7 @@ async def _get_input_request(**kwargs: Any) -> StreamMessage:
 
     message = stream.send("", channel="input_request", **kwargs)
     response = await stream.recv(f"input_request:{message.id}")
+    logging.debug(f"User Input: {response.data}")
     return response
 
 
@@ -26,26 +27,8 @@ async def collect_user_input(plain: bool = False) -> StreamMessage:
     create a new broadcast channel that listens for the input
     close the channel after receiving the input
     """
-    session_context = SESSION_CONTEXT.get()
-    stream = session_context.stream
 
     response = await _get_input_request(plain=plain)
-    logging.debug(f"User Input: {response.data}")
-
-    # Intercept and run commands
-    if not plain:
-        while isinstance(response.data, str) and response.data.startswith("/"):
-            try:
-                arguments = shlex.split(response.data[1:])
-                command = Command.create_command(arguments[0])
-                await command.apply(*arguments[1:])
-            except ValueError as e:
-                stream.send(
-                    f"Error processing command arguments: {e}", color="light_red"
-                )
-
-            response = await _get_input_request(plain=plain)
-
     # Quit on q
     if isinstance(response.data, str) and response.data.strip() == "q":
         raise SessionExit
@@ -65,6 +48,22 @@ async def ask_yes_no(default_yes: bool) -> bool:
         if content in ["y", "n", ""]:
             break
     return content == "y" or (content != "n" and default_yes)
+
+
+async def collect_input_with_commands() -> StreamMessage:
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+
+    response = await collect_user_input()
+    while isinstance(response.data, str) and response.data.startswith("/"):
+        try:
+            arguments = shlex.split(response.data[1:])
+            command = Command.create_command(arguments[0])
+            await command.apply(*arguments[1:])
+        except ValueError as e:
+            stream.send(f"Error processing command arguments: {e}", color="light_red")
+        response = await collect_user_input()
+    return response
 
 
 async def listen_for_interrupt(

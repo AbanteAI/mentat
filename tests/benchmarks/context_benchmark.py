@@ -27,9 +27,9 @@ class MockStream:
 
 
 def _load_benchmarks() -> dict[str, dict[str, Any]]:
-    """Load all benchmarks found in tests/benchmarks/repos"""
+    """Load all benchmarks found in benchmark_repos"""
     benchmarks = {}
-    benchmarks_dir = Path(__file__).parent / "repos"
+    benchmarks_dir = Path(__file__).parent / "../../benchmark_repos"
     for repo_dir in benchmarks_dir.iterdir():
         benchmarks_path = repo_dir / "benchmarks.json"
         if benchmarks_path.exists():
