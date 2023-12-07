@@ -1,6 +1,5 @@
 import os
 import subprocess
-from pathlib import Path
 from textwrap import dedent
 from unittest.mock import AsyncMock
 

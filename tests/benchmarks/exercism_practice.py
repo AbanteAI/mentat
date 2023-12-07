@@ -85,7 +85,7 @@ async def failure_analysis(exercise_runner, language):
     response = ""
     try:
         llm_api_handler = SESSION_CONTEXT.get().llm_api_handler
-        async for chunk in await llm_api_handler.call_llm_api(messages, model):
+        async for chunk in await llm_api_handler.call_llm_api(messages, model, True):
             content = chunk["choices"][0]["delta"].get("content", "")
             response += content
     except BadRequestError:

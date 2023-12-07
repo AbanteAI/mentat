@@ -24,7 +24,7 @@ minimum_context = ["tests/license_check.py:11-22"]
 
 def verify():
     try:
-        import tests.benchmarks.repos.mentat.tests.license_check as license_check
+        import benchmark_repos.mentat.tests.license_check as license_check
 
         importlib.reload(license_check)
         return set(license_check.accepted_licenses) == set(
