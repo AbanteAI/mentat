@@ -90,7 +90,7 @@ class AgentHandler:
         ctx = SESSION_CONTEXT.get()
 
         model = ctx.config.model
-        messages = ctx.conversation.get_messages() + [
+        messages = ctx.conversation.get_messages(include_system_prompt=False) + [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_file_message
             ),

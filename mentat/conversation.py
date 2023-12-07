@@ -158,14 +158,16 @@ class Conversation:
         """Used for adding messages to the models conversation. Does not add a left-side message to the transcript!"""
         self._messages.append(message)
 
-    def get_messages(self) -> list[ChatCompletionMessageParam]:
+    def get_messages(
+        self, include_system_prompt: bool = True
+    ) -> list[ChatCompletionMessageParam]:
         """Returns the messages in the conversation. The system message may change throughout
         the conversation so it is important to access the messages through this method.
         """
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
-        if config.no_parser_prompt:
-            return self._messages
+        if config.no_parser_prompt or not include_system_prompt:
+            return self._messages.copy()
         else:
             parser = config.parser
             prompt = parser.get_system_prompt()
