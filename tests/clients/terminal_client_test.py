@@ -26,11 +26,12 @@ def mock_prompt_session_prompt(mocker):
 
 
 def test_empty_prompt(
+    temp_testbed,
     mocker,
     mock_prompt_session_prompt,
 ):
     mock_prompt_session_prompt.side_effect = ["", "q"]
-    terminal_client = TerminalClient(["."])
+    terminal_client = TerminalClient(cwd=temp_testbed, paths=["."])
     terminal_client.run()
 
 

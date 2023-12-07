@@ -151,12 +151,13 @@ class DiffContext:
     @property
     def files(self) -> list[Path]:
         session_context = SESSION_CONTEXT.get()
-        git_root = session_context.git_root
 
         if self._files_cache is None:
             if self.target == "HEAD" and not check_head_exists():
                 return []  # A new repo without any commits
-            self._files_cache = [git_root / f for f in get_files_in_diff(self.target)]
+            self._files_cache = [
+                session_context.cwd / f for f in get_files_in_diff(self.target)
+            ]
         return self._files_cache
 
     _annotations_cache: dict[Path, list[DiffAnnotation]] = {}
