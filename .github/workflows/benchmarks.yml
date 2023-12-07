@@ -26,4 +26,5 @@ jobs:
             AWS_ACCESS_KEY_ID: ${{ secrets.AWS_S3_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}
             AWS_DEFAULT_REGION: 'us-east-2'
+            OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
             SLACK_BENCHMARK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_BENCHMARK_NOTIFICATION_WEBHOOK }}
