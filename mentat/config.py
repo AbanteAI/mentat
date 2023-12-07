@@ -92,6 +92,13 @@ class Config:
         },
         converter=converters.optional(converters.to_bool),
     )
+    auto_context_llm: bool = attr.field(
+        default=False,
+        metadata={
+            "description": "Use LLM to post-select files for context (beta)",
+        },
+        converter=converters.optional(converters.to_bool),
+    )
     auto_tokens: int = attr.field(
         default=8000,
         metadata={

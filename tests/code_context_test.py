@@ -313,8 +313,9 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
         mock_session_context.git_root,
     )
     code_context.set_paths(["file_1.py"], [])
-    code_context.use_llm = False
+
     mock_session_context.config.auto_context = True
+    mock_session_context.config.auto_context_llm = False
 
     async def _count_max_tokens_where(limit: int) -> int:
         code_message = await code_context.get_code_message(prompt="", max_tokens=limit)
@@ -366,12 +367,12 @@ def test_get_all_features(temp_testbed, mock_session_context):
 @pytest.mark.asyncio
 async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_context):
     mock_session_context.config.auto_context = True
-    mocker.patch.object(Config, "maximum_context", new=7000)
+    mock_session_context.config.auto_context_llm = False
+    mock_session_context.config.maximum_context = 7000
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    code_context.use_llm = False
     code_context.set_paths([], [], ["scripts", "**/*.txt"])
     code_message = await code_context.get_code_message("", 1e6)
 

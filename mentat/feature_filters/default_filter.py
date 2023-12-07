@@ -14,13 +14,11 @@ class DefaultFilter(FeatureFilter):
     def __init__(
         self,
         max_tokens: int,
-        use_llm: bool = False,
         user_prompt: Optional[str] = None,
         expected_edits: Optional[list[str]] = None,
         loading_multiplier: float = 0.0,
     ):
         self.max_tokens = max_tokens
-        self.use_llm = use_llm
         self.user_prompt = user_prompt or ""
         self.levels = [CodeMessageLevel.FILE_NAME]
         self.expected_edits = expected_edits
@@ -30,15 +28,15 @@ class DefaultFilter(FeatureFilter):
         session = SESSION_CONTEXT.get()
         stream = session.stream
         model = session.config.model
-
+        use_llm = session.config.auto_context_llm
         if self.user_prompt != "":
             features = await EmbeddingSimilarityFilter(
-                self.user_prompt, (0.5 if self.use_llm else 1) * self.loading_multiplier
+                self.user_prompt, (0.5 if use_llm else 1) * self.loading_multiplier
             ).filter(features)
         # python sorts are stable (even with reversed=true) so the two groups: included and not included
         # will maintain their relative orders
         features = await UserIncludedSortFilter().filter(features)
-        if self.use_llm:
+        if use_llm:
             try:
                 features = await LLMFeatureFilter(
                     self.max_tokens,

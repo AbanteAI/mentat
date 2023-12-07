@@ -52,6 +52,8 @@ class LLMFeatureFilter(FeatureFilter):
         # Preselect as many features as fit in the context window
         model = config.feature_selection_model
         context_size = model_context_size(model)
+        if config.maximum_context is not None:
+            context_size = config.maximum_context
         if context_size is None:
             raise UserError(
                 "Unknown context size for feature selection model: "

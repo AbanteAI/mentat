@@ -131,7 +131,7 @@ class CodeContext:
         settings = {
             "prompt": prompt,
             "auto_context": config.auto_context,
-            "use_llm": self.use_llm,
+            "auto_context_llm": config.auto_context_llm,
             "diff": self.diff,
             "pr_diff": self.pr_diff,
             "max_tokens": max_tokens,
@@ -207,7 +207,6 @@ class CodeContext:
             )
             feature_filter = DefaultFilter(
                 auto_tokens,
-                self.use_llm,
                 prompt,
                 expected_edits,
                 loading_multiplier=loading_multiplier,
