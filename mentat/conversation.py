@@ -294,7 +294,7 @@ class Conversation:
             ChatCompletionSystemMessageParam(role="system", content=code_message)
         )
 
-        # Doesn't seem to improve performance much
+        # If we want to add agent specific messages in (this one didn't work too well):
         # if agent_handler.agent_enabled:
         # agent_message = (
         #    "You are currently being run autonomously. After making your changes,"

@@ -10,4 +10,4 @@ Only run commands that test the specific files you were given; do NOT run comman
 Do NOT run commands that use files that may not exist!
 If you can, try to run the actual files that you edited (or files that will use the files you edited).
 If you can, run a linter to automatically lint the files you changed. Don't run a linter check, run the command that will actually lint the file!
-Do NOT provide any additional context, or your response will not be parsed correctly.
+Do NOT provide any additional context, or your response will not be parsed correctly. Every line you create will be run, so do not give any non-command lines!
