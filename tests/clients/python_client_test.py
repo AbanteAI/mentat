@@ -11,10 +11,7 @@ async def test_editing_file_auto_accept(temp_testbed, mock_call_llm_api):
     with open(file_name, "w") as f:
         f.write("# Line 1")
 
-    mock_call_llm_api.set_streamed_values(
-        [
-            dedent(
-                f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         @@start
@@ -26,10 +23,7 @@ async def test_editing_file_auto_accept(temp_testbed, mock_call_llm_api):
         }}
         @@code
         # Line 2
-        @@end"""
-            )
-        ]
-    )
+        @@end""")])
 
     python_client = PythonClient(cwd=temp_testbed, paths=["."])
     await python_client.startup()
@@ -48,10 +42,7 @@ async def test_collects_mentat_response(temp_testbed, mock_call_llm_api):
     with open(file_name, "w") as f:
         f.write("# Line 1")
 
-    mock_call_llm_api.set_streamed_values(
-        [
-            dedent(
-                f"""\
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
         @@start
@@ -63,10 +54,7 @@ async def test_collects_mentat_response(temp_testbed, mock_call_llm_api):
         }}
         @@code
         # Line 2
-        @@end"""
-            )
-        ]
-    )
+        @@end""")])
 
     python_client = PythonClient(cwd=temp_testbed, paths=["."])
     python_client = PythonClient(cwd=temp_testbed, paths=["."])
