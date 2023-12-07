@@ -7,7 +7,6 @@ from .clear import ClearCommand
 from .commit import CommitCommand
 from .config import ConfigCommand
 from .context import ContextCommand
-from .conversation import ConversationCommand
 from .exclude import ExcludeCommand
 from .help import HelpCommand
 from .include import IncludeCommand
@@ -17,3 +16,4 @@ from .search import SearchCommand
 from .talk import TalkCommand
 from .undo import UndoCommand
 from .undoall import UndoAllCommand
+from .viewer import ViewerCommand

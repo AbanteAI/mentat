@@ -6,9 +6,7 @@ from mentat.transcripts import Transcript, get_transcript_logs
 from mentat.utils import create_viewer
 
 
-class ConversationCommand(Command, command_name="conversation"):
-    hidden = True
-
+class ViewerCommand(Command, command_name="viewer"):
     async def apply(self, *args: str) -> None:
         session_context = SESSION_CONTEXT.get()
         conversation = session_context.conversation
