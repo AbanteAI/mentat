@@ -64,8 +64,8 @@ class AgentHandler:
         ]
         self.agent_file_message = ""
         for path in paths:
-            file_contents = "\n".join(ctx.code_file_manager.read_file(path))
-            self.agent_file_message += f"{path}\n\n\n{file_contents}"
+            file_contents = "\n\n".join(ctx.code_file_manager.read_file(path))
+            self.agent_file_message += f"{path}\n\n{file_contents}"
 
         ctx.stream.send(
             "The model has chosen these files to help it determine how to test its"
@@ -92,9 +92,6 @@ class AgentHandler:
         model = ctx.config.model
         messages = ctx.conversation.get_messages() + [
             ChatCompletionSystemMessageParam(
-                role="system", content=self.agent_command_prompt
-            ),
-            ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_file_message
             ),
         ]
@@ -105,9 +102,14 @@ class AgentHandler:
         code_message = ChatCompletionSystemMessageParam(
             role="system", content=code_message
         )
-        messages = messages[:-1] + [code_message] + messages[-1:]
-        # TODO: Should this even be a separate call or should we collect commands in the edit call?
+        messages.append(code_message)
+        messages.append(
+            ChatCompletionSystemMessageParam(
+                role="system", content=self.agent_command_prompt
+            ),
+        )
         try:
+            # TODO: Should this even be a separate call or should we collect commands in the edit call?
             response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
         except BadRequestError as e:
             ctx.stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
