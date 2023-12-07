@@ -139,7 +139,9 @@ class AgentHandler:
         ctx.stream.send(
             "The model has chosen these commands to test its changes:", color="cyan"
         )
-        ctx.stream.send("\n".join(commands for commands in commands))
+        for command in commands:
+            ctx.stream.send("* ", end="")
+            ctx.stream.send(command, color="light_yellow")
         ctx.stream.send("Run these commands?", color="cyan")
         run_commands = await ask_yes_no(default_yes=True)
         if not run_commands:
