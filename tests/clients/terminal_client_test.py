@@ -1,6 +1,5 @@
 import os
 import subprocess
-from pathlib import Path
 from textwrap import dedent
 from unittest.mock import AsyncMock
 
@@ -36,6 +35,7 @@ def test_empty_prompt(
 
 
 def test_editing_file(
+    temp_testbed,
     mock_prompt_session_prompt,
     mock_call_llm_api,
 ):
@@ -62,7 +62,7 @@ def test_editing_file(
         # Line 2
         @@end""")])
 
-    terminal_client = TerminalClient(paths=["."])
+    terminal_client = TerminalClient(cwd=temp_testbed, paths=["."])
     terminal_client.run()
     with open(file_name, "r") as f:
         content = f.read()
@@ -71,6 +71,7 @@ def test_editing_file(
 
 
 def test_request_and_command(
+    temp_testbed,
     mock_prompt_session_prompt,
     mock_call_llm_api,
 ):
@@ -96,7 +97,7 @@ def test_request_and_command(
         # I created this file
         @@end""")])
 
-    terminal_client = TerminalClient(cwd=Path.cwd(), paths=["."])
+    terminal_client = TerminalClient(cwd=temp_testbed, paths=["."])
     terminal_client.run()
 
     with open(file_name, "r") as f:
