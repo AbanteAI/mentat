@@ -279,7 +279,6 @@ class CodeContext:
                     user_included=user_included,
                 )
                 _split_features = split_file_into_intervals(
-                    git_root,
                     full_feature,
                     user_features=self.include_files.get(abs_path, []),
                 )
