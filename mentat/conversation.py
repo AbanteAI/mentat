@@ -373,7 +373,8 @@ class Conversation:
         """
         ctx = SESSION_CONTEXT.get()
 
-        ctx.stream.send(f"Running command: {' '.join(command)}", color="cyan")
+        ctx.stream.send("Running command: ", end="", color="cyan")
+        ctx.stream.send(" ".join(command), color="yellow")
         ctx.stream.send("Command output:", color="cyan")
 
         try:
@@ -408,7 +409,7 @@ class Conversation:
                 ChatCompletionSystemMessageParam(role="system", content=message)
             )
             ctx.stream.send(
-                "Successfully added command output to model context.", color="cyan"
+                "Successfully added command output to model context.", color="green"
             )
             return True
         else:
