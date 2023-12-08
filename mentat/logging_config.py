@@ -68,3 +68,19 @@ def setup_logging():
     transcripts_logger.addHandler(transcripts_handler)
     transcripts_logger.setLevel(logging.INFO)
     transcripts_logger.propagate = False
+
+    # Server logger
+    server_logger = logging.getLogger("mentat:server")
+    if server_logger.hasHandlers():
+        server_logger.handlers.clear()
+    server_logger.setLevel(logging.DEBUG)
+    server_console_handler = logging.StreamHandler()
+    server_formatter = logging.Formatter("%(levelname)s - %(message)s")
+    server_console_handler.setFormatter(server_formatter)
+    server_logger.addHandler(server_console_handler)
+    server_file_handler = logging.FileHandler(
+        logs_path.joinpath("server.log"), mode="w"
+    )
+    server_file_handler.setFormatter(server_formatter)
+    server_logger.addHandler(server_file_handler)
+    server_logger.propagate = False

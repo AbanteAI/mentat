@@ -25,6 +25,7 @@ setup(
     entry_points={
         "console_scripts": [
             "mentat=mentat.terminal.client:run_cli",
+            "mentat-language-server=mentat.language_server:main",
         ],
     },
     description="AI coding assistant on your command line",
