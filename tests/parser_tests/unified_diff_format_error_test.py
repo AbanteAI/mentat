@@ -14,6 +14,7 @@ def unified_diff_parser(mocker):
 
 @pytest.mark.asyncio
 async def test_not_matching(
+    temp_testbed,
     mock_call_llm_api,
     mock_collect_user_input,
 ):
@@ -44,7 +45,7 @@ async def test_not_matching(
         +# your captain speaking
          # 4 lines""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
@@ -59,6 +60,7 @@ async def test_not_matching(
 
 @pytest.mark.asyncio
 async def test_no_prefix(
+    temp_testbed,
     mock_call_llm_api,
     mock_collect_user_input,
 ):
@@ -89,7 +91,7 @@ async def test_no_prefix(
         +# your captain speaking
         # 4 lines""")])
 
-    session = Session([temp_file_name])
+    session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:

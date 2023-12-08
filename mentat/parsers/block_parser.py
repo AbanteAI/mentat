@@ -95,7 +95,7 @@ class BlockParser(Parser):
     def _special_block(
         self,
         code_file_manager: CodeFileManager,
-        git_root: Path,
+        cwd: Path,
         rename_map: dict[Path, Path],
         special_block: str,
     ) -> tuple[DisplayInformation, FileEdit, bool]:
@@ -167,12 +167,12 @@ class BlockParser(Parser):
         if deserialized_json.action == _BlockParserAction.Delete:
             replacements.append(Replacement(starting_line, ending_line, []))
         file_edit = FileEdit(
-            git_root / deserialized_json.file,
+            cwd / deserialized_json.file,
             replacements,
             is_creation=file_action == FileActionType.CreateFile,
             is_deletion=file_action == FileActionType.DeleteFile,
             rename_file_path=(
-                git_root / deserialized_json.name if deserialized_json.name else None
+                cwd / deserialized_json.name if deserialized_json.name else None
             ),
         )
         has_code = block[-1] == _BlockParserIndicator.Code.value
@@ -206,13 +206,12 @@ class BlockParser(Parser):
         Inverse of stream_and_parse_llm_response
         """
         session_context = SESSION_CONTEXT.get()
-        git_root = session_context.git_root
 
         ans = parsedLLMResponse.conversation.strip() + "\n\n"
         for file_edit in parsedLLMResponse.file_edits:
             tmp = {}
             tmp[_BlockParserJsonKeys.File.value] = file_edit.file_path.relative_to(
-                git_root
+                session_context.cwd
             ).as_posix()
             if file_edit.is_creation:
                 tmp[_BlockParserJsonKeys.Action.value] = (
@@ -227,7 +226,9 @@ class BlockParser(Parser):
                     _BlockParserAction.RenameFile.value
                 )
                 tmp[_BlockParserJsonKeys.Name.value] = (
-                    file_edit.rename_file_path.relative_to(git_root).as_posix()
+                    file_edit.rename_file_path.relative_to(
+                        session_context.cwd
+                    ).as_posix()
                 )
             if _BlockParserJsonKeys.Action.value in tmp:
                 ans += _BlockParserIndicator.Start.value + "\n"
@@ -243,7 +244,7 @@ class BlockParser(Parser):
                 for replacement in file_edit.replacements:
                     tmp = {}
                     tmp[_BlockParserJsonKeys.File.value] = (
-                        file_edit.file_path.relative_to(git_root).as_posix()
+                        file_edit.file_path.relative_to(session_context.cwd).as_posix()
                     )
                     ans += _BlockParserIndicator.Start.value + "\n"
                     starting_line = replacement.starting_line

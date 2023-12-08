@@ -31,7 +31,6 @@ class GitParser:
 
     def parse_string(self, git_diff: str) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
-        git_root = session_context.git_root
 
         # This is safe because actual code is prepended with ' ', + or -.
         split_on_diff = git_diff.split("\ndiff --git ")
@@ -52,7 +51,7 @@ class GitParser:
                 new_name = None
 
             file_edit = FileEdit(
-                git_root / start_file_name,
+                session_context.cwd / start_file_name,
                 [],
                 is_creation=is_creation,
                 is_deletion=is_deletion,

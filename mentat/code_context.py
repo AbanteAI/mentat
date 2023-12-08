@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Union
 
 from mentat.code_feature import (
     CodeFeature,
@@ -54,6 +54,9 @@ class CodeContext:
 
         # TODO: This is a dict so we can quickly reference either a path (key)
         # or the CodeFeatures (value) and their intervals. Redundant.
+        self.include_files: Dict[Path, List[CodeFeature]] = {}
+        self.ignore_files: Set[Path] = set()
+        self.features: List[CodeFeature] = []
         self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
         self.features: List[CodeFeature] = []
@@ -266,13 +269,18 @@ class CodeContext:
     ) -> list[CodeFeature]:
         session_context = SESSION_CONTEXT.get()
 
+        abs_exclude_patterns: Set[Path] = set()
+        for pattern in self.ignore_patterns.union(
+            session_context.config.file_exclude_glob_list
+        ):
+            if not Path(pattern).is_absolute():
+                abs_exclude_patterns.add(session_context.cwd / pattern)
+            else:
+                abs_exclude_patterns.add(Path(pattern))
+
         all_features: List[CodeFeature] = []
         for path in get_paths_for_directory(
-            path=session_context.cwd,
-            exclude_patterns=[
-                *self.ignore_patterns,
-                *session_context.config.file_exclude_glob_list,
-            ],
+            path=session_context.cwd, exclude_patterns=abs_exclude_patterns
         ):
             if not is_file_text_encoded(path) or os.path.getsize(path) > max_chars:
                 continue
@@ -305,6 +313,24 @@ class CodeContext:
                 )
                 all_features.append(_feature)
 
+            # if level == CodeMessageLevel.INTERVAL:
+            #     full_feature = CodeFeature(
+            #         path,
+            #         level=CodeMessageLevel.CODE,
+            #         diff=diff_target,
+            #         user_included=user_included,
+            #     )
+            #     if self.ctags_disabled:
+            #         all_features.append(full_feature)
+            #     else:
+            #         _split_features = split_file_into_intervals(
+            #             full_feature, user_features=self.include_files.get(path, [])
+            #         )
+            #         all_features += _split_features
+            # else:
+            #     _feature = CodeFeature(path, level=level, diff=diff_target, user_included=user_included)
+            #     all_features.append(_feature)
+
         return sorted(all_features, key=lambda f: f.path)
 
     def include(
@@ -331,16 +357,26 @@ class CodeContext:
 
         path = Path(path)
 
+        abs_exclude_patterns: Set[Path] = set()
+        all_exclude_patterns: Set[Union[str, Path]] = set(
+            [
+                *exclude_patterns,
+                *self.ignore_patterns,
+                *session_context.config.file_exclude_glob_list,
+            ]
+        )
+        for pattern in all_exclude_patterns:
+            if not Path(pattern).is_absolute():
+                abs_exclude_patterns.add(session_context.cwd / pattern)
+            else:
+                abs_exclude_patterns.add(Path(pattern))
+
         included_paths: Set[Path] = set()
         try:
             code_features = get_code_features_for_path(
                 path=path,
                 cwd=session_context.cwd,
-                exclude_patterns=[
-                    *exclude_patterns,
-                    *self.ignore_patterns,
-                    *session_context.config.file_exclude_glob_list,
-                ],
+                exclude_patterns=abs_exclude_patterns,
             )
         except PathValidationError as e:
             session_context.stream.send(e, color="light_red")
@@ -421,7 +457,7 @@ class CodeContext:
 
         paths_to_exclude: Set[Path] = set()
         for included_path in self.include_files:
-            if match_path_with_patterns(included_path, set(str(path))):
+            if match_path_with_patterns(included_path, set([path])):
                 paths_to_exclude.add(included_path)
         for excluded_path in paths_to_exclude:
             del self.include_files[excluded_path]

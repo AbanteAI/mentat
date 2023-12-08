@@ -36,7 +36,7 @@ async def test_commit_command(temp_testbed, mock_collect_user_input):
         ]
     )
 
-    session = Session(cwd=Path.cwd())
+    session = Session(cwd=temp_testbed, paths=[])
     session.start()
     await session.stream.recv(channel="client_exit")
 

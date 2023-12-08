@@ -108,10 +108,12 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_session_context):
     code_context.include(".")
     code_context.include(directly_added_glob_excluded_path)
 
-    file_paths = [str(file_path.resolve()) for file_path in code_context.include_files]
-    assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
-    assert os.path.join(temp_testbed, glob_include_path) in file_paths
-    assert os.path.join(temp_testbed, directly_added_glob_excluded_path) in file_paths
+    assert Path(temp_testbed / glob_exclude_path) not in code_context.include_files
+    assert Path(temp_testbed / glob_include_path) in code_context.include_files
+    assert (
+        Path(temp_testbed / directly_added_glob_excluded_path)
+        in code_context.include_files
+    )
 
 
 @pytest.mark.asyncio
