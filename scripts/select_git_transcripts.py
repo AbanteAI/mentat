@@ -50,7 +50,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--file",
         type=str,
-        default="tests/benchmarks/repos/mentat/commit_information.json",
+        default="repos/mentat/commit_information.json",
         help="The commit information file to convert to transcripts",
     )
     parser.add_argument(

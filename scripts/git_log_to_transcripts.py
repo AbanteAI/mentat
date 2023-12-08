@@ -211,7 +211,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     repo_name = args.repo.split("/")[-1]
     clone_repo(args.repo, repo_name, depth=args.count)
-    os.chdir(f"tests/benchmarks/repos/{repo_name}")
+    os.chdir(f"benchmark_repos/{repo_name}")
     old_benchmarks = {}
     if os.path.exists("benchmarks.json"):
         with open("benchmarks.json", "r") as f:

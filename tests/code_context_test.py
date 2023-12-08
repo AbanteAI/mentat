@@ -341,7 +341,7 @@ def test_get_all_features(temp_testbed, mock_session_context):
         mock_session_context.stream,
         mock_session_context.git_root,
     )
-    features = code_context._get_all_features(level=CodeMessageLevel.CODE)
+    features = code_context.get_all_features(level=CodeMessageLevel.CODE)
     assert len(features) == 2
     feature1 = next(f for f in features if f.path == path1)
     feature2 = next(f for f in features if f.path == path2)
@@ -354,7 +354,7 @@ def test_get_all_features(temp_testbed, mock_session_context):
 
     # Test with include_files argument matching one file
     code_context.include(path1)
-    features = code_context._get_all_features(level=CodeMessageLevel.FILE_NAME)
+    features = code_context.get_all_features(level=CodeMessageLevel.FILE_NAME)
     assert len(features) == 2
     feature1b = next(f for f in features if f.path == path1)
     feature2b = next(f for f in features if f.path == path2)
@@ -371,7 +371,7 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
     code_context = CodeContext(
         mock_session_context.stream,
         mock_session_context.git_root,
-        exclude_patterns=["scripts", "**/*.txt"],
+        ignore_patterns=["scripts", "**/*.txt"],
     )
     code_context.use_llm = False
     code_message = await code_context.get_code_message("", 1e6)

@@ -303,12 +303,14 @@ def get_code_features_for_path(
             code_features = set(CodeFeature(p) for p in paths)
 
     return code_features
+    return code_features
 
 
 def build_path_tree(files: list[Path], cwd: Path):
     """Builds a tree of paths from a list of CodeFiles."""
     tree = dict[str, Any]()
     for file in files:
+        path = os.path.relpath(file, cwd)
         path = os.path.relpath(file, cwd)
         parts = Path(path).parts
         current_level = tree
