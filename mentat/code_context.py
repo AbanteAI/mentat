@@ -9,6 +9,7 @@ from mentat.code_feature import (
     CodeMessageLevel,
     get_code_message_from_features,
     get_consolidated_feature_refs,
+    parse_intervals,
     split_file_into_intervals,
 )
 from mentat.diff_context import DiffContext
@@ -28,7 +29,6 @@ from mentat.include_files import (
     print_path_tree,
     validate_and_format_path,
 )
-from mentat.interval import parse_intervals
 from mentat.llm_api_handler import count_tokens, is_test_environment
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
@@ -44,19 +44,19 @@ class CodeContext:
         pr_diff: Optional[str] = None,
         ignore_patterns: Iterable[Path | str] = [],
     ):
+        self.git_root = git_root
         self.diff = diff
         self.pr_diff = pr_diff
         self.ignore_patterns = set(Path(p) for p in ignore_patterns)
 
         self.diff_context = None
-        if git_root:
-            self.diff_context = DiffContext(stream, git_root, self.diff, self.pr_diff)
+        if self.git_root:
+            self.diff_context = DiffContext(
+                stream, self.git_root, self.diff, self.pr_diff
+            )
 
         # TODO: This is a dict so we can quickly reference either a path (key)
         # or the CodeFeatures (value) and their intervals. Redundant.
-        self.include_files: Dict[Path, List[CodeFeature]] = {}
-        self.ignore_files: Set[Path] = set()
-        self.features: List[CodeFeature] = []
         self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
         self.features: List[CodeFeature] = []
@@ -78,7 +78,7 @@ class CodeContext:
             stream.send(f"{prefix + prefix}{session_context.cwd.name}")
             print_path_tree(
                 build_path_tree(list(self.include_files.keys()), session_context.cwd),
-                get_paths_with_git_diffs(),
+                get_paths_with_git_diffs(self.git_root) if self.git_root else set(),
                 session_context.cwd,
                 prefix + prefix,
             )
@@ -103,7 +103,7 @@ class CodeContext:
             refs = get_consolidated_feature_refs(features)
             print_path_tree(
                 build_path_tree([Path(r) for r in refs], session_context.cwd),
-                get_paths_with_git_diffs(),
+                get_paths_with_git_diffs(self.git_root) if self.git_root else set(),
                 session_context.cwd,
                 prefix + prefix,
             )
@@ -312,24 +312,6 @@ class CodeContext:
                     path, level=level, diff=diff_target, user_included=user_included
                 )
                 all_features.append(_feature)
-
-            # if level == CodeMessageLevel.INTERVAL:
-            #     full_feature = CodeFeature(
-            #         path,
-            #         level=CodeMessageLevel.CODE,
-            #         diff=diff_target,
-            #         user_included=user_included,
-            #     )
-            #     if self.ctags_disabled:
-            #         all_features.append(full_feature)
-            #     else:
-            #         _split_features = split_file_into_intervals(
-            #             full_feature, user_features=self.include_files.get(path, [])
-            #         )
-            #         all_features += _split_features
-            # else:
-            #     _feature = CodeFeature(path, level=level, diff=diff_target, user_included=user_included)
-            #     all_features.append(_feature)
 
         return sorted(all_features, key=lambda f: f.path)
 

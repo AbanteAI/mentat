@@ -50,7 +50,7 @@ class AgentHandler:
             ChatCompletionSystemMessageParam(
                 role="system",
                 content="\n".join(
-                    str(feature.path.relative_to(ctx.git_root)) for feature in features
+                    str(feature.path.relative_to(ctx.cwd)) for feature in features
                 ),
             ),
         ]
