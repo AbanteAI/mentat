@@ -83,31 +83,6 @@ def get_git_root_for_path(path: Path, raise_error: bool = True) -> Optional[Path
             return
 
 
-def get_shared_git_root_for_paths(paths: list[Path]) -> Path:
-    git_roots = set[Path]()
-    for path in paths:
-        git_root = get_git_root_for_path(path)
-        if git_root is None:
-            logging.error(f"File {path} isn't part of a git project.")
-            raise UserError()
-        git_roots.add(git_root)
-    if not paths:
-        git_root = get_git_root_for_path(Path(os.getcwd()))
-        git_roots.add(git_root)  # pyright: ignore
-
-    if len(git_roots) > 1:
-        logging.error(
-            "All paths must be part of the same git project! Projects provided:"
-            f" {git_roots}"
-        )
-        raise UserError()
-    elif len(git_roots) == 0:
-        logging.error("No git projects provided.")
-        raise UserError()
-
-    return git_roots.pop()
-
-
 def commit(message: str) -> None:
     """
     Commit all unstaged and staged changes
