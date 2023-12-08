@@ -1,40 +1,19 @@
+import fnmatch
 import glob
-import logging
 import os
-from collections import defaultdict
+import re
+from enum import Enum
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Iterable, List, Set
 
-from mentat.code_feature import CodeFeature, parse_intervals
-from mentat.git_handler import get_non_gitignored_files
+from mentat.code_feature import CodeFeature
+from mentat.errors import PathValidationError
+from mentat.git_handler import get_git_root_for_path, get_non_gitignored_files
+from mentat.interval import parse_intervals
 from mentat.session_context import SESSION_CONTEXT
 
 
-def expand_paths(paths: list[Path]) -> tuple[list[Path], list[str]]:
-    """Expand paths/globs into a list of absolute paths."""
-    globbed_paths = set[str]()
-    invalid_paths = set[str]()
-    for path in paths:
-        new_paths = glob.glob(pathname=str(path), recursive=True)
-        if new_paths:
-            globbed_paths.update(new_paths)
-        elif Path(path).exists():
-            globbed_paths.add(str(path))
-        else:
-            split = str(path).rsplit(":", 1)
-            p = Path(split[0])
-            if len(split) > 1:
-                intervals = parse_intervals(split[1])
-            else:
-                intervals = None
-            if Path(p).exists() and intervals:
-                for interval in intervals:
-                    globbed_paths.add(f"{p}:{interval.start}-{interval.end}")
-            else:
-                invalid_paths.add(str(path))
-    return [Path(path).resolve() for path in globbed_paths], list(invalid_paths)
-
-
+# TODO: replace this with something that doesn't load the file into memory
 def is_file_text_encoded(abs_path: Path):
     """Checks if a file is text encoded."""
     try:
@@ -46,104 +25,290 @@ def is_file_text_encoded(abs_path: Path):
         return False
 
 
-def abs_files_from_list(paths: list[Path], check_for_text: bool = True):
-    """Returns a set of CodeFiles from a list of paths."""
-    files_direct = set[CodeFeature]()
-    file_paths_from_dirs = set[Path]()
-    invalid_paths = list[str]()
-    for path in paths:
-        file = CodeFeature(os.path.realpath(path))
-        path = Path(file.path)
-        if path.is_file():
-            if check_for_text and not is_file_text_encoded(path):
-                logging.info(f"File path {path} is not text encoded.")
-                invalid_paths.append(str(path))
-            else:
-                files_direct.add(file)
-        elif path.is_dir():
-            nonignored_files = set(
-                map(
-                    lambda f: Path(os.path.realpath(path / f)),
-                    get_non_gitignored_files(path),
+class PathType(Enum):
+    FILE = "file"
+    FILE_INTERVAL = "file_interval"
+    DIRECTORY = "directory"
+    GLOB = "glob"
+
+
+def is_interval_path(path: Path) -> bool:
+    splits = str(path).rsplit(":", 1)
+    if len(splits) != 2:
+        return False
+    interval_str = splits[1]
+    intervals = parse_intervals(interval_str)
+    if len(intervals) == 0:
+        return False
+    return True
+
+
+def get_path_type(path: Path) -> PathType:
+    """Get the type of path.
+
+    Args:
+        `path` - An absolute path
+
+    Return:
+        A PathType enum
+    """
+    if not path.is_absolute():
+        raise PathValidationError(f"Path {path} is not absolute")
+
+    if path.is_file():
+        return PathType.FILE
+    elif is_interval_path(path):
+        return PathType.FILE_INTERVAL
+    elif path.is_dir():
+        return PathType.DIRECTORY
+    elif re.search(r"[\*\?\[\]]", str(path)):
+        return PathType.GLOB
+    else:
+        raise PathValidationError(f"Unknown path type {path}")
+
+
+def validate_file_path(path: Path, check_for_text: bool = True) -> None:
+    if not path.is_absolute():
+        raise PathValidationError(f"File {path} is not absolute")
+    if not path.exists():
+        raise PathValidationError(f"File {path} does not exist")
+    if check_for_text and not is_file_text_encoded(path):
+        raise PathValidationError(f"Unable to read file {path}")
+
+
+def validate_file_interval_path(path: Path, check_for_text: bool = True) -> None:
+    _interval_path, interval_str = str(path).rsplit(":", 1)
+    interval_path = Path(_interval_path)
+    if not interval_path.is_absolute():
+        raise PathValidationError(f"File interval {path} is not absolute")
+    if not interval_path.exists():
+        raise PathValidationError(f"File {interval_path} does not exist")
+    if check_for_text and not is_file_text_encoded(interval_path):
+        raise PathValidationError(f"Unable to read file {interval_path}")
+
+    # check that there is at least one interval
+    intervals = parse_intervals(interval_str)
+    if len(intervals) == 0:
+        raise PathValidationError(f"Unable to parse intervals for path {interval_path}")
+
+    # check that each interval exists
+    if check_for_text:
+        with open(interval_path, "r") as f:
+            line_count = len(f.readlines())
+        for interval in intervals:
+            if interval.start < 0 or interval.end > line_count:
+                raise PathValidationError(
+                    f"Interval {interval.start}-{interval.end} is out of bounds for"
+                    f" file {interval_path}"
                 )
-            )
 
-            file_paths_from_dirs.update(
-                filter(
-                    lambda f: (not check_for_text) or is_file_text_encoded(f),
-                    nonignored_files,
+
+def validate_glob_path(path: Path) -> None:
+    if not path.is_absolute():
+        raise PathValidationError(f"Glob path {path} is not absolute")
+    try:
+        glob.iglob(str(path)).__next__()
+    except StopIteration:
+        raise PathValidationError(f"Unable to validate glob path {path}")
+
+
+def validate_and_format_path(
+    path: Path | str, cwd: Path, check_for_text: bool = True
+) -> Path:
+    """Validate and format a path.
+
+    Args:
+        `path` - A file path, file interval path, directory path, or a glob pattern
+        `check_for_text` - Check if the file can be opened. Default to True
+
+    Return:
+        An absolute path
+    """
+    path = Path(path)
+
+    # Get absolute path
+    if path.is_absolute():
+        abs_path = path
+    else:
+        abs_path = cwd.joinpath(path)
+
+    # Resolve path (remove any '..')
+    abs_path = abs_path.resolve()
+
+    # Validate path
+    match get_path_type(abs_path):
+        case PathType.FILE:
+            validate_file_path(abs_path, check_for_text)
+        case PathType.FILE_INTERVAL:
+            validate_file_interval_path(abs_path, check_for_text)
+        case PathType.DIRECTORY:
+            pass
+        case PathType.GLOB:
+            validate_glob_path(abs_path)
+
+    return abs_path
+
+
+def match_path_with_patterns(path: Path, patterns: Set[str]) -> bool:
+    """Check if the given absolute path matches any of the patterns.
+
+    TODO: enforce valid glob patterns? Right now we allow glob-like
+    patterns (the one's that .gitignore uses). This feels weird imo.
+    """
+    if not path.is_absolute():
+        raise PathValidationError(f"Path {path} is not absolute")
+
+    for pattern in patterns:
+        # Prepend '**' to relative patterns that are missing it
+        if not Path(pattern).is_absolute() and not pattern.startswith("**"):
+            if fnmatch.fnmatch(str(path), str(Path("**").joinpath(pattern))):
+                return True
+        if fnmatch.fnmatch(str(path), pattern):
+            return True
+        for part in path.parts:
+            if fnmatch.fnmatch(str(part), pattern):
+                return True
+
+    return False
+
+
+def get_paths_for_directory(
+    path: Path,
+    include_patterns: Iterable[Path | str] = [],
+    exclude_patterns: Iterable[Path | str] = [],
+    recursive: bool = True,
+) -> Set[Path]:
+    """Get all file paths in a directory.
+
+    Args:
+        `path` - An absolute path to a directory on the filesystem
+        `include_patterns` - An iterable of paths and/or glob patterns to include
+        `exclude_patterns` - An iterable of paths and/or glob patterns to exclude
+        `recursive` - A boolean flag to recursive traverse child directories
+
+    Return:
+        A set of absolute file paths
+    """
+    paths: Set[Path] = set()
+
+    if not path.exists():
+        raise PathValidationError(f"Path {path} does not exist")
+    if not path.is_dir():
+        raise PathValidationError(f"Path {path} is not a directory")
+    if not path.is_absolute():
+        raise PathValidationError(f"Path {path} is not absolute")
+
+    all_include_patterns = set(str(p) for p in include_patterns)
+    all_exclude_patterns = set(str(p) for p in exclude_patterns)
+
+    for root, dirs, files in os.walk(path, topdown=True):
+        root = Path(root)
+
+        if get_git_root_for_path(root, raise_error=False):
+            dirs[:] = []
+            git_non_gitignored_paths = get_non_gitignored_files(root)
+            for git_path in git_non_gitignored_paths:
+                abs_git_path = root.joinpath(git_path)
+                if not recursive and git_path.parent != Path("."):
+                    continue
+                if any(include_patterns) and not match_path_with_patterns(
+                    abs_git_path, all_include_patterns
+                ):
+                    continue
+                if any(exclude_patterns) and match_path_with_patterns(
+                    abs_git_path, all_exclude_patterns
+                ):
+                    continue
+                paths.add(abs_git_path)
+
+        else:
+            for file in files:
+                abs_file_path = root.joinpath(file)
+                if any(include_patterns) and not match_path_with_patterns(
+                    abs_file_path, all_include_patterns
+                ):
+                    continue
+                if any(exclude_patterns) and match_path_with_patterns(
+                    abs_file_path, all_exclude_patterns
+                ):
+                    continue
+                paths.add(abs_file_path)
+
+            if not recursive:
+                break
+
+            filtered_dirs: List[str] = []
+            for dir_ in dirs:
+                abs_dir_path = root.joinpath(dir_)
+                if any(include_patterns) and not match_path_with_patterns(
+                    abs_dir_path, all_include_patterns
+                ):
+                    continue
+                if any(exclude_patterns) and match_path_with_patterns(
+                    abs_dir_path, all_exclude_patterns
+                ):
+                    continue
+                filtered_dirs.append(dir_)
+            dirs[:] = filtered_dirs
+
+    return paths
+
+
+def get_code_features_for_path(
+    path: Path,
+    cwd: Path,
+    include_patterns: Iterable[Path | str] = [],
+    exclude_patterns: Iterable[Path | str] = [],
+) -> Set[CodeFeature]:
+    validated_path = validate_and_format_path(path, cwd)
+    match get_path_type(validated_path):
+        case PathType.FILE:
+            code_features = set([CodeFeature(validated_path)])
+        case PathType.FILE_INTERVAL:
+            interval_path, interval_str = str(validated_path).rsplit(":", 1)
+            intervals = parse_intervals(interval_str)
+            code_features: Set[CodeFeature] = set()
+            for interval in intervals:
+                code_feature = CodeFeature(
+                    f"{interval_path}:{interval.start}-{interval.end}"
                 )
+                code_features.add(code_feature)
+        case PathType.DIRECTORY:
+            paths = get_paths_for_directory(
+                validated_path, include_patterns, exclude_patterns
             )
+            code_features = set(CodeFeature(p) for p in paths)
+        case PathType.GLOB:
+            root_parts: List[str] = []
+            pattern: str | None = None
+            for i, part in enumerate(validated_path.parts):
+                if re.search(r"[\*\?\[\]]", str(part)):
+                    pattern = str(Path().joinpath(*validated_path.parts[i:]))
+                    break
+                root_parts.append(part)
+            if pattern is None:
+                raise PathValidationError(
+                    f"Unable to parse glob pattern {validated_path}"
+                )
+            root = Path().joinpath(*root_parts)
+            paths = get_paths_for_directory(
+                root,
+                include_patterns=(
+                    [*include_patterns, pattern] if pattern != "*" else include_patterns
+                ),
+                exclude_patterns=exclude_patterns,
+                recursive=True,
+            )
+            code_features = set(CodeFeature(p) for p in paths)
 
-    files_from_dirs = set(CodeFeature(path.resolve()) for path in file_paths_from_dirs)
-    return files_direct, files_from_dirs, invalid_paths
-
-
-def get_ignore_files(ignore_paths: list[Path]) -> set[Path]:
-    """Returns a set of files to ignore from a list of ignore paths."""
-
-    ignore_paths, _ = expand_paths(ignore_paths)
-
-    files_direct, files_from_dirs, _ = abs_files_from_list(
-        ignore_paths, check_for_text=False
-    )
-    return {f.path for f in files_direct | files_from_dirs}
-
-
-def get_include_files(
-    paths: list[Path], exclude_paths: list[Path]
-) -> tuple[Dict[Path, list[CodeFeature]], list[str]]:
-    """Returns a complete list of text files in a given set of include/exclude Paths."""
-    session_context = SESSION_CONTEXT.get()
-    git_root = session_context.git_root
-    config = session_context.config
-
-    paths, invalid_paths = expand_paths(paths)
-    exclude_paths, _ = expand_paths(exclude_paths)
-
-    excluded_files_direct, excluded_files_from_dirs, _ = abs_files_from_list(
-        exclude_paths, check_for_text=False
-    )
-    excluded_files = set(
-        map(lambda f: f.path, excluded_files_direct | excluded_files_from_dirs)
-    )
-
-    glob_excluded_files = set(
-        Path(os.path.join(git_root, file))
-        for glob_path in config.file_exclude_glob_list
-        # If the user puts a / at the beginning, it will try to look in root directory
-        for file in glob.glob(
-            pathname=glob_path,
-            root_dir=git_root,
-            recursive=True,
-        )
-    )
-    files_direct, files_from_dirs, non_text_paths = abs_files_from_list(
-        paths, check_for_text=True
-    )
-    invalid_paths.extend(non_text_paths)
-
-    # config glob excluded files only apply to files added from directories
-    files_from_dirs = [
-        file
-        for file in files_from_dirs
-        if file.path.resolve() not in glob_excluded_files
-    ]
-    files_direct.update(files_from_dirs)
-
-    files: defaultdict[Path, list[CodeFeature]] = defaultdict(list)
-    for file in files_direct:
-        if file.path not in excluded_files:
-            files[file.path.resolve()].append(file)
-
-    return dict(files), invalid_paths
+    return code_features
 
 
-def build_path_tree(files: list[Path], git_root: Path):
+def build_path_tree(files: list[Path], cwd: Path):
     """Builds a tree of paths from a list of CodeFiles."""
     tree = dict[str, Any]()
     for file in files:
-        path = os.path.relpath(file, git_root)
+        path = os.path.relpath(file, cwd)
         parts = Path(path).parts
         current_level = tree
         for part in parts:
@@ -175,28 +340,3 @@ def print_path_tree(
         stream.send(f"{star}{key}", color=color)
         if tree[key]:
             print_path_tree(tree[key], changed_files, cur, new_prefix)
-
-
-def print_invalid_path(invalid_path: str):
-    session_context = SESSION_CONTEXT.get()
-    stream = session_context.stream
-    git_root = session_context.git_root
-
-    abs_path = Path(invalid_path).absolute()
-    if "*" in invalid_path:
-        stream.send(
-            f"The glob pattern {invalid_path} did not match any files",
-            color="light_red",
-        )
-    elif not abs_path.exists():
-        stream.send(
-            f"The path {invalid_path} does not exist and was skipped", color="light_red"
-        )
-    elif not is_file_text_encoded(abs_path):
-        rel_path = abs_path.relative_to(git_root)
-        stream.send(
-            f"The file {rel_path} is not text encoded and was skipped",
-            color="light_red",
-        )
-    else:
-        stream.send(f"The file {invalid_path} was skipped", color="light_red")

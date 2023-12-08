@@ -4,7 +4,6 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.include_files import get_include_files
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.session import Session
 
@@ -18,9 +17,7 @@ async def test_posix_paths(mock_session_context):
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
         file_file.write("I am a file")
-    mock_session_context.code_context.include_files, _ = get_include_files(
-        [file_path], []
-    )
+    mock_session_context.code_context.include(file_path)
 
     code_message = await mock_session_context.code_context.get_code_message("", 1e6)
     assert dir_name + "/" + file_name in code_message.split("\n")
@@ -40,10 +37,9 @@ async def test_partial_files(mocker, mock_session_context):
              fourth
              fifth"""))
 
-    file_path_partial = file_path + ":1-2,3-6"
-    mock_session_context.code_context.include_files, _ = get_include_files(
-        [file_path_partial], []
-    )
+    file_path_partial = Path(file_path + ":1,3-5")
+    mock_session_context.code_context.include(file_path_partial)
+    mock_session_context.code_context.code_map = False
 
     code_message = await mock_session_context.code_context.get_code_message(
         "", max_tokens=1e6
@@ -56,8 +52,7 @@ async def test_partial_files(mocker, mock_session_context):
             ...
             3:third
             4:fourth
-            5:fifth
-              """)
+            """)
 
 
 @pytest.mark.asyncio
@@ -174,7 +169,7 @@ async def test_changed_file(
         file_file.write("I am a file")
 
     code_context = mock_session_context.code_context
-    code_context.include_files, _ = get_include_files([file_path], [])
+    code_context.include(file_path)
 
     # Load code_file_manager's file_lines
     code_file_manager = mock_session_context.code_file_manager

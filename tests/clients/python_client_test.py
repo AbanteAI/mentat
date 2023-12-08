@@ -57,7 +57,6 @@ async def test_collects_mentat_response(temp_testbed, mock_call_llm_api):
         @@end""")])
 
     python_client = PythonClient(cwd=temp_testbed, paths=["."])
-    python_client = PythonClient(cwd=temp_testbed, paths=["."])
     await python_client.startup()
     response = await python_client.call_mentat("Conversation")
     response += await python_client.call_mentat("y")

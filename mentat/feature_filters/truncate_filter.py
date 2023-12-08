@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from mentat.code_feature import CodeFeature, CodeMessageLevel
 from mentat.feature_filters.feature_filter import FeatureFilter
 
@@ -17,7 +19,7 @@ class TruncateFilter(FeatureFilter):
 
     async def filter(
         self,
-        features: list[CodeFeature],
+        features: Iterable[CodeFeature],
     ) -> list[CodeFeature]:
         """Truncate the features to max_token tokens."""
         output = list[CodeFeature]()

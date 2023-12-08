@@ -294,6 +294,18 @@ def mock_session_context(temp_testbed):
     SESSION_CONTEXT.reset(token)
 
 
+@pytest.fixture
+def mock_code_context(temp_testbed, mock_session_context):
+    code_context = CodeContext(
+        mock_session_context.stream,
+        mock_session_context.cwd,
+    )
+    return code_context
+
+
+### Auto-used fixtures
+
+
 def run_git_command(cwd, *args):
     """Helper function to run a git command."""
     subprocess.run(

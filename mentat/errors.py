@@ -32,3 +32,7 @@ class SessionExit(Exception):
     """
     Stops the session without any sign of error.
     """
+
+
+class PathValidationError(Exception):
+    pass
