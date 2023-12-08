@@ -73,17 +73,7 @@ class CodeContext:
         if self.diff_context and self.diff_context.name:
             stream.send(f"{prefix}Diff:", end=" ")
             stream.send(self.diff_context.get_display_context(), color="green")
-        if self.include_files:
-            stream.send(f"{prefix}Included files:")
-            stream.send(f"{prefix + prefix}{session_context.cwd.name}")
-            print_path_tree(
-                build_path_tree(list(self.include_files.keys()), session_context.cwd),
-                get_paths_with_git_diffs(self.git_root) if self.git_root else set(),
-                session_context.cwd,
-                prefix + prefix,
-            )
-        else:
-            stream.send(f"{prefix}Included files: None", color="yellow")
+
         if config.auto_context:
             stream.send(f"{prefix}Auto-Context: Enabled")
             stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
@@ -96,9 +86,14 @@ class CodeContext:
             features = self.features
         elif self.include_files:
             stream.send(f"{prefix}Included files:")
+            stream.send(f"{prefix + prefix}{session_context.cwd.name}")
             features = [
                 _feat for _file in self.include_files.values() for _feat in _file
             ]
+        else:
+            stream.send(f"{prefix}Included files: ", end="")
+            stream.send("None", color="yellow")
+
         if features is not None:
             refs = get_consolidated_feature_refs(features)
             print_path_tree(
@@ -107,8 +102,6 @@ class CodeContext:
                 session_context.cwd,
                 prefix + prefix,
             )
-        else:
-            stream.send(f"{prefix}Included files: None", color="yellow")
 
     _code_message: str | None = None
     _code_message_checksum: str | None = None
