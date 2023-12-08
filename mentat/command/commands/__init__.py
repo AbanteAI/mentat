@@ -11,6 +11,7 @@ from .conversation import ConversationCommand
 from .exclude import ExcludeCommand
 from .help import HelpCommand
 from .include import IncludeCommand
+from .redo import RedoCommand
 from .run import RunCommand
 from .screenshot import ScreenshotCommand
 from .search import SearchCommand
