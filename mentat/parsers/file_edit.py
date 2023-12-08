@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
 import attr
 
-from mentat.errors import MentatError
+from mentat.errors import HistoryError, MentatError
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
@@ -63,6 +64,9 @@ class FileEdit:
     is_deletion: bool = attr.field(default=False)
     # Should be abs path
     rename_file_path: Path | None = attr.field(default=None)
+
+    # Used for undo
+    previous_file_lines: list[str] | None = attr.field(default=None)
 
     @file_path.validator  # pyright: ignore
     def is_abs_path(self, attribute: attr.Attribute[Path], value: Any):
@@ -191,7 +195,7 @@ class FileEdit:
         stream.send(change_delimiter)
         for line in first.new_lines + second.new_lines:
             stream.send("+ " + line, color="green")
-        stream.send("")
+        stream.send(change_delimiter)
 
     def resolve_conflicts(self):
         self.replacements.sort(reverse=True)
@@ -230,3 +234,104 @@ class FileEdit:
                 + file_lines[replacement.ending_line :]
             )
         return file_lines
+
+    def undo(self):
+        ctx = SESSION_CONTEXT.get()
+
+        if self.is_creation:
+            if not self.file_path.exists():
+                raise HistoryError(
+                    f"File {self.file_path} does not exist; unable to delete"
+                )
+            self.file_path.unlink()
+
+            display_information = DisplayInformation(
+                self.file_path, [], [], [], FileActionType.CreateFile
+            )
+            ctx.stream.send(get_full_change(display_information))
+            ctx.stream.send(
+                f"Creation of file {self.file_path} undone", color="light_blue"
+            )
+            return
+
+        if self.rename_file_path is not None:
+            if self.file_path.exists():
+                raise HistoryError(
+                    f"File {self.file_path} already exists; unable to undo rename to"
+                    f" {self.rename_file_path}"
+                )
+            if not self.rename_file_path.exists():
+                raise HistoryError(
+                    f"File {self.rename_file_path} does not exist; unable to undo"
+                    f" rename from {self.file_path}"
+                )
+            os.rename(self.rename_file_path, self.file_path)
+
+            display_information = DisplayInformation(
+                self.file_path,
+                [],
+                [],
+                [],
+                FileActionType.RenameFile,
+                new_name=self.rename_file_path,
+            )
+            ctx.stream.send(get_full_change(display_information))
+            ctx.stream.send(
+                f"Rename of file {self.file_path} to {self.rename_file_path} undone",
+                color="light_blue",
+            )
+
+        if self.is_deletion:
+            if self.file_path.exists():
+                raise HistoryError(
+                    f"File {self.file_path} already exists; unable to re-create"
+                )
+            if not self.previous_file_lines:
+                # Should never happen
+                raise ValueError(
+                    "Previous file lines not set when undoing file deletion"
+                )
+            with open(self.file_path, "w") as f:
+                f.write("\n".join(self.previous_file_lines))
+
+            display_information = DisplayInformation(
+                self.file_path,
+                [],
+                [],
+                self.previous_file_lines,
+                FileActionType.DeleteFile,
+            )
+            ctx.stream.send(get_full_change(display_information))
+            ctx.stream.send(
+                f"Deletion of file {self.file_path} undone", color="light_red"
+            )
+        elif self.replacements:
+            if not self.file_path.exists():
+                raise HistoryError(
+                    f"File {self.file_path} does not exist; unable to undo edit"
+                )
+            if not self.previous_file_lines:
+                # Should never happen
+                raise ValueError("Previous file lines not set when undoing file edit")
+
+            with open(self.file_path, "w") as f:
+                f.write("\n".join(self.previous_file_lines))
+
+            for replacement in self.replacements:
+                removed_block = self.previous_file_lines[
+                    replacement.starting_line : replacement.ending_line
+                ]
+                display_information = DisplayInformation(
+                    self.file_path,
+                    self.previous_file_lines,
+                    replacement.new_lines,
+                    removed_block,
+                    FileActionType.UpdateFile,
+                    replacement.starting_line,
+                    replacement.ending_line,
+                    self.rename_file_path,
+                )
+                ctx.stream.send(get_full_change(display_information))
+            ctx.stream.send(
+                f"Edits to file {self.file_path} undone", color="light_blue"
+            )
