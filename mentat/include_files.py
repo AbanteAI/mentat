@@ -126,14 +126,17 @@ def validate_and_format_path(
     """
     path = Path(path)
 
-    # Resolve path (remove any '..' and '~')
-    path = path.expanduser().resolve()
+    # Resolve ~
+    path = path.expanduser()
 
     # Get absolute path
     if path.is_absolute():
         abs_path = path
     else:
         abs_path = cwd / path
+
+    # Resolve path (remove any '..' or symlinks)
+    abs_path = abs_path.resolve()
 
     # Validate path
     match get_path_type(abs_path):
