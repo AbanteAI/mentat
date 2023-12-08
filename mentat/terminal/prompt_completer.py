@@ -40,9 +40,9 @@ class MentatCompleter(Completer):
     def refresh_completions_for_file_path(self, file_path: Path):
         """Add/edit/delete completions for some filepath"""
 
-        # paths are relative to the git root, but Mentat may be run in subdirectory
-        git_root = SESSION_CONTEXT.get().git_root
-        file_path = git_root / file_path
+        session_context = SESSION_CONTEXT.get()
+
+        file_path = session_context.cwd / file_path
 
         try:
             with open(file_path, "r") as f:
@@ -75,11 +75,8 @@ class MentatCompleter(Completer):
         # should we send this information via the stream?
         session_context = SESSION_CONTEXT.get()
         code_context = session_context.code_context
-        git_root = session_context.git_root
 
-        file_paths = [
-            path.relative_to(git_root) for path in code_context.include_files.keys()
-        ]
+        file_paths = code_context.include_files.keys()
 
         # Remove syntax completions for files not in the context
         for file_path in set(self.syntax_completions.keys()):

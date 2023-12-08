@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-import os
 from collections import OrderedDict, defaultdict
 from enum import Enum
 from pathlib import Path
@@ -16,13 +15,12 @@ from mentat.git_handler import get_diff_for_file
 from mentat.interval import Interval, parse_intervals
 from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import sha256
+from mentat.utils import get_relative_path, sha256
 
 MIN_INTERVAL_LINES = 10
 
 
 def split_file_into_intervals(
-    git_root: Path,
     feature: CodeFeature,
     min_lines: int | None = None,
     user_features: list[CodeFeature] = [],
@@ -35,7 +33,9 @@ def split_file_into_intervals(
     code_file_manager = session_context.code_file_manager
     n_lines = len(code_file_manager.read_file(feature.path))
 
-    lines_and_names = get_ctag_lines_and_names(git_root.joinpath(feature.path))
+    lines_and_names = get_ctag_lines_and_names(
+        session_context.cwd.joinpath(feature.path)
+    )
 
     if len(lines_and_names) == 0:
         return [feature]
@@ -135,6 +135,10 @@ class CodeFeature:
                     raise MentatError("CodeFeatures should only have on interval.")
                 self.interval = interval[0]
                 level = CodeMessageLevel.INTERVAL
+
+        if not self.path.is_absolute():
+            raise MentatError("CodeFeature path must be absolute.")
+
         self.level = level
         self.diff = diff
         self.user_included = user_included
@@ -166,20 +170,16 @@ class CodeFeature:
     def _get_code_message(self) -> list[str]:
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
-        git_root = session_context.git_root
         parser = session_context.config.parser
 
         code_message: list[str] = []
 
         # We always want to give GPT posix paths
-        abs_path = Path(git_root / self.path)
-        rel_path = Path(os.path.relpath(abs_path, git_root))
-        posix_rel_path = Path(rel_path).as_posix()
-        filename = f"{posix_rel_path}"
-        code_message.append(filename)
+        code_message_path = get_relative_path(self.path, session_context.cwd)
+        code_message.append(str(code_message_path.as_posix()))
 
         if self.level in {CodeMessageLevel.CODE, CodeMessageLevel.INTERVAL}:
-            file_lines = code_file_manager.read_file(abs_path)
+            file_lines = code_file_manager.read_file(self.path)
             for i, line in enumerate(file_lines):
                 if self.contains_line(i + 1):
                     if parser.provide_line_numbers():
@@ -191,7 +191,7 @@ class CodeFeature:
         code_message.append("")
 
         if self.diff is not None:
-            diff: str = get_diff_for_file(self.diff, rel_path)
+            diff: str = get_diff_for_file(self.diff, self.path)
             diff_annotations = parse_diff(diff)
             if self.level == CodeMessageLevel.CODE:
                 code_message = annotate_file_message(code_message, diff_annotations)
@@ -203,12 +203,8 @@ class CodeFeature:
     def get_checksum(self) -> str:
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
-        git_root = session_context.git_root
 
-        abs_path = git_root / self.path
-        file_checksum = code_file_manager.get_file_checksum(
-            Path(abs_path), self.interval
-        )
+        file_checksum = code_file_manager.get_file_checksum(self.path, self.interval)
         return sha256(f"{file_checksum}{self.level.key}{self.diff}")
 
     _feature_checksum: str | None = None

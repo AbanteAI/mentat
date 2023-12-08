@@ -11,4 +11,5 @@ benchmark_results
 build
 .mentat_config.json
 tests/benchmarks/repos
+.pytest_cache
 benchmark_repos

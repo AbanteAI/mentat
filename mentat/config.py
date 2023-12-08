@@ -8,7 +8,7 @@ from pathlib import Path
 import attr
 from attr import converters, validators
 
-from mentat.git_handler import get_shared_git_root_for_paths
+from mentat.git_handler import get_git_root_for_path
 from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
@@ -142,12 +142,15 @@ class Config:
             parser.add_argument(*name, **arguments)
 
     @classmethod
-    def create(cls, args: Namespace | None = None) -> Config:
+    def create(cls, cwd: Path, args: Namespace | None = None) -> Config:
         config = Config()
 
         # Each method overwrites the previous so they are in order of precedence
         config.load_file(user_config_path)
-        config.load_file(get_shared_git_root_for_paths([Path(".")]) / config_file_name)
+        git_root = get_git_root_for_path(cwd, raise_error=False)
+        if git_root is not None:
+            config.load_file(git_root / config_file_name)
+        config.load_file(cwd / config_file_name)
 
         if args is not None:
             config.load_namespace(args)

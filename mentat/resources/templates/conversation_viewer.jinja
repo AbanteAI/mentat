@@ -1,10 +1,10 @@
 {% macro display_message(message, content_key) %}
 {% if message[content_key] is string %}
-    <pre>{{ message[content_key] }}</pre>
+    <pre>{{ message[content_key]|e }}</pre>
 {% else %}
     {% for submessage in message[content_key] %}
         {% if submessage["type"] == "text" %}
-            <pre>{{ submessage["text"] }}</pre>
+            <pre>{{ submessage["text"]|e }}</pre>
         {% elif submessage["type"] == "image_url" %}
             <img src="{{ submessage['image_url']['url'] }}">
         {% endif %}
