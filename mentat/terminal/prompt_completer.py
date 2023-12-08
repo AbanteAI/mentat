@@ -70,10 +70,11 @@ class MentatCompleter(Completer):
         # should we send this information via the stream?
         session_context = SESSION_CONTEXT.get()
         code_context = session_context.code_context
-        git_root = session_context.git_root
 
+        # NOTE: this was updated in main already?
         file_paths = [
-            path.relative_to(git_root) for path in code_context.include_files.keys()
+            path.relative_to(session_context.cwd)
+            for path in code_context.include_files.keys()
         ]
 
         # Remove syntax completions for files not in the context

@@ -55,7 +55,7 @@ async def test_config_creation():
             "input_style": [[ "user", "yes" ]]
         }"""))
 
-    config = Config.create(args)
+    config = Config.create(Path.cwd(), args)
 
     assert config.model == "model"
     assert config.temperature == 0.2
@@ -83,7 +83,7 @@ async def test_invalid_config(mock_config_errors):
             "foobar": "Not a real setting"
         }"""))
 
-    config = Config.create()
+    config = Config.create(cwd=Path.cwd())
     assert (
         mock_config_errors[0]
         == "Warning: Config .mentat_config.json1 contains unrecognized setting: foobar"
