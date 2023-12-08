@@ -459,7 +459,9 @@ def test_exclude_missing_file_interval(mock_code_context):
 
 @pytest.mark.no_git_testbed
 def test_include_single_directory(mock_code_context):
-    mock_code_context.include("multifile_calculator")
+    mock_code_context.include(
+        "multifile_calculator", exclude_patterns=["**/__pycache__"]
+    )
     assert len(mock_code_context.include_files) == 3
     assert (
         Path("multifile_calculator/__init__.py").resolve()
@@ -477,21 +479,29 @@ def test_include_single_directory(mock_code_context):
 
 @pytest.mark.no_git_testbed
 def test_include_duplicate_directory(mock_code_context):
-    mock_code_context.include("multifile_calculator")
-    mock_code_context.include("multifile_calculator")
+    mock_code_context.include(
+        "multifile_calculator", exclude_patterns=["**/__pycache__"]
+    )
+    mock_code_context.include(
+        "multifile_calculator", exclude_patterns=["**/__pycache__"]
+    )
     assert len(mock_code_context.include_files) == 3
 
 
 @pytest.mark.no_git_testbed
 def test_include_missing_directory(mock_code_context):
-    mock_code_context.include("multifile_calculator")
+    mock_code_context.include(
+        "multifile_calculator", exclude_patterns=["**/__pycache__"]
+    )
     mock_code_context.include("this_directory_does_not_exist")
     assert len(mock_code_context.include_files) == 3
 
 
 @pytest.mark.no_git_testbed
 def test_exclude_single_directory(mock_code_context):
-    mock_code_context.include("multifile_calculator")
+    mock_code_context.include(
+        "multifile_calculator", exclude_patterns=["**/__pycache__"]
+    )
     mock_code_context.exclude("multifile_calculator")
     assert len(mock_code_context.include_files) == 0
 

@@ -2,6 +2,7 @@ import shlex
 from pathlib import Path
 from typing import List
 
+from openai import BadRequestError
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
@@ -9,7 +10,7 @@ from openai.types.chat import (
 )
 
 from mentat.code_feature import CodeMessageLevel
-from mentat.llm_api_handler import count_tokens, prompt_tokens
+from mentat.llm_api_handler import count_tokens, get_max_tokens, prompt_tokens
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no, collect_user_input
@@ -63,8 +64,8 @@ class AgentHandler:
         ]
         self.agent_file_message = ""
         for path in paths:
-            file_contents = "\n".join(ctx.code_file_manager.read_file(path))
-            self.agent_file_message += f"{path}\n\n\n{file_contents}"
+            file_contents = "\n\n".join(ctx.code_file_manager.read_file(path))
+            self.agent_file_message += f"{path}\n\n{file_contents}"
 
         ctx.stream.send(
             "The model has chosen these files to help it determine how to test its"
@@ -85,32 +86,34 @@ class AgentHandler:
             ModelMessage(message=content, prior_messages=messages, message_type="agent")
         )
 
-    async def _determine_commands(self):
+    async def _determine_commands(self) -> List[str]:
         ctx = SESSION_CONTEXT.get()
 
         model = ctx.config.model
-        messages = ctx.conversation.get_messages() + [
-            ChatCompletionSystemMessageParam(
-                role="system", content=self.agent_command_prompt
-            ),
+        messages = ctx.conversation.get_messages(include_system_prompt=False) + [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_file_message
             ),
         ]
-        max_tokens = None
-        if ctx.config.maximum_context:
-            max_tokens = (
-                ctx.config.maximum_context
-                - prompt_tokens(messages, model)
-                - ctx.config.token_buffer
-            )
+        max_tokens = get_max_tokens()
+        if max_tokens is not None:
+            max_tokens -= prompt_tokens(messages, model) + ctx.config.token_buffer
         code_message = await ctx.code_context.get_code_message(max_tokens=max_tokens)
         code_message = ChatCompletionSystemMessageParam(
             role="system", content=code_message
         )
-        messages = messages[:-1] + [code_message] + messages[-1:]
-        # TODO: Should this even be a separate call or should we collect commands in the edit call?
-        response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
+        messages.append(code_message)
+        messages.append(
+            ChatCompletionSystemMessageParam(
+                role="system", content=self.agent_command_prompt
+            ),
+        )
+        try:
+            # TODO: Should this even be a separate call or should we collect commands in the edit call?
+            response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
+        except BadRequestError as e:
+            ctx.stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
+            return []
         content = response.choices[0].message.content or ""
         ctx.cost_tracker.log_api_call_stats(
             prompt_tokens(messages, model),
@@ -138,7 +141,9 @@ class AgentHandler:
         ctx.stream.send(
             "The model has chosen these commands to test its changes:", color="cyan"
         )
-        ctx.stream.send("\n".join(commands for commands in commands))
+        for command in commands:
+            ctx.stream.send("* ", end="")
+            ctx.stream.send(command, color="light_yellow")
         ctx.stream.send("Run these commands?", color="cyan")
         run_commands = await ask_yes_no(default_yes=True)
         if not run_commands:

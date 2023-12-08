@@ -146,6 +146,21 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
     return prices.get(model, None)
 
 
+def get_max_tokens() -> Optional[int]:
+    session_context = SESSION_CONTEXT.get()
+    config = session_context.config
+
+    context_size = model_context_size(config.model)
+    maximum_context = config.maximum_context
+    if maximum_context is not None:
+        if context_size:
+            return min(context_size, maximum_context)
+        else:
+            return maximum_context
+    else:
+        return context_size
+
+
 class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
