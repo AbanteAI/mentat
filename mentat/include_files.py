@@ -205,7 +205,7 @@ def get_paths_for_directory(
         root = Path(root)
 
         if get_git_root_for_path(root, raise_error=False):
-            dirs[:] = []
+            dirs[:] = list[str]()
             git_non_gitignored_paths = get_non_gitignored_files(root)
             for git_path in git_non_gitignored_paths:
                 abs_git_path = root.joinpath(git_path)
