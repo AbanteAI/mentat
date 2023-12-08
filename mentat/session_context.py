@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import attr
 
 if TYPE_CHECKING:
+    from mentat.agent_handler import AgentHandler
     from mentat.code_context import CodeContext
     from mentat.code_file_manager import CodeFileManager
     from mentat.config import Config
@@ -30,3 +31,4 @@ class SessionContext:
     code_file_manager: CodeFileManager = attr.field()
     conversation: Conversation = attr.field()
     vision_manager: VisionManager = attr.field()
+    agent_handler: AgentHandler = attr.field()

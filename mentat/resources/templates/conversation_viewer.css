@@ -15,6 +15,11 @@ h1 {
     margin: 10 0px;
 }
 
+pre {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
 .container {
     position: relative;
     width: 100%;
@@ -91,6 +96,10 @@ h1 {
 .selected,
 .selected:hover {
     background-color: rgb(255, 255, 255);
+}
+
+.agent {
+    background-color: rgb(255, 197, 197);
 }
 
 .download_parent {

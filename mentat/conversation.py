@@ -18,6 +18,7 @@ from openai.types.chat import (
 
 from mentat.errors import MentatError
 from mentat.llm_api_handler import count_tokens, model_context_size, prompt_tokens
+from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
@@ -27,13 +28,25 @@ if TYPE_CHECKING:
 
 
 class Conversation:
-    max_tokens: int
-
     def __init__(self):
         self._messages = list[ChatCompletionMessageParam]()
 
         # This contains a list of messages used for transcripts
         self.literal_messages = list[TranscriptMessage]()
+
+    def _get_max_tokens(self) -> Optional[int]:
+        session_context = SESSION_CONTEXT.get()
+        config = session_context.config
+
+        context_size = model_context_size(config.model)
+        maximum_context = config.maximum_context
+        if maximum_context is not None:
+            if context_size:
+                return min(context_size, maximum_context)
+            else:
+                return maximum_context
+        else:
+            return context_size
 
     async def display_token_count(self):
         session_context = SESSION_CONTEXT.get()
@@ -86,14 +99,13 @@ class Conversation:
             config.model,
         )
 
+        context_size = self._get_max_tokens()
         if not context_size:
             raise MentatError(
                 f"Context size for {config.model} is not known. Please set"
                 " maximum-context with `/config maximum_context value`."
             )
-        else:
-            self.max_tokens = context_size
-        if tokens + 1000 > context_size:
+        if tokens + config.token_buffer > context_size:
             _plural = len(code_context.include_files) > 1
             _exceed = tokens > context_size
             message: dict[tuple[bool, bool], str] = {
@@ -115,6 +127,11 @@ class Conversation:
 
     # The transcript logger logs tuples containing the actual message sent by the user or LLM
     # and (for LLM messages) the LLM conversation that led to that LLM response
+    def add_transcript_message(self, transcript_message: TranscriptMessage):
+        transcript_logger = logging.getLogger("transcript")
+        transcript_logger.info(json.dumps(transcript_message))
+        self.literal_messages.append(transcript_message)
+
     def add_user_message(self, message: str, image: Optional[str] = None):
         """Used for actual user input messages"""
         content: List[ChatCompletionContentPartParam] = [
@@ -132,22 +149,14 @@ class Conversation:
                     },
                 },
             )
-        transcript_logger = logging.getLogger("transcript")
-        transcript_logger.info(
-            json.dumps(UserMessage(message=content, prior_messages=None))
-        )
-        self.literal_messages.append(UserMessage(message=content, prior_messages=None))
+        self.add_transcript_message(UserMessage(message=content, prior_messages=None))
         self.add_message(ChatCompletionUserMessageParam(role="user", content=content))
 
     def add_model_message(
         self, message: str, messages_snapshot: list[ChatCompletionMessageParam]
     ):
         """Used for actual model output messages"""
-        transcript_logger = logging.getLogger("transcript")
-        transcript_logger.info(
-            json.dumps(ModelMessage(message=message, prior_messages=messages_snapshot))
-        )
-        self.literal_messages.append(
+        self.add_transcript_message(
             ModelMessage(message=message, prior_messages=messages_snapshot)
         )
         self.add_message(
@@ -155,7 +164,7 @@ class Conversation:
         )
 
     def add_message(self, message: ChatCompletionMessageParam):
-        """Used for adding messages to the models conversation"""
+        """Used for adding messages to the models conversation. Does not add a left-side message to the transcript!"""
         self._messages.append(message)
 
     def get_messages(self) -> list[ChatCompletionMessageParam]:
@@ -234,7 +243,7 @@ class Conversation:
         time_elapsed = default_timer() - start_time
         return (parsed_llm_response, time_elapsed, num_prompt_tokens)
 
-    async def get_model_response(self) -> list[FileEdit]:
+    async def get_model_response(self) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
@@ -247,26 +256,65 @@ class Conversation:
         tokens = prompt_tokens(messages_snapshot, config.model)
 
         loading_multiplier = 1.0 if config.auto_context else 0.0
+        prompt = messages_snapshot[-1]["content"]
+        if isinstance(prompt, list):
+            text_prompts = [
+                p.get("text", "") for p in prompt if p.get("type") == "text"
+            ]
+            prompt = " ".join(text_prompts)
+        max_tokens = self._get_max_tokens()
+        if max_tokens is None:
+            stream.send(
+                f"Context size for {config.model} is not known. Please set"
+                " maximum-context with `/config maximum_context value`.",
+                color="light_red",
+            )
+            return ParsedLLMResponse("", "", list[FileEdit]())
+
+        if max_tokens - tokens < config.token_buffer:
+            if max_tokens - tokens < 0:
+                stream.send(
+                    f"The context size is limited to {max_tokens} tokens and"
+                    f" previous messages plus system prompts use {tokens} tokens."
+                    " Please use `/clear` to reset or restart the session.",
+                    color="light_red",
+                )
+            else:
+                stream.send(
+                    f"The context size is limited to {max_tokens} tokens and"
+                    f" previous messages plus system prompts use {tokens} tokens,"
+                    " leaving insufficent tokens for a response. Please use"
+                    " `/clear` to reset or restart the session.",
+                    color="light_red",
+                )
+            return ParsedLLMResponse("", "", list[FileEdit]())
+
+        code_message = await code_context.get_code_message(
+            (
+                # Prompt can be image as well as text
+                prompt
+                if isinstance(prompt, str)
+                else ""
+            ),
+            max_tokens - tokens - config.token_buffer,
+            loading_multiplier=0.5 * loading_multiplier,
+        )
+        messages_snapshot.append(
+            ChatCompletionSystemMessageParam(role="system", content=code_message)
+        )
+
+        # Doesn't seem to improve performance much
+        # if agent_handler.agent_enabled:
+        # agent_message = (
+        #    "You are currently being run autonomously. After making your changes,"
+        #    " you will have the chance to lint and test your code. If applicable,"
+        #    " add tests that you can use to test your code."
+        # )
+        # messages_snapshot.append(
+        #    ChatCompletionSystemMessageParam(role="system", content=agent_message)
+        # )
+
         try:
-            prompt = messages_snapshot[-1]["content"]
-            if isinstance(prompt, list):
-                text_prompts = [
-                    p.get("text", "") for p in prompt if p.get("type") == "text"
-                ]
-                prompt = " ".join(text_prompts)
-            code_message = await code_context.get_code_message(
-                (
-                    # Prompt can be image as well as text
-                    prompt
-                    if isinstance(prompt, str)
-                    else ""
-                ),
-                self.max_tokens - tokens - config.token_buffer,
-                loading_multiplier=0.5 * loading_multiplier,
-            )
-            messages_snapshot.append(
-                ChatCompletionSystemMessageParam(role="system", content=code_message)
-            )
             response = await self._stream_model_response(
                 messages_snapshot,
                 loading_multiplier=0.5 * loading_multiplier,
@@ -279,7 +327,7 @@ class Conversation:
                 " different model.",
                 color="light_red",
             )
-            return []
+            return ParsedLLMResponse("", "", list[FileEdit]())
         finally:
             if loading_multiplier:
                 stream.send(None, channel="loading", terminate=True)
@@ -300,11 +348,11 @@ class Conversation:
             )
         )
         self.add_model_message(parsed_llm_response.full_response, messages_snapshot)
-        return parsed_llm_response.file_edits
+        return parsed_llm_response
 
     def remaining_context(self) -> int | None:
         ctx = SESSION_CONTEXT.get()
-        max_context = model_context_size(ctx.config.model)
+        max_context = self._get_max_tokens()
         if max_context is None:
             return None
 
@@ -331,30 +379,36 @@ class Conversation:
         Runs a command and, if there is room, adds the output to the conversation under the 'system' role.
         """
         ctx = SESSION_CONTEXT.get()
+
+        ctx.stream.send(f"Running command: {' '.join(command)}", color="cyan")
         ctx.stream.send("Command output:", color="cyan")
 
-        process = subprocess.Popen(
-            command,
-            cwd=ctx.cwd,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-        output = list[str]()
-        while True:
-            if process.stdout is None:
-                break
-            line = process.stdout.readline()
-            if not line:
-                break
-            output.append(line)
-            ctx.stream.send(line, end="")
-            # This gives control back to the asyncio event loop so we can actually print what we sent
-            # Unfortunately asyncio.sleep(0) won't work https://stackoverflow.com/a/74505785
-            # Note: if subprocess doesn't flush, output can't and won't be streamed.
-            await asyncio.sleep(0.01)
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=ctx.cwd,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            output = list[str]()
+            while True:
+                if process.stdout is None:
+                    break
+                line = process.stdout.readline()
+                if not line:
+                    break
+                output.append(line)
+                ctx.stream.send(line, end="")
+                # This gives control back to the asyncio event loop so we can actually print what we sent
+                # Unfortunately asyncio.sleep(0) won't work https://stackoverflow.com/a/74505785
+                # Note: if subprocess doesn't flush, output can't and won't be streamed.
+                await asyncio.sleep(0.01)
+        except FileNotFoundError:
+            output = [f"Invalid command: {' '.join(command)}"]
+            ctx.stream.send(output[0])
         output = "".join(output)
-        message = f"User ran:\n{' '.join(command)}\nOutput:\n{output}"
+        message = f"Command ran:\n{' '.join(command)}\nCommand output:\n{output}"
 
         if self.can_add_to_context(message):
             self.add_message(

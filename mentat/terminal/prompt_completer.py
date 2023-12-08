@@ -14,7 +14,7 @@ from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
 from pygments.util import ClassNotFound
 
-from mentat.commands import Command
+from mentat.command.command import Command
 from mentat.session_context import SESSION_CONTEXT
 
 
@@ -39,6 +39,11 @@ class MentatCompleter(Completer):
 
     def refresh_completions_for_file_path(self, file_path: Path):
         """Add/edit/delete completions for some filepath"""
+
+        session_context = SESSION_CONTEXT.get()
+
+        file_path = session_context.cwd / file_path
+
         try:
             with open(file_path, "r") as f:
                 file_content = f.read()
@@ -71,11 +76,7 @@ class MentatCompleter(Completer):
         session_context = SESSION_CONTEXT.get()
         code_context = session_context.code_context
 
-        # NOTE: this was updated in main already?
-        file_paths = [
-            path.relative_to(session_context.cwd)
-            for path in code_context.include_files.keys()
-        ]
+        file_paths = code_context.include_files.keys()
 
         # Remove syntax completions for files not in the context
         for file_path in set(self.syntax_completions.keys()):

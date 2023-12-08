@@ -98,12 +98,12 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_code_context):
     mock_code_context.include(".")
     mock_code_context.include(directly_added_glob_excluded_path)
 
-    file_paths = [
-        str(file_path.resolve()) for file_path in mock_code_context.include_files
-    ]
-    assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
-    assert os.path.join(temp_testbed, glob_include_path) in file_paths
-    assert os.path.join(temp_testbed, directly_added_glob_excluded_path) in file_paths
+    assert Path(temp_testbed / glob_exclude_path) not in mock_code_context.include_files
+    assert Path(temp_testbed / glob_include_path) in mock_code_context.include_files
+    assert (
+        Path(temp_testbed / directly_added_glob_excluded_path)
+        in mock_code_context.include_files
+    )
 
 
 @pytest.mark.asyncio
@@ -187,9 +187,7 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
 def features(mocker):
     features_meta = [
         ("somefile.txt", CodeMessageLevel.CODE, "some diff"),
-        ("somefile.txt", CodeMessageLevel.CMAP_FULL, "some diff"),
-        ("somefile.txt", CodeMessageLevel.CMAP_FULL, None),
-        ("somefile.txt", CodeMessageLevel.CMAP, None),
+        ("somefile.txt", CodeMessageLevel.CODE, None),
         ("differentfile.txt", CodeMessageLevel.CODE, "some diff"),
     ]
     features = []
@@ -300,8 +298,6 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
         return count_tokens(code_message, "gpt-4", full_message=True)
 
     assert await _count_max_tokens_where(1e6) == 89  # Code
-    assert await _count_max_tokens_where(84) == 69  # Cmap w/ signatures
-    assert await _count_max_tokens_where(65) == 61  # Cmap
     assert await _count_max_tokens_where(52) == 51  # fnames
     assert await _count_max_tokens_where(0) == 4  # empty
 
@@ -317,7 +313,7 @@ def test_get_all_features(temp_testbed, mock_code_context):
         file2.write("def sample_function():\n    pass\n")
 
     # Test without include_files
-    features = mock_code_context._get_all_features(level=CodeMessageLevel.CODE)
+    features = mock_code_context.get_all_features(level=CodeMessageLevel.CODE)
     assert len(features) == 2
     feature1 = next(f for f in features if f.path == path1)
     feature2 = next(f for f in features if f.path == path2)
@@ -330,7 +326,7 @@ def test_get_all_features(temp_testbed, mock_code_context):
 
     # Test with include_files argument matching one file
     mock_code_context.include(path1)
-    features = mock_code_context._get_all_features(level=CodeMessageLevel.FILE_NAME)
+    features = mock_code_context.get_all_features(level=CodeMessageLevel.FILE_NAME)
     assert len(features) == 2
     feature1b = next(f for f in features if f.path == path1)
     feature2b = next(f for f in features if f.path == path2)
@@ -346,8 +342,8 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
     mocker.patch.object(Config, "maximum_context", new=7000)
     code_context = CodeContext(
         mock_session_context.stream,
-        mock_session_context.code_context.git_root,
-        exclude_patterns=["scripts", "**/*.txt"],
+        temp_testbed,
+        ignore_patterns=["scripts", "**/*.txt"],
     )
     code_context.use_llm = False
     code_message = await code_context.get_code_message("", 1e6)

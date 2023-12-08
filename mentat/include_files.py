@@ -4,7 +4,7 @@ import os
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Any, Iterable, List, Set
+from typing import Any, List, Set
 
 from mentat.code_feature import CodeFeature
 from mentat.errors import PathValidationError
@@ -149,41 +149,42 @@ def validate_and_format_path(
     return abs_path
 
 
-def match_path_with_patterns(path: Path, patterns: Set[str]) -> bool:
+def match_path_with_patterns(path: Path, patterns: Set[Path]) -> bool:
     """Check if the given absolute path matches any of the patterns.
 
-    TODO: enforce valid glob patterns? Right now we allow glob-like
-    patterns (the one's that .gitignore uses). This feels weird imo.
+    Args:
+        `path` - An absolute path
+        `patterns` - A set of absolute paths/glob patterns
+
+    Return:
+        A boolean flag indicating if the path matches any of the patterns
     """
     if not path.is_absolute():
         raise PathValidationError(f"Path {path} is not absolute")
-
     for pattern in patterns:
-        # Prepend '**' to relative patterns that are missing it
-        if not Path(pattern).is_absolute() and not pattern.startswith("**"):
-            if fnmatch.fnmatch(str(path), str(Path("**").joinpath(pattern))):
-                return True
-        if fnmatch.fnmatch(str(path), pattern):
+        if not pattern.is_absolute():
+            raise PathValidationError(f"Pattern {pattern} is not absolute")
+        # Check if the path is relative to the pattern
+        if path.is_relative_to(pattern):
             return True
-        for part in path.parts:
-            if fnmatch.fnmatch(str(part), pattern):
-                return True
-
+        # Check if the pattern is a glob pattern match
+        if fnmatch.fnmatch(str(path), str(pattern)):
+            return True
     return False
 
 
 def get_paths_for_directory(
     path: Path,
-    include_patterns: Iterable[Path | str] = [],
-    exclude_patterns: Iterable[Path | str] = [],
+    include_patterns: Set[Path] = set(),
+    exclude_patterns: Set[Path] = set(),
     recursive: bool = True,
 ) -> Set[Path]:
     """Get all file paths in a directory.
 
     Args:
         `path` - An absolute path to a directory on the filesystem
-        `include_patterns` - An iterable of paths and/or glob patterns to include
-        `exclude_patterns` - An iterable of paths and/or glob patterns to exclude
+        `include_patterns` - An iterable of absolute paths/glob patterns to include
+        `exclude_patterns` - An iterable of absolute paths/glob patterns to exclude
         `recursive` - A boolean flag to recursive traverse child directories
 
     Return:
@@ -198,25 +199,22 @@ def get_paths_for_directory(
     if not path.is_absolute():
         raise PathValidationError(f"Path {path} is not absolute")
 
-    all_include_patterns = set(str(p) for p in include_patterns)
-    all_exclude_patterns = set(str(p) for p in exclude_patterns)
-
     for root, dirs, files in os.walk(path, topdown=True):
         root = Path(root)
 
         if get_git_root_for_path(root, raise_error=False):
-            dirs[:] = []
+            dirs[:] = list[str]()
             git_non_gitignored_paths = get_non_gitignored_files(root)
             for git_path in git_non_gitignored_paths:
                 abs_git_path = root.joinpath(git_path)
                 if not recursive and git_path.parent != Path("."):
                     continue
                 if any(include_patterns) and not match_path_with_patterns(
-                    abs_git_path, all_include_patterns
+                    abs_git_path, include_patterns
                 ):
                     continue
                 if any(exclude_patterns) and match_path_with_patterns(
-                    abs_git_path, all_exclude_patterns
+                    abs_git_path, exclude_patterns
                 ):
                     continue
                 paths.add(abs_git_path)
@@ -226,11 +224,11 @@ def get_paths_for_directory(
             for dir_ in dirs:
                 abs_dir_path = root.joinpath(dir_)
                 if any(include_patterns) and not match_path_with_patterns(
-                    abs_dir_path, all_include_patterns
+                    abs_dir_path, include_patterns
                 ):
                     continue
                 if any(exclude_patterns) and match_path_with_patterns(
-                    abs_dir_path, all_exclude_patterns
+                    abs_dir_path, exclude_patterns
                 ):
                     continue
                 filtered_dirs.append(dir_)
@@ -239,11 +237,11 @@ def get_paths_for_directory(
             for file in files:
                 abs_file_path = root.joinpath(file)
                 if any(include_patterns) and not match_path_with_patterns(
-                    abs_file_path, all_include_patterns
+                    abs_file_path, include_patterns
                 ):
                     continue
                 if any(exclude_patterns) and match_path_with_patterns(
-                    abs_file_path, all_exclude_patterns
+                    abs_file_path, exclude_patterns
                 ):
                     continue
                 paths.add(abs_file_path)
@@ -257,10 +255,11 @@ def get_paths_for_directory(
 def get_code_features_for_path(
     path: Path,
     cwd: Path,
-    include_patterns: Iterable[Path | str] = [],
-    exclude_patterns: Iterable[Path | str] = [],
+    include_patterns: Set[Path] = set(),
+    exclude_patterns: Set[Path] = set(),
 ) -> Set[CodeFeature]:
     validated_path = validate_and_format_path(path, cwd)
+
     match get_path_type(validated_path):
         case PathType.FILE:
             code_features = set([CodeFeature(validated_path)])
@@ -294,7 +293,9 @@ def get_code_features_for_path(
             paths = get_paths_for_directory(
                 root,
                 include_patterns=(
-                    [*include_patterns, pattern] if pattern != "*" else include_patterns
+                    set([*include_patterns, validated_path])
+                    if pattern != "*"
+                    else include_patterns
                 ),
                 exclude_patterns=exclude_patterns,
                 recursive=True,

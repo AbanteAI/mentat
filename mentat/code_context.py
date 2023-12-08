@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Union
 
 from mentat.code_feature import (
     CodeFeature,
     CodeMessageLevel,
     get_code_message_from_features,
     get_consolidated_feature_refs,
+    parse_intervals,
     split_file_into_intervals,
 )
-from mentat.code_map import check_ctags_disabled
 from mentat.diff_context import DiffContext
 from mentat.errors import PathValidationError
 from mentat.feature_filters.default_filter import DefaultFilter
@@ -29,7 +29,6 @@ from mentat.include_files import (
     print_path_tree,
     validate_and_format_path,
 )
-from mentat.interval import parse_intervals
 from mentat.llm_api_handler import count_tokens, is_test_environment
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
@@ -43,12 +42,12 @@ class CodeContext:
         git_root: Optional[Path] = None,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
-        exclude_patterns: Iterable[Path | str] = [],
+        ignore_patterns: Iterable[Path | str] = [],
     ):
         self.git_root = git_root
         self.diff = diff
         self.pr_diff = pr_diff
-        self.exclude_patterns = set(Path(p) for p in exclude_patterns)
+        self.ignore_patterns = set(Path(p) for p in ignore_patterns)
 
         self.diff_context = None
         if self.git_root:
@@ -58,10 +57,9 @@ class CodeContext:
 
         # TODO: This is a dict so we can quickly reference either a path (key)
         # or the CodeFeatures (value) and their intervals. Redundant.
-        # NOTE: this should be a set of CodeFeatures, not a list
         self.include_files: Dict[Path, List[CodeFeature]] = {}
+        self.ignore_files: Set[Path] = set()
         self.features: List[CodeFeature] = []
-        self.ctags_disabled = check_ctags_disabled()
 
     def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
@@ -89,11 +87,6 @@ class CodeContext:
         if config.auto_context:
             stream.send(f"{prefix}Auto-Context: Enabled")
             stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
-            if self.ctags_disabled:
-                stream.send(
-                    f"{prefix}Code Maps Disbled: {self.ctags_disabled}",
-                    color="yellow",
-                )
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 
@@ -121,7 +114,7 @@ class CodeContext:
     _code_message_checksum: str | None = None
 
     def _get_code_message_checksum(
-        self, prompt: str = "", max_tokens: Optional[int] = None
+        self, prompt: Optional[str] = None, max_tokens: Optional[int] = None
     ) -> str:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
@@ -130,19 +123,22 @@ class CodeContext:
         if not self.features:
             features_checksum = ""
         else:
-            feature_files = {session_context.cwd / f.path for f in self.features}
+            feature_files = {
+                session_context.cwd / f.path
+                for f in self.features
+                if (session_context.cwd / f.path).exists()
+            }
             feature_file_checksums = [
                 code_file_manager.get_file_checksum(f) for f in feature_files
             ]
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
-            "prompt": prompt,
-            "code_map_disabled": self.ctags_disabled,
+            "prompt": prompt or "",
             "auto_context": config.auto_context,
             "use_llm": self.use_llm,
             "diff": self.diff,
             "pr_diff": self.pr_diff,
-            "max_tokens": max_tokens,
+            "max_tokens": max_tokens or "",
             "include_files": self.include_files,
         }
         settings_checksum = sha256(str(settings))
@@ -150,8 +146,8 @@ class CodeContext:
 
     async def get_code_message(
         self,
-        prompt: str,
-        max_tokens: int,
+        prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
         expected_edits: Optional[list[str]] = None,  # for training/benchmarking
         loading_multiplier: float = 0.0,
     ) -> str:
@@ -172,8 +168,8 @@ class CodeContext:
 
     async def _get_code_message(
         self,
-        prompt: str,
-        max_tokens: int,
+        prompt: Optional[str] = None,
+        max_tokens: Optional[int] = None,
         expected_edits: Optional[list[str]] = None,
         loading_multiplier: float = 0.0,
     ) -> str:
@@ -193,41 +189,46 @@ class CodeContext:
                     "",
                 ]
 
-                if len(self.include_files) == 0:
+                if len(self.include_files) == 0 and (self.diff or self.pr_diff):
                     for file in self.diff_context.files:
                         self.include(file)
 
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
-        remaining_tokens = max_tokens - meta_tokens
-        auto_tokens = min(remaining_tokens, config.auto_tokens)
+        remaining_tokens = None if max_tokens is None else max_tokens - meta_tokens
+        auto_tokens = (
+            None
+            if remaining_tokens is None
+            else min(remaining_tokens, config.auto_tokens)
+        )
 
-        if remaining_tokens < 0:
+        if remaining_tokens is not None and remaining_tokens <= 0:
             self.features = []
             return ""
         elif not config.auto_context:
             self.features = self._get_include_features()
-            if sum(f.count_tokens(model) for f in self.features) > remaining_tokens:
+            if remaining_tokens is not None:
                 if prompt and not is_test_environment():
                     self.features = await EmbeddingSimilarityFilter(prompt).filter(
                         self.features
                     )
-                self.features = await TruncateFilter(
-                    remaining_tokens, model, respect_user_include=False
-                ).filter(self.features)
+                if sum(f.count_tokens(model) for f in self.features) > remaining_tokens:
+                    self.features = await TruncateFilter(
+                        remaining_tokens, model, respect_user_include=False
+                    ).filter(self.features)
         else:
-            self.features = self._get_all_features(
+            self.features = self.get_all_features(
                 CodeMessageLevel.INTERVAL,
             )
-            feature_filter = DefaultFilter(
-                auto_tokens,
-                not (bool(self.ctags_disabled)),
-                self.use_llm,
-                prompt,
-                expected_edits,
-                loading_multiplier=loading_multiplier,
-            )
-            self.features = await feature_filter.filter(self.features)
+            if auto_tokens:
+                feature_filter = DefaultFilter(
+                    auto_tokens,
+                    self.use_llm,
+                    prompt,
+                    expected_edits,
+                    loading_multiplier=loading_multiplier,
+                )
+                self.features = await feature_filter.filter(self.features)
 
         # Group intervals by file, separated by ellipses if there are gaps
         code_message += get_code_message_from_features(self.features)
@@ -261,20 +262,25 @@ class CodeContext:
 
         return sorted(include_features, key=_feature_relative_path)
 
-    def _get_all_features(
+    def get_all_features(
         self,
         level: CodeMessageLevel,
         max_chars: int = 100000,
     ) -> list[CodeFeature]:
         session_context = SESSION_CONTEXT.get()
 
+        abs_exclude_patterns: Set[Path] = set()
+        for pattern in self.ignore_patterns.union(
+            session_context.config.file_exclude_glob_list
+        ):
+            if not Path(pattern).is_absolute():
+                abs_exclude_patterns.add(session_context.cwd / pattern)
+            else:
+                abs_exclude_patterns.add(Path(pattern))
+
         all_features: List[CodeFeature] = []
         for path in get_paths_for_directory(
-            path=session_context.cwd,
-            exclude_patterns=[
-                *self.exclude_patterns,
-                *session_context.config.file_exclude_glob_list,
-            ],
+            path=session_context.cwd, exclude_patterns=abs_exclude_patterns
         ):
             if not is_file_text_encoded(path) or os.path.getsize(path) > max_chars:
                 continue
@@ -288,21 +294,19 @@ class CodeContext:
                 )
 
             user_included = path in self.include_files
+
             if level == CodeMessageLevel.INTERVAL:
-                # Return intervals if code_map is enabled, otherwise return the full file
                 full_feature = CodeFeature(
                     path,
                     level=CodeMessageLevel.CODE,
                     diff=diff_target,
                     user_included=user_included,
                 )
-                if self.ctags_disabled:
-                    all_features.append(full_feature)
-                else:
-                    _split_features = split_file_into_intervals(
-                        full_feature, user_features=self.include_files.get(path, [])
-                    )
-                    all_features += _split_features
+                _split_features = split_file_into_intervals(
+                    full_feature,
+                    user_features=self.include_files.get(path, []),
+                )
+                all_features += _split_features
             else:
                 _feature = CodeFeature(
                     path, level=level, diff=diff_target, user_included=user_included
@@ -335,16 +339,26 @@ class CodeContext:
 
         path = Path(path)
 
+        abs_exclude_patterns: Set[Path] = set()
+        all_exclude_patterns: Set[Union[str, Path]] = set(
+            [
+                *exclude_patterns,
+                *self.ignore_patterns,
+                *session_context.config.file_exclude_glob_list,
+            ]
+        )
+        for pattern in all_exclude_patterns:
+            if not Path(pattern).is_absolute():
+                abs_exclude_patterns.add(session_context.cwd / pattern)
+            else:
+                abs_exclude_patterns.add(Path(pattern))
+
         included_paths: Set[Path] = set()
         try:
             code_features = get_code_features_for_path(
                 path=path,
                 cwd=session_context.cwd,
-                exclude_patterns=[
-                    *exclude_patterns,
-                    *self.exclude_patterns,
-                    *session_context.config.file_exclude_glob_list,
-                ],
+                exclude_patterns=abs_exclude_patterns,
             )
         except PathValidationError as e:
             session_context.stream.send(e, color="light_red")
@@ -425,7 +439,7 @@ class CodeContext:
 
         paths_to_exclude: Set[Path] = set()
         for included_path in self.include_files:
-            if match_path_with_patterns(included_path, set(str(path))):
+            if match_path_with_patterns(included_path, set([path])):
                 paths_to_exclude.add(included_path)
         for excluded_path in paths_to_exclude:
             del self.include_files[excluded_path]
@@ -484,7 +498,7 @@ class CodeContext:
     ) -> list[tuple[CodeFeature, float]]:
         """Return the top n features that are most similar to the query."""
 
-        all_features = self._get_all_features(
+        all_features = self.get_all_features(
             level,
         )
 

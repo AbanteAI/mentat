@@ -1,10 +1,10 @@
 {% macro display_message(message, content_key) %}
 {% if message[content_key] is string %}
-    {{ message[content_key] |e|replace('\n', '<br>')|safe }}
+    <pre>{{ message[content_key] }}</pre>
 {% else %}
     {% for submessage in message[content_key] %}
         {% if submessage["type"] == "text" %}
-            {{ submessage["text"] |e|replace('\n', '<br>')|safe }}
+            <pre>{{ submessage["text"] }}</pre>
         {% elif submessage["type"] == "image_url" %}
             <img src="{{ submessage['image_url']['url'] }}">
         {% endif %}
@@ -29,7 +29,7 @@
                 <h1 class="history-title">Conversation History</h1>
 <a class="download_parent"><span class="download_icon"></span></a>
                 {% for message in transcript["messages"] %}
-                <div class="message {{'user' if message["prior_messages"] is none else 'assistant clickable'}}">
+                <div class="message {{'user' if message["prior_messages"] is none else 'assistant clickable'}} {{message["message_type"] if message["message_type"]}}">
                     {{ display_message(message, "message") }}
                     {% if message["prior_messages"] is not none %}
                         {% for seen_message in message["prior_messages"] %}

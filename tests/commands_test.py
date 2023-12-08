@@ -5,10 +5,11 @@ from textwrap import dedent
 import pytest
 
 from mentat.code_feature import CodeFeature
-from mentat.commands import Command, ContextCommand, HelpCommand, InvalidCommand
+from mentat.command.command import Command, InvalidCommand
+from mentat.command.commands.context import ContextCommand
+from mentat.command.commands.help import HelpCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
-from mentat.vision.vision_manager import ScreenshotException
 
 
 def test_invalid_command():
@@ -52,7 +53,7 @@ async def test_include_command(temp_testbed, mock_collect_user_input):
         ]
     )
 
-    session = Session(cwd=temp_testbed, paths=[])
+    session = Session(cwd=temp_testbed)
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -90,7 +91,7 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
 
     mock_collect_user_input.set_stream_messages(
         [
-            "",
+            "Edit the file",
             "y",
             "/undo",
             "q",
@@ -120,6 +121,67 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         expected_content = dedent("""\
             # This is a temporary file
             # with 2 lines""")
+    assert content == expected_content
+
+
+@pytest.mark.asyncio
+async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
+    temp_file_name = "temp.py"
+    with open(temp_file_name, "w") as f:
+        f.write(dedent("""\
+            # This is a temporary file
+            # with 2 lines"""))
+
+    mock_collect_user_input.set_stream_messages(
+        [
+            "Edit the file",
+            "y",
+            "/undo",
+            "/redo",
+            "q",
+        ]
+    )
+
+    new_file_name = "new_temp.py"
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
+        Conversation
+
+        @@start
+        {{
+            "file": "{temp_file_name}",
+            "action": "insert",
+            "insert-after-line": 1,
+            "insert-before-line": 2
+        }}
+        @@code
+        # I inserted this comment
+        @@end
+        @@start
+        {{
+            "file": "{new_file_name}",
+            "action": "create-file"
+        }}
+        @@code
+        # I created this file
+        @@end
+        """)])
+
+    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    with open(temp_file_name, "r") as f:
+        content = f.read()
+        expected_content = dedent("""\
+            # This is a temporary file
+            # I inserted this comment
+            # with 2 lines""")
+    assert content == expected_content
+
+    with open(new_file_name, "r") as f:
+        content = f.read()
+        expected_content = dedent("""\
+            # I created this file""")
     assert content == expected_content
 
 
@@ -269,14 +331,6 @@ async def test_screenshot_command(mocker):
             {"type": "image_url", "image_url": {"url": "fake_image_data"}},
         ],
     }
-
-    # Test the exception path where no browser is open
-    mock_vision_manager.screenshot.side_effect = ScreenshotException
-    await screenshot_command.apply("fake_path")
-    assert (
-        stream.messages[-1].data
-        == 'No browser open. Run "/screenshot path" with a url or local file'
-    )
 
     # Test non-gpt models aren't changed
     config.model = "test"
