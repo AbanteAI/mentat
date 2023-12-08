@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from timeit import default_timer
-from typing import Optional
+from typing import Optional, Set
 
 from openai.types.chat import (
     ChatCompletionMessageParam,
@@ -16,7 +16,7 @@ from mentat.code_feature import (
 from mentat.errors import ModelError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
-from mentat.include_files import get_include_files
+from mentat.include_files import get_code_features_for_path
 from mentat.llm_api_handler import count_tokens, model_context_size, prompt_tokens
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
@@ -138,30 +138,38 @@ class LLMFeatureFilter(FeatureFilter):
                 channel="loading",
                 progress=50 * self.loading_multiplier,
             )
-        parsed_features, _ = get_include_files(selected_refs, [])
-        postselected_features = [
-            feature for features in parsed_features.values() for feature in features
-        ]
 
-        for out_feat in postselected_features:
+        parsed_features: Set[CodeFeature] = set()
+        for selected_ref in selected_refs:
+            _parsed_features = get_code_features_for_path(
+                path=selected_ref, cwd=session_context.cwd
+            )
+            parsed_features.update(_parsed_features)
+
+        # parsed_features, _ = get_include_files(selected_refs, [])
+        # postselected_features = [feature for features in parsed_features.values() for feature in features]
+
+        for parsed_feature in parsed_features:
             # Match with corresponding inputs
             matching_inputs = [
                 in_feat
                 for in_feat in features
-                if in_feat.path == out_feat.path
-                and in_feat.interval.intersects(out_feat.interval)
+                if in_feat.path == parsed_feature.path
+                and in_feat.interval.intersects(parsed_feature.interval)
             ]
             if len(matching_inputs) == 0:
-                raise ModelError(f"No input feature found for llm-selected {out_feat}")
+                raise ModelError(
+                    f"No input feature found for llm-selected {parsed_feature}"
+                )
             # Copy metadata
-            out_feat.user_included = any(f.user_included for f in matching_inputs)
+            parsed_feature.user_included = any(f.user_included for f in matching_inputs)
             diff = any(f.diff for f in matching_inputs)
             name = any(f.name for f in matching_inputs)
             if diff:
-                out_feat.diff = next(f.diff for f in matching_inputs if f.diff)
+                parsed_feature.diff = next(f.diff for f in matching_inputs if f.diff)
             if name:
-                out_feat.name = next(f.name for f in matching_inputs if f.name)
+                parsed_feature.name = next(f.name for f in matching_inputs if f.name)
 
         # Greedy again to enforce max_tokens
         truncate_filter = TruncateFilter(self.max_tokens, config.model)
-        return await truncate_filter.filter(postselected_features)
+        return await truncate_filter.filter(parsed_features)

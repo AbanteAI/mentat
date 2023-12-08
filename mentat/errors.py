@@ -22,7 +22,17 @@ class UserError(Exception):
     """
 
 
+class HistoryError(Exception):
+    """
+    Raised when an execption is encountered undoing or redoing edits.
+    """
+
+
 class SessionExit(Exception):
     """
     Stops the session without any sign of error.
     """
+
+
+class PathValidationError(Exception):
+    pass

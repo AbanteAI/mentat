@@ -9,9 +9,10 @@ def parse_intervals(interval_string: str) -> list[Interval]:
         for interval in interval_string.split(","):
             interval = interval.split("-", 1)
             if len(interval) == 1:
-                intervals += [Interval(int(interval[0]), int(interval[0]))]
+                interval = Interval(int(interval[0]), int(interval[0]) + 1)
             else:
-                intervals += [Interval(int(interval[0]), int(interval[1]))]
+                interval = Interval(int(interval[0]), int(interval[1]))
+            intervals.append(interval)
         return intervals
     except (ValueError, IndexError):
         return []
