@@ -243,13 +243,14 @@ def run_cli():
     Config.add_fields_to_argparse(parser)
     args = parser.parse_args()
 
-    config = Config.create(args)
     cwd = args.cwd
     paths = args.paths
     exclude_paths = args.exclude
     ignore_paths = args.ignore
     diff = args.diff
     pr_diff = args.pr_diff
+
+    config = Config.create(cwd, args)
 
     terminal_client = TerminalClient(
         cwd,

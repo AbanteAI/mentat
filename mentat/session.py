@@ -70,7 +70,6 @@ class Session:
         cost_tracker = CostTracker()
 
         code_context = CodeContext(stream, git_root, diff, pr_diff, ignore_paths)
-        code_context = CodeContext(stream, git_root, diff, pr_diff, ignore_paths)
 
         code_file_manager = CodeFileManager()
 
@@ -85,7 +84,6 @@ class Session:
             stream,
             llm_api_handler,
             cost_tracker,
-            git_root,  # pyright: ignore
             config,
             code_context,
             code_file_manager,
@@ -98,8 +96,6 @@ class Session:
         # Functions that require session_context
         check_version()
         config.send_errors_to_stream()
-        for path in paths:
-            code_context.include(path, exclude_patterns=exclude_paths)
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)
 
@@ -115,7 +111,6 @@ class Session:
         if session_context.config.auto_context:
             ensure_ctags_installed()
 
-        session_context.llm_api_handler.initialize_client()
         session_context.llm_api_handler.initialize_client()
         code_context.display_context()
         await conversation.display_token_count()
