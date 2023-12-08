@@ -52,8 +52,7 @@ async def test_partial_files(mocker, mock_session_context):
             ...
             3:third
             4:fourth
-            5:fifth
-              """)
+            """)
 
 
 @pytest.mark.asyncio
