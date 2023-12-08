@@ -4,7 +4,6 @@ import os
 import pytest
 from git import Repo
 
-from mentat.config import Config
 from mentat.python_client.client import PythonClient
 from tests.benchmarks.utils import clone_repo
 
@@ -25,7 +24,7 @@ def retries(request):
 
 
 @pytest.mark.asyncio
-async def test_benchmark(retries):
+async def test_benchmark(retries, benchmarks):
     print("Running benchmarks")
     benchmarks_dir = f"{os.path.dirname(__file__)}/benchmarks"
 
@@ -39,8 +38,20 @@ async def test_benchmark(retries):
     results = {}
     for path in benchmark_paths:
         benchmark = dynamic_import(path, "benchmark")
-        print("Benchmark:", benchmark.title)
-        results[benchmark.title] = {}
+        title = benchmark.title
+
+        run = True
+        if len(benchmarks) > 0:
+            run = False
+            for b in benchmarks:
+                if b.lower() in title.lower():
+                    run = True
+                    break
+        if not run:
+            continue
+
+        print("Benchmark:", title)
+        results[title] = {}
 
         codebase = clone_repo(
             url=benchmark.repo,
@@ -55,14 +66,11 @@ async def test_benchmark(retries):
 
         for prompt in benchmark.prompts:
             print("  Prompt:", prompt)
+            results[title][prompt] = {
+                "Success": 0,
+            }
             for i in range(1, retries + 1):
-                client = PythonClient(
-                    config=Config(
-                        auto_context=True,
-                        maximum_context=8000,
-                    )
-                )
-
+                client = PythonClient(cwd=codebase, config=benchmark.config)
                 await client.startup()
                 await client.call_mentat_auto_accept(prompt)
                 await client.wait_for_edit_completion()
@@ -74,21 +82,8 @@ async def test_benchmark(retries):
                 repo.git.reset("--hard")
                 repo.git.clean("-fd")
                 if success:
-                    print("  Passed")
-                    results[benchmark.title][prompt] = {
-                        "Passed": True,
-                        "Attempts": i,
-                    }
-                    break
-                else:
-                    if i == retries:
-                        print("  Failed")
-                        results[benchmark.title][prompt] = {
-                            "Passed": False,
-                            "Attempts": i,
-                        }
-                    else:
-                        print(f"  Failed on {i}th attempt")
+                    results[title][prompt]["Success"] += 1
+            print(f"  Succeeded: {results[title][prompt]['Success']}/{retries}")
 
         repo.git.checkout(start_commit)
     print(results)
