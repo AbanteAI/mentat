@@ -14,14 +14,19 @@ pytestmark = pytest.mark.benchmark
 
 
 async def edit_file_and_run(
-    mock_collect_user_input, prompts, context_file_paths, main_file_path, argument_lists
+    temp_testbed,
+    mock_collect_user_input,
+    prompts,
+    context_file_paths,
+    main_file_path,
+    argument_lists,
 ):
     mock_collect_user_input.set_stream_messages(
         [prompt for pair in zip(prompts, ["y"] * len(prompts)) for prompt in pair]
         + ["q"]
     )
 
-    session = Session(context_file_paths)
+    session = Session(cwd=temp_testbed, paths=context_file_paths)
     session.start()
     await session.stream.recv(channel="client_exit")
 
