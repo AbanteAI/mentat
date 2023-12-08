@@ -128,11 +128,10 @@ class EditHistory:
 
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
-        code_context = session_context.code_context
 
         edits_to_redo = self.undone_edits.pop()
         edits_to_redo.reverse()
-        await code_file_manager.write_changes_to_files(edits_to_redo, code_context)
+        await code_file_manager.write_changes_to_files(edits_to_redo)
 
     def undo_all(self) -> str:
         if not self.edits:
