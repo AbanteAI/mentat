@@ -152,8 +152,8 @@ class CodeFeature:
         )
 
     def ref(self, cwd: Optional[Path] = None) -> str:
-        if cwd is not None and self.path.is_relative_to(cwd):
-            path_string = self.path.relative_to(cwd)
+        if cwd is not None:
+            path_string = str(get_relative_path(self.path, cwd))
         else:
             path_string = str(self.path)
 

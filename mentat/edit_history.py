@@ -50,6 +50,8 @@ class EditHistory:
 
         edits_to_redo = self.undone_edits.pop()
         edits_to_redo.reverse()
+        for edit in edits_to_redo:
+            edit.display_full_edit(code_file_manager.file_lines[edit.file_path])
         await code_file_manager.write_changes_to_files(edits_to_redo)
 
     def undo_all(self) -> str:

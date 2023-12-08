@@ -9,6 +9,9 @@ from pygments.lexers import TextLexer, get_lexer_for_filename
 from pygments.util import ClassNotFound
 from termcolor import colored
 
+from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import get_relative_path
+
 change_delimiter = 60 * "="
 
 
@@ -58,8 +61,12 @@ class DisplayInformation:
     new_name: Path | None = attr.field(default=None)
 
     def __attrs_post_init__(self):
+        ctx = SESSION_CONTEXT.get()
+
         self.line_number_buffer = get_line_number_buffer(self.file_lines)
         self.lexer = _get_lexer(self.file_name)
+        if self.file_name.is_absolute():
+            self.file_name = get_relative_path(self.file_name, ctx.cwd)
 
 
 def _remove_extra_empty_lines(lines: list[str]) -> list[str]:
