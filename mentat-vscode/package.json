@@ -1,0 +1,85 @@
+{
+  "name": "mentat",
+  "displayName": "Mentat",
+  "description": "Mentat - The AI Coding Assistant",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "AbanteAI",
+  "repository": "https://github.com/AbanteAI/mentat/mentat-vscode",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView"
+  ],
+  "main": "./build/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "Mentat",
+          "title": "Mentat",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "Mentat": [
+        {
+          "type": "webview",
+          "id": "MentatChat",
+          "name": "Chat"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "mentat.build-server",
+        "title": "Build server"
+      }
+    ],
+    "configuration": {
+      "title": "Mentat",
+      "properties": {
+        "mentat.mentatPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "Path to Mentat executable, if built locally.\n\nFor a virtual env named `venv`, this should be set to:\n - `{path-to-venv}/bin/mentat` on Mac or Linux \n\n - `{path-to-venv}\\Scripts\\mentat` on Windows."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "node ./scripts/clean.mjs",
+    "build-js": "node ./scripts/build.mjs",
+    "build-css": "tailwindcss -i ./src/webview/main.css -o ./build/webview/main.css",
+    "build": "npm run clean && npm run build-js -- --sourcemap & npm run build-css",
+    "watch-js": "npm run build-js -- --sourcemap --watch",
+    "watch-css": "tailwindcss -i ./src/webview/main.css -o ./build/webview/main.css --watch",
+    "watch": "npm run clean && npm run watch-js & npm run watch-css",
+    "vscode": "code --extensionDevelopmentPath=$PWD .",
+    "vscode:prepublish": "npm run clean && npm run build-js -- --minify & npm run build-css"
+  },
+  "devDependencies": {
+    "@types/node": "20.8.3",
+    "@types/react": "18.2.25",
+    "@types/react-dom": "18.2.11",
+    "@types/vscode": "1.83.0",
+    "@types/vscode-webview": "1.57.2",
+    "@typescript-eslint/eslint-plugin": "6.7.4",
+    "@typescript-eslint/parser": "6.7.4",
+    "esbuild": "0.19.4",
+    "eslint": "8.51.0",
+    "eslint-plugin-react": "7.33.2",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-icons": "4.11.0",
+    "tailwindcss": "3.3.3",
+    "typescript": "5.2.2",
+    "vscode-languageclient": "9.0.1"
+  }
+}
