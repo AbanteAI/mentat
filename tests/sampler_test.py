@@ -1,12 +1,10 @@
 import pytest
-from git import Repo
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
 
-from mentat.git_handler import get_hexsha_active
 from mentat.sampler.sample import Sample
 
 @pytest.mark.asyncio
