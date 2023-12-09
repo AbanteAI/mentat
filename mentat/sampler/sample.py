@@ -17,6 +17,8 @@ from mentat.utils import get_relative_path
 def parse_message(message: ChatCompletionMessageParam) -> str:
     content = message.get("content")
     if isinstance(content, str):
+        if message.get("role") == "assistant" and "\n@@start\n" in content:
+            return content.split("@@start\n")[0]  # TODO: split properly
         return content
     elif isinstance(content, list) and len(content) > 0:
         content = content[0]
@@ -43,7 +45,7 @@ class Sample:
     diff_edit: str = attr.field(default="")
     hexsha_edit: str = attr.field(default="")
     test_command: str = attr.field(default="")
-    version: str = attr.field(default="0.1.0", init=False)
+    version: str = attr.field(default="0.1.0")
 
     @classmethod
     async def from_context(cls) -> Sample:
@@ -107,12 +109,9 @@ class Sample:
             test_command=test_command,
         )
 
-    def to_json(self) -> str:
-        return json.dumps(attr.asdict(self), indent=4)
-
     def save(self, fname: str) -> None:
         with open(fname, "w") as f:
-            f.write(self.to_json())
+            json.dump(attr.asdict(self), f, indent=4)
 
     @classmethod
     def load(cls, fname: str) -> Sample:

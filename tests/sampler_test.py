@@ -1,3 +1,6 @@
+from pathlib import Path
+from textwrap import dedent
+
 import pytest
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
@@ -6,6 +9,7 @@ from openai.types.chat import (
 )
 
 from mentat.sampler.sample import Sample
+from mentat.session import Session
 
 
 @pytest.mark.asyncio
@@ -77,5 +81,85 @@ async def test_sample_from_context(
         " @@\n+test_file_content"
     )
     assert sample.hexsha_edit != ""
+    assert sample.test_command == "test_test_command"
+    assert sample.version == "0.1.0"
+
+
+def is_sha1(string: str) -> bool:
+    return len(string) == 40 and all(c in "0123456789abcdef" for c in string)
+
+
+def is_sha256(string: str) -> bool:
+    return len(string) == 64 and all(c in "0123456789abcdef" for c in string)
+
+
+@pytest.mark.asyncio
+async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
+    mock_collect_user_input.set_stream_messages(
+        [
+            "Request",
+            "y",
+            "/sample",
+            "test_url",
+            "test_title",
+            "test_description",
+            "test_test_command",
+            "q",
+        ]
+    )
+    mock_call_llm_api.set_streamed_values([dedent("""\
+        I will insert a comment in both files.
+
+        @@start
+        {
+            "file": "multifile_calculator/calculator.py",
+            "action": "insert",
+            "insert-after-line": 0,
+            "insert-before-line": 1
+        }
+        @@code
+        # forty two
+        @@end
+        @@start
+        {
+            "file": "test_file.py",
+            "action": "create-file"
+        }
+        @@code
+        # forty two
+        @@end""")])
+
+    session = Session(cwd=Path.cwd(), paths=["multifile_calculator/calculator.py"])
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    sample_files = list(temp_testbed.glob("sample_*.json"))
+    assert len(sample_files) == 1
+    sample = Sample.load(sample_files[0])
+
+    assert sample.title == "test_title"
+    assert sample.description == "test_description"
+    assert sample.repo == "test_url"
+    assert is_sha1(sample.merge_base)
+    assert sample.diff_merge_base == ""
+    assert sample.diff_active == ""
+    assert is_sha256(sample.hexsha_active)
+    assert len(sample.messages) == 2
+    assert sample.messages[0] == {"role": "user", "content": "Request"}
+    assert sample.messages[1]["role"] == "assistant"
+    assert sample.messages[1]["content"].startswith("I will insert a comment")
+    # TODO: This is hacky, find the correct way to split message/code
+    assert "@@start" not in sample.messages[1]["content"]
+    assert sample.args == [
+        "multifile_calculator/calculator.py",
+        "test_file.py",  # TODO: This shouldn't be here, but it's in included_files
+    ]
+    edits = [e for e in sample.diff_edit.split("diff --git") if e]
+    assert len(edits) == 2
+    assert "multifile_calculator/calculator.py" in edits[0]
+    assert "+# forty two" in edits[0]
+    assert "test_file.py" in edits[1]
+    assert "+# forty two" in edits[1]
+    assert is_sha256(sample.hexsha_edit)
     assert sample.test_command == "test_test_command"
     assert sample.version == "0.1.0"

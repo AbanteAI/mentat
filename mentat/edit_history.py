@@ -7,8 +7,8 @@ from termcolor import colored
 
 from mentat.errors import HistoryError
 from mentat.git_handler import (
-    get_diff_merge_base,
     get_diff_active,
+    get_diff_merge_base,
     get_git_root_for_path,
     get_hexsha_active,
     get_merge_base,
