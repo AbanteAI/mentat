@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import subprocess
@@ -199,3 +200,82 @@ def get_default_branch() -> str:
     except subprocess.CalledProcessError:
         # Handle error if needed or raise an exception
         raise Exception("Unable to determine the default branch.")
+
+
+def get_diff_merge_base() -> str:
+    """Return diff of latest commit against sample_merge_base."""
+    session_context = SESSION_CONTEXT.get()
+    cwd = session_context.cwd
+    config = session_context.config
+
+    sample_merge_base_target = config.sample_merge_base_target
+    sample_merge_base_commit = subprocess.check_output(
+        ["git", "merge-base", "HEAD", sample_merge_base_target],
+        cwd=cwd,
+        text=True,
+        stderr=subprocess.DEVNULL,
+    ).strip()
+
+    diff = subprocess.check_output(
+        ["git", "diff", sample_merge_base_commit, "HEAD"],
+        cwd=cwd,
+        text=True,
+        stderr=subprocess.DEVNULL,
+    ).strip()
+
+    return diff
+
+
+def get_diff_active() -> str:
+    """Return edits to current files + new files in standard git diff format."""
+    session_context = SESSION_CONTEXT.get()
+    cwd = session_context.cwd
+
+    diff = subprocess.check_output(
+        ["git", "diff", "HEAD"],
+        cwd=cwd,
+        text=True,
+        stderr=subprocess.DEVNULL,
+    ).strip()
+
+    new_files = subprocess.check_output(
+        ["git", "ls-files", "-o", "--exclude-standard"],
+        cwd=cwd,
+        text=True,
+        stderr=subprocess.DEVNULL,
+    ).split("\n")
+    new_files = [n for n in new_files if n]
+    # Add them the file and it's contents to the diff like it was created
+    for new_file in new_files:
+        diff += ("\n" if diff else "") + "\n".join(
+            [
+                "diff --git a/{new_file} b/{new_file}",
+                "new file mode 100644",
+                "index 0000000..ffffff",  # placeholder for git's SHA-1
+                "--- /dev/null",
+                f"+++ b/{new_file}",
+                "@@ -0,0 +1 @@",
+            ]
+        )
+        file_path = cwd / new_file
+        with open(file_path, "r") as f:
+            file_content = f.read()
+        if file_content:
+            diff += "\n" + "\n".join(f"+{line}" for line in file_content.splitlines())
+
+    return diff
+
+
+def get_hexsha_active() -> str:
+    """Return the SHA-1 of the current commit."""
+    session_context = SESSION_CONTEXT.get()
+    cwd = session_context.cwd
+
+    hexsha = ""
+    all_files: set[Path] = get_non_gitignored_files(cwd)
+    if all_files:
+        hasher = hashlib.sha256()
+        for file_path in sorted(all_files):
+            hasher.update(file_path.read_bytes())
+        hexsha = hasher.hexdigest()
+    return hexsha
