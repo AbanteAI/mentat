@@ -71,10 +71,10 @@ class CodeFileManager:
 
         if not file_edits:
             return []
-        
+
         # Set pre-edit context in case /sample is called later
         self.history.set_sample_diffs()
-        
+
         applied_edits: list[FileEdit] = []
         for file_edit in file_edits:
             if file_edit.file_path.is_relative_to(session_context.cwd):

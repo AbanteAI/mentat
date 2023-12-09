@@ -164,4 +164,4 @@ class EditHistory:
             self.diff_active = get_diff_active()
             self.hexsha_active = get_hexsha_active()
         else:
-            pass # TODO: Can we make samples without git?
+            pass  # TODO: Can we make samples without git?

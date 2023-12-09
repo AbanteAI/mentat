@@ -211,7 +211,7 @@ def get_merge_base() -> str | None:
     config = session_context.config
 
     sample_merge_base_target = config.sample_merge_base_target
-    
+
     repo = Repo(cwd)
     if not sample_merge_base_target:
         # return the SHA-1 of the latest commit
@@ -231,7 +231,7 @@ def get_diff_merge_base() -> str:
         return ""
 
     repo = Repo(cwd)
-    diff = repo.git.diff(merge_base_commit, 'HEAD')
+    diff = repo.git.diff(merge_base_commit, "HEAD")
     return diff
 
 
@@ -241,7 +241,7 @@ def get_diff_active() -> str:
     cwd = session_context.cwd
 
     repo = Repo(cwd)
-    diff = repo.git.diff('HEAD')
+    diff = repo.git.diff("HEAD")
     for new_file in repo.untracked_files:
         diff += ("\n" if diff else "") + "\n".join(
             [
