@@ -99,7 +99,7 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
         [
             "Request",
             "y",
-            "/sample",
+            f"/sample {temp_testbed}",
             "test_url",
             "test_title",
             "test_description",
