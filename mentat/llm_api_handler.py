@@ -5,7 +5,7 @@ import io
 import os
 import sys
 from pathlib import Path
-from typing import List, Literal, Optional, cast, overload
+from typing import Any, Callable, List, Literal, Optional, cast, overload
 
 import sentry_sdk
 import tiktoken
@@ -35,7 +35,7 @@ def is_test_environment():
     )
 
 
-def api_guard(func) -> callable:
+def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator that should be used on any function that calls the OpenAI API
 
     It does two things:
@@ -43,7 +43,7 @@ def api_guard(func) -> callable:
     2. Converts APIConnectionErrors to MentatErrors
     """
 
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
         assert (
             not is_test_environment()
         ), "OpenAI call attempted in non-benchmark test environment!"
