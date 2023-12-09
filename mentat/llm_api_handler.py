@@ -5,12 +5,12 @@ import io
 import os
 import sys
 from pathlib import Path
-from typing import List, Literal, Optional, cast, overload
+from typing import Any, Callable, List, Literal, Optional, cast, overload
 
 import sentry_sdk
 import tiktoken
 from dotenv import load_dotenv
-from openai import AsyncOpenAI, AsyncStream, AuthenticationError
+from openai import APIConnectionError, AsyncOpenAI, AsyncStream, AuthenticationError
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -20,7 +20,7 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
 
-from mentat.errors import UserError
+from mentat.errors import MentatError, UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -35,10 +35,27 @@ def is_test_environment():
     )
 
 
-def raise_if_in_test_environment():
-    assert (
-        not is_test_environment()
-    ), "OpenAI call attempted in non benchmark test environment!"
+def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Decorator that should be used on any function that calls the OpenAI API
+
+    It does two things:
+    1. Raises if the function is called in tests (that aren't benchmarks)
+    2. Converts APIConnectionErrors to MentatErrors
+    """
+
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        assert (
+            not is_test_environment()
+        ), "OpenAI call attempted in non-benchmark test environment!"
+        try:
+            return await func(*args, **kwargs)
+        except APIConnectionError:
+            raise MentatError(
+                "API connection error: please check your internet connection and try"
+                " again."
+            )
+
+    return wrapper
 
 
 # Ensures that each chunk will have at most one newline character
@@ -201,6 +218,7 @@ class LlmApiHandler:
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> ChatCompletion: ...
 
+    @api_guard
     async def call_llm_api(
         self,
         messages: list[ChatCompletionMessageParam],
@@ -208,8 +226,6 @@ class LlmApiHandler:
         stream: bool,
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> ChatCompletion | AsyncStream[ChatCompletionChunk]:
-        raise_if_in_test_environment()
-
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
 
@@ -237,27 +253,24 @@ class LlmApiHandler:
 
         return response
 
+    @api_guard
     async def call_embedding_api(
         self, input_texts: list[str], model: str = "text-embedding-ada-002"
     ) -> list[list[float]]:
-        raise_if_in_test_environment()
-
         response = await self.async_client.embeddings.create(
             input=input_texts, model=model
         )
         return [embedding.embedding for embedding in response.data]
 
+    @api_guard
     async def is_model_available(self, model: str) -> bool:
-        raise_if_in_test_environment()
-
         available_models: list[str] = [
             model.id async for model in self.async_client.models.list()
         ]
         return model in available_models
 
+    @api_guard
     async def call_whisper_api(self, audio_path: Path) -> str:
-        raise_if_in_test_environment()
-
         audio_file = open(audio_path, "rb")
         transcript = await self.async_client.audio.transcriptions.create(
             model="whisper-1",
