@@ -40,14 +40,18 @@ class CodeFileManager:
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         with open(abs_path, "w") as f:
             f.write(content)
-        code_context.include(abs_path)
+
+        if abs_path not in code_context.include_files:
+            code_context.include(abs_path)
 
     def delete_file(self, abs_path: Path):
         ctx = SESSION_CONTEXT.get()
         code_context = ctx.code_context
 
         logging.info(f"Deleting file {abs_path}")
-        code_context.exclude(abs_path)
+
+        if abs_path in code_context.include_files:
+            code_context.exclude(abs_path)
         abs_path.unlink()
 
     def rename_file(self, abs_path: Path, new_abs_path: Path):
@@ -55,9 +59,11 @@ class CodeFileManager:
         code_context = ctx.code_context
 
         logging.info(f"Renaming file {abs_path} to {new_abs_path}")
-        code_context.exclude(abs_path)
+        if abs_path in code_context.include_files:
+            code_context.exclude(abs_path)
         os.rename(abs_path, new_abs_path)
-        code_context.include(new_abs_path)
+        if new_abs_path not in code_context.include_files:
+            code_context.include(new_abs_path)
 
     # Mainly does checks on if file is in context, file exists, file is unchanged, etc.
     async def write_changes_to_files(

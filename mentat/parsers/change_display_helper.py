@@ -65,8 +65,11 @@ class DisplayInformation:
 
         self.line_number_buffer = get_line_number_buffer(self.file_lines)
         self.lexer = _get_lexer(self.file_name)
+
         if self.file_name.is_absolute():
             self.file_name = get_relative_path(self.file_name, ctx.cwd)
+        if self.new_name is not None and self.new_name.is_absolute():
+            self.new_name = get_relative_path(self.new_name, ctx.cwd)
 
 
 def _remove_extra_empty_lines(lines: list[str]) -> list[str]:
