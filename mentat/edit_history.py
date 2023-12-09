@@ -6,6 +6,13 @@ import attr
 from termcolor import colored
 
 from mentat.errors import HistoryError
+from mentat.git_handler import (
+    get_diff_merge_base,
+    get_diff_active,
+    get_git_root_for_path,
+    get_hexsha_active,
+    get_merge_base,
+)
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.session_context import SESSION_CONTEXT
 
@@ -143,3 +150,18 @@ class EditHistory:
             if error:
                 errors.append(error)
         return "\n".join(errors)
+
+    merge_base: str | None = None
+    diff_merge_base: str | None = None
+    diff_active: str | None = None
+    hexsha_active: str | None = None
+
+    def set_sample_diffs(self):
+        ctx = SESSION_CONTEXT.get()
+        if get_git_root_for_path(ctx.cwd, raise_error=False):
+            self.merge_base = get_merge_base()
+            self.diff_merge_base = get_diff_merge_base()
+            self.diff_active = get_diff_active()
+            self.hexsha_active = get_hexsha_active()
+        else:
+            pass # TODO: Can we make samples without git?

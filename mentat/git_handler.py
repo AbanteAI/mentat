@@ -5,6 +5,8 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
+from git import Repo
+
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
 
@@ -202,27 +204,34 @@ def get_default_branch() -> str:
         raise Exception("Unable to determine the default branch.")
 
 
-def get_diff_merge_base() -> str:
-    """Return diff of latest commit against sample_merge_base."""
+def get_merge_base() -> str | None:
+    """Return the SHA-1 of the merge base between HEAD and sample_merge_base_target."""
     session_context = SESSION_CONTEXT.get()
     cwd = session_context.cwd
     config = session_context.config
 
     sample_merge_base_target = config.sample_merge_base_target
-    sample_merge_base_commit = subprocess.check_output(
-        ["git", "merge-base", "HEAD", sample_merge_base_target],
-        cwd=cwd,
-        text=True,
-        stderr=subprocess.DEVNULL,
-    ).strip()
+    
+    repo = Repo(cwd)
+    if not sample_merge_base_target:
+        # return the SHA-1 of the latest commit
+        return repo.head.commit.hexsha
 
-    diff = subprocess.check_output(
-        ["git", "diff", sample_merge_base_commit, "HEAD"],
-        cwd=cwd,
-        text=True,
-        stderr=subprocess.DEVNULL,
-    ).strip()
+    merge_base_commit = repo.merge_base(repo.head.commit, sample_merge_base_target)[0]
+    return merge_base_commit.hexsha if merge_base_commit else None
 
+
+def get_diff_merge_base() -> str:
+    """Return diff of latest commit against sample_merge_base."""
+    session_context = SESSION_CONTEXT.get()
+    cwd = session_context.cwd
+
+    merge_base_commit = get_merge_base()
+    if not merge_base_commit:
+        return ""
+
+    repo = Repo(cwd)
+    diff = repo.git.diff(merge_base_commit, 'HEAD')
     return diff
 
 
@@ -231,25 +240,12 @@ def get_diff_active() -> str:
     session_context = SESSION_CONTEXT.get()
     cwd = session_context.cwd
 
-    diff = subprocess.check_output(
-        ["git", "diff", "HEAD"],
-        cwd=cwd,
-        text=True,
-        stderr=subprocess.DEVNULL,
-    ).strip()
-
-    new_files = subprocess.check_output(
-        ["git", "ls-files", "-o", "--exclude-standard"],
-        cwd=cwd,
-        text=True,
-        stderr=subprocess.DEVNULL,
-    ).split("\n")
-    new_files = [n for n in new_files if n]
-    # Add them the file and it's contents to the diff like it was created
-    for new_file in new_files:
+    repo = Repo(cwd)
+    diff = repo.git.diff('HEAD')
+    for new_file in repo.untracked_files:
         diff += ("\n" if diff else "") + "\n".join(
             [
-                "diff --git a/{new_file} b/{new_file}",
+                f"diff --git a/{new_file} b/{new_file}",
                 "new file mode 100644",
                 "index 0000000..ffffff",  # placeholder for git's SHA-1
                 "--- /dev/null",
@@ -276,6 +272,7 @@ def get_hexsha_active() -> str:
     if all_files:
         hasher = hashlib.sha256()
         for file_path in sorted(all_files):
-            hasher.update(file_path.read_bytes())
+            if file_path.exists():
+                hasher.update(file_path.read_bytes())
         hexsha = hasher.hexdigest()
     return hexsha

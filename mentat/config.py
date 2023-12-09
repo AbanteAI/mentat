@@ -101,7 +101,13 @@ class Config:
     )
 
     # Sample specific settings
-    sample_merge_base_target: str = attr.field(
+    sample_repo: str | None = attr.field(
+        default=None,
+        metadata={
+            "description": "A public url for a cloneable git repository to sample from."
+        },
+    )
+    sample_merge_base_target: str | None = attr.field(
         default=None,
         metadata={
             "description": "The branch or commit to use as the merge base for samples."
