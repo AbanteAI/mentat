@@ -6,6 +6,7 @@ import pytest
 from git import Repo
 from openai.types.chat.completion_create_params import ResponseFormat
 
+from mentat.llm_api_handler import model_context_size, prompt_tokens
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
 from tests.benchmarks.utils import clone_repo
@@ -26,17 +27,29 @@ def retries(request):
     return int(request.config.getoption("--retries"))
 
 
-async def grade(to_grade, prompt):
-    messages = [
-        {"role": "system", "content": prompt},
-        {"role": "user", "content": to_grade},
-    ]
-    llm_api_handler = SESSION_CONTEXT.get().llm_api_handler
-    llm_grade = await llm_api_handler.call_llm_api(
-        messages, "gpt-4-1106-preview", False, ResponseFormat(type="json_object")
-    )
-    content = llm_grade.choices[0].message.content
-    return json.loads(content)
+async def grade(to_grade, prompt, model="gpt-4-1106-preview"):
+    try:
+        messages = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": to_grade},
+        ]
+        tokens = prompt_tokens(messages, model)
+        max_tokens = model_context_size(model) - 1000  # Response buffer
+        if tokens > max_tokens:
+            print("Prompt too long! Truncating... (this may affect results)")
+            tokens_to_remove = tokens - max_tokens
+            chars_per_token = len(str(messages)) / tokens
+            chars_to_remove = int(chars_per_token * tokens_to_remove)
+            messages[1]["content"] = messages[1]["content"][:-chars_to_remove]
+
+        llm_api_handler = SESSION_CONTEXT.get().llm_api_handler
+        llm_grade = await llm_api_handler.call_llm_api(
+            messages, model, False, ResponseFormat(type="json_object")
+        )
+        content = llm_grade.choices[0].message.content
+        return json.loads(content)
+    except Exception as e:
+        return {"error": str(e)}
 
 
 syntax_grading_prompt = """\
