@@ -9,7 +9,7 @@ from typing import Any, List, Set
 from mentat.code_feature import CodeFeature
 from mentat.errors import PathValidationError
 from mentat.git_handler import get_git_root_for_path, get_non_gitignored_files
-from mentat.interval import parse_intervals
+from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.session_context import SESSION_CONTEXT
 
 
@@ -33,10 +33,9 @@ class PathType(Enum):
 
 
 def is_interval_path(path: Path) -> bool:
-    splits = str(path).rsplit(":", 1)
-    if len(splits) != 2:
+    path, interval_str = split_intervals_from_path(path)
+    if not interval_str:
         return False
-    interval_str = splits[1]
     intervals = parse_intervals(interval_str)
     if len(intervals) == 0:
         return False
@@ -77,8 +76,7 @@ def validate_file_path(path: Path, check_for_text: bool = True) -> None:
 
 
 def validate_file_interval_path(path: Path, check_for_text: bool = True) -> None:
-    _interval_path, interval_str = str(path).rsplit(":", 1)
-    interval_path = Path(_interval_path)
+    interval_path, interval_str = split_intervals_from_path(path)
     if not interval_path.is_absolute():
         raise PathValidationError(f"File interval {path} is not absolute")
     if not interval_path.exists():
@@ -264,7 +262,7 @@ def get_code_features_for_path(
         case PathType.FILE:
             code_features = set([CodeFeature(validated_path)])
         case PathType.FILE_INTERVAL:
-            interval_path, interval_str = str(validated_path).rsplit(":", 1)
+            interval_path, interval_str = split_intervals_from_path(validated_path)
             intervals = parse_intervals(interval_str)
             code_features: Set[CodeFeature] = set()
             for interval in intervals:
