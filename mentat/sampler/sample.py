@@ -92,7 +92,7 @@ class Sample:
             feature_refs = get_consolidated_feature_refs(
                 [f for fs in code_context.include_files.values() for f in fs]
             )
-            args += [str(get_relative_path(Path(f), cwd)) for f in feature_refs]
+            args += [get_relative_path(Path(f), cwd).as_posix() for f in feature_refs]
 
         return cls(
             title=title,
