@@ -12,10 +12,10 @@ from openai import BadRequestError
 from mentat.config import Config
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import clone_repo
 from tests.benchmarks.exercise_runners.exercise_runner_factory import (
     ExerciseRunnerFactory,
 )
-from tests.benchmarks.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
