@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from git import Repo # type: ignore
+from git import Repo  # type: ignore
 
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT

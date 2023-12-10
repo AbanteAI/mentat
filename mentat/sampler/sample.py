@@ -1,17 +1,27 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path
+from typing import Any
 
 import attr
-from openai.types.chat import ChatCompletionMessageParam
+from git import Repo  # type: ignore
+from git.exc import GitCommandError
+from openai.types.chat import (
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionMessageParam,
+    ChatCompletionUserMessageParam,
+)
 
 from mentat.code_feature import get_consolidated_feature_refs
-from mentat.errors import HistoryError
+from mentat.errors import HistoryError, SampleError
 from mentat.git_handler import get_diff_active, get_hexsha_active
+from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import collect_user_input
-from mentat.utils import get_relative_path
+from mentat.utils import clone_repo, get_relative_path
 
 
 def parse_message(message: ChatCompletionMessageParam) -> str:
@@ -30,12 +40,16 @@ def parse_message(message: ChatCompletionMessageParam) -> str:
         return ""
 
 
+def warn(msg: Any):
+    print(f"\033[93m[WARNING] {msg}\033[0m")
+
+
 @attr.define
 class Sample:
     # TODO: enforce required fields
     title: str = attr.field(default="")
     description: str = attr.field(default="")
-    repo: str | None = attr.field(default=None)
+    repo: str = attr.field(default="")
     merge_base: str | None = attr.field(default=None)
     diff_merge_base: str = attr.field(default="")
     diff_active: str = attr.field(default="")
@@ -67,25 +81,26 @@ class Sample:
                 f" ({merge_base}) as merge base."
             )
 
-        stream.send("Input sample data:")
+        stream.send("Input sample data", color="light_blue")
         repo = config.sample_repo
         if not repo:
-            stream.send("  Repo URL: (e.g. 'https://github.com/your/repo')")
+            stream.send("Repo URL: (e.g. 'https://github.com/your/repo')")
             config.sample_repo = (await collect_user_input()).data.strip()
-            repo = config.sample_repo
-        stream.send("  Sample Title:")
+            repo = config.sample_repo  # TODO: Save to .mentat_config.json
+        stream.send("Sample Title:")
         title = (await collect_user_input()).data.strip() or ""
-        stream.send("  Description: (optional)")
+        stream.send("Description: (optional)")
         description = (await collect_user_input()).data.strip() or ""
-        stream.send("  Test Command: (optional, e.g. 'pytest -k foo')")
+        stream.send("Test Command: (optional, e.g. 'pytest -k foo')")
         test_command = (await collect_user_input()).data.strip() or ""
 
         messages = list[dict[str, str]]()
         for m in conversation.get_messages():
             parsed = parse_message(m)
             if parsed and m["role"] in {"user", "assistant"}:
-                # TODO Remove mentat-formatted edits
+                # TODO Replace mentat-formatted edits with git diffs
                 messages.append({"role": m["role"], "content": parsed})
+                # TODO Remove edits altogether from last assistant message
 
         args = list[str]()
         if code_context.include_files:
@@ -118,10 +133,103 @@ class Sample:
         with open(fname, "r") as f:
             return cls(**json.loads(f.read()))
 
-    # def evaluate edits # with LLM # PROMPTS LOCATION
+    async def eval(self, path_to_repo: Path | str | None = None) -> dict[str, str]:
+        # SETUP
+        # Repo and git history
+        if path_to_repo is None:
+            cwd = clone_repo(
+                url=self.repo,
+                local_dir_name=self.repo.split("/")[-1],
+                refresh=False,
+            )
+            if cwd is None:
+                raise SampleError(f"Error cloning {self.repo}")
+        else:
+            cwd = Path(path_to_repo)
+        os.chdir(cwd)
+        repo = Repo(".")
+        repo.git.checkout(self.merge_base)
+        if self.diff_merge_base:
+            try:
+                repo.git.branch("-D", "mentat_eval_temp")
+            except GitCommandError:
+                pass
+            repo.git.checkout("-b", "mentat_eval_temp")
+            try:
+                repo.git.apply(self.diff_merge_base)
+                repo.git.add(".")
+                repo.git.commit("-m", "mentat_eval_temp")
+            except GitCommandError as e:
+                raise SampleError(f"Error applying diff_merge_base: {e}")
+        if self.diff_active:
+            try:
+                repo.git.apply(self.diff_active)
+            except GitCommandError as e:
+                raise SampleError(f"Error applying diff_active: {e}")
+        hexsha_active = get_hexsha_active()
+        if hexsha_active != self.hexsha_active:
+            warn("hexsha_active does not match sample. Continuing anyway.")
 
-    # def evaluate auto-context:
-    # Run, replace args with "-a"
-    # precision/recall
+        # Initialize Mentat PythonClient with args and messages
+        paths = list[Path]()
+        for a in self.args:
+            if a.startswith("--"):
+                break  # TODO: Handle other mentat args?
+            paths.append(Path(a))
+        python_client = PythonClient(cwd=cwd, paths=paths)
+        await python_client.startup()
+        session_context = SESSION_CONTEXT.get()
+        conversation = session_context.conversation
+        conversation_history = list[ChatCompletionMessageParam]()
+        sample_prompt: str | None = None
+        for m in self.messages[::-1]:
+            role, content = m.get("role"), m.get("content", "")
+            if role == "user":
+                if sample_prompt is None:
+                    sample_prompt = content
+                else:
+                    msg = ChatCompletionUserMessageParam(role="user", content=content)
+                    conversation_history.insert(0, msg)
+            elif role == "assistant":
+                if sample_prompt is None:
+                    warn(
+                        "Ignoring assistant message after last user"
+                        f" prompt,'{content[:15]}'..."
+                    )
+                else:
+                    msg = ChatCompletionAssistantMessageParam(
+                        role="assistant", content=content
+                    )
+                    conversation_history.insert(0, msg)
+            else:
+                warn(
+                    f"Only user and assistant messages are supported. Got {m['role']}."
+                    " Skipping"
+                )
+                continue
+        if sample_prompt is None:
+            raise SampleError("Sample prompt not found in messages.")
+        for msg in conversation_history:
+            conversation.add_message(msg)
 
-    # def generate_finetune_sample
+        # EVALUATE
+        # Run mentat and generate output
+        await python_client.call_mentat_auto_accept(sample_prompt)
+        diff_eval = get_diff_active() or ""  # TODO: subtract diff_active
+        hexsha_eval = get_hexsha_active()
+
+        # Run the test command
+        test_result: str = ""
+        if self.test_command:
+            test_result = subprocess.check_output(
+                self.test_command,
+                text=True,
+            )
+        # TODO: Run the LLM evaluations from benchmark
+        # TODO: Save the results
+
+        return {
+            "diff_eval": diff_eval,
+            "hexsha_eval": hexsha_eval,
+            "test_result": test_result,
+        }
