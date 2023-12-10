@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from textwrap import dedent
 
@@ -8,6 +9,8 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
+from mentat.parsers.block_parser import BlockParser
+from mentat.parsers.git_parser import GitParser
 from mentat.sampler.sample import Sample
 from mentat.session import Session
 
@@ -163,3 +166,55 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
     assert is_sha256(sample.hexsha_edit)
     assert sample.test_command == "test_test_command"
     assert sample.version == "0.1.0"
+
+
+test_sample = {
+    "title": "Add sha1",
+    "description": "",
+    "repo": "http://github.com/AbanteAI/mentat",
+    "merge_base": "f5057f1658b9c7edb5e45a2fa8c2198ded5b5c00",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "hexsha_active": "a4f532391b368bcd6d57de67da9bd81a16a3a8965f75995364c8870fa589f00f",
+    "messages": [
+        {"role": "user", "content": "Add a new helper function called sha1."},
+        {
+            "role": "assistant",
+            "content": (
+                "I will add a new helper function called `sha1` to the"
+                " `mentat/utils.py` file.\n\nSteps:\n1. Add the `sha1` function to"
+                " `mentat/utils.py`.\n\n"
+            ),
+        },
+    ],
+    "args": ["mentat/utils.py"],
+    "diff_edit": (
+        "diff --git a/mentat/utils.py b/mentat/utils.py\nindex f90a755..6d9744a"
+        " 100644\n--- a/mentat/utils.py\n+++ b/mentat/utils.py\n@@ -34,0 +35,2 @@ def"
+        " sha256(data: str) -> str:\n+def sha1(data: str) -> str:\n+    return"
+        ' hashlib.sha1(data.encode("utf-8")).hexdigest()'
+    ),
+    "hexsha_edit": "b790990b55d01b7022324e87dd6f6fa9134849f1c379242c13f01508f6ce8851",
+    "test_command": "",
+    "version": "0.1.0",
+}
+
+
+@pytest.mark.asyncio
+async def test_sample_eval(mock_call_llm_api):
+    parsedLLMResponse = GitParser().parse_string(test_sample["diff_edit"])
+    edit_message = BlockParser().file_edits_to_llm_message(parsedLLMResponse)
+    mock_call_llm_api.set_streamed_values([dedent(f"""\
+        I will add a new helper function called `sha1` to the `mentat/utils.py` file.
+        
+        Steps:
+        1. Add the `sha1` function to `mentat/utils.py`.{edit_message}""")])
+
+    def remove_checksums(text):
+        pattern = r"\b[0-9a-f]{7}\b"
+        return re.sub(pattern, "", text)
+
+    sample = Sample(**test_sample)
+    result = await sample.eval()
+    assert remove_checksums(result["diff_eval"]) == remove_checksums(sample.diff_edit)
+    assert result["hexsha_eval"] == sample.hexsha_edit

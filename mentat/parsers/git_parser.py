@@ -36,10 +36,15 @@ class GitParser:
         split_on_diff = git_diff.split("\ndiff --git ")
 
         # Use commit message for conversation
-        commit_message = dedent(split_on_diff[0].split("\n\n")[1].strip())
+        commit_message = ""
+        if "\n\n" in split_on_diff[0]:
+            commit_message = dedent(split_on_diff[0].split("\n\n")[1].strip())
+            split_on_diff = split_on_diff[1:]
+        else:
+            split_on_diff[0] = split_on_diff[0].replace("diff --git ", "", 1)
 
         file_edits: List[FileEdit] = []
-        for diff in split_on_diff[1:]:
+        for diff in split_on_diff:
             is_creation = "new file mode" in diff
             is_deletion = "deleted file mode" in diff
             first_line = diff.split("\n")[0]
@@ -72,6 +77,9 @@ class GitParser:
                         end_line = start_line + 1
                     else:
                         end_line = start_line + int(a_b[1])
+                    # TODO: This breaks some of the parser tests, but is required to make
+                    # an insertion diff valid? Need to investigate.
+                    end_line += 1  # FileEdits use exclusive end_line
                     line_changes = change.split("@@")[1]
                     code_lines = line_changes.split("\n")
                     # This check is necessary because new code sometimes starts on the same line

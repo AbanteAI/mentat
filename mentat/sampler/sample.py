@@ -24,6 +24,10 @@ from mentat.session_input import collect_user_input
 from mentat.utils import clone_repo, get_relative_path
 
 
+def warn(msg: Any):
+    print(f"\033[93m[WARNING] {msg}\033[0m")
+
+
 def parse_message(message: ChatCompletionMessageParam) -> str:
     content = message.get("content")
     if isinstance(content, str):
@@ -40,8 +44,100 @@ def parse_message(message: ChatCompletionMessageParam) -> str:
         return ""
 
 
-def warn(msg: Any):
-    print(f"\033[93m[WARNING] {msg}\033[0m")
+def apply_diff_to_repo(diff: str, repo: Repo) -> str | None:
+    try:
+        # Save self.diff_merge_base to a temporary .diff file
+        with open(".mentat_diff_merge_base.diff", "w") as f:
+            f.write(diff)
+        repo.git.execute(["git", "apply", ".mentat_diff_merge_base.diff"])
+        repo.git.add(".")
+        repo.git.commit("-m", "mentat_eval_temp")
+    except GitCommandError as e:
+        return str(e)
+    finally:
+        os.remove(".mentat_diff_merge_base.diff")
+
+
+def setup_repo(sample: Sample, path_to_repo: Path | str | None) -> Path:
+    if path_to_repo is None:
+        cwd = clone_repo(
+            url=sample.repo,
+            local_dir_name=sample.repo.split("/")[-1],
+            refresh=False,
+        )
+        if cwd is None:
+            raise SampleError(f"Error cloning {sample.repo}")
+    else:
+        cwd = Path(path_to_repo)
+    os.chdir(cwd)
+    repo = Repo(".")
+    repo.git.checkout(sample.merge_base)
+    repo.head.reset(index=True, working_tree=True)  # git reset --hard
+    if sample.diff_merge_base:
+        try:
+            repo.git.branch("-D", "mentat_eval_temp")
+        except GitCommandError:
+            pass
+        repo.git.checkout("-b", "mentat_eval_temp")
+        errors = apply_diff_to_repo(sample.diff_merge_base, repo)
+        if errors:
+            raise SampleError(f"Error applying diff_merge_base: {errors}")
+    if sample.diff_active:
+        errors = apply_diff_to_repo(sample.diff_active, repo)
+        if errors:
+            raise SampleError(f"Error applying diff_active: {errors}")
+    hexsha_active = get_hexsha_active()
+    if hexsha_active != sample.hexsha_active:
+        warn("hexsha_active does not match sample. Continuing anyway.")
+    return cwd
+
+
+async def run_mentat_on_sample(sample: Sample, cwd: Path):
+    # Initialize Mentat PythonClient with args and messages
+    paths = list[Path]()
+    for a in sample.args:
+        if a.startswith("--"):
+            break  # TODO: Handle other mentat args?
+        paths.append(Path(a))
+    python_client = PythonClient(cwd=cwd, paths=paths)
+    await python_client.startup()
+    session_context = SESSION_CONTEXT.get()
+    conversation = session_context.conversation
+    conversation_history = list[ChatCompletionMessageParam]()
+    sample_prompt: str | None = None
+    for m in sample.messages[::-1]:
+        role, content = m.get("role"), m.get("content", "")
+        if role == "user":
+            if sample_prompt is None:
+                sample_prompt = content
+            else:
+                msg = ChatCompletionUserMessageParam(role="user", content=content)
+                conversation_history.insert(0, msg)
+        elif role == "assistant":
+            if sample_prompt is None:
+                warn(
+                    "Ignoring assistant message after last user"
+                    f" prompt,'{content[:15]}'..."
+                )
+            else:
+                msg = ChatCompletionAssistantMessageParam(
+                    role="assistant", content=content
+                )
+                conversation_history.insert(0, msg)
+        else:
+            warn(
+                f"Only user and assistant messages are supported. Got {m['role']}."
+                " Skipping"
+            )
+            continue
+    if sample_prompt is None:
+        raise SampleError("Sample prompt not found in messages.")
+    for msg in conversation_history:
+        conversation.add_message(msg)
+
+    await python_client.call_mentat_auto_accept(sample_prompt)
+    await python_client.wait_for_edit_completion()
+    await python_client.shutdown()
 
 
 @attr.define
@@ -134,87 +230,10 @@ class Sample:
             return cls(**json.loads(f.read()))
 
     async def eval(self, path_to_repo: Path | str | None = None) -> dict[str, str]:
-        # SETUP
-        # Repo and git history
-        if path_to_repo is None:
-            cwd = clone_repo(
-                url=self.repo,
-                local_dir_name=self.repo.split("/")[-1],
-                refresh=False,
-            )
-            if cwd is None:
-                raise SampleError(f"Error cloning {self.repo}")
-        else:
-            cwd = Path(path_to_repo)
-        os.chdir(cwd)
-        repo = Repo(".")
-        repo.git.checkout(self.merge_base)
-        if self.diff_merge_base:
-            try:
-                repo.git.branch("-D", "mentat_eval_temp")
-            except GitCommandError:
-                pass
-            repo.git.checkout("-b", "mentat_eval_temp")
-            try:
-                repo.git.apply(self.diff_merge_base)
-                repo.git.add(".")
-                repo.git.commit("-m", "mentat_eval_temp")
-            except GitCommandError as e:
-                raise SampleError(f"Error applying diff_merge_base: {e}")
-        if self.diff_active:
-            try:
-                repo.git.apply(self.diff_active)
-            except GitCommandError as e:
-                raise SampleError(f"Error applying diff_active: {e}")
-        hexsha_active = get_hexsha_active()
-        if hexsha_active != self.hexsha_active:
-            warn("hexsha_active does not match sample. Continuing anyway.")
-
-        # Initialize Mentat PythonClient with args and messages
-        paths = list[Path]()
-        for a in self.args:
-            if a.startswith("--"):
-                break  # TODO: Handle other mentat args?
-            paths.append(Path(a))
-        python_client = PythonClient(cwd=cwd, paths=paths)
-        await python_client.startup()
-        session_context = SESSION_CONTEXT.get()
-        conversation = session_context.conversation
-        conversation_history = list[ChatCompletionMessageParam]()
-        sample_prompt: str | None = None
-        for m in self.messages[::-1]:
-            role, content = m.get("role"), m.get("content", "")
-            if role == "user":
-                if sample_prompt is None:
-                    sample_prompt = content
-                else:
-                    msg = ChatCompletionUserMessageParam(role="user", content=content)
-                    conversation_history.insert(0, msg)
-            elif role == "assistant":
-                if sample_prompt is None:
-                    warn(
-                        "Ignoring assistant message after last user"
-                        f" prompt,'{content[:15]}'..."
-                    )
-                else:
-                    msg = ChatCompletionAssistantMessageParam(
-                        role="assistant", content=content
-                    )
-                    conversation_history.insert(0, msg)
-            else:
-                warn(
-                    f"Only user and assistant messages are supported. Got {m['role']}."
-                    " Skipping"
-                )
-                continue
-        if sample_prompt is None:
-            raise SampleError("Sample prompt not found in messages.")
-        for msg in conversation_history:
-            conversation.add_message(msg)
+        cwd = setup_repo(self, path_to_repo)
+        await run_mentat_on_sample(self, cwd)
 
         # EVALUATE
-        # Run mentat and generate output
-        await python_client.call_mentat_auto_accept(sample_prompt)
         diff_eval = get_diff_active() or ""  # TODO: subtract diff_active
         hexsha_eval = get_hexsha_active()
 

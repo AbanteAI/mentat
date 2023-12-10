@@ -11,6 +11,18 @@ from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
 
 
+# TODO: replace this with something that doesn't load the file into memory
+def is_file_text_encoded(abs_path: Path):
+    """Checks if a file is text encoded."""
+    try:
+        # The ultimate filetype test
+        with open(abs_path, "r") as f:
+            f.read()
+        return True
+    except UnicodeDecodeError:
+        return False
+
+
 def get_non_gitignored_files(path: Path) -> set[Path]:
     return set(
         # git returns / separated paths even on windows, convert so we can remove
@@ -231,18 +243,21 @@ def get_diff_merge_base() -> str:
         return ""
 
     repo = Repo(cwd)
-    diff = repo.git.diff(merge_base_commit, "HEAD")
+    diff = repo.git.diff(merge_base_commit, "HEAD", unified=0)
     return diff
 
 
-def get_diff_active() -> str:
+def get_diff_active(cwd: Path | None = None) -> str:
     """Return edits to current files + new files in standard git diff format."""
-    session_context = SESSION_CONTEXT.get()
-    cwd = session_context.cwd
+    if cwd is None:
+        session_context = SESSION_CONTEXT.get()
+        cwd = session_context.cwd
 
     repo = Repo(cwd)
-    diff = repo.git.diff("HEAD")
+    diff = repo.git.diff("HEAD", unified=0)
     for new_file in repo.untracked_files:
+        if not is_file_text_encoded(cwd / new_file):
+            continue
         diff += ("\n" if diff else "") + "\n".join(
             [
                 f"diff --git a/{new_file} b/{new_file}",
@@ -272,7 +287,7 @@ def get_hexsha_active() -> str:
     if all_files:
         hasher = hashlib.sha256()
         for file_path in sorted(all_files):
-            if file_path.exists():
+            if file_path.exists() and is_file_text_encoded(file_path):
                 hasher.update(file_path.read_bytes())
         hexsha = hasher.hexdigest()
     return hexsha
