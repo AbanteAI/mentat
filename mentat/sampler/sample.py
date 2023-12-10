@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import attr
-from git import Repo # type: ignore
 from openai.types.chat import ChatCompletionMessageParam
 
 from mentat.code_feature import get_consolidated_feature_refs
