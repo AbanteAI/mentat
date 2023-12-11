@@ -343,7 +343,7 @@ def print_path_tree(
 
         cur = cur_path / key
         star = "* " if cur in changed_files else ""
-        color = "green" if star else None
+        color = "green" if star else ("blue" if tree[key] else None)
         stream.send(f"{star}{key}", color=color)
         if tree[key]:
             print_path_tree(tree[key], changed_files, cur, new_prefix)
