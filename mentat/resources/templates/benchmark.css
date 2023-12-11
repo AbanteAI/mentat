@@ -83,6 +83,10 @@ button.failure {
     max-height: 70vh;
 }
 
+.content .container {
+    display: flex;
+}
+
 h1 {
     margin-top: 0;
 }
