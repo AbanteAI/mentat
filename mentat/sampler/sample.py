@@ -45,18 +45,20 @@ def parse_message(message: ChatCompletionMessageParam) -> str:
         return ""
 
 
-def apply_diff_to_repo(diff: str, repo: Repo) -> str | None:
+def apply_diff_to_repo(diff: str, repo: Repo, commit: bool = False) -> str | None:
+    temp_id = uuid4().hex
     try:
         # Save self.diff_merge_base to a temporary .diff file
-        with open(".mentat_diff_merge_base.diff", "w") as f:
+        with open(f".sample_{temp_id}.diff", "w") as f:
             f.write(diff)
-        repo.git.execute(["git", "apply", ".mentat_diff_merge_base.diff"])
-        repo.git.add(".")
-        repo.git.commit("-m", "mentat_eval_temp")
+        repo.git.execute(["git", "apply", f".sample_{temp_id}.diff"])
+        if commit:
+            repo.git.add(".")
+            repo.git.commit("-m", f"sample_{temp_id}")
     except GitCommandError as e:
         return str(e)
     finally:
-        os.remove(".mentat_diff_merge_base.diff")
+        os.remove(f".sample_{temp_id}.diff")
 
 
 def setup_repo(sample: Sample, path_to_repo: Path | str | None) -> Path:
@@ -72,15 +74,11 @@ def setup_repo(sample: Sample, path_to_repo: Path | str | None) -> Path:
         cwd = Path(path_to_repo)
     os.chdir(cwd)
     repo = Repo(".")
+    repo.head.reset(index=True, working_tree=True)  # reset tracked files
+    repo.git.execute(["git", "clean", "-fd"])  # remove untracked files/directories
     repo.git.checkout(sample.merge_base)
-    repo.head.reset(index=True, working_tree=True)  # git reset --hard
     if sample.diff_merge_base:
-        try:
-            repo.git.branch("-D", "mentat_eval_temp")
-        except GitCommandError:
-            pass
-        repo.git.checkout("-b", "mentat_eval_temp")
-        errors = apply_diff_to_repo(sample.diff_merge_base, repo)
+        errors = apply_diff_to_repo(sample.diff_merge_base, repo, commit=True)
         if errors:
             raise SampleError(f"Error applying diff_merge_base: {errors}")
     if sample.diff_active:

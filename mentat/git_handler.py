@@ -243,8 +243,9 @@ def get_diff_merge_base() -> str:
         return ""
 
     repo = Repo(cwd)
-    diff = repo.git.diff(merge_base_commit, "HEAD", unified=0)
-    return diff
+    # NOTE: Need at least 1 line of context in order to 'git apply' later
+    diff = repo.git.diff(merge_base_commit, "HEAD", unified=1)
+    return diff + "\n" if diff else ""  # Required to form a valid .diff file
 
 
 def get_diff_active(cwd: Path | None = None) -> str:
@@ -254,7 +255,7 @@ def get_diff_active(cwd: Path | None = None) -> str:
         cwd = session_context.cwd
 
     repo = Repo(cwd)
-    diff = repo.git.diff("HEAD", unified=0)
+    diff = repo.git.diff("HEAD", unified=1)
     for new_file in repo.untracked_files:
         if not is_file_text_encoded(cwd / new_file):
             continue
@@ -274,7 +275,7 @@ def get_diff_active(cwd: Path | None = None) -> str:
         if file_content:
             diff += "\n" + "\n".join(f"+{line}" for line in file_content.splitlines())
 
-    return diff
+    return diff + "\n" if diff else ""  # Required to form a valid .diff file
 
 
 def get_hexsha_active() -> str:

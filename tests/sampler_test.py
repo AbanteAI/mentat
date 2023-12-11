@@ -79,7 +79,7 @@ async def test_sample_from_context(
         sample.diff_edit
         == "diff --git a/test_file.py b/test_file.py\nnew file mode 100644\nindex"
         " 0000000..ffffff\n--- /dev/null\n+++ b/test_file.py\n@@ -0,0 +1"
-        " @@\n+test_file_content"
+        " @@\n+test_file_content\n"
     )
     assert sample.id != ""
     assert sample.test_command == "test_test_command"
@@ -167,30 +167,28 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
 test_sample = {
     "title": "Add sha1",
     "description": "",
+    "id": "bc62d3903f4e4945a309ea0115d16702",
+    "parent_id": "",
     "repo": "http://github.com/AbanteAI/mentat",
     "merge_base": "f5057f1658b9c7edb5e45a2fa8c2198ded5b5c00",
     "diff_merge_base": "",
     "diff_active": "",
     "messages": [
-        {"role": "user", "content": "Add a new helper function called sha1."},
+        {
+            "role": "user",
+            "content": "Add a sha1 function to utils.py"
+        },
         {
             "role": "assistant",
-            "content": (
-                "I will add a new helper function called `sha1` to the"
-                " `mentat/utils.py` file.\n\nSteps:\n1. Add the `sha1` function to"
-                " `mentat/utils.py`.\n\n"
-            ),
-        },
+            "content": "I will add a new sha1 function to the `utils.py` file.\n\nSteps:\n1. Add the sha1 function to `utils.py`.\n\n"
+        }
     ],
-    "args": ["mentat/utils.py"],
-    "diff_edit": (
-        "diff --git a/mentat/utils.py b/mentat/utils.py\nindex f90a755..6d9744a"
-        " 100644\n--- a/mentat/utils.py\n+++ b/mentat/utils.py\n@@ -34,0 +35,2 @@ def"
-        " sha256(data: str) -> str:\n+def sha1(data: str) -> str:\n+    return"
-        ' hashlib.sha1(data.encode("utf-8")).hexdigest()'
-    ),
+    "args": [
+        "mentat/utils.py"
+    ],
+    "diff_edit": "diff --git a/mentat/utils.py b/mentat/utils.py\nindex 46c3d7f..948b7f9 100644\n--- a/mentat/utils.py\n+++ b/mentat/utils.py\n@@ -35,2 +35,6 @@ def sha256(data: str) -> str:\n \n+def sha1(data: str) -> str:\n+    return hashlib.sha1(data.encode(\"utf-8\")).hexdigest()\n+\n+\n async def run_subprocess_async(*args: str) -> str:\n",
     "test_command": "",
-    "version": "0.1.0",
+    "version": "0.1.0"
 }
 
 
