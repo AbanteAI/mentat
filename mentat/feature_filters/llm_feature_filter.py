@@ -7,6 +7,7 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
 )
+from openai.types.chat.completion_create_params import ResponseFormat
 
 from mentat.code_feature import (
     CodeFeature,
@@ -113,7 +114,12 @@ class LLMFeatureFilter(FeatureFilter):
         for i in range(n_tries):
             start_time = default_timer()
             message = (
-                (await llm_api_handler.call_llm_api(messages, model, stream=False))
+                (await llm_api_handler.call_llm_api(
+                    messages=messages, 
+                    model=model, 
+                    stream=False,
+                    response_format=ResponseFormat(type="json_object"),
+                ))
                 .choices[0]
                 .message.content
             ) or ""
