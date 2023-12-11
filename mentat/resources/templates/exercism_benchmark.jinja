@@ -5,6 +5,9 @@
         <style>
             {% include 'benchmark.css' %}
         </style>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script>
         <script>
             document.addEventListener("DOMContentLoaded", function() {
                 function updateVisibility() {
@@ -42,7 +45,11 @@
                         <h1>Instructions:</h1>
                         <div class="content">{{ result.instructions }}</div>
                         <h1>Code:</h1>
-                        <div class="content">{{ result.code }}</div>
+                        <div class="content">
+                            <pre><code>
+                                {{ result.code }}
+                            </code></pre>
+                        </div>
                         <h1>Analysis:</h1>
                         <div class="content">{{ result.response }}</div>
                         <h1>Test Output:</h1>
