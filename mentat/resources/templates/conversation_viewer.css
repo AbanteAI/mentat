@@ -10,7 +10,6 @@ pre {
 .container {
     position: relative;
     width: 100%;
-    display: none;
     flex-direction: row;
     flex-grow: 1;
 }
