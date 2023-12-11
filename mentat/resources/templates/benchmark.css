@@ -76,7 +76,7 @@ button.failure {
     white-space: pre-wrap;
     word-break: break-word;
     background-color: #fff;
-    border: 1px solid #ddd;
+    border-bottom: 1px solid #ddd;
     padding: 10px;
     margin-bottom: 10px;
     overflow-y: scroll;

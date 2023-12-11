@@ -139,12 +139,14 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         iterations += 1
 
     had_error = client.stopped.is_set()
+    messages = client.get_conversation().literal_messages
     await client.shutdown()
     passed = exercise_runner.passed()
     result = {
         "iterations": iterations,
         "passed": passed,
         "test": exercise_runner.name,
+        "transcript": {"id": problem_dir, "messages": messages},
     }
     if had_error:
         result["response"] = "Error while running mentat"
@@ -195,6 +197,7 @@ def results_summary(results):
     results_map = {}
     passedIterations = {}
     reasons = {}
+    transcripts = {}
     passed = 0
     failed = 0
     tokens = 0
@@ -203,6 +206,7 @@ def results_summary(results):
     for result in results:
         test = result["test"]
         results_map[test] = result
+        transcripts[test] = result.get("transcript", {"id": test, "messages": []})
         if result["passed"]:
             passed += 1
             iterations = result["iterations"]
@@ -218,6 +222,7 @@ def results_summary(results):
     return {
         "results_map": results_map,
         "passedIterations": passedIterations,
+        "transcripts": transcripts,
         "reasons": reasons,
         "passed": passed,
         "failed": failed,

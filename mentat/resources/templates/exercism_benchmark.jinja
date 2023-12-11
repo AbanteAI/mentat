@@ -1,3 +1,7 @@
+<<<<<<< Updated upstream
+=======
+{% from 'transcript_mixin.jinja' import transcript_container %}
+>>>>>>> Stashed changes
 <!DOCTYPE html>
 <html>
     <head>
@@ -24,6 +28,12 @@
 
                 window.addEventListener('hashchange', updateVisibility);
             });
+        </script>
+        <style>
+            {% include 'conversation_viewer.css' %}
+        </style>
+        <script>
+            {% include 'conversation_viewer.js' %}
         </script>
     </head>
     <body>
@@ -54,6 +64,10 @@
                         <div class="content">{{ result.response }}</div>
                         <h1>Test Output:</h1>
                         <div class="content">{{ result['test-output'] }}</div>
+
+
+                        <h1>Transcript</h1>
+                        <div class="content">{{ transcript_container(result["transcript"]) }}</div>
                     </div>
                 {% endfor %}
             </div>
