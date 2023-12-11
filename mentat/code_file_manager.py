@@ -104,9 +104,9 @@ class CodeFileManager:
                     file_edit.previous_file_lines = self.read_file(file_edit.file_path)
                     self.delete_file(file_edit.file_path)
                     applied_edits.append(file_edit)
-                    continue
                 else:
                     stream.send(f"Not deleting {display_path}", color="green")
+                continue
 
             if not file_edit.is_creation:
                 stored_lines = self.file_lines[file_edit.file_path]

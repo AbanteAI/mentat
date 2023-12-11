@@ -111,12 +111,12 @@ def _get_code_block(
 ):
     lines = _prefixed_lines(line_number_buffer, code_lines, prefix)
     if lines:
-        return colored(lines, color=color)
+        return "\n".join(colored(line, color=color) for line in lines.split("\n"))
     else:
         return ""
 
 
-def get_full_change(display_information: DisplayInformation):
+def get_full_change(display_information: DisplayInformation, prefix: str = ""):
     to_print = [
         get_file_name(display_information),
         (
@@ -135,7 +135,10 @@ def get_full_change(display_information: DisplayInformation):
         ),
     ]
     full_change = "\n".join([line for line in to_print if line])
-    return full_change
+    prefixed_change = "\n".join(
+        (prefix + line) if line.strip() else line for line in full_change.split("\n")
+    )
+    return prefixed_change
 
 
 def get_file_name(
@@ -143,19 +146,23 @@ def get_file_name(
 ):
     match display_information.file_action_type:
         case FileActionType.CreateFile:
-            return colored(f"\n{display_information.file_name}*", color="light_green")
+            return "\n" + colored(
+                f"{display_information.file_name}*", color="light_green"
+            )
         case FileActionType.DeleteFile:
-            return colored(
-                f"\nDeletion: {display_information.file_name}", color="light_red"
+            return "\n" + colored(
+                f"Deletion: {display_information.file_name}", color="light_red"
             )
         case FileActionType.RenameFile:
-            return colored(
-                f"\nRename: {display_information.file_name} ->"
+            return "\n" + colored(
+                f"Rename: {display_information.file_name} ->"
                 f" {display_information.new_name}",
                 color="yellow",
             )
         case FileActionType.UpdateFile:
-            return colored(f"\n{display_information.file_name}", color="light_blue")
+            return "\n" + colored(
+                f"{display_information.file_name}", color="light_blue"
+            )
 
 
 def get_added_lines(

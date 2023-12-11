@@ -74,7 +74,7 @@ class FileEdit:
         if not value.is_absolute():
             raise ValueError(f"File_path must be an absolute path, got {value}")
 
-    def _display_creation(self):
+    def _display_creation(self, prefix: str = ""):
         ctx = SESSION_CONTEXT.get()
 
         added_lines = list[str]()
@@ -83,9 +83,9 @@ class FileEdit:
         display_information = DisplayInformation(
             self.file_path, [], added_lines, [], FileActionType.CreateFile
         )
-        ctx.stream.send(get_full_change(display_information))
+        ctx.stream.send(get_full_change(display_information, prefix=prefix))
 
-    def _display_deletion(self, file_lines: list[str]):
+    def _display_deletion(self, file_lines: list[str], prefix: str = ""):
         ctx = SESSION_CONTEXT.get()
 
         display_information = DisplayInformation(
@@ -95,9 +95,9 @@ class FileEdit:
             file_lines,
             FileActionType.DeleteFile,
         )
-        ctx.stream.send(get_full_change(display_information))
+        ctx.stream.send(get_full_change(display_information, prefix=prefix))
 
-    def _display_rename(self):
+    def _display_rename(self, prefix: str = ""):
         ctx = SESSION_CONTEXT.get()
 
         display_information = DisplayInformation(
@@ -108,9 +108,11 @@ class FileEdit:
             FileActionType.RenameFile,
             new_name=self.rename_file_path,
         )
-        ctx.stream.send(get_full_change(display_information))
+        ctx.stream.send(get_full_change(display_information, prefix=prefix))
 
-    def _display_replacement(self, replacement: Replacement, file_lines: list[str]):
+    def _display_replacement(
+        self, replacement: Replacement, file_lines: list[str], prefix: str = ""
+    ):
         ctx = SESSION_CONTEXT.get()
 
         removed_block = file_lines[replacement.starting_line : replacement.ending_line]
@@ -124,22 +126,22 @@ class FileEdit:
             replacement.ending_line,
             self.rename_file_path,
         )
-        ctx.stream.send(get_full_change(display_information))
+        ctx.stream.send(get_full_change(display_information, prefix=prefix))
 
-    def _display_replacements(self, file_lines: list[str]):
+    def _display_replacements(self, file_lines: list[str], prefix: str = ""):
         for replacement in self.replacements:
-            self._display_replacement(replacement, file_lines)
+            self._display_replacement(replacement, file_lines, prefix=prefix)
 
-    def display_full_edit(self, file_lines: list[str]):
+    def display_full_edit(self, file_lines: list[str], prefix: str = ""):
         """Displays the full edit as if it were altering a file with the lines given"""
         if self.is_deletion:
-            self._display_deletion(file_lines)
+            self._display_deletion(file_lines, prefix=prefix)
         if self.rename_file_path:
-            self._display_rename
+            self._display_rename(prefix=prefix)
         if self.is_creation:
-            self._display_creation()
+            self._display_creation(prefix=prefix)
         else:
-            self._display_replacements(file_lines)
+            self._display_replacements(file_lines, prefix=prefix)
 
     def is_valid(self) -> bool:
         session_context = SESSION_CONTEXT.get()
@@ -279,6 +281,8 @@ class FileEdit:
     def undo(self):
         ctx = SESSION_CONTEXT.get()
 
+        prefix = "UNDO: "
+
         if self.is_creation:
             if not self.file_path.exists():
                 raise HistoryError(
@@ -286,7 +290,7 @@ class FileEdit:
                 )
             ctx.code_file_manager.delete_file(self.file_path)
 
-            self._display_creation()
+            self._display_creation(prefix=prefix)
             ctx.stream.send(
                 f"Creation of file {self.file_path} undone", color="light_blue"
             )
@@ -305,7 +309,7 @@ class FileEdit:
                 )
             ctx.code_file_manager.rename_file(self.rename_file_path, self.file_path)
 
-            self._display_rename()
+            self._display_rename(prefix=prefix)
             ctx.stream.send(
                 f"Rename of file {self.file_path} to {self.rename_file_path} undone",
                 color="light_blue",
@@ -325,7 +329,7 @@ class FileEdit:
                 self.file_path, content="\n".join(self.previous_file_lines)
             )
 
-            self._display_deletion(self.previous_file_lines)
+            self._display_deletion(self.previous_file_lines, prefix=prefix)
             ctx.stream.send(
                 f"Deletion of file {self.file_path} undone", color="light_red"
             )
@@ -341,7 +345,7 @@ class FileEdit:
             with open(self.file_path, "w") as f:
                 f.write("\n".join(self.previous_file_lines))
 
-            self._display_replacements(self.previous_file_lines)
+            self._display_replacements(self.previous_file_lines, prefix=prefix)
             ctx.stream.send(
                 f"Edits to file {self.file_path} undone", color="light_blue"
             )
