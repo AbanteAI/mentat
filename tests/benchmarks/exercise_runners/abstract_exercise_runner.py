@@ -7,10 +7,10 @@ from pathlib import Path
 class AbstractExerciseRunner:
     def __init__(self, exercise, extension):
         self.name = exercise
-        self.dir = Path(f"exercises/practice/{exercise}")
+        self.dir = Path(f"exercises/practice/{exercise}").absolute()
         self.file = Path(f"{exercise}.{extension}")
-        self.full_path = Path(f"{self.dir}/{self.file}")
-        self.test_output_file = Path(f"{self.dir}/test_output.txt")
+        self.full_path = self.dir / self.file
+        self.test_output_file = self.dir / "test_output.txt"
 
     def _run_test_command(self, command, cwd="."):
         try:

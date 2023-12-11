@@ -7,6 +7,7 @@ from multiprocessing import Pool
 
 import pytest
 import tqdm
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from openai import BadRequestError
 
 from mentat.config import Config
@@ -85,9 +86,8 @@ async def failure_analysis(exercise_runner, language):
     response = ""
     try:
         llm_api_handler = SESSION_CONTEXT.get().llm_api_handler
-        async for chunk in await llm_api_handler.call_llm_api(messages, model, True):
-            content = chunk["choices"][0]["delta"].get("content", "")
-            response += content
+        llm_grade = await llm_api_handler.call_llm_api(messages, model, False)
+        response = llm_grade.choices[0].message.content
     except BadRequestError:
         response = "Unable to analyze test case\nreason: too many tokens to analyze"
 
@@ -178,7 +178,7 @@ def run_exercise_sync(problem_dir, language="python", max_iterations=2):
     return result
 
 
-def summarize_results(results):
+def tqdm_summary(results):
     passed_in_n = {}
     failed = 0
     for result in results:
@@ -189,6 +189,40 @@ def summarize_results(results):
         else:
             failed += 1
     return "Passed: " + str(passed_in_n)[1:-1] + "| Failed: " + str(failed)
+
+
+def results_summary(results):
+    results_map = {}
+    passedIterations = {}
+    reasons = {}
+    passed = 0
+    failed = 0
+    tokens = 0
+    totalIterations = 0
+
+    for result in results:
+        test = result["test"]
+        results_map[test] = result
+        if result["passed"]:
+            passed += 1
+            iterations = result["iterations"]
+            passedIterations[iterations] = passedIterations.get(iterations, 0) + 1
+            tokens += result["tokens"]
+            totalIterations += iterations
+        else:
+            failed += 1
+            reason = result["reason"]
+            reasons[reason] = reasons.get(reason, 0) + 1
+
+    avgTokens = tokens // totalIterations if totalIterations > 0 else 0
+    return {
+        "results_map": results_map,
+        "passedIterations": passedIterations,
+        "reasons": reasons,
+        "passed": passed,
+        "failed": failed,
+        "avgTokens": avgTokens,
+    }
 
 
 def test_practice_directory_performance(
@@ -225,16 +259,22 @@ def test_practice_directory_performance(
                 json.dump(result, f)
                 f.write("\n")
             pbar.set_description(
-                summarize_results(results) + "| Last Ran: " + result["test"]
+                tqdm_summary(results) + "| Last Ran: " + result["test"]
             )
         results.sort(key=lambda result: result["test"])
 
-        # Update the html file
-        results_json = list(map(json.dumps, results))
-        results_str = "[" + ",".join(results_json) + "]"
-        with open(f"{os.path.dirname(__file__)}/exercism_benchmark.html", "r") as f:
-            html = f.read()
-        html = html.replace("{{ results }}", results_str)
+        env = Environment(
+            loader=FileSystemLoader(
+                os.path.join(
+                    os.path.dirname(__file__), "../../mentat/resources/templates"
+                )
+            ),
+            autoescape=select_autoescape(["html", "xml"]),
+        )
+        template = env.get_template("exercism_benchmark.jinja")
+        summary = results_summary(results)
+        rendered_html = template.render(summary=summary)
+
         with open("results.html", "w") as f:
-            f.write(html)
+            f.write(rendered_html)
         webbrowser.open("file://" + os.path.realpath("results.html"))
