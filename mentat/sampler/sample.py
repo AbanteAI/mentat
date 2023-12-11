@@ -5,6 +5,7 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import attr
 from git import Repo  # type: ignore
@@ -17,7 +18,7 @@ from openai.types.chat import (
 
 from mentat.code_feature import get_consolidated_feature_refs
 from mentat.errors import HistoryError, SampleError
-from mentat.git_handler import get_diff_active, get_hexsha_active
+from mentat.git_handler import get_diff_active
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import collect_user_input
@@ -86,9 +87,6 @@ def setup_repo(sample: Sample, path_to_repo: Path | str | None) -> Path:
         errors = apply_diff_to_repo(sample.diff_active, repo)
         if errors:
             raise SampleError(f"Error applying diff_active: {errors}")
-    hexsha_active = get_hexsha_active()
-    if hexsha_active != sample.hexsha_active:
-        warn("hexsha_active does not match sample. Continuing anyway.")
     return cwd
 
 
@@ -145,15 +143,15 @@ class Sample:
     # TODO: enforce required fields
     title: str = attr.field(default="")
     description: str = attr.field(default="")
+    id: str = attr.field(default="")
+    parent_id: str = attr.field(default="")
     repo: str = attr.field(default="")
     merge_base: str | None = attr.field(default=None)
     diff_merge_base: str = attr.field(default="")
     diff_active: str = attr.field(default="")
-    hexsha_active: str = attr.field(default="")
     messages: list[dict[str, str]] = attr.field(default=[])  # type: ignore
     args: list[str] = attr.field(default=[])  # type: ignore
     diff_edit: str = attr.field(default="")
-    hexsha_edit: str = attr.field(default="")
     test_command: str = attr.field(default="")
     version: str = attr.field(default="0.1.0")
 
@@ -208,15 +206,15 @@ class Sample:
         return cls(
             title=title,
             description=description,
+            id=uuid4().hex,
+            parent_id=code_file_manager.history.last_sample_id or "",
             repo=repo,
             merge_base=code_file_manager.history.merge_base,
             diff_merge_base=code_file_manager.history.diff_merge_base or "",
             diff_active=code_file_manager.history.diff_active or "",
-            hexsha_active=code_file_manager.history.hexsha_active or "",
             messages=messages,
             args=args,
             diff_edit=get_diff_active() or "",  # TODO: subtract diff_active
-            hexsha_edit=get_hexsha_active(),
             test_command=test_command,
         )
 
@@ -235,7 +233,6 @@ class Sample:
 
         # EVALUATE
         diff_eval = get_diff_active() or ""  # TODO: subtract diff_active
-        hexsha_eval = get_hexsha_active()
 
         # Run the test command
         test_result: str = ""
@@ -249,6 +246,5 @@ class Sample:
 
         return {
             "diff_eval": diff_eval,
-            "hexsha_eval": hexsha_eval,
             "test_result": test_result,
         }

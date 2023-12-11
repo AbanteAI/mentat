@@ -29,7 +29,6 @@ async def test_sample_from_context(
     edit_history.merge_base = "test_merge_base"
     edit_history.diff_merge_base = "test_diff_merge_base"
     edit_history.diff_active = "test_diff_active"
-    edit_history.hexsha_active = "test_hexsha_active"
 
     mocker.patch(
         "mentat.conversation.Conversation.get_messages",
@@ -71,7 +70,6 @@ async def test_sample_from_context(
     assert sample.merge_base == "test_merge_base"
     assert sample.diff_merge_base == "test_diff_merge_base"
     assert sample.diff_active == "test_diff_active"
-    assert sample.hexsha_active == "test_hexsha_active"
     assert sample.messages == [
         {"role": "user", "content": "test_user_content"},
         {"role": "assistant", "content": "test_assistant_content"},
@@ -83,7 +81,7 @@ async def test_sample_from_context(
         " 0000000..ffffff\n--- /dev/null\n+++ b/test_file.py\n@@ -0,0 +1"
         " @@\n+test_file_content"
     )
-    assert sample.hexsha_edit != ""
+    assert sample.id != ""
     assert sample.test_command == "test_test_command"
     assert sample.version == "0.1.0"
 
@@ -146,7 +144,6 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
     assert is_sha1(sample.merge_base)
     assert sample.diff_merge_base == ""
     assert sample.diff_active == ""
-    assert is_sha256(sample.hexsha_active)
     assert len(sample.messages) == 2
     assert sample.messages[0] == {"role": "user", "content": "Request"}
     assert sample.messages[1]["role"] == "assistant"
@@ -163,7 +160,6 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
     assert "+# forty two" in edits[0]
     assert "test_file.py" in edits[1]
     assert "+# forty two" in edits[1]
-    assert is_sha256(sample.hexsha_edit)
     assert sample.test_command == "test_test_command"
     assert sample.version == "0.1.0"
 
@@ -175,7 +171,6 @@ test_sample = {
     "merge_base": "f5057f1658b9c7edb5e45a2fa8c2198ded5b5c00",
     "diff_merge_base": "",
     "diff_active": "",
-    "hexsha_active": "a4f532391b368bcd6d57de67da9bd81a16a3a8965f75995364c8870fa589f00f",
     "messages": [
         {"role": "user", "content": "Add a new helper function called sha1."},
         {
@@ -194,7 +189,6 @@ test_sample = {
         " sha256(data: str) -> str:\n+def sha1(data: str) -> str:\n+    return"
         ' hashlib.sha1(data.encode("utf-8")).hexdigest()'
     ),
-    "hexsha_edit": "b790990b55d01b7022324e87dd6f6fa9134849f1c379242c13f01508f6ce8851",
     "test_command": "",
     "version": "0.1.0",
 }
@@ -217,4 +211,4 @@ async def test_sample_eval(mock_call_llm_api):
     sample = Sample(**test_sample)
     result = await sample.eval()
     assert remove_checksums(result["diff_eval"]) == remove_checksums(sample.diff_edit)
-    assert result["hexsha_eval"] == sample.hexsha_edit
+    assert result["test_result"] == ""

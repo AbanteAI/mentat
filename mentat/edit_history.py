@@ -10,7 +10,6 @@ from mentat.git_handler import (
     get_diff_active,
     get_diff_merge_base,
     get_git_root_for_path,
-    get_hexsha_active,
     get_merge_base,
 )
 from mentat.parsers.file_edit import FileEdit, Replacement
@@ -154,7 +153,7 @@ class EditHistory:
     merge_base: str | None = None
     diff_merge_base: str | None = None
     diff_active: str | None = None
-    hexsha_active: str | None = None
+    last_sample_id: str | None = None
 
     def set_sample_diffs(self):
         ctx = SESSION_CONTEXT.get()
@@ -162,6 +161,5 @@ class EditHistory:
             self.merge_base = get_merge_base()
             self.diff_merge_base = get_diff_merge_base()
             self.diff_active = get_diff_active()
-            self.hexsha_active = get_hexsha_active()
         else:
             pass  # TODO: Can we make samples without git?

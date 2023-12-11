@@ -10,7 +10,7 @@ class SampleCommand(Command, command_name="sample"):
         from mentat.sampler.sample import Sample
 
         sample = await Sample.from_context()
-        fname = f"sample_{sample.hexsha_edit}.json"
+        fname = f"sample_{sample.id}.json"
         if len(args) > 0:
             fpath = Path(args[0]) / fname
         else:
