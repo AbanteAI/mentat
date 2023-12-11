@@ -1,6 +1,5 @@
 import os
 import subprocess
-from pathlib import Path
 
 from tests.benchmarks.exercise_runners.abstract_exercise_runner import (
     AbstractExerciseRunner,
@@ -12,7 +11,7 @@ class JavascriptExerciseRunner(AbstractExerciseRunner):
         super().__init__(exercise, "js")
         if not os.path.exists("node_modules"):
             subprocess.run(["npm", "install"], stdout=subprocess.PIPE)
-        self.test_file = self.dir / Path(f"{exercise}.spec.js")
+        self.test_file = self.dir / f"{exercise}.spec.js"
         with open(self.test_file, "r") as f:
             test_contents = f.read()
         with open(self.test_file, "w") as f:
