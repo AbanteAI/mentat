@@ -12,7 +12,7 @@ from mentat.ctags import get_ctag_lines_and_names
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
-from mentat.interval import Interval, parse_intervals
+from mentat.interval import Interval, parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path, sha256
@@ -123,14 +123,12 @@ class CodeFeature:
             self.path = Path(path)
             self.interval = Interval(0, math.inf)
         else:
-            path = str(path)
-            split = path.rsplit(":", 1)
-            self.path = Path(split[0])
+            self.path, interval = split_intervals_from_path(path)
             if not self.path.exists():
                 self.path = Path(path)
                 self.interval = Interval(0, math.inf)
             else:
-                interval = parse_intervals(split[1])
+                interval = parse_intervals(interval)
                 if len(interval) > 1:
                     raise MentatError("CodeFeatures should only have on interval.")
                 self.interval = interval[0]

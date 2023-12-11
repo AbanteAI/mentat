@@ -29,6 +29,7 @@ from mentat.include_files import (
     print_path_tree,
     validate_and_format_path,
 )
+from mentat.interval import split_intervals_from_path
 from mentat.llm_api_handler import count_tokens, is_test_environment
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
@@ -391,8 +392,7 @@ class CodeContext:
 
         excluded_paths: Set[Path] = set()
 
-        interval_path, interval_str = str(path).rsplit(":", 1)
-        interval_path = Path(interval_path)
+        interval_path, interval_str = split_intervals_from_path(path)
         if interval_path not in self.include_files:
             session_context.stream.send(
                 f"Path {interval_path} not in context", color="light_red"
