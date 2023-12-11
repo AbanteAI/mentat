@@ -1,8 +1,7 @@
 import argparse
-import json
-import os
-from pathlib import Path
 import asyncio
+import json
+
 from mentat.sampler.sample import Sample
 from mentat.utils import mentat_dir_path
 

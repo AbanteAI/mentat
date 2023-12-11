@@ -78,7 +78,9 @@ class GitParser:
                     else:
                         end_line = start_line + int(a_b[1])
                     line_changes = change.split("@@")[1]
-                    code_lines = line_changes.split("\n")[1:]  # Discard optional context
+                    code_lines = line_changes.split("\n")[
+                        1:
+                    ]  # Discard optional context
                     # This check is necessary because new code sometimes starts on the same line
                     # as @@ sometimes on the next line.
                     if code_lines[0] == "":

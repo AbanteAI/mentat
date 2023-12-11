@@ -174,21 +174,25 @@ test_sample = {
     "diff_merge_base": "",
     "diff_active": "",
     "messages": [
-        {
-            "role": "user",
-            "content": "Add a sha1 function to utils.py"
-        },
+        {"role": "user", "content": "Add a sha1 function to utils.py"},
         {
             "role": "assistant",
-            "content": "I will add a new sha1 function to the `utils.py` file.\n\nSteps:\n1. Add the sha1 function to `utils.py`.\n\n"
-        }
+            "content": (
+                "I will add a new sha1 function to the `utils.py` file.\n\nSteps:\n1."
+                " Add the sha1 function to `utils.py`.\n\n"
+            ),
+        },
     ],
-    "args": [
-        "mentat/utils.py"
-    ],
-    "diff_edit": "diff --git a/mentat/utils.py b/mentat/utils.py\nindex 46c3d7f..948b7f9 100644\n--- a/mentat/utils.py\n+++ b/mentat/utils.py\n@@ -35,2 +35,6 @@ def sha256(data: str) -> str:\n \n+def sha1(data: str) -> str:\n+    return hashlib.sha1(data.encode(\"utf-8\")).hexdigest()\n+\n+\n async def run_subprocess_async(*args: str) -> str:\n",
+    "args": ["mentat/utils.py"],
+    "diff_edit": (
+        "diff --git a/mentat/utils.py b/mentat/utils.py\nindex 46c3d7f..948b7f9"
+        " 100644\n--- a/mentat/utils.py\n+++ b/mentat/utils.py\n@@ -35,2 +35,6 @@ def"
+        " sha256(data: str) -> str:\n \n+def sha1(data: str) -> str:\n+    return"
+        ' hashlib.sha1(data.encode("utf-8")).hexdigest()\n+\n+\n async def'
+        " run_subprocess_async(*args: str) -> str:\n"
+    ),
     "test_command": "",
-    "version": "0.1.0"
+    "version": "0.1.0",
 }
 
 
