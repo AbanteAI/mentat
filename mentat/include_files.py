@@ -64,7 +64,7 @@ def get_path_type(path: Path) -> PathType:
     elif re.search(r"[\*\?\[\]]", str(path)):
         return PathType.GLOB
     else:
-        raise PathValidationError(f"Unknown path type {path}")
+        raise PathValidationError(f"Path {path} does not exist")
 
 
 def validate_file_path(path: Path, check_for_text: bool = True) -> None:
@@ -126,13 +126,19 @@ def validate_and_format_path(
     """
     path = Path(path)
 
+    # Resolve ~
+    try:
+        path = path.expanduser()
+    except RuntimeError as e:
+        raise PathValidationError(f"Error expanding path {path}: {e}")
+
     # Get absolute path
     if path.is_absolute():
         abs_path = path
     else:
-        abs_path = cwd.joinpath(path)
+        abs_path = cwd / path
 
-    # Resolve path (remove any '..')
+    # Resolve path (remove any '..' or symlinks)
     abs_path = abs_path.resolve()
 
     # Validate path

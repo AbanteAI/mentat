@@ -5,6 +5,7 @@ import pytest
 from mentat.errors import PathValidationError
 from mentat.include_files import (
     is_interval_path,
+    validate_and_format_path,
     validate_file_interval_path,
     validate_file_path,
     validate_glob_path,
@@ -56,3 +57,9 @@ def test_validate_glob_path():
     # raise on no files matching glob
     with pytest.raises(PathValidationError):
         validate_glob_path(Path("*.txt").resolve())
+
+
+def test_validate_and_format_tilde_home_directory():
+    with pytest.raises(PathValidationError) as e_info:
+        validate_and_format_path("~/non_existing_file.py", "/fake/cwd")
+    assert str(Path.home() / "non_existing_file.py") in str(e_info.value)
