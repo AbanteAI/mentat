@@ -354,7 +354,7 @@ class CodeContext:
                 exclude_patterns=abs_exclude_patterns,
             )
         except PathValidationError as e:
-            session_context.stream.send(e, color="light_red")
+            session_context.stream.send(str(e), color="light_red")
             return included_paths
 
         for code_feature in code_features:
@@ -479,7 +479,7 @@ class CodeContext:
                 case PathType.GLOB:
                     excluded_paths.update(self._exclude_glob(validated_path))
         except PathValidationError as e:
-            session_context.stream.send(e, color="light_red")
+            session_context.stream.send(str(e), color="light_red")
 
         return excluded_paths
 
