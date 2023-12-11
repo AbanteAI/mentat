@@ -127,7 +127,10 @@ def validate_and_format_path(
     path = Path(path)
 
     # Resolve ~
-    path = path.expanduser()
+    try:
+        path = path.expanduser()
+    except RuntimeError as e:
+        raise PathValidationError(f"Error expanding path {path}: {e}")
 
     # Get absolute path
     if path.is_absolute():
