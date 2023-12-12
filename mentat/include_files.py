@@ -252,6 +252,7 @@ def get_paths_for_directory(
 
             if not recursive:
                 break
+    paths = set(filter(is_file_text_encoded, paths))
 
     return paths
 
