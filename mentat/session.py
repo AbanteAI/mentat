@@ -4,7 +4,7 @@ import os
 import traceback
 from asyncio import CancelledError, Task
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Coroutine, List, Optional, Set
 from uuid import uuid4
 
 import attr
@@ -12,6 +12,7 @@ import sentry_sdk
 from openai import APITimeoutError, BadRequestError, RateLimitError
 
 from mentat.agent_handler import AgentHandler
+from mentat.auto_completer import get_completions
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
@@ -56,6 +57,7 @@ class Session:
         setup_logging()
         sentry_init()
         self.id = uuid4()
+        self._tasks: Set[asyncio.Task[None]] = set()
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
@@ -99,6 +101,18 @@ class Session:
         config.send_errors_to_stream()
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)
+
+    def _create_task(self, coro: Coroutine[None, None, Any]):
+        """Utility method for running a Task in the background"""
+
+        def task_cleanup(task: asyncio.Task[None]):
+            self._tasks.remove(task)
+
+        task = asyncio.create_task(coro)
+        task.add_done_callback(task_cleanup)
+        self._tasks.add(task)
+
+        return task
 
     async def _main(self):
         session_context = SESSION_CONTEXT.get()
@@ -175,6 +189,12 @@ class Session:
         await self.stream.recv(channel="session_exit")
         self._main_task.cancel()
 
+    async def listen_for_completion_requests(self):
+        async for message in self.stream.listen(channel="completion_request"):
+            completions = get_completions(message.data)
+            # Will intermediary client for vscode serialize/deserialize all messages automatically?
+            self.stream.send(completions, channel=f"completion_request:{message.id}")
+
     ### lifecycle
 
     def start(self):
@@ -209,10 +229,9 @@ class Session:
                 sentry_sdk.flush()
 
         self._main_task: Task[None] = asyncio.create_task(run_main())
-        # If we create more tasks in Session, add a task list and helper function like we have in TerminalClient
-        self._exit_task: Task[None] = asyncio.create_task(
-            self.listen_for_session_exit()
-        )
+
+        self._create_task(self.listen_for_session_exit())
+        self._create_task(self.listen_for_completion_requests())
 
     async def _stop(self):
         if self.stopped:
@@ -226,12 +245,16 @@ class Session:
         vision_manager.close()
         cost_tracker.display_total_cost()
         logging.shutdown()
-        self._exit_task.cancel()
+
+        for task in self._tasks:
+            task.cancel()
+
         self._main_task.cancel()
         try:
             await self._main_task
         except CancelledError:
             pass
+
         self.stream.send(None, channel="client_exit")
         await self.stream.join()
         self.stream.stop()

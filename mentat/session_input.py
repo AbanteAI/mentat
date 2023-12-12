@@ -57,9 +57,11 @@ async def collect_input_with_commands() -> StreamMessage:
     response = await collect_user_input()
     while isinstance(response.data, str) and response.data.startswith("/"):
         try:
-            arguments = shlex.split(response.data[1:])
-            command = Command.create_command(arguments[0])
-            await command.apply(*arguments[1:])
+            # We only use shlex to split the arguments, not the command itself
+            arguments = shlex.split(" ".join(response.data.split(" ")[1:]))
+            print(arguments, " ".join(response.data.split(" ")[1:]))
+            command = Command.create_command(response.data[1:].split(" ")[0])
+            await command.apply(*arguments)
         except ValueError as e:
             stream.send(f"Error processing command arguments: {e}", color="light_red")
         response = await collect_user_input()

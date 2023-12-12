@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List
 
 from mentat.errors import MentatError
 from mentat.session_context import SESSION_CONTEXT
@@ -37,18 +36,21 @@ class Command(ABC):
             if not command.hidden
         ]
 
-    @classmethod
-    def get_command_completions(cls) -> List[str]:
-        return list(map(lambda name: "/" + name, cls.get_command_names()))
-
     @abstractmethod
     async def apply(self, *args: str) -> None:
         pass
 
-    # TODO: make more robust way to specify arguments for commands
     @classmethod
     @abstractmethod
     def argument_names(cls) -> list[str]:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def argument_autocompletions(cls, argument_position: int) -> list[str]:
+        """
+        Returns a list of possible completions for the argument in the specified position (0-indexed)
+        """
         pass
 
     @classmethod
@@ -74,6 +76,10 @@ class InvalidCommand(Command, command_name=None):
     @classmethod
     def argument_names(cls) -> list[str]:
         raise MentatError("Argument names called on invalid command")
+
+    @classmethod
+    def argument_autocompletions(cls, argument_position: int) -> list[str]:
+        return []
 
     @classmethod
     def help_message(cls) -> str:
