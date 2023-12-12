@@ -1,10 +1,11 @@
-{% from 'transcript_mixin.jinja' import transcript_container %}
+{% from 'transcript.jinja' import transcript_container %}
 <!DOCTYPE html>
 <html>
     <head>
         <title>Exercism Benchmark Results</title>
         <style>
-            {% include 'benchmark.css' %}
+            {% include 'css/benchmark.css' %}
+            {% include 'css/transcript.css' %}
         </style>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -26,11 +27,8 @@
                 window.addEventListener('hashchange', updateVisibility);
             });
         </script>
-        <style>
-            {% include 'conversation_viewer.css' %}
-        </style>
         <script>
-            {% include 'conversation_viewer.js' %}
+            {% include 'js/transcript.js' %}
         </script>
     </head>
     <body>
