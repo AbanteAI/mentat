@@ -74,6 +74,7 @@ class Session:
         code_file_manager = CodeFileManager()
 
         conversation = Conversation()
+        self.conversation = conversation
 
         vision_manager = VisionManager()
 

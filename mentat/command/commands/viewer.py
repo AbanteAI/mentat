@@ -14,8 +14,7 @@ class ViewerCommand(Command, command_name="viewer"):
         logs = get_transcript_logs()
 
         viewer_path = create_viewer(
-            [Transcript(timestamp="Current", messages=conversation.literal_messages)]
-            + logs
+            [Transcript(id="Current", messages=conversation.literal_messages)] + logs
         )
         webbrowser.open(f"file://{viewer_path.resolve()}")
 

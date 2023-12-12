@@ -1,0 +1,37 @@
+{% macro display_message(message, content_key) %}
+{% if message[content_key] is string %}
+    <pre>{{ message[content_key]|e }}</pre>
+{% else %}
+    {% for submessage in message[content_key] %}
+        {% if submessage["type"] == "text" %}
+            <pre>{{ submessage["text"]|e }}</pre>
+        {% elif submessage["type"] == "image_url" %}
+            <img src="{{ submessage['image_url']['url'] }}">
+        {% endif %}
+    {% endfor %}
+{% endif %}
+{% endmacro %}
+
+{% macro transcript_container(transcript) %}
+<div class="container" id={{ transcript["id"] }}>
+    <div class="left-viewer viewer">
+        <h1 class="history-title">Conversation History</h1>
+        <a class="download_parent"><span class="download_icon"></span></a>
+        {% for message in transcript["messages"] %}
+        <div class="message {{'user' if message["prior_messages"] is none else 'assistant clickable'}} {{message["message_type"] if message["message_type"]}}">
+            {{ display_message(message, "message") }}
+            {% if message["prior_messages"] is not none %}
+                {% for seen_message in message["prior_messages"] %}
+                <div class="message viewpoint-message {{seen_message['role']}} hidden">
+                    {{ display_message(seen_message, "content") }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="right-viewer viewer">
+        <h1 class="viewpoint-title">Model's Viewpoint {{ transcript["id"] }}</h1>
+    </div>
+</div>
+{% endmacro %}

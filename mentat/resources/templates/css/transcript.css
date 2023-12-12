@@ -1,16 +1,3 @@
-html {
-    height: 100%;
-    font-size: 24px;
-    font-family: monospace;
-}
-
-body {
-    height: 100%;
-    padding: 0;
-    margin: 0;
-    display: flex;
-}
-
 h1 {
     margin: 10 0px;
 }
@@ -23,7 +10,6 @@ pre {
 .container {
     position: relative;
     width: 100%;
-    display: none;
     flex-direction: row;
     flex-grow: 1;
 }
@@ -44,12 +30,10 @@ pre {
 }
 
 .left-viewer {
-    background-color: rgb(228, 254, 255);
     flex: 1 0 19%;
 }
 
 .right-viewer {
-    background-color: rgb(220, 220, 220);
     flex: 1 0 79%;
 }
 
