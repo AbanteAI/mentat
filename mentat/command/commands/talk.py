@@ -54,8 +54,12 @@ class Recorder:
         self.start_time = default_timer()
 
         self.q: queue.Queue[np.ndarray[Any, Any]] = queue.Queue()
-        with sf.SoundFile(self.file, mode="w", samplerate=RATE, channels=1) as file:
-            with sd.InputStream(samplerate=RATE, channels=1, callback=self.callback):
+        with sf.SoundFile(  # pyright: ignore[reportUnboundVariable]
+            self.file, mode="w", samplerate=RATE, channels=1
+        ) as file:
+            with sd.InputStream(  # pyright: ignore[reportUnboundVariable]
+                samplerate=RATE, channels=1, callback=self.callback
+            ):
                 while not self.shutdown.is_set():
                     await asyncio.sleep(0)
                     file.write(self.q.get())  # type: ignore

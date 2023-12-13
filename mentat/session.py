@@ -12,7 +12,7 @@ import sentry_sdk
 from openai import APITimeoutError, BadRequestError, RateLimitError
 
 from mentat.agent_handler import AgentHandler
-from mentat.auto_completer import get_completions
+from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
@@ -190,8 +190,9 @@ class Session:
         self._main_task.cancel()
 
     async def listen_for_completion_requests(self):
+        auto_completer = AutoCompleter()
         async for message in self.stream.listen(channel="completion_request"):
-            completions = get_completions(message.data)
+            completions = auto_completer.get_completions(message.data)
             # Will intermediary client for vscode serialize/deserialize all messages automatically?
             self.stream.send(completions, channel=f"completion_request:{message.id}")
 
