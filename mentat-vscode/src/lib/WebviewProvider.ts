@@ -102,12 +102,17 @@ class WebviewProvider implements vscode.WebviewViewProvider {
       console.log(`WebviewProvider received message from Webview: ${message}`)
       switch (message.type) {
         case "request": {
-          const response = await this.languageClient.sendRequest(
+          const response: string = await this.languageClient.sendRequest(
             message.method,
             message
           )
           console.log(`WebviewProvider got response from LanguageServer: ${response}`)
-          this.postMessage(message)
+          const responseMessage: LanguageServerMessage = {
+            type: "request",
+            method: message.method,
+            data: response,
+          }
+          this.postMessage(responseMessage)
           break
         }
         default: {

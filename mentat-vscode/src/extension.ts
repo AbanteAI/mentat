@@ -41,7 +41,14 @@ async function createLanguageClient(args: { languageServerOptions: ServerOptions
 
 async function startLanguageServer(context: vscode.ExtensionContext) {
   try {
-    // await installMentat(progress);
+    // Install mentat
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification },
+      async (progress) => {
+        await installMentat(progress)
+      }
+    )
+
     console.log("Getting Language Server Options")
     const languageServerOptions = await getLanguageServerOptions()
 

@@ -50,11 +50,23 @@
           "scope": "machine",
           "markdownDescription": "Port for Mentat Language Server."
         },
-        "mentat.mentatPath": {
+        "mentat.pipInstallArgs": {
+          "type": "string",
+          "default": "install git+https://github.com/AbanteAI/mentat.git@vscode-0",
+          "scope": "machine",
+          "markdownDescription": "Arugments pip will use to install Mentat."
+        },
+        "mentat.executable": {
           "type": "string",
           "default": "",
           "scope": "machine",
           "markdownDescription": "Path to Mentat executable, if built locally.\n\nFor a virtual env named `venv`, this should be set to:\n - `{path-to-venv}/bin/mentat` on Mac or Linux \n\n - `{path-to-venv}\\Scripts\\mentat` on Windows."
+        },
+        "mentat.useExternalLanguageServer": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "markdownDescription": "Use an external language server instead of the one bundled with the extension."
         }
       }
     }

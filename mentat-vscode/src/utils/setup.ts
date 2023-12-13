@@ -9,11 +9,7 @@ import * as util from "util"
 import * as vscode from "vscode"
 import { ServerOptions, StreamInfo } from "vscode-languageclient/node"
 
-import { getGitRoot } from "./git"
 import { waitForPortToBeInUse } from "./tcp"
-
-// const PIP_INSTALL_ARGS = `install --upgrade "git+https://github.com/AbanteAI/mentat.git@main"`;
-const PIP_INSTALL_ARGS = `install "/Users/waydegg/ghq/github.com/AbanteAI/mentat"`
 
 const aexec = util.promisify(exec)
 
@@ -69,28 +65,31 @@ async function installMentat(
   console.log(`Executing: ${createVenvCommand}`)
   await aexec(createVenvCommand)
 
-  progress.report({ message: "Mentat: Building Server..." })
+  progress.report({ message: "Mentat: Installing..." })
   const venvPath =
     process.platform === "win32"
       ? `${mentatDir}\\venv\\Scripts\\`
       : `${mentatDir}/venv/bin/`
 
-  const activateVenvAndInstallMentatCommand = venvPath + `pip ${PIP_INSTALL_ARGS}`
+  const pipInstallArgs: string = vscode.workspace
+    .getConfiguration("mentat")
+    .get("pipInstallArgs")!
+  const activateVenvAndInstallMentatCommand = venvPath + `pip ${pipInstallArgs}`
   console.log(`Executing: ${activateVenvAndInstallMentatCommand}`)
   await aexec(activateVenvAndInstallMentatCommand)
   await vscode.workspace
     .getConfiguration("mentat")
-    .update("mentatPath", venvPath + "mentat-server", true)
+    .update("executable", venvPath + "mentat-language-server", true)
 
   console.log("Installed Mentat")
 }
 
 async function createMentatProcess(port: number) {
-  const mentatPath: string = await vscode.workspace
+  const mentatExecutable: string = await vscode.workspace
     .getConfiguration("mentat")
-    .get("mentatPath")!
+    .get("executable")!
 
-  const ls = spawn(mentatPath)
+  const ls = spawn(mentatExecutable)
 
   ls.stdout.on("data", (data: any) => {
     console.log(`stdout: ${data}`)
@@ -109,8 +108,6 @@ async function createMentatSocket(args: {
   host: string
   port: number
 }): Promise<ServerOptions> {
-  // await waitForPortToBeInUse({ port: args.port, timeout: 5000 })
-
   const socket = net.connect({
     host: args.host,
     port: args.port,
@@ -130,8 +127,10 @@ async function getLanguageServerOptions(): Promise<ServerOptions> {
   const languageServerHost: string = workspaceConfig.get("languageServerHost")!
   const languageServerPort: number = workspaceConfig.get("languageServerPort")!
 
-  // await spawnMentatProcess(port);
-
+  if (!workspaceConfig.get("useExternalLanguageServer")) {
+    await createMentatProcess(languageServerPort)
+    await waitForPortToBeInUse({ port: languageServerPort, timeout: 5000 })
+  }
   console.log("Getting Mentat Socket")
   const serverOptions = await createMentatSocket({
     host: languageServerHost,
