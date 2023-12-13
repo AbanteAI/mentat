@@ -11,6 +11,7 @@ class SampleCommand(Command, command_name="sample"):
         from mentat.sampler.sample import Sample
 
         session_context = SESSION_CONTEXT.get()
+        code_file_manager = session_context.code_file_manager
         stream = session_context.stream
 
         try:
@@ -26,6 +27,7 @@ class SampleCommand(Command, command_name="sample"):
             samples_dir.mkdir(exist_ok=True)
             fpath = samples_dir / fname
         sample.save(str(fpath))
+        code_file_manager.history.add_sample(sample)
         SESSION_CONTEXT.get().stream.send(f"Sample saved to {fpath}.", color="green")
 
     @classmethod

@@ -9,18 +9,7 @@ from git import Repo  # type: ignore
 
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
-
-
-# TODO: replace this with something that doesn't load the file into memory
-def is_file_text_encoded(abs_path: Path):
-    """Checks if a file is text encoded."""
-    try:
-        # The ultimate filetype test
-        with open(abs_path, "r") as f:
-            f.read()
-        return True
-    except UnicodeDecodeError:
-        return False
+from mentat.utils import is_file_text_encoded
 
 
 def get_non_gitignored_files(path: Path) -> set[Path]:

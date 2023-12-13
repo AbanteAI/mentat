@@ -1,19 +1,19 @@
+from __future__ import annotations
+
 import os
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import attr
 from termcolor import colored
 
 from mentat.errors import HistoryError
-from mentat.git_handler import (
-    get_diff_active,
-    get_diff_merge_base,
-    get_git_root_for_path,
-    get_merge_base,
-)
+from mentat.git_handler import get_diff_active, get_git_root_for_path, get_hexsha_active
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.session_context import SESSION_CONTEXT
+
+if TYPE_CHECKING:
+    from mentat.sampler.sample import Sample
 
 
 # All paths should be abs paths
@@ -150,16 +150,23 @@ class EditHistory:
                 errors.append(error)
         return "\n".join(errors)
 
-    merge_base: str | None = None
-    diff_merge_base: str | None = None
+    # Sampler specific
     diff_active: str | None = None
     last_sample_id: str | None = None
+    last_sample_hexsha: str | None = None
 
-    def set_sample_diffs(self):
+    def set_active_diff(self):
         ctx = SESSION_CONTEXT.get()
-        if get_git_root_for_path(ctx.cwd, raise_error=False):
-            self.merge_base = get_merge_base()
-            self.diff_merge_base = get_diff_merge_base()
-            self.diff_active = get_diff_active()
-        else:
-            pass  # TODO: Can we make samples without git?
+        if not get_git_root_for_path(ctx.cwd, raise_error=False):
+            return
+        self.diff_active = get_diff_active()
+        if not self.last_sample_hexsha:
+            return
+        if self.last_sample_hexsha != get_hexsha_active():
+            self.last_sample_id = None
+            self.last_sample_hexsha = None
+
+    def add_sample(self, sample: Sample):
+        # Save the hexsha and id
+        self.last_sample_id = sample.id
+        self.last_sample_hexsha = get_hexsha_active()

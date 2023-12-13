@@ -73,7 +73,7 @@ class CodeFileManager:
             return []
 
         # Set pre-edit context in case /sample is called later
-        self.history.set_sample_diffs()
+        self.history.set_active_diff()
 
         applied_edits: list[FileEdit] = []
         for file_edit in file_edits:

@@ -197,3 +197,15 @@ def clone_repo(
         else:
             repo = Repo.clone_from(url, local_dir)
     return local_dir
+
+
+# TODO: replace this with something that doesn't load the file into memory
+def is_file_text_encoded(abs_path: Path):
+    """Checks if a file is text encoded."""
+    try:
+        # The ultimate filetype test
+        with open(abs_path, "r") as f:
+            f.read()
+        return True
+    except UnicodeDecodeError:
+        return False
