@@ -76,6 +76,7 @@ def setup_repo(sample: Sample, path_to_repo: Path | str | None) -> Path:
     repo = Repo(".")
     repo.head.reset(index=True, working_tree=True)  # reset tracked files
     repo.git.execute(["git", "clean", "-fd"])  # remove untracked files/directories
+    repo.git.fetch("--all")
     repo.git.checkout(sample.merge_base)
     if sample.diff_merge_base:
         errors = apply_diff_to_repo(sample.diff_merge_base, repo, commit=True)
@@ -164,21 +165,40 @@ class Sample:
         conversation = session_context.conversation
         cwd = session_context.cwd
 
-        if not config.sample_merge_base_target:
-            merge_base = code_file_manager.history.merge_base
-            if merge_base is None:
-                raise HistoryError("EditHistory.merge_base was not set.")
-            stream.send(
-                "No sample_merge_base_target specified in config; using HEAD"
-                f" ({merge_base}) as merge base."
+        merge_base = code_file_manager.history.merge_base
+        if not merge_base:
+            raise HistoryError(
+                "EditHistory.merge_base was not set. You must interact with Mentat"
+                " before generating a sample"
             )
-
         stream.send("Input sample data", color="light_blue")
+        stream.send(
+            f"Merge Base: {merge_base}. Press 'ENTER' to accept, or enter a new merge"
+            " base commit."
+        )
+        merge_base = (await collect_user_input()).data.strip() or merge_base
+        # TODO: set diff_merge_base here
         repo = config.sample_repo
         if not repo:
-            stream.send("Repo URL: (e.g. 'https://github.com/your/repo')")
-            config.sample_repo = (await collect_user_input()).data.strip()
-            repo = config.sample_repo  # TODO: Save to .mentat_config.json
+            remote_url = ""
+            try:
+                remote_url = subprocess.check_output(
+                    ["git", "config", "--get", "remote.origin.url"],
+                    text=True,
+                ).strip()
+            except subprocess.CalledProcessError:
+                pass
+            stream.send(
+                f"Found repo URL: {remote_url}. Press 'ENTER' to accept, or enter a new"
+                " URL."
+            )
+            response = (await collect_user_input()).data.strip()
+            if response == "y":
+                repo = remote_url
+            else:
+                repo = response
+            config.sample_repo = repo
+
         stream.send("Sample Title:")
         title = (await collect_user_input()).data.strip() or ""
         stream.send("Description: (optional)")

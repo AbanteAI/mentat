@@ -219,18 +219,26 @@ def get_default_branch() -> str:
 def get_merge_base() -> str | None:
     """Return the SHA-1 of the merge base between HEAD and sample_merge_base_target."""
     session_context = SESSION_CONTEXT.get()
-    cwd = session_context.cwd
     config = session_context.config
-
-    sample_merge_base_target = config.sample_merge_base_target
+    cwd = session_context.cwd
+    stream = session_context.stream
 
     repo = Repo(cwd)
-    if not sample_merge_base_target:
-        # return the SHA-1 of the latest commit
-        return repo.head.commit.hexsha
-
-    merge_base_commit = repo.merge_base(repo.head.commit, sample_merge_base_target)[0]
-    return merge_base_commit.hexsha if merge_base_commit else None
+    merge_base = repo.head.commit.hexsha
+    merge_base_target = config.sample_merge_base_target
+    if merge_base_target:
+        try:
+            merge_base_commit = repo.merge_base(repo.head.commit, merge_base_target)[0]
+            assert merge_base_commit and hasattr(merge_base_commit, "hexsha")
+            merge_base = merge_base_commit.hexsha
+        except (IndexError, AssertionError):
+            if merge_base_target:
+                stream.send(
+                    f"Error: Invalid merge base target: {merge_base_target}. "
+                    f"Using HEAD ({merge_base}) instead.",
+                    color="yellow",
+                )
+    return merge_base
 
 
 def get_diff_merge_base() -> str:
