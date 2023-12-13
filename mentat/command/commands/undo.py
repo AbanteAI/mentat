@@ -33,4 +33,4 @@ class UndoCommand(Command, command_name="undo"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Undo the last change made by Mentat"
+        return "Undo the last change made by Mentat."

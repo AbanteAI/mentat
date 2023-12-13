@@ -72,4 +72,4 @@ class HelpCommand(Command, command_name="help"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Displays this message"
+        return "Show information on available commands."

@@ -37,4 +37,4 @@ class ViewerCommand(Command, command_name="viewer"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Opens an html page showing the conversation as seen by Mentat so far"
+        return "Open a webpage showing the conversation so far."

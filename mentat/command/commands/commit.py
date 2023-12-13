@@ -31,4 +31,4 @@ class CommitCommand(Command, command_name="commit"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Commits all of your unstaged and staged changes to git"
+        return "Commit all unstaged and staged changes to git."

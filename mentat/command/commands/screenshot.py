@@ -62,4 +62,4 @@ class ScreenshotCommand(Command, command_name="screenshot"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Opens the url or local file in chrome and takes a screenshot."
+        return "Open a url or local file in Chrome and take a screenshot."

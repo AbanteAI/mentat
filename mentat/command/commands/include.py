@@ -39,4 +39,4 @@ class IncludeCommand(Command, command_name="include"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Add files to the code context"
+        return "Add files to context."

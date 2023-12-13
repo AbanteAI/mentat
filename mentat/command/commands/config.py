@@ -80,4 +80,4 @@ class ConfigCommand(Command, command_name="config"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Set a configuration option or omit value to see current value."
+        return "Show or set a config option's value."

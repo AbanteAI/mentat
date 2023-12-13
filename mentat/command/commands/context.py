@@ -29,4 +29,4 @@ class ContextCommand(Command, command_name="context"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Shows all files currently in Mentat's context"
+        return "Show all files currently in context."

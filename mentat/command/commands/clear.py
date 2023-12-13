@@ -32,4 +32,4 @@ class ClearCommand(Command, command_name="clear"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Clear the current conversation's message history"
+        return "Clear the current message history."

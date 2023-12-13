@@ -33,4 +33,4 @@ class UndoAllCommand(Command, command_name="undo-all"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Undo all changes made by Mentat"
+        return "Undo all changes made by Mentat."

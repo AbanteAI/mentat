@@ -56,4 +56,4 @@ class SearchCommand(Command, command_name="search"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Semantic search of files in code context."
+        return "Search files in context semantically with embeddings."

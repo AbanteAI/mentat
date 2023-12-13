@@ -39,4 +39,4 @@ class ExcludeCommand(Command, command_name="exclude"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Remove files from the code context"
+        return "Remove files from context."
