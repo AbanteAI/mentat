@@ -8,7 +8,7 @@ type Props = {
   chatMessages: ChatMessage[];
 };
 
-function ChatHistory(props: Props) {
+export default function ChatHistory(props: Props) {
   const chatHistoryRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -52,4 +52,3 @@ function ChatHistory(props: Props) {
   );
 }
 
-export { ChatHistory };

@@ -10,7 +10,7 @@ import * as vscode from "vscode"
 import { ServerOptions, StreamInfo } from "vscode-languageclient/node"
 
 import { getGitRoot } from "./git"
-import { isPortInUse, waitForPortToBeInUse } from "./tcp"
+import { waitForPortToBeInUse } from "./tcp"
 
 // const PIP_INSTALL_ARGS = `install --upgrade "git+https://github.com/AbanteAI/mentat.git@main"`;
 const PIP_INSTALL_ARGS = `install "/Users/waydegg/ghq/github.com/AbanteAI/mentat"`
@@ -85,7 +85,7 @@ async function installMentat(
   console.log("Installed Mentat")
 }
 
-async function spawnMentatProcess(port: number) {
+async function createMentatProcess(port: number) {
   const mentatPath: string = await vscode.workspace
     .getConfiguration("mentat")
     .get("mentatPath")!
@@ -105,26 +105,38 @@ async function spawnMentatProcess(port: number) {
   })
 }
 
-function getMentatSocket(port: number): ServerOptions {
+async function createMentatSocket(args: {
+  host: string
+  port: number
+}): Promise<ServerOptions> {
+  // await waitForPortToBeInUse({ port: args.port, timeout: 5000 })
+
   const socket = net.connect({
-    port: port,
-    host: "127.0.0.1",
+    host: args.host,
+    port: args.port,
   })
   const streamInfo: StreamInfo = {
     reader: socket,
     writer: socket,
   }
+
   return () => {
     return Promise.resolve(streamInfo)
   }
 }
 
-async function getLanguageServerOptions(port: number) {
+async function getLanguageServerOptions(): Promise<ServerOptions> {
+  const workspaceConfig = vscode.workspace.getConfiguration("mentat")
+  const languageServerHost: string = workspaceConfig.get("languageServerHost")!
+  const languageServerPort: number = workspaceConfig.get("languageServerPort")!
+
   // await spawnMentatProcess(port);
-  // await waitForPortToBeInUse(port, 5000);
 
   console.log("Getting Mentat Socket")
-  const serverOptions = getMentatSocket(port)
+  const serverOptions = await createMentatSocket({
+    host: languageServerHost,
+    port: languageServerPort,
+  })
   console.log("Got Mentat Socket")
 
   return serverOptions

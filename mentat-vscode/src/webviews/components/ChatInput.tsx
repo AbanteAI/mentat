@@ -1,69 +1,59 @@
-import { Dispatch, KeyboardEvent, SetStateAction, useEffect, useState } from "react";
-import { VscSend } from "react-icons/vsc";
-import { vscode } from "webviews/utils/vscode";
+import { Dispatch, KeyboardEvent, SetStateAction, useEffect, useState } from "react"
+import { VscSend } from "react-icons/vsc"
+import { vscode } from "webviews/utils/vscode"
 
-import {
-  ChatMessage,
-  ChatMessageSender,
-  LanguageClientMessage,
-  LanguageServerMethod,
-} from "../../types";
+import { ChatMessage, ChatMessageSender, LanguageServerMessage } from "../../types"
 
 type Props = {
-  chatMessages: ChatMessage[];
-  setChatMessages: Dispatch<SetStateAction<ChatMessage[]>>;
-  inputRequestId: string | null;
-  setInputRequestId: Dispatch<SetStateAction<string | null>>;
-};
+  chatMessages: ChatMessage[]
+  setChatMessages: Dispatch<SetStateAction<ChatMessage[]>>
+}
 
-function ChatInput(props: Props) {
-  const [content, setContent] = useState<string>("");
-  const [submitDisabled, setSubmitDisabled] = useState(true);
+export default function ChatInput(props: Props) {
+  const [content, setContent] = useState<string>("")
+  const [submitDisabled, setSubmitDisabled] = useState(true)
 
   useEffect(() => {
-    if (content === "" || props.inputRequestId === null) {
-      setSubmitDisabled(true);
+    if (content === "") {
+      setSubmitDisabled(true)
     } else {
-      setSubmitDisabled(false);
+      setSubmitDisabled(false)
     }
-  }, [content]);
+  }, [content])
 
   function handleSubmit() {
     if (submitDisabled) {
-      return;
-    }
-    if (props.inputRequestId === null) {
-      console.log("inputRequestId IS NULL");
-      return;
+      return
     }
 
     props.setChatMessages((prevMessages) => {
+      const orderId =
+        prevMessages.length === 0
+          ? 0
+          : prevMessages[prevMessages.length - 1].orderId + 1
       const newChatMessage: ChatMessage = {
         id: "",
-        orderId: prevMessages[prevMessages.length - 1].orderId + 1,
+        orderId: orderId,
         content: content,
         createdBy: ChatMessageSender.Client,
-      };
-      return [...prevMessages, newChatMessage];
-    });
+      }
+      return [...prevMessages, newChatMessage]
+    })
 
-    const languageClientMessage: LanguageClientMessage = {
-      method: LanguageServerMethod.GetInput,
-      data: {
-        inputRequestId: props.inputRequestId,
-        content: content,
-      },
-    };
-    vscode.postMessage(languageClientMessage);
+    const message: LanguageServerMessage = {
+      type: "request",
+      method: "mentat/echoInput",
+      data: content,
+    }
+    vscode.postMessage(message)
 
-    props.setInputRequestId(null);
-    setContent("");
+    setContent("")
   }
 
   function handleKeyPress(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      handleSubmit();
+      event.preventDefault()
+      handleSubmit()
     }
   }
 
@@ -78,10 +68,11 @@ function ChatInput(props: Props) {
         onChange={(e) => setContent(e.target.value)}
       />
       <button
-        className={`${submitDisabled
+        className={`${
+          submitDisabled
             ? "bg-none"
             : "bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)]"
-          } w-10 h-10 flex justify-center items-center rounded-lg`}
+        } w-10 h-10 flex justify-center items-center rounded-lg`}
         onClick={handleSubmit}
         disabled={submitDisabled}
       >
@@ -95,7 +86,5 @@ function ChatInput(props: Props) {
         />
       </button>
     </div>
-  );
+  )
 }
-
-export { ChatInput };

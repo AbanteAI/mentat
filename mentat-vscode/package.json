@@ -35,15 +35,21 @@
         }
       ]
     },
-    "commands": [
-      {
-        "command": "mentat.build-server",
-        "title": "Build server"
-      }
-    ],
     "configuration": {
       "title": "Mentat",
       "properties": {
+        "mentat.languageServerHost": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "scope": "machine",
+          "markdownDescription": "Host for Mentat Language Server."
+        },
+        "mentat.languageServerPort": {
+          "type": "number",
+          "default": 7798,
+          "scope": "machine",
+          "markdownDescription": "Port for Mentat Language Server."
+        },
         "mentat.mentatPath": {
           "type": "string",
           "default": "",
@@ -56,10 +62,10 @@
   "scripts": {
     "clean": "node ./scripts/clean.mjs",
     "build-js": "node ./scripts/build.mjs",
-    "build-css": "tailwindcss -i ./src/webview/main.css -o ./build/webview/main.css",
+    "build-css": "tailwindcss -i ./src/webviews/main.css -o ./build/webviews/main.css",
     "build": "npm run clean && npm run build-js -- --sourcemap & npm run build-css",
     "watch-js": "npm run build-js -- --sourcemap --watch",
-    "watch-css": "tailwindcss -i ./src/webview/main.css -o ./build/webview/main.css --watch",
+    "watch-css": "tailwindcss -i ./src/webviews/main.css -o ./build/webviews/main.css --watch",
     "watch": "npm run clean && npm run watch-js & npm run watch-css",
     "vscode": "code --extensionDevelopmentPath=$PWD .",
     "vscode:prepublish": "npm run clean && npm run build-js -- --minify & npm run build-css"

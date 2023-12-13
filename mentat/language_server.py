@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import threading
+from typing import Any, NamedTuple
 
-import lsprotocol.types as lsp
-from pygls.server import LanguageServer
+import pygls.protocol
+import pygls.server
+from typing_extensions import override
 
 from mentat import __version__
 from mentat.logging_config import setup_logging
@@ -13,7 +17,20 @@ setup_logging()
 logger = logging.getLogger("mentat:server")
 
 
-class MentatLanguageServer(LanguageServer):
+class LanguageServerProtocol(pygls.protocol.LanguageServerProtocol):
+    _server: LanguageServer
+
+    @override
+    def connection_lost(self, exc: Exception | None):  # pyright: ignore[reportIncompatibleMethodOverride]
+        """Shutdown the LanguageServer on lost client connection"""
+        if self._server.exit_on_lost_connection and not self._server.is_stopped:
+            logger.error("Connection to the client is lost! Shutting down the server")
+            self._server.stop()
+        else:
+            logger.error("Connection to the client is lost! Doing nothing.")
+
+
+class LanguageServer(pygls.server.LanguageServer):
     def __init__(
         self,
         host: str,
@@ -25,13 +42,8 @@ class MentatLanguageServer(LanguageServer):
         self.exit_on_lost_connection = exit_on_lost_connection
 
         super().__init__(  # pyright: ignore[reportUnknownMemberType]
-            name="mentat",
-            version=f"v{__version__}",
-            # loop=asyncio.get_running_loop()
-            # loop=loop,
+            name="mentat", version=f"v{__version__}", protocol_cls=LanguageServerProtocol
         )
-
-        self._should_exit_event = asyncio.Event()
 
         self._server: asyncio.Server | None = None
         self._server_task: asyncio.Task[None] | None = None
@@ -42,8 +54,12 @@ class MentatLanguageServer(LanguageServer):
         return self._server is not None and self._server.is_serving
 
     @property
-    def should_sys_exit(self):
-        return self._should_exit_event.is_set()
+    def is_stopping(self):
+        return self._stop_task is not None and not self._stop_task.done()
+
+    @property
+    def is_stopped(self):
+        return not self.is_serving and not self.is_stopping
 
     async def _serve_tcp(self) -> None:
         logger.info(f"Starting TCP server on {self.host}:{self.port}")
@@ -51,12 +67,14 @@ class MentatLanguageServer(LanguageServer):
         self._server = await self.loop.create_server(self.lsp, self.host, self.port)
         try:
             await self._server.serve_forever()
+        except asyncio.CancelledError:
+            pass
         except (KeyboardInterrupt, SystemExit):
             logger.debug("Got an exception")
             pass
         finally:
-            logger.debug("Killing server")
-            if self._server:
+            if self.is_serving and not self.is_stopping:
+                logger.debug("Killing server")
                 await self.stop()
 
     def start(self) -> asyncio.Task[None]:
@@ -101,12 +119,22 @@ class MentatLanguageServer(LanguageServer):
         return self._stop_task
 
 
-server = MentatLanguageServer(host="127.0.0.1", port=7798)
+server = LanguageServer(host="127.0.0.1", port=7798, exit_on_lost_connection=False)
 
 
-@server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
-async def handle_text_document_did_open(params: lsp.DidOpenTextDocumentParams):
-    print("Got params:", params)
+# @server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
+# async def handle_text_document_did_open(params: lsp.DidOpenTextDocumentParams):
+#     print("Got params:", params)
+
+
+class Message(NamedTuple):
+    data: Any
+
+
+@server.feature("mentat/echoInput")
+async def handle_echo_input(message: Any):
+    print("Got:", message)
+    return f"Server says '{message.data}'"
 
 
 def main():

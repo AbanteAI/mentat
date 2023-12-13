@@ -33,7 +33,7 @@ const esbuildProblemMatcherPlugin = {
 const webviewOptions = {
   entryPoints: ["src/webviews/index.tsx"],
   bundle: true,
-  outfile: "build/webview/index.js",
+  outfile: "build/webviews/index.js",
   sourcemap: args.includes("--sourcemap") ? "inline" : false,
   minify: args.includes("--minify"),
   plugins: [esbuildProblemMatcherPlugin],

@@ -1,42 +1,45 @@
-import * as net from "net";
+import * as net from "net"
 
 async function isPortInUse(port: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const tester: net.Socket = net.createConnection(port);
+    const tester: net.Socket = net.createConnection(port)
 
     tester.once("connect", () => {
-      resolve(true);
-      tester.end();
-    });
+      resolve(true)
+      tester.end()
+    })
 
     tester.on("error", (err: Error & { code?: string }) => {
       if (err.code === "ECONNREFUSED") {
-        resolve(false);
+        resolve(false)
       } else {
-        console.error("Unexpected error:", err);
-        resolve(false); // Consider how you want to handle unexpected errors
+        console.error("Unexpected error:", err)
+        resolve(false) // Consider how you want to handle unexpected errors
       }
-    });
-  });
+    })
+  })
 }
 
-async function waitForPortToBeInUse(port: number, timeout: number): Promise<void> {
-  const startTime = Date.now();
+async function waitForPortToBeInUse(args: {
+  port: number
+  timeout: number
+}): Promise<void> {
+  const startTime = Date.now()
 
   while (true) {
-    if (await isPortInUse(port)) {
-      console.log(`Port ${port} is now in use`);
-      return;
+    if (await isPortInUse(args.port)) {
+      console.log(`Port ${args.port} is now in use`)
+      return
     }
 
     // Check for timeout
-    if (Date.now() - startTime > timeout) {
-      throw new Error(`Timeout waiting for port ${port} to be in use`);
+    if (Date.now() - startTime > args.timeout) {
+      throw new Error(`Timeout waiting for port ${args.port} to be in use`)
     }
 
     // Wait for a short period before checking again
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500))
   }
 }
 
-export { isPortInUse, waitForPortToBeInUse };
+export { isPortInUse, waitForPortToBeInUse }
