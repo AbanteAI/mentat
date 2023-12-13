@@ -1,6 +1,9 @@
+import os
+import webbrowser
 from typing import Tuple
 
 import attr
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from tests.benchmarks.benchmark_result import BenchmarkResult
 
@@ -70,6 +73,8 @@ class BenchmarkResultSummary:
                     formatted[formatted_name] = f"${formatted_value}"
                 elif aggregation_type == "percent":
                     formatted[formatted_name] = f"{formatted_value}%"
+                elif aggregation_type == "percent" and "verify" in formatted_name:
+                    formatted[formatted_name] = f"{formatted_value}% (verified)"
                 else:
                     formatted[formatted_name] = formatted_value
 
@@ -83,10 +88,27 @@ class BenchmarkResultSummary:
                 if "display" in field.metadata:
                     name = field.name
                     value = getattr(result, name)
-                    display_name = field.metadata.get("display_name", name)
-                    formatted_result[display_name] = {
-                        "content": value,
-                        "type": field.metadata["display"],
-                    }
-            formatted[result.name] = formatted_result
+                    if value is not None:
+                        display_name = field.metadata.get("display_name", name)
+                        formatted_result[display_name] = {
+                            "content": value,
+                            "type": field.metadata["display"],
+                        }
+            formatted[result.escaped_name] = formatted_result
         return formatted
+
+    def render_results(self):
+        env = Environment(
+            loader=FileSystemLoader(
+                os.path.join(
+                    os.path.dirname(__file__), "../../mentat/resources/templates"
+                )
+            ),
+            autoescape=select_autoescape(["html", "xml"]),
+        )
+        template = env.get_template("exercism_benchmark.jinja")
+        rendered_html = template.render(summary=self)
+
+        with open("results.html", "w") as f:
+            f.write(rendered_html)
+        webbrowser.open("file://" + os.path.realpath("results.html"))

@@ -9,7 +9,9 @@ from openai.types.chat.completion_create_params import ResponseFormat
 from mentat.llm_api_handler import model_context_size, prompt_tokens
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
-from tests.benchmarks.utils import clone_repo
+from tests.benchmarks.benchmark_result import BenchmarkResult
+from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
+from tests.benchmarks.utils import clone_repo, get_mentat_commit
 
 
 def dynamic_import(path_to_module, module_name):
@@ -113,6 +115,48 @@ async def compare_diffs(actual, generated):
     return await grade(prompt, comparison_prompt)
 
 
+def summarize_results(results):
+    commit = get_mentat_commit()
+    summary = {
+        "commit": commit,
+        "total": 0,
+        "total_verifiable": 0,
+        "total_verifiable_correct": 0,
+        "indentation_errors": 0,
+        "off_by_one_errors": 0,
+        "syntax_errors": 0,
+        "format_reference_errors": 0,
+        "trailing_waffling_errors": 0,
+        "missing_functionality_errors": 0,
+        "extra_functionality_errors": 0,
+    }
+    for benchmark_name, variation in results.items():
+        for variation_name, variation_results in variation.items():
+            for result in variation_results:
+                summary["total"] += 1
+                if result["Diff_Grade"]["off_by_one"]:
+                    summary["off_by_one_errors"] += 1
+                if result["Diff_Grade"]["indentation"]:
+                    summary["indentation_errors"] += 1
+                if result["Diff_Grade"]["syntax"]:
+                    summary["syntax_errors"] += 1
+                if result["Response_Grade"]["format_reference"]:
+                    summary["format_reference_errors"] += 1
+                if result["Response_Grade"]["trailing_waffling"]:
+                    summary["trailing_waffling_errors"] += 1
+                if "Comparison" in result:
+                    if result["Comparison"]["missing_functionality"]:
+                        summary["missing_functionality_errors"] += 1
+                    if result["Comparison"]["extra_functionality"]:
+                        summary["extra_functionality_errors"] += 1
+                if "Verify" in variation:
+                    summary["total_verifiable"] += 1
+                    if result["Verify"]:
+                        summary["total_verifiable_correct"] += 1
+
+    return summary
+
+
 @pytest.mark.asyncio
 async def test_benchmark(retries, benchmarks):
     print("Running benchmarks")
@@ -157,9 +201,16 @@ async def test_benchmark(retries, benchmarks):
         for prompt in benchmark.prompts:
             print("  Prompt:", prompt)
             results[title][prompt] = {
-                "Verified": 0,
+                "iterations": [],
             }
             for i in range(1, retries + 1):
+                iteration_result = BenchmarkResult(
+                    passed=None,  # To be updated after verification
+                    name=f"{title} - {prompt} - Iteration {i}",
+                    cost=None,  # To be updated after cost calculation
+                    tokens=None,  # To be updated after token calculation
+                )
+                results[title][prompt]["iterations"].append(iteration_result)
                 client = PythonClient(cwd=codebase, config=benchmark.config)
                 await client.startup()
                 response = await client.call_mentat(prompt)
@@ -167,17 +218,26 @@ async def test_benchmark(retries, benchmarks):
                 await client.wait_for_edit_completion()
 
                 await client.call_mentat("q")
+                messages = client.get_conversation().literal_messages
+                cost_tracker = client.get_cost_tracker()
+                iteration_result.cost = cost_tracker.total_cost
+                iteration_result.tokens = cost_tracker.total_tokens
+                iteration_result.transcript = {
+                    "id": iteration_result.escaped_name,
+                    "messages": messages,
+                }
+
                 await client.shutdown()
 
                 if hasattr(benchmark, "verify"):
-                    if benchmark.verify():
-                        results[title][prompt]["Verified"] += 1
+                    iteration_result.verify = benchmark.verify()
 
                 diff = repo.git.diff(start_commit)
+                iteration_result.code = diff
                 diff_grade = await grade_diff_syntax(diff)
-                results[title][prompt]["Diff_Grade"] = diff_grade
+                iteration_result.diff_grade = diff_grade
                 response_grade = await grade_model_response(response)
-                results[title][prompt]["Response_Grade"] = response_grade
+                iteration_result.response_grade = response_grade
 
                 # Clean up
                 repo.git.reset("--hard")
@@ -187,10 +247,26 @@ async def test_benchmark(retries, benchmarks):
                     repo.git.checkout(benchmark.comparison_commit)
                     comparison_diff = repo.git.diff(benchmark.commit)
                     comparison_grade = await compare_diffs(diff, comparison_diff)
-                    results[title][prompt]["Comparison"] = comparison_grade
+                    iteration_result.comparison_grade = comparison_grade
 
             if hasattr(benchmark, "verify"):
-                print(f"  Succeeded: {results[title][prompt]['Verified']}/{retries}")
+                verified_count = sum(
+                    1 for r in results[title][prompt]["iterations"] if r.verify
+                )
+                print(f"  Succeeded: {verified_count}/{retries}")
 
         repo.git.checkout(start_commit)
+
     print(results)
+    summary = BenchmarkResultSummary(
+        [
+            r
+            for prompt_results in results.values()
+            for iteration_results in prompt_results.values()
+            for r in iteration_results["iterations"]
+        ]
+    )
+    print(summary.formatted_summary())
+
+    os.chdir("../..")
+    summary.render_results()

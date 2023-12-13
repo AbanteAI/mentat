@@ -14,9 +14,9 @@ prompts = [
     'Add "HPND" second in the list of allowed licenses.',
     # This one generally fails with an off by one error. Putting HPND
     # outside of the list.
-    'Add "HPND" to the list of allowed licenses.',
+    # 'Add "HPND" to the list of allowed licenses.',
     # About half the time GPT spells out Historical Permission Notice and Disclaimer
-    "Add HPND to the list of allowed licenses.",
+    # "Add HPND to the list of allowed licenses.",
 ]
 
 repo = "https://github.com/AbanteAI/mentat"

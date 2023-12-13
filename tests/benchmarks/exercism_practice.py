@@ -1,12 +1,10 @@
 import asyncio
 import os
-import webbrowser
 from functools import partial
 from multiprocessing import Pool
 
 import pytest
 import tqdm
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 from openai import BadRequestError
 
 from mentat.config import Config
@@ -234,18 +232,5 @@ def test_practice_directory_performance(
             pbar.set_description(tqdm_summary(results) + "| Last Ran: " + result.name)
         results.sort(key=lambda result: result.name)
 
-        env = Environment(
-            loader=FileSystemLoader(
-                os.path.join(
-                    os.path.dirname(__file__), "../../mentat/resources/templates"
-                )
-            ),
-            autoescape=select_autoescape(["html", "xml"]),
-        )
-        template = env.get_template("exercism_benchmark.jinja")
         summary = BenchmarkResultSummary(results)
-        rendered_html = template.render(summary=summary)
-
-        with open("results.html", "w") as f:
-            f.write(rendered_html)
-        webbrowser.open("file://" + os.path.realpath("results.html"))
+        summary.render_results()

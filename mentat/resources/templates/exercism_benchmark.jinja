@@ -40,7 +40,7 @@
         <div id="container">
             <div id="selector">
                 {% for test, result in summary.results_map.items() %}
-                    <button class="{{ 'success' if result.passed else 'failure' }}" onclick="window.location.hash='{{ test }}'">{{ test }}</button>
+                    <button class="{{ 'success' if result.passed else 'failure' }}" onclick="window.location.hash='{{ result.escaped_name }}'">{{ test }}</button>
                 {% endfor %}
             </div>
             <div id="viewer">
