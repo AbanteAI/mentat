@@ -33,11 +33,9 @@
     </head>
     <body>
         <div id="header">
-            <p>Average tokens per iteration for passed tests: {{ summary.avgTokens }}</p>
-            <p>Total cost: {{ summary.cost }}</p>
-            <p>Passed: {{ summary.passed }}</p>
-            <p>Failed: {{ summary.failed }}</p>
-            <p>Reasons: {% for reason, count in summary.reasons.items() %}{{ reason }}: {{ count }} {% endfor %}</p>
+            {% for field, data in summary.formatted_summary().items() %}
+                <p>{{ field|capitalize }}: {{ data }}</p>
+            {% endfor %}
         </div>
         <div id="container">
             <div id="selector">
@@ -60,7 +58,6 @@
                         <div class="content">{{ result.response }}</div>
                         <h1>Test Output:</h1>
                         <div class="content">{{ result.test_output }}</div>
-
 
                         <h1>Transcript</h1>
                         <div class="content">{{ transcript_container(result.transcript) }}</div>
