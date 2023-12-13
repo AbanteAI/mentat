@@ -1,4 +1,6 @@
+import os
 import shlex
+from pathlib import Path
 from typing import List, TypedDict
 
 from mentat.command.command import Command
@@ -101,9 +103,7 @@ def _command_argument_completion(buffer: str) -> List[Completion]:
 
         arg_completions = [
             (shlex.quote(name), name)
-            for name in command.argument_autocompletions(
-                split_buffer[:-1], arg_position
-            )
+            for name in command.argument_autocompletions(split_buffer, arg_position)
         ]
         return _replace_last_word(split_buffer[-1], arg_completions, last_word_position)
 
@@ -120,6 +120,39 @@ def get_completions(buffer: str) -> List[Completion]:
 
     # TODO: Function, class, and filename completion
     return []
+
+
+def get_command_filename_completions(cur_path: str) -> List[str]:
+    """
+    Used by commands like include, exclude, and screenshot to get filename completions.
+    """
+    path = Path(cur_path)
+
+    if (
+        cur_path.endswith("/")
+        or cur_path.endswith(os.path.sep)
+        or cur_path.endswith("~")
+    ):
+        parent_path = path.expanduser()
+        actual_parent = path
+        cur_file = ""
+    else:
+        parent_path = path.parent.expanduser()
+        actual_parent = path.parent
+        if not cur_path:
+            cur_file = ""
+        else:
+            cur_file = path.parts[-1]
+    if not parent_path.is_dir():
+        return []
+
+    completions: List[str] = []
+    for child_path in parent_path.iterdir():
+        child_file = child_path.parts[-1]
+        if str(child_file).startswith(cur_file):
+            completions.append(str(actual_parent / child_file / ""))
+
+    return completions
 
 
 """

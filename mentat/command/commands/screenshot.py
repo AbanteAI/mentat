@@ -1,3 +1,4 @@
+from mentat.auto_completer import get_command_filename_completions
 from mentat.command.command import Command
 from mentat.session_context import SESSION_CONTEXT
 from mentat.vision.vision_manager import ScreenshotException
@@ -49,8 +50,7 @@ class ScreenshotCommand(Command, command_name="screenshot"):
     def argument_autocompletions(
         cls, arguments: list[str], argument_position: int
     ) -> list[str]:
-        # TODO: FILE COMPLETION
-        return []
+        return get_command_filename_completions(arguments[-1])
 
     @classmethod
     def help_message(cls) -> str:
