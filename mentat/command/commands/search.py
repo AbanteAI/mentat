@@ -41,5 +41,11 @@ class SearchCommand(Command, command_name="search"):
         return ["search_query"]
 
     @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return []
+
+    @classmethod
     def help_message(cls) -> str:
         return "Semantic search of files in code context."

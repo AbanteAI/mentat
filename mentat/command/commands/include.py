@@ -23,5 +23,12 @@ class IncludeCommand(Command, command_name="include"):
         return ["file1", "file2", "..."]
 
     @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        # TODO: FILE COMPLETION
+        return []
+
+    @classmethod
     def help_message(cls) -> str:
         return "Add files to the code context"

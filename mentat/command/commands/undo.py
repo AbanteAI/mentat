@@ -18,5 +18,11 @@ class UndoCommand(Command, command_name="undo"):
         return []
 
     @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return []
+
+    @classmethod
     def help_message(cls) -> str:
         return "Undo the last change made by Mentat"

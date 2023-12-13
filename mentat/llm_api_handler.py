@@ -122,45 +122,39 @@ def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str):
     return num_tokens
 
 
+known_models = {
+    "gpt-4-1106-preview": (128000, 0.01, 0.03),
+    "gpt-4-vision-preview": (128000, 0.01, 0.03),
+    "gpt-4": (8192, 0.03, 0.06),
+    "gpt-4-32k": (32768, 0.06, 0.12),
+    "gpt-4-0613": (8192, 0.03, 0.06),
+    "gpt-4-32k-0613": (32768, 0.06, 0.12),
+    "gpt-4-0314": (8192, 0.03, 0.06),
+    "gpt-4-32k-0314": (32768, 0.06, 0.12),
+    "gpt-3.5-turbo-1106": (16385, 0.001, 0.002),
+    "gpt-3.5-turbo": (16385, 0.001, 0.002),
+    "gpt-3.5-turbo-0613": (4096, 0.0015, 0.002),
+    "gpt-3.5-turbo-16k-0613": (16385, 0.003, 0.004),
+    "gpt-3.5-turbo-0301": (4096, 0.0015, 0.002),
+    "text-embedding-ada-002": (8191, 0.0001, 0),
+}
+
+known_embedding_models = ["text-embedding-ada-002"]
+
+
 def model_context_size(model: str) -> Optional[int]:
-    context_sizes = {
-        "gpt-4-1106-preview": 128000,
-        "gpt-4-vision-preview": 128000,
-        "gpt-4": 8192,
-        "gpt-4-32k": 32768,
-        "gpt-4-0613": 8192,
-        "gpt-4-32k-0613": 32768,
-        "gpt-4-0314": 8192,
-        "gpt-4-32k-0314": 32768,
-        "gpt-3.5-turbo-1106": 16385,
-        "gpt-3.5-turbo": 16385,
-        "gpt-3.5-turbo-0613": 4096,
-        "gpt-3.5-turbo-16k-0613": 16385,
-        "gpt-3.5-turbo-0301": 4096,
-        "text-embedding-ada-002": 8191,
-    }
-    return context_sizes.get(model, None)
+    if model not in known_models:
+        return None
+    else:
+        return known_models[model][0]
 
 
 def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
     """Returns (input, output) cost per 1000 tokens in USD"""
-    prices = {
-        "gpt-4-1106-preview": (0.01, 0.03),
-        "gpt-4-vision-preview": (0.01, 0.03),
-        "gpt-4": (0.03, 0.06),
-        "gpt-4-32k": (0.06, 0.12),
-        "gpt-4-0613": (0.03, 0.06),
-        "gpt-4-32k-0613": (0.06, 0.12),
-        "gpt-4-0314": (0.03, 0.06),
-        "gpt-4-32k-0314": (0.06, 0.12),
-        "gpt-3.5-turbo-1106": (0.001, 0.002),
-        "gpt-3.5-turbo": (0.001, 0.002),
-        "gpt-3.5-turbo-0613": (0.0015, 0.002),
-        "gpt-3.5-turbo-16k-0613": (0.003, 0.004),
-        "gpt-3.5-turbo-0301": (0.0015, 0.002),
-        "text-embedding-ada-002": (0.0001, 0),
-    }
-    return prices.get(model, None)
+    if model not in known_models:
+        return None
+    else:
+        return known_models[model][1:]
 
 
 def get_max_tokens() -> Optional[int]:

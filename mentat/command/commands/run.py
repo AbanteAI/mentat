@@ -17,5 +17,11 @@ class RunCommand(Command, command_name="run"):
         return ["command", "args..."]
 
     @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return []
+
+    @classmethod
     def help_message(cls) -> str:
         return "Run a shell command and put its output in context."

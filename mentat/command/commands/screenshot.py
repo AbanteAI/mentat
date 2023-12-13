@@ -46,5 +46,12 @@ class ScreenshotCommand(Command, command_name="screenshot"):
         return ["url or local file"]
 
     @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        # TODO: FILE COMPLETION
+        return []
+
+    @classmethod
     def help_message(cls) -> str:
         return "Opens the url or local file in chrome and takes a screenshot."

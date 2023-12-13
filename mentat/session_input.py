@@ -59,7 +59,6 @@ async def collect_input_with_commands() -> StreamMessage:
         try:
             # We only use shlex to split the arguments, not the command itself
             arguments = shlex.split(" ".join(response.data.split(" ")[1:]))
-            print(arguments, " ".join(response.data.split(" ")[1:]))
             command = Command.create_command(response.data[1:].split(" ")[0])
             await command.apply(*arguments)
         except ValueError as e:

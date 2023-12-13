@@ -35,11 +35,10 @@ class HelpCommand(Command, command_name="help"):
         return ["command"]
 
     @classmethod
-    def argument_autocompletions(cls, argument_position: int) -> list[str]:
-        if argument_position > 0:
-            return []
-        else:
-            return Command.get_command_names()
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return Command.get_command_names()
 
     @classmethod
     def help_message(cls) -> str:

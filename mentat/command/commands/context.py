@@ -14,5 +14,11 @@ class ContextCommand(Command, command_name="context"):
         return []
 
     @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return []
+
+    @classmethod
     def help_message(cls) -> str:
         return "Shows all files currently in Mentat's context"

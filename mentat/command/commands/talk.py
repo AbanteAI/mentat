@@ -104,5 +104,11 @@ class TalkCommand(Command, command_name="talk"):
         return ["command"]
 
     @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return []
+
+    @classmethod
     def help_message(cls) -> str:
         return "Start voice to text."

@@ -61,8 +61,6 @@ def _partial_shlex_split(argument_buffer: str) -> tuple[List[str], bool]:
             return _partial_shlex_split(argument_buffer[:-1])
         else:
             raise ValueError(f"shlex.split raised unexpected error: {e}")
-    if not split_buffer:
-        split_buffer = [""]
     return split_buffer, in_quote
 
 
@@ -74,8 +72,8 @@ def _find_shlex_last_word_position(argument_buffer: str, num_words: int) -> int:
     lex.whitespace_split = True
     for _ in range(num_words - 1):
         lex.get_token()
-    remaining = list(lex.instream)[0]
-    return -len(remaining)
+    remaining = list(lex.instream)
+    return 0 if not remaining else -len(remaining[0])
 
 
 def _command_argument_completion(buffer: str) -> List[Completion]:
@@ -91,20 +89,21 @@ def _command_argument_completion(buffer: str) -> List[Completion]:
         # we check for this and try to complete the quotations/backslashes, so that we can get the
         # actual escaped last_word argument to compare against our possible completions.
         split_buffer, in_quote = _partial_shlex_split(argument_buffer)
+        last_word_position = _find_shlex_last_word_position(
+            argument_buffer, len(split_buffer)
+        )
 
-        arg_position = len(split_buffer) - 2
         # shlex.split doesn't count the ending space
         if buffer[-1] in whitespace and not in_quote:
-            arg_position += 1
+            split_buffer.append("")
             last_word_position = 0
-        else:
-            last_word_position = _find_shlex_last_word_position(
-                argument_buffer, len(split_buffer)
-            )
+        arg_position = len(split_buffer) - 1
 
         arg_completions = [
             (shlex.quote(name), name)
-            for name in command.argument_autocompletions(arg_position)
+            for name in command.argument_autocompletions(
+                split_buffer[:-1], arg_position
+            )
         ]
         return _replace_last_word(split_buffer[-1], arg_completions, last_word_position)
 
@@ -119,7 +118,7 @@ def get_completions(buffer: str) -> List[Completion]:
     if buffer.startswith("/"):
         return _command_argument_completion(buffer[1:])
 
-    # TODO
+    # TODO: Function, class, and filename completion
     return []
 
 

@@ -9,6 +9,7 @@ import attr
 from attr import converters, validators
 
 from mentat.git_handler import get_git_root_for_path
+from mentat.llm_api_handler import known_embedding_models, known_models
 from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
@@ -24,14 +25,26 @@ def int_or_none(s: str | None) -> int | None:
     return None
 
 
+bool_autocomplete = ["True", "False"]
+
+
 @attr.define
 class Config:
     _errors: list[str] = attr.field(factory=list)
 
     # Model specific settings
-    model: str = attr.field(default="gpt-4-1106-preview")
-    feature_selection_model: str = attr.field(default="gpt-4-1106-preview")
-    embedding_model: str = attr.field(default="text-embedding-ada-002")
+    model: str = attr.field(
+        default="gpt-4-1106-preview",
+        metadata={"auto_completions": list(known_models.keys())},
+    )
+    feature_selection_model: str = attr.field(
+        default="gpt-4-1106-preview",
+        metadata={"auto_completions": list(known_models.keys())},
+    )
+    embedding_model: str = attr.field(
+        default="text-embedding-ada-002",
+        metadata={"auto_completions": known_embedding_models},
+    )
     temperature: float = attr.field(
         default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)]
     )
@@ -43,7 +56,7 @@ class Config:
                 "The maximum number of lines of context to include in the prompt. It is"
                 " inferred automatically for openai models but you can still set it to"
                 " save costs. It must be set for other models."
-            )
+            ),
         },
         converter=int_or_none,
         validator=validators.optional(validators.ge(0)),
@@ -54,7 +67,7 @@ class Config:
             "description": (
                 "The amount of tokens to always be reserved as a buffer for user and"
                 " model messages."
-            )
+            ),
         },
     )
     parser: Parser = attr.field(  # pyright: ignore
@@ -64,6 +77,7 @@ class Config:
                 "The format for the LLM to write code in. You probably don't want to"
                 " mess with this setting."
             ),
+            "auto_completions": list(parser_map.keys()),
         },
         converter=parser_map.get,  # pyright: ignore
         validator=validators.instance_of(Parser),  # pyright: ignore
@@ -74,7 +88,8 @@ class Config:
             "description": (
                 "Whether to include the parser prompt in the system message. This"
                 " should only be set to true for fine tuned models"
-            )
+            ),
+            "auto_completions": bool_autocomplete,
         },
         converter=converters.optional(converters.to_bool),
     )
@@ -89,6 +104,7 @@ class Config:
         metadata={
             "description": "Automatically select code files to include in context.",
             "abbreviation": "a",
+            "auto_completions": bool_autocomplete,
         },
         converter=converters.optional(converters.to_bool),
     )
@@ -115,8 +131,14 @@ class Config:
     )
 
     @classmethod
+    def get_fields(cls) -> list[str]:
+        return [
+            field.name for field in attr.fields(cls) if not field.name.startswith("_")
+        ]
+
+    @classmethod
     def add_fields_to_argparse(cls, parser: ArgumentParser) -> None:
-        for field in attr.fields(Config):
+        for field in attr.fields(cls):
             if "no_flag" in field.metadata:
                 continue
             name = [f"--{field.name.replace('_', '-')}"]

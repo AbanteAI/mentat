@@ -16,5 +16,11 @@ class CommitCommand(Command, command_name="commit"):
         return [f"commit_message={cls.default_message}"]
 
     @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return []
+
+    @classmethod
     def help_message(cls) -> str:
         return "Commits all of your unstaged and staged changes to git"

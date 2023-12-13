@@ -50,5 +50,24 @@ class ConfigCommand(Command, command_name="config"):
         return ["setting", "value"]
 
     @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        # Dodge circular imports
+        from mentat.config import Config
+
+        if argument_position == 0:
+            return Config.get_fields()
+        elif argument_position == 1:
+            setting = arguments[0]
+            fields = attr.fields_dict(Config)
+            if setting in fields:
+                return fields[setting].metadata.get("auto_completions", [])
+            else:
+                return []
+        else:
+            return []
+
+    @classmethod
     def help_message(cls) -> str:
         return "Set a configuration option or omit value to see current value."

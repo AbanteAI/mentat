@@ -17,5 +17,11 @@ class ClearCommand(Command, command_name="clear"):
         return []
 
     @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return []
+
+    @classmethod
     def help_message(cls) -> str:
         return "Clear the current conversation's message history"

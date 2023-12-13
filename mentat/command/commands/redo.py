@@ -18,5 +18,11 @@ class RedoCommand(Command, command_name="redo"):
         return []
 
     @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return []
+
+    @classmethod
     def help_message(cls) -> str:
         return "Redo the last change made by Mentat"
