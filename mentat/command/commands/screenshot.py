@@ -1,10 +1,15 @@
+from typing import List
+
+from typing_extensions import override
+
 from mentat.auto_completer import get_command_filename_completions
-from mentat.command.command import Command
+from mentat.command.command import Command, CommandArgument
 from mentat.session_context import SESSION_CONTEXT
 from mentat.vision.vision_manager import ScreenshotException
 
 
 class ScreenshotCommand(Command, command_name="screenshot"):
+    @override
     async def apply(self, *args: str) -> None:
         session_context = SESSION_CONTEXT.get()
         vision_manager = session_context.vision_manager
@@ -42,16 +47,19 @@ class ScreenshotCommand(Command, command_name="screenshot"):
         except ScreenshotException:
             return  # Screenshot manager will print the error to stream.
 
+    @override
     @classmethod
-    def argument_names(cls) -> list[str]:
-        return ["url or local file"]
+    def arguments(cls) -> List[CommandArgument]:
+        return [CommandArgument("optional", ["path", "url"])]
 
+    @override
     @classmethod
     def argument_autocompletions(
         cls, arguments: list[str], argument_position: int
     ) -> list[str]:
         return get_command_filename_completions(arguments[-1])
 
+    @override
     @classmethod
     def help_message(cls) -> str:
         return "Opens the url or local file in chrome and takes a screenshot."

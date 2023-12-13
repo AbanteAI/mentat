@@ -1,10 +1,14 @@
-import attr
+from typing import List
 
-from mentat.command.command import Command
+import attr
+from typing_extensions import override
+
+from mentat.command.command import Command, CommandArgument
 from mentat.session_context import SESSION_CONTEXT
 
 
 class ConfigCommand(Command, command_name="config"):
+    @override
     async def apply(self, *args: str) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
@@ -45,10 +49,15 @@ class ConfigCommand(Command, command_name="config"):
             else:
                 stream.send(f"Unrecognized config option: {setting}", color="red")
 
+    @override
     @classmethod
-    def argument_names(cls) -> list[str]:
-        return ["setting", "value"]
+    def arguments(cls) -> List[CommandArgument]:
+        return [
+            CommandArgument("required", "setting"),
+            CommandArgument("optional", "value"),
+        ]
 
+    @override
     @classmethod
     def argument_autocompletions(
         cls, arguments: list[str], argument_position: int
@@ -68,6 +77,7 @@ class ConfigCommand(Command, command_name="config"):
         else:
             return []
 
+    @override
     @classmethod
     def help_message(cls) -> str:
         return "Set a configuration option or omit value to see current value."

@@ -142,7 +142,7 @@ class AutoCompleter:
                 buffer, [(name, name) for name in Command.get_command_names()]
             )
         else:
-            command = Command.create_command(buffer.split()[0])
+            command_cls = Command.create_command(buffer.split()[0]).__class__
             argument_buffer = buffer.split(maxsplit=1)
             if len(argument_buffer) < 2:
                 argument_buffer = ""
@@ -165,7 +165,9 @@ class AutoCompleter:
 
             arg_completions = [
                 (shlex.quote(name), name)
-                for name in command.argument_autocompletions(split_buffer, arg_position)
+                for name in command_cls.argument_autocompletions(
+                    split_buffer, arg_position
+                )
             ]
             return self._replace_last_word(
                 split_buffer[-1], arg_completions, last_word_position

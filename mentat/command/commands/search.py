@@ -1,4 +1,8 @@
-from mentat.command.command import Command
+from typing import List
+
+from typing_extensions import override
+
+from mentat.command.command import Command, CommandArgument
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
 
@@ -6,6 +10,7 @@ SEARCH_RESULT_BATCH_SIZE = 10
 
 
 class SearchCommand(Command, command_name="search"):
+    @override
     async def apply(self, *args: str) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
@@ -36,16 +41,19 @@ class SearchCommand(Command, command_name="search"):
                 if not await ask_yes_no(default_yes=True):
                     break
 
+    @override
     @classmethod
-    def argument_names(cls) -> list[str]:
-        return ["search_query"]
+    def arguments(cls) -> List[CommandArgument]:
+        return [CommandArgument("required", "query")]
 
+    @override
     @classmethod
     def argument_autocompletions(
         cls, arguments: list[str], argument_position: int
     ) -> list[str]:
         return []
 
+    @override
     @classmethod
     def help_message(cls) -> str:
         return "Semantic search of files in code context."

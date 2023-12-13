@@ -4,9 +4,10 @@ import queue
 from asyncio import Event
 from contextlib import asynccontextmanager
 from timeit import default_timer
-from typing import Any
+from typing import Any, List
 
 import numpy as np
+from typing_extensions import override
 
 try:
     import sounddevice as sd
@@ -17,7 +18,7 @@ except Exception:
     audio_available = False
 
 
-from mentat.command.command import Command
+from mentat.command.command import Command, CommandArgument
 from mentat.logging_config import logs_path
 from mentat.session_context import SESSION_CONTEXT
 
@@ -81,6 +82,7 @@ class Recorder:
 
 
 class TalkCommand(Command, command_name="talk"):
+    @override
     async def apply(self, *args: str) -> None:
         ctx = SESSION_CONTEXT.get()
         if not audio_available:
@@ -103,16 +105,19 @@ class TalkCommand(Command, command_name="talk"):
             ctx.stream.send(transcript, channel="default_prompt")
             ctx.cost_tracker.log_whisper_call_stats(recorder.recording_time)
 
+    @override
     @classmethod
-    def argument_names(cls) -> list[str]:
-        return ["command"]
+    def arguments(cls) -> List[CommandArgument]:
+        return []
 
+    @override
     @classmethod
     def argument_autocompletions(
         cls, arguments: list[str], argument_position: int
     ) -> list[str]:
         return []
 
+    @override
     @classmethod
     def help_message(cls) -> str:
         return "Start voice to text."

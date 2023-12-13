@@ -1,9 +1,22 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import List, Literal
+
+import attr
 
 from mentat.errors import MentatError
 from mentat.session_context import SESSION_CONTEXT
+
+
+@attr.define
+class CommandArgument:
+    # Required: <arg>, Optional: [arg], Literal: arg
+    arg_type: Literal["required", "optional", "literal"] = attr.field()
+    # Multiple descriptions will be separated with |: desc1|desc2
+    description: str | List[str] = attr.field()
+    # Repeatable arguments will be followed with ...: <arg1> ...
+    repeatable: bool = attr.field(default=False)
 
 
 class Command(ABC):
@@ -42,7 +55,7 @@ class Command(ABC):
 
     @classmethod
     @abstractmethod
-    def argument_names(cls) -> list[str]:
+    def arguments(cls) -> List[CommandArgument]:
         pass
 
     @classmethod
@@ -77,7 +90,7 @@ class InvalidCommand(Command, command_name=None):
         )
 
     @classmethod
-    def argument_names(cls) -> list[str]:
+    def arguments(cls) -> List[CommandArgument]:
         raise MentatError("Argument names called on invalid command")
 
     @classmethod
