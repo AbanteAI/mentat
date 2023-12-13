@@ -16,6 +16,8 @@ from mentat.utils import get_relative_path
 
 SECONDS_BETWEEN_REFRESH = 5
 
+whitespace = " \t\r\n"
+
 
 class Completion(TypedDict):
     """
@@ -98,7 +100,9 @@ class AutoCompleter:
             for completion in filtered_completions
         ]
 
-    def _partial_shlex_split(self, argument_buffer: str) -> tuple[List[str], bool]:
+    def _partial_shlex_split(
+        self, argument_buffer: str
+    ) -> tuple[List[str], bool, bool]:
         """
         Handles unescaped backslashes and unclosed quotation marks
         """
@@ -116,10 +120,13 @@ class AutoCompleter:
                 in_quote = True
             elif "escaped" in str(e):
                 # Remove the offending backslash and pretend it isn't there
-                return self._partial_shlex_split(argument_buffer[:-1])
+                split_buffer, in_quote, _ = self._partial_shlex_split(
+                    argument_buffer[:-1]
+                )
+                return split_buffer, in_quote, True
             else:
                 raise ValueError(f"shlex.split raised unexpected error: {e}")
-        return split_buffer, in_quote
+        return split_buffer, in_quote, False
 
     def _find_shlex_last_word_position(
         self, argument_buffer: str, num_words: int
@@ -135,8 +142,6 @@ class AutoCompleter:
         return 0 if not remaining else -len(remaining[0])
 
     def _command_argument_completion(self, buffer: str) -> List[Completion]:
-        whitespace = " \t\r\n"
-
         if not any(space in buffer for space in whitespace):
             return self._replace_last_word(
                 buffer, [(name, name) for name in Command.get_command_names()]
@@ -152,10 +157,16 @@ class AutoCompleter:
             # shlex fails if there are uncompleted quotations or backslashes not escaping anything;
             # we check for this and try to complete the quotations/backslashes, so that we can get the
             # actual escaped last_word argument to compare against our possible completions.
-            split_buffer, in_quote = self._partial_shlex_split(argument_buffer)
+            split_buffer, in_quote, unescaped = self._partial_shlex_split(
+                argument_buffer
+            )
             last_word_position = self._find_shlex_last_word_position(
                 argument_buffer, len(split_buffer)
             )
+
+            # If we removed an ending \ and before it was whitespace, we need to move on one argument
+            if unescaped and buffer[-2] in whitespace:
+                split_buffer.append("")
 
             # shlex.split doesn't count the ending space
             if buffer[-1] in whitespace and not in_quote:
