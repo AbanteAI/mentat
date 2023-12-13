@@ -44,23 +44,22 @@
                 {% endfor %}
             </div>
             <div id="viewer">
-                {% for test, result in summary.results_map.items() %}
+                {% for test, formatted_result in summary.formatted_results().items() %}
                     <div id="{{ test }}" class="result-section">
-                        <h1>Instructions:</h1>
-                        <div class="content">{{ result.instructions }}</div>
-                        <h1>Code:</h1>
-                        <div class="content">
-                            <pre><code>
-                                {{ result.code }}
-                            </code></pre>
-                        </div>
-                        <h1>Analysis:</h1>
-                        <div class="content">{{ result.response }}</div>
-                        <h1>Test Output:</h1>
-                        <div class="content">{{ result.test_output }}</div>
-
-                        <h1>Transcript</h1>
-                        <div class="content">{{ transcript_container(result.transcript) }}</div>
+                        {% for display_name, section in formatted_result.items() %}
+                        <h1>{{ display_name|capitalize }}</h1>
+                            <div class="content">
+                                {% if section.type == "text" %}
+                                    {{ section.content }}
+                                {% elif section.type == "code" %}
+                                    <pre><code>
+                                        {{ section.content }}
+                                    </code></pre>
+                                {% elif section.type == "transcript" %}
+                                    {{ transcript_container(section.content) }}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
                     </div>
                 {% endfor %}
             </div>

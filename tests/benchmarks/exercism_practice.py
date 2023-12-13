@@ -12,7 +12,8 @@ from openai import BadRequestError
 from mentat.config import Config
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
-from tests.benchmarks.benchmark_result import BenchmarkResult, BenchmarkResultSummary
+from tests.benchmarks.benchmark_result import BenchmarkResult
+from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
 from tests.benchmarks.exercise_runners.exercise_runner_factory import (
     ExerciseRunnerFactory,
 )
