@@ -88,4 +88,7 @@ class PythonClient:
         self.stopped.set()
 
     def get_conversation(self):
-        return self.session.conversation
+        return self.session.ctx.conversation
+
+    def get_cost_tracker(self):
+        return self.session.ctx.cost_tracker

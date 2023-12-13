@@ -74,7 +74,6 @@ class Session:
         code_file_manager = CodeFileManager()
 
         conversation = Conversation()
-        self.conversation = conversation
 
         vision_manager = VisionManager()
 
@@ -92,6 +91,7 @@ class Session:
             vision_manager,
             agent_handler,
         )
+        self.ctx = session_context
         SESSION_CONTEXT.set(session_context)
 
         # Functions that require session_context
