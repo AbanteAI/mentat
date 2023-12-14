@@ -86,7 +86,7 @@ model_response_grade_prompt = """\
 You will be give a models response to a prompt. You won't be given the full
 context of the response. You are just looking for certain stylistic errors.
 Respond in json. The following fields are required:
-format_reference: boolean, true if the model talks about its edit format in any
+referenced_format: boolean, true if the model talks about its edit format in any
 way in its response. For example if it has a clause like "The edits in the
 requested format are:"
 trailing_waffling: boolean, true if after the structured edits the model ends
@@ -115,48 +115,6 @@ async def compare_diffs(actual, generated):
     return await grade(prompt, comparison_prompt)
 
 
-def summarize_results(results):
-    commit = get_mentat_commit()
-    summary = {
-        "commit": commit,
-        "total": 0,
-        "total_verifiable": 0,
-        "total_verifiable_correct": 0,
-        "indentation_errors": 0,
-        "off_by_one_errors": 0,
-        "syntax_errors": 0,
-        "format_reference_errors": 0,
-        "trailing_waffling_errors": 0,
-        "missing_functionality_errors": 0,
-        "extra_functionality_errors": 0,
-    }
-    for benchmark_name, variation in results.items():
-        for variation_name, variation_results in variation.items():
-            for result in variation_results:
-                summary["total"] += 1
-                if result["Diff_Grade"]["off_by_one"]:
-                    summary["off_by_one_errors"] += 1
-                if result["Diff_Grade"]["indentation"]:
-                    summary["indentation_errors"] += 1
-                if result["Diff_Grade"]["syntax"]:
-                    summary["syntax_errors"] += 1
-                if result["Response_Grade"]["format_reference"]:
-                    summary["format_reference_errors"] += 1
-                if result["Response_Grade"]["trailing_waffling"]:
-                    summary["trailing_waffling_errors"] += 1
-                if "Comparison" in result:
-                    if result["Comparison"]["missing_functionality"]:
-                        summary["missing_functionality_errors"] += 1
-                    if result["Comparison"]["extra_functionality"]:
-                        summary["extra_functionality_errors"] += 1
-                if "Verify" in variation:
-                    summary["total_verifiable"] += 1
-                    if result["Verify"]:
-                        summary["total_verifiable_correct"] += 1
-
-    return summary
-
-
 @pytest.mark.asyncio
 async def test_benchmark(retries, benchmarks):
     print("Running benchmarks")
@@ -168,8 +126,8 @@ async def test_benchmark(retries, benchmarks):
             if file.endswith(".py"):
                 benchmark_paths.append(os.path.join(root, file))
 
-    print("Found benchmarks:", " ".join(benchmark_paths))
-    results = {}
+    print("Found benchmarks:\n" + "\n".join(benchmark_paths))
+    results = []
     for path in benchmark_paths:
         benchmark = dynamic_import(path, "benchmark")
         title = benchmark.title
@@ -185,7 +143,6 @@ async def test_benchmark(retries, benchmarks):
             continue
 
         print("Benchmark:", title)
-        results[title] = {}
 
         codebase = clone_repo(
             url=benchmark.repo,
@@ -200,17 +157,10 @@ async def test_benchmark(retries, benchmarks):
 
         for prompt in benchmark.prompts:
             print("  Prompt:", prompt)
-            results[title][prompt] = {
-                "iterations": [],
-            }
             for i in range(1, retries + 1):
                 iteration_result = BenchmarkResult(
-                    passed=None,  # To be updated after verification
                     name=f"{title} - {prompt} - Iteration {i}",
-                    cost=None,  # To be updated after cost calculation
-                    tokens=None,  # To be updated after token calculation
                 )
-                results[title][prompt]["iterations"].append(iteration_result)
                 client = PythonClient(cwd=codebase, config=benchmark.config)
                 await client.startup()
                 response = await client.call_mentat(prompt)
@@ -223,7 +173,7 @@ async def test_benchmark(retries, benchmarks):
                 iteration_result.cost = cost_tracker.total_cost
                 iteration_result.tokens = cost_tracker.total_tokens
                 iteration_result.transcript = {
-                    "id": iteration_result.escaped_name,
+                    "id": iteration_result.escaped_name(),
                     "messages": messages,
                 }
 
@@ -232,41 +182,39 @@ async def test_benchmark(retries, benchmarks):
                 if hasattr(benchmark, "verify"):
                     iteration_result.verify = benchmark.verify()
 
-                diff = repo.git.diff(start_commit)
+                # Set syntax and response grade information
+                diff = repo.git.diff()
                 iteration_result.code = diff
                 diff_grade = await grade_diff_syntax(diff)
                 iteration_result.diff_grade = diff_grade
+                iteration_result.off_by_one = diff_grade.get("off_by_one")
+                iteration_result.indentation_error = diff_grade.get("indentation")
+                iteration_result.syntax_error = diff_grade.get("syntax")
                 response_grade = await grade_model_response(response)
                 iteration_result.response_grade = response_grade
+                iteration_result.referenced_format = response_grade.get(
+                    "referenced_format"
+                )
 
                 # Clean up
                 repo.git.reset("--hard")
                 repo.git.clean("-fd")
+                results.append(iteration_result)
 
+                # Set comparison grade information
                 if hasattr(benchmark, "comparison_commit"):
                     repo.git.checkout(benchmark.comparison_commit)
                     comparison_diff = repo.git.diff(benchmark.commit)
                     comparison_grade = await compare_diffs(diff, comparison_diff)
                     iteration_result.comparison_grade = comparison_grade
-
-            if hasattr(benchmark, "verify"):
-                verified_count = sum(
-                    1 for r in results[title][prompt]["iterations"] if r.verify
-                )
-                print(f"  Succeeded: {verified_count}/{retries}")
-
+                    iteration_result.extra_functionality = comparison_grade.get(
+                        "extra_functionality"
+                    )
+                    iteration_result.missing_functionality = comparison_grade.get(
+                        "missing_functionality"
+                    )
         repo.git.checkout(start_commit)
 
-    print(results)
-    summary = BenchmarkResultSummary(
-        [
-            r
-            for prompt_results in results.values()
-            for iteration_results in prompt_results.values()
-            for r in iteration_results["iterations"]
-        ]
-    )
-    print(summary.formatted_summary())
-
+    summary = BenchmarkResultSummary(results)
     os.chdir("../..")
     summary.render_results()

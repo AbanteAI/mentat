@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Exercism Benchmark Results</title>
+        <title>Benchmark Results</title>
         <style>
             {% include 'css/benchmark.css' %}
             {% include 'css/transcript.css' %}
@@ -40,7 +40,7 @@
         <div id="container">
             <div id="selector">
                 {% for test, result in summary.results_map.items() %}
-                    <button class="{{ 'success' if result.passed else 'failure' }}" onclick="window.location.hash='{{ result.escaped_name }}'">{{ test }}</button>
+                    <button class="{{ result.display_color() }}" onclick="window.location.hash='{{ result.escaped_name() }}'">{{ test }}</button>
                 {% endfor %}
             </div>
             <div id="viewer">
@@ -52,9 +52,9 @@
                                 {% if section.type == "text" %}
                                     {{ section.content }}
                                 {% elif section.type == "code" %}
-                                    <pre><code>
-                                        {{ section.content }}
-                                    </code></pre>
+                                    <pre><code>{{ section.content }}</code></pre>
+                                {% elif section.type == "json" %}
+                                    <pre><code>{{ section.content |tojson(indent=4)|safe}}</code></pre>
                                 {% elif section.type == "transcript" %}
                                     {{ transcript_container(section.content) }}
                                 {% endif %}

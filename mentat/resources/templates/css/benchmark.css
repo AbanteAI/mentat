@@ -60,13 +60,25 @@ button:hover {
     background-color: #e9e9e9;
 }
 
-button.success {
+button.green {
     background-color: #d4edda;
     color: #155724;
     border-color: #c3e6cb;
 }
 
-button.failure {
+button.yellow {
+    background-color: #fff3cd;
+    color: #856404;
+    border-color: #ffeeba;
+}
+
+button.grey {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border-color: #f8f9fa;
+}
+
+button.red {
     background-color: #f8d7da;
     color: #721c24;
     border-color: #f5c6cb;

@@ -9,14 +9,13 @@ from tests.benchmarks.benchmark_result import BenchmarkResult
 
 
 class BenchmarkResultSummary:
-    results: list[BenchmarkResult]
-    results_map: dict[str, BenchmarkResult]
-    summary: dict[str, Tuple[int | float | str, float]]
-
     def __init__(self, results: list[BenchmarkResult]):
         self.results = results
         self.results_map = {result.name: result for result in results}
-        self.summary = self.aggregate_results()
+        self.summary: dict[str, Tuple[int | float | str, float]] = (
+            self.aggregate_results()
+        )
+        print(self.aggregate_results())
 
     def aggregate_results(self) -> dict[str, Tuple[int | float | str, float]]:
         summary = {}
@@ -28,24 +27,22 @@ class BenchmarkResultSummary:
                     for result in self.results
                     if getattr(result, name) is not None
                 ]
-                aggregation_type = field.metadata["aggregation"]
-                if aggregation_type == "sum":
-                    summary[name] = (sum(values), len(values))
-                elif aggregation_type == "average":
-                    summary[name] = (
-                        (sum(values) / len(values), len(values)) if values else (0, 0)
-                    )
-                elif aggregation_type == "percent":
-                    summary[name] = (
-                        (sum(values) / len(values) * 100, len(values))
-                        if values
-                        else (0, 0)
-                    )
-                elif aggregation_type == "histogram":
-                    histogram = {val: values.count(val) for val in set(values)}
-                    summary[name] = (histogram, len(values))
-                elif aggregation_type == "none":
-                    summary[name] = (values, len(values))
+                if len(values) == 0:
+                    summary[name] = (0, 0)
+                else:
+                    percent_set = len(values) / len(self.results)
+                    aggregation_type = field.metadata["aggregation"]
+                    if aggregation_type == "sum":
+                        summary[name] = (sum(values), percent_set)
+                    elif aggregation_type == "average":
+                        summary[name] = (sum(values) / len(values), percent_set)
+                    elif aggregation_type == "percent":
+                        summary[name] = (sum(values) / len(values) * 100, percent_set)
+                    elif aggregation_type == "histogram":
+                        histogram = {val: values.count(val) for val in set(values)}
+                        summary[name] = (histogram, len(values))
+                    elif aggregation_type == "none":
+                        summary[name] = (values, len(values))
         return summary
 
     def formatted_summary(self) -> dict[str, str]:
@@ -53,7 +50,12 @@ class BenchmarkResultSummary:
         for field in attr.fields(BenchmarkResult):
             if "aggregation" in field.metadata:
                 name = field.name
-                value, count = self.summary[name]
+                value, percent_set = self.summary[name]
+                if percent_set == 0:
+                    continue
+                percent_set_display = ""
+                if percent_set < 1:
+                    percent_set_display = f" ({percent_set:.0%})"
                 formatted_value = ""
                 aggregation_type = field.metadata["aggregation"]
                 if aggregation_type == "average":
@@ -70,13 +72,17 @@ class BenchmarkResultSummary:
 
                 # Add units based on aggregation type
                 if aggregation_type == "sum" and "cost" in formatted_name:
-                    formatted[formatted_name] = f"${formatted_value}"
+                    formatted[formatted_name] = (
+                        f"${formatted_value} {percent_set_display}"
+                    )
                 elif aggregation_type == "percent":
-                    formatted[formatted_name] = f"{formatted_value}%"
-                elif aggregation_type == "percent" and "verify" in formatted_name:
-                    formatted[formatted_name] = f"{formatted_value}% (verified)"
+                    formatted[formatted_name] = (
+                        f"{formatted_value}% {percent_set_display}"
+                    )
                 else:
-                    formatted[formatted_name] = formatted_value
+                    formatted[formatted_name] = (
+                        f"{formatted_value} {percent_set_display}"
+                    )
 
         return formatted
 
@@ -94,7 +100,7 @@ class BenchmarkResultSummary:
                             "content": value,
                             "type": field.metadata["display"],
                         }
-            formatted[result.escaped_name] = formatted_result
+            formatted[result.escaped_name()] = formatted_result
         return formatted
 
     def render_results(self):
@@ -106,7 +112,7 @@ class BenchmarkResultSummary:
             ),
             autoescape=select_autoescape(["html", "xml"]),
         )
-        template = env.get_template("exercism_benchmark.jinja")
+        template = env.get_template("benchmark.jinja")
         rendered_html = template.render(summary=self)
 
         with open("results.html", "w") as f:
