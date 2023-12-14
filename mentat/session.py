@@ -82,6 +82,8 @@ class Session:
 
         agent_handler = AgentHandler()
 
+        auto_completer = AutoCompleter()
+
         session_context = SessionContext(
             cwd,
             stream,
@@ -93,6 +95,7 @@ class Session:
             conversation,
             vision_manager,
             agent_handler,
+            auto_completer,
         )
         SESSION_CONTEXT.set(session_context)
 
@@ -190,9 +193,10 @@ class Session:
         self._main_task.cancel()
 
     async def listen_for_completion_requests(self):
-        auto_completer = AutoCompleter()
+        ctx = SESSION_CONTEXT.get()
+
         async for message in self.stream.listen(channel="completion_request"):
-            completions = auto_completer.get_completions(message.data)
+            completions = ctx.auto_completer.get_completions(message.data)
             # Will intermediary client for vscode serialize/deserialize all messages automatically?
             self.stream.send(completions, channel=f"completion_request:{message.id}")
 

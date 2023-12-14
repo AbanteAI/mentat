@@ -51,7 +51,12 @@ class SearchCommand(Command, command_name="search"):
     def argument_autocompletions(
         cls, arguments: list[str], argument_position: int
     ) -> list[str]:
-        return []
+        ctx = SESSION_CONTEXT.get()
+
+        return [
+            completion["display"] or completion["content"]
+            for completion in ctx.auto_completer.get_file_completions(arguments[-1])
+        ]
 
     @override
     @classmethod

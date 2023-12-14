@@ -241,7 +241,7 @@ class AutoCompleter:
 
         self._last_refresh_at = datetime.utcnow()
 
-    def _get_file_completions(self, buffer: str) -> List[Completion]:
+    def get_file_completions(self, buffer: str) -> List[Completion]:
         if (
             self._last_refresh_at is None
             or (datetime.utcnow() - self._last_refresh_at).seconds
@@ -249,7 +249,7 @@ class AutoCompleter:
         ):
             self._refresh_all_file_completions()
 
-        if buffer[-1] == " ":
+        if not buffer or buffer[-1] == " ":
             return []
 
         words = buffer.split()
@@ -276,4 +276,4 @@ class AutoCompleter:
         if buffer.startswith("/"):
             return self._command_argument_completion(buffer[1:])
         else:
-            return self._get_file_completions(buffer)
+            return self.get_file_completions(buffer)

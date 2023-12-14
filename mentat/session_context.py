@@ -8,6 +8,7 @@ import attr
 
 if TYPE_CHECKING:
     from mentat.agent_handler import AgentHandler
+    from mentat.auto_completer import AutoCompleter
     from mentat.code_context import CodeContext
     from mentat.code_file_manager import CodeFileManager
     from mentat.config import Config
@@ -32,3 +33,4 @@ class SessionContext:
     conversation: Conversation = attr.field()
     vision_manager: VisionManager = attr.field()
     agent_handler: AgentHandler = attr.field()
+    auto_completer: AutoCompleter = attr.field()
