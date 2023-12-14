@@ -1,9 +1,11 @@
+from termcolor import colored
+
 from mentat.command.command import Command
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
 
-SEARCH_RESULT_BATCH_SIZE = 10
+SEARCH_RESULT_BATCH_SIZE = 5
 
 
 class SearchCommand(Command, command_name="search"):
@@ -24,23 +26,28 @@ class SearchCommand(Command, command_name="search"):
             return
 
         cumulative_tokens = 0
-        for i, (feature, score) in enumerate(results, start=1):
-            i_str = f"{i:3}"
-            score_str = f"{score:.3f}"
+        for i, (feature, _) in enumerate(results, start=1):
+            prefix = "\n   "
 
-            label = feature.ref()
-            label = label.removeprefix(str(session_context.cwd) + "/")
+            file_name = feature.rel_path(session_context.cwd)
+            file_name = colored(file_name, "blue", attrs=["bold"])
+            file_name += colored(feature.interval_string(), "light_cyan")
+
+            name = []
             if feature.name:
-                label += f' "{feature.name}"'
+                name = feature.name.split(",")
+                name = [
+                    f"{'└' if i == len(name) - 1 else '├'}─ {colored(n, 'cyan')}"
+                    for i, n in enumerate(name)
+                ]
 
             tokens = feature.count_tokens(config.model)
             cumulative_tokens += tokens
 
-            tokens_str = f"{tokens} Tokens"
-            cumulative_tokens_str = f"{cumulative_tokens} Cumulative Tokens"
+            tokens_str = colored(f"{tokens} Tokens", "yellow")
 
-            message = " | ".join(
-                [i_str, score_str, tokens_str, cumulative_tokens_str, label]
+            message = f"{str(i).ljust(3)}" + prefix.join(
+                [file_name] + name + [tokens_str, ""]
             )
             stream.send(message)
             if i > 1 and i % SEARCH_RESULT_BATCH_SIZE == 0:
@@ -53,7 +60,11 @@ class SearchCommand(Command, command_name="search"):
                 )
                 user_input: str = (await collect_user_input(plain=True)).data.strip()
                 while not (
-                    (user_input.isdigit() and int(user_input) > 0)
+                    (
+                        user_input.isdigit()
+                        and int(user_input) > 0
+                        and int(user_input) <= i
+                    )
                     or (user_input.lower() in "yn")
                 ):
                     stream.send("(Y/n/number)")

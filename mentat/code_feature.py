@@ -149,18 +149,22 @@ class CodeFeature:
             f" level={self.level.key}, diff={self.diff})"
         )
 
-    def ref(self, cwd: Optional[Path] = None) -> str:
+    def rel_path(self, cwd: Optional[Path] = None) -> str:
         if cwd is not None:
             path_string = str(get_relative_path(self.path, cwd))
         else:
             path_string = str(self.path)
+        return path_string
 
+    def interval_string(self) -> str:
         if self.level == CodeMessageLevel.INTERVAL:
             interval_string = f":{self.interval.start}-{self.interval.end}"
         else:
             interval_string = ""
+        return interval_string
 
-        return f"{path_string}{interval_string}"
+    def ref(self, cwd: Optional[Path] = None) -> str:
+        return self.rel_path(cwd) + self.interval_string()
 
     def contains_line(self, line_number: int):
         return self.interval.contains(line_number)
