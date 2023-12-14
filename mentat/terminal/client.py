@@ -102,7 +102,9 @@ class TerminalClient:
     async def _listen_for_should_exit(self):
         """This listens for a user event signaling shutdown (like SigInt), and tells the session to shutdown."""
         await self._should_exit.wait()
-        self.session.stream.send(None, channel="session_exit")
+        self.session.stream.send(
+            None, source=StreamMessageSource.CLIENT, channel="session_exit"
+        )
 
     async def _send_session_stream_interrupt(self):
         logging.debug("Sending interrupt to session stream")
@@ -145,7 +147,7 @@ class TerminalClient:
         )
         self.session.start()
 
-        mentat_completer = MentatCompleter()
+        mentat_completer = MentatCompleter(self.session.stream)
         self._prompt_session = MentatPromptSession(
             completer=mentat_completer,
             style=Style(self.config.input_style),
@@ -170,7 +172,6 @@ class TerminalClient:
             enable_suspend=True,
         )
 
-        self._create_task(mentat_completer.refresh_completions())
         self._create_task(self._cprint_session_stream())
         self._create_task(self._handle_input_requests())
         self._create_task(self._handle_loading_messages())
