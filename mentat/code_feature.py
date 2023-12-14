@@ -130,7 +130,7 @@ class CodeFeature:
             else:
                 interval = parse_intervals(interval)
                 if len(interval) > 1:
-                    raise MentatError("CodeFeatures should only have on interval.")
+                    raise MentatError("CodeFeatures should only have one interval.")
                 self.interval = interval[0]
                 level = CodeMessageLevel.INTERVAL
 
