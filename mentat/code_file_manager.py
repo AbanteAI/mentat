@@ -14,6 +14,7 @@ from mentat.edit_history import (
 )
 from mentat.errors import MentatError
 from mentat.interval import Interval
+from mentat.sampler.sampler import Sampler
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
 from mentat.utils import sha256
@@ -28,6 +29,7 @@ class CodeFileManager:
     def __init__(self):
         self.file_lines = dict[Path, list[str]]()
         self.history = EditHistory()
+        self.sampler = Sampler()
 
     def read_file(self, path: Path) -> list[str]:
         session_context = SESSION_CONTEXT.get()
@@ -73,7 +75,7 @@ class CodeFileManager:
             return []
 
         # Set pre-edit context in case /sample is called later
-        self.history.set_active_diff()
+        self.sampler.set_active_diff()
 
         applied_edits: list[FileEdit] = []
         for file_edit in file_edits:

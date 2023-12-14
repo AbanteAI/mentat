@@ -12,7 +12,9 @@ from openai.types.chat import (
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
 from mentat.sampler.sample import Sample
+from mentat.sampler.sampler import Sampler
 from mentat.session import Session
+from scripts.evaluate_samples import evaluate_sample
 
 
 @pytest.mark.asyncio
@@ -23,9 +25,6 @@ async def test_sample_from_context(
     mock_collect_user_input,
 ):
     mock_session_context.config.sample_repo = "test_sample_repo"
-
-    edit_history = mock_session_context.code_file_manager.history
-    edit_history.diff_active = "test_diff_active"
 
     mocker.patch(
         "mentat.conversation.Conversation.get_messages",
@@ -60,14 +59,14 @@ async def test_sample_from_context(
             "test_test_command",
         ]
     )
-
-    sample = await Sample.from_context()
+    sampler = Sampler()
+    sample = await sampler.add_sample()
     assert sample.title == "test_title"
     assert sample.description == "test_description"
     assert sample.repo == "test_sample_repo"
     assert is_sha1(sample.merge_base)
     assert sample.diff_merge_base == ""
-    assert sample.diff_active == "test_diff_active"
+    assert sample.diff_active == ""
     assert sample.messages == [
         {"role": "user", "content": "test_user_content"},
         {"role": "assistant", "content": "test_assistant_content"},
@@ -86,10 +85,6 @@ async def test_sample_from_context(
 
 def is_sha1(string: str) -> bool:
     return len(string) == 40 and all(c in "0123456789abcdef" for c in string)
-
-
-def is_sha256(string: str) -> bool:
-    return len(string) == 64 and all(c in "0123456789abcdef" for c in string)
 
 
 @pytest.mark.asyncio
@@ -210,6 +205,5 @@ async def test_sample_eval(mock_call_llm_api):
         return re.sub(pattern, "", text)
 
     sample = Sample(**test_sample)
-    result = await sample.eval()
-    assert remove_checksums(result["diff_eval"]) == remove_checksums(sample.diff_edit)
-    assert result["test_result"] == ""
+    result = await evaluate_sample(sample)
+    assert remove_checksums(result) == remove_checksums(sample.diff_edit)

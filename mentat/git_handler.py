@@ -205,14 +205,14 @@ def get_default_branch() -> str:
         raise Exception("Unable to determine the default branch.")
 
 
-def get_diff_commit(commit: str) -> str:
+def get_diff_commit(commit1: str, commit2: str = "HEAD") -> str:
     """Return diff of latest commit against sample_merge_base."""
     session_context = SESSION_CONTEXT.get()
     cwd = session_context.cwd
 
     repo = Repo(cwd)
     # NOTE: Need at least 1 line of context in order to 'git apply' later
-    diff = repo.git.diff(commit, "HEAD", unified=1)
+    diff = repo.git.diff(commit1, commit2, unified=1)
     return diff + "\n" if diff else ""  # Required to form a valid .diff file
 
 

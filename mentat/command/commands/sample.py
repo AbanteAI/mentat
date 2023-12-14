@@ -1,22 +1,19 @@
 from pathlib import Path
 
 from mentat.command.command import Command
-from mentat.errors import HistoryError, SampleError
+from mentat.errors import SampleError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
 
 class SampleCommand(Command, command_name="sample"):
     async def apply(self, *args: str) -> None:
-        from mentat.sampler.sample import Sample
-
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
         stream = session_context.stream
-
         try:
-            sample = await Sample.from_context()
-        except (HistoryError, SampleError) as e:
+            sample = await code_file_manager.sampler.add_sample()
+        except SampleError as e:
             stream.send(f"Failed to generate sample: {e}", color="light_red")
             return
         fname = f"sample_{sample.id}.json"
@@ -27,7 +24,6 @@ class SampleCommand(Command, command_name="sample"):
             samples_dir.mkdir(exist_ok=True)
             fpath = samples_dir / fname
         sample.save(str(fpath))
-        code_file_manager.history.add_sample(sample)
         SESSION_CONTEXT.get().stream.send(f"Sample saved to {fpath}.", color="green")
 
     @classmethod
