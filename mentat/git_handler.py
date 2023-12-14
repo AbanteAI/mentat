@@ -8,7 +8,7 @@ from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
 
 
-def get_non_gitignored_files(root: Path) -> Set[Path]:
+def get_non_gitignored_files(root: Path, visited: set[Path] = set()) -> Set[Path]:
     paths = set(
         # git returns / separated paths even on windows, convert so we can remove
         # glob_excluded_files, which have windows paths on windows
@@ -28,13 +28,17 @@ def get_non_gitignored_files(root: Path) -> Set[Path]:
     )
 
     file_paths: Set[Path] = set()
+    # We use visited to make sure we break out of any infinite loops symlinks might cause
+    visited.add(root.resolve())
     for path in paths:
         # git ls-files returns directories if the directory is itself a git project;
         # so we recursively run this function on any directories it returns.
         if (root / path).is_dir():
+            if (root / path).resolve() in visited:
+                continue
             file_paths.update(
                 root / path / inner_path
-                for inner_path in get_non_gitignored_files(root / path)
+                for inner_path in get_non_gitignored_files(root / path, visited)
             )
         else:
             file_paths.add(path)
