@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from mentat.command.command import Command
-from mentat.errors import HistoryError
+from mentat.errors import HistoryError, SampleError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -16,7 +16,7 @@ class SampleCommand(Command, command_name="sample"):
 
         try:
             sample = await Sample.from_context()
-        except HistoryError as e:
+        except (HistoryError, SampleError) as e:
             stream.send(f"Failed to generate sample: {e}", color="light_red")
             return
         fname = f"sample_{sample.id}.json"

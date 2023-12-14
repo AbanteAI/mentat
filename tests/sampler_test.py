@@ -22,12 +22,9 @@ async def test_sample_from_context(
     mock_session_context,
     mock_collect_user_input,
 ):
-    mock_session_context.config.sample_merge_base_target = "test_smbt"
     mock_session_context.config.sample_repo = "test_sample_repo"
 
     edit_history = mock_session_context.code_file_manager.history
-    edit_history.merge_base = "test_merge_base"
-    edit_history.diff_merge_base = "test_diff_merge_base"
     edit_history.diff_active = "test_diff_active"
 
     mocker.patch(
@@ -57,6 +54,7 @@ async def test_sample_from_context(
 
     mock_collect_user_input.set_stream_messages(
         [
+            "",
             "test_title",
             "test_description",
             "test_test_command",
@@ -67,8 +65,8 @@ async def test_sample_from_context(
     assert sample.title == "test_title"
     assert sample.description == "test_description"
     assert sample.repo == "test_sample_repo"
-    assert sample.merge_base == "test_merge_base"
-    assert sample.diff_merge_base == "test_diff_merge_base"
+    assert is_sha1(sample.merge_base)
+    assert sample.diff_merge_base == ""
     assert sample.diff_active == "test_diff_active"
     assert sample.messages == [
         {"role": "user", "content": "test_user_content"},
@@ -101,6 +99,7 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
             "Request",
             "y",
             f"/sample {temp_testbed}",
+            "",
             "test_url",
             "test_title",
             "test_description",

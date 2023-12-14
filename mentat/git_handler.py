@@ -205,43 +205,14 @@ def get_default_branch() -> str:
         raise Exception("Unable to determine the default branch.")
 
 
-def get_merge_base() -> str | None:
-    """Return the SHA-1 of the merge base between HEAD and sample_merge_base_target."""
-    session_context = SESSION_CONTEXT.get()
-    config = session_context.config
-    cwd = session_context.cwd
-    stream = session_context.stream
-
-    repo = Repo(cwd)
-    merge_base = repo.head.commit.hexsha
-    merge_base_target = config.sample_merge_base_target
-    if merge_base_target:
-        try:
-            merge_base_commit = repo.merge_base(repo.head.commit, merge_base_target)[0]
-            assert merge_base_commit and hasattr(merge_base_commit, "hexsha")
-            merge_base = merge_base_commit.hexsha
-        except (IndexError, AssertionError):
-            if merge_base_target:
-                stream.send(
-                    f"Error: Invalid merge base target: {merge_base_target}. "
-                    f"Using HEAD ({merge_base}) instead.",
-                    color="yellow",
-                )
-    return merge_base
-
-
-def get_diff_merge_base() -> str:
+def get_diff_commit(commit: str) -> str:
     """Return diff of latest commit against sample_merge_base."""
     session_context = SESSION_CONTEXT.get()
     cwd = session_context.cwd
 
-    merge_base_commit = get_merge_base()
-    if not merge_base_commit:
-        return ""
-
     repo = Repo(cwd)
     # NOTE: Need at least 1 line of context in order to 'git apply' later
-    diff = repo.git.diff(merge_base_commit, "HEAD", unified=1)
+    diff = repo.git.diff(commit, "HEAD", unified=1)
     return diff + "\n" if diff else ""  # Required to form a valid .diff file
 
 

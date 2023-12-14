@@ -17,8 +17,8 @@ from openai.types.chat import (
 )
 
 from mentat.code_feature import get_consolidated_feature_refs
-from mentat.errors import HistoryError, SampleError
-from mentat.git_handler import get_diff_active
+from mentat.errors import SampleError
+from mentat.git_handler import get_diff_active, get_diff_commit
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import collect_user_input
@@ -165,19 +165,37 @@ class Sample:
         conversation = session_context.conversation
         cwd = session_context.cwd
 
-        merge_base = code_file_manager.history.merge_base
-        if not merge_base:
-            raise HistoryError(
-                "EditHistory.merge_base was not set. You must interact with Mentat"
-                " before generating a sample"
-            )
         stream.send("Input sample data", color="light_blue")
-        stream.send(
-            f"Merge Base: {merge_base}. Press 'ENTER' to accept, or enter a new merge"
-            " base commit."
-        )
-        merge_base = (await collect_user_input()).data.strip() or merge_base
-        # TODO: set diff_merge_base here
+        git_repo = Repo(cwd)
+        merge_base = None
+        if config.sample_merge_base_target:
+            target = config.sample_merge_base_target
+            stream.send(f"Use merge base target from config ({target})? (y/N)")
+            response = (await collect_user_input()).data.strip()
+            if response == "y":
+                try:
+                    mb = git_repo.merge_base(git_repo.head.commit, target)[0]
+                    assert mb and hasattr(mb, "hexsha"), "No merge base found"
+                    merge_base = mb.hexsha
+                except Exception as e:
+                    stream.send(
+                        f"Error getting merge base from tar: {e}", color="light_red"
+                    )
+        if not merge_base:
+            merge_base = git_repo.head.commit.hexsha
+            stream.send(
+                f"Use latest commit ({merge_base[:10]} as merge base? Press 'ENTER' to"
+                " accept, or enter a new merge base commit."
+            )
+            response = (await collect_user_input()).data.strip()
+            if response:
+                merge_base = response
+        try:
+            assert merge_base is not None, "No merge base found"
+            diff_merge_base = get_diff_commit(merge_base)
+        except (AssertionError, GitCommandError) as e:
+            raise SampleError(f"Error getting diff for merge base: {e}")
+
         repo = config.sample_repo
         if not repo:
             remote_url = ""
@@ -227,8 +245,8 @@ class Sample:
             id=uuid4().hex,
             parent_id=code_file_manager.history.last_sample_id or "",
             repo=repo,
-            merge_base=code_file_manager.history.merge_base,
-            diff_merge_base=code_file_manager.history.diff_merge_base or "",
+            merge_base=merge_base,
+            diff_merge_base=diff_merge_base,
             diff_active=code_file_manager.history.diff_active or "",
             messages=messages,
             args=args,
