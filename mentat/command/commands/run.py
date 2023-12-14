@@ -2,6 +2,7 @@ from typing import List
 
 from typing_extensions import override
 
+from mentat.auto_completer import get_command_filename_completions
 from mentat.command.command import Command, CommandArgument
 from mentat.session_context import SESSION_CONTEXT
 
@@ -30,7 +31,7 @@ class RunCommand(Command, command_name="run"):
     def argument_autocompletions(
         cls, arguments: list[str], argument_position: int
     ) -> list[str]:
-        return []
+        return get_command_filename_completions(arguments[-1])
 
     @override
     @classmethod

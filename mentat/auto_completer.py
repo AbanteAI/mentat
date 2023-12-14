@@ -53,7 +53,7 @@ def get_command_filename_completions(cur_path: str) -> List[str]:
         cur_file = ""
     else:
         actual_parent = path.parent
-        if not cur_path:
+        if not path.parts:
             cur_file = ""
         else:
             cur_file = path.parts[-1]
@@ -64,8 +64,11 @@ def get_command_filename_completions(cur_path: str) -> List[str]:
     completions: List[str] = []
     for child_path in parent_path.iterdir():
         child_file = child_path.parts[-1]
+        is_dir = child_path.is_dir()
         if str(child_file).startswith(cur_file):
-            completions.append(str(actual_parent / child_file / ""))
+            completions.append(
+                str(actual_parent / child_file) + (os.path.sep if is_dir else "")
+            )
 
     return completions
 
