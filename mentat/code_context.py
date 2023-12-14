@@ -202,7 +202,7 @@ class CodeContext:
         elif not config.auto_context:
             self.features = self._get_include_features()
             if remaining_tokens is not None:
-                if prompt and not is_test_environment():
+                if prompt and not config.auto_context and not is_test_environment():
                     self.features = await EmbeddingSimilarityFilter(prompt).filter(
                         self.features
                     )
