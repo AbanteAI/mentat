@@ -1,5 +1,4 @@
 import json
-import re
 from typing import Optional
 
 import attr
@@ -10,6 +9,7 @@ from mentat.transcripts import Transcript
 @attr.define
 class BenchmarkResult:
     name: str = attr.ib()
+    family: Optional[str] = attr.ib(default=None)
     cost: Optional[float] = attr.ib(default=None, metadata={"aggregation": "sum"})
     tokens: Optional[int] = attr.ib(default=None, metadata={"aggregation": "average"})
     iterations: Optional[int] = attr.ib(
@@ -54,10 +54,6 @@ class BenchmarkResult:
     referenced_format: Optional[bool] = attr.ib(
         default=None, metadata={"aggregation": "percent"}
     )
-
-    def escaped_name(self) -> str:
-        """For use as html id"""
-        return re.sub(r"[ '\"/\\-^]", "", self.name).replace(" ", "_")
 
     def display_color(self) -> str:
         if self.passed is None:

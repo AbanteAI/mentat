@@ -84,6 +84,10 @@ button.red {
     border-color: #f5c6cb;
 }
 
+.hidden {
+    display: none;
+}
+
 .content {
     white-space: pre-wrap;
     word-break: break-word;
@@ -93,6 +97,10 @@ button.red {
     margin-bottom: 10px;
     overflow-y: scroll;
     max-height: 70vh;
+}
+
+.family-child {
+    margin-left: 20px;
 }
 
 .content .container {

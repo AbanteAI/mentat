@@ -12,10 +12,21 @@ class BenchmarkResultSummary:
     def __init__(self, results: list[BenchmarkResult]):
         self.results = results
         self.results_map = {result.name: result for result in results}
+        self.result_groups = self.group_results()
         self.summary: dict[str, Tuple[int | float | str, float]] = (
             self.aggregate_results()
         )
-        print(self.aggregate_results())
+
+    def group_results(self) -> dict[str, list[BenchmarkResult]]:
+        groups = {}
+        for result in self.results:
+            if result.family is None:
+                groups[result.name] = [result]
+            else:
+                if result.family not in groups:
+                    groups[result.family] = []
+                groups[result.family].append(result)
+        return groups
 
     def aggregate_results(self) -> dict[str, Tuple[int | float | str, float]]:
         summary = {}
@@ -100,7 +111,7 @@ class BenchmarkResultSummary:
                             "content": value,
                             "type": field.metadata["display"],
                         }
-            formatted[result.escaped_name()] = formatted_result
+            formatted[result.name] = formatted_result
         return formatted
 
     def render_results(self):

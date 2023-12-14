@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import re
 
 import pytest
 from git import Repo
@@ -11,7 +12,7 @@ from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
 from tests.benchmarks.benchmark_result import BenchmarkResult
 from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
-from tests.benchmarks.utils import clone_repo, get_mentat_commit
+from tests.benchmarks.utils import clone_repo
 
 
 def dynamic_import(path_to_module, module_name):
@@ -155,11 +156,13 @@ async def test_benchmark(retries, benchmarks):
         start_commit = repo.commit()
         repo.git.checkout(benchmark.commit)
 
-        for prompt in benchmark.prompts:
+        for i, prompt in enumerate(benchmark.prompts):
             print("  Prompt:", prompt)
-            for i in range(1, retries + 1):
-                iteration_result = BenchmarkResult(
-                    name=f"{title} - {prompt} - Iteration {i}",
+            for j in range(1, retries + 1):
+                formatted_title = re.sub(r"[ '\"/\\-^]", "", title).replace(" ", "_")
+                result = BenchmarkResult(
+                    name=f"{formatted_title}-{i}-{j}",
+                    family=formatted_title,
                 )
                 client = PythonClient(cwd=codebase, config=benchmark.config)
                 await client.startup()
@@ -170,47 +173,45 @@ async def test_benchmark(retries, benchmarks):
                 await client.call_mentat("q")
                 messages = client.get_conversation().literal_messages
                 cost_tracker = client.get_cost_tracker()
-                iteration_result.cost = cost_tracker.total_cost
-                iteration_result.tokens = cost_tracker.total_tokens
-                iteration_result.transcript = {
-                    "id": iteration_result.escaped_name(),
+                result.cost = cost_tracker.total_cost
+                result.tokens = cost_tracker.total_tokens
+                result.transcript = {
+                    "id": result.name,
                     "messages": messages,
                 }
 
                 await client.shutdown()
 
                 if hasattr(benchmark, "verify"):
-                    iteration_result.verify = benchmark.verify()
+                    result.verify = benchmark.verify()
 
                 # Set syntax and response grade information
                 diff = repo.git.diff()
-                iteration_result.code = diff
+                result.code = diff
                 diff_grade = await grade_diff_syntax(diff)
-                iteration_result.diff_grade = diff_grade
-                iteration_result.off_by_one = diff_grade.get("off_by_one")
-                iteration_result.indentation_error = diff_grade.get("indentation")
-                iteration_result.syntax_error = diff_grade.get("syntax")
+                result.diff_grade = diff_grade
+                result.off_by_one = diff_grade.get("off_by_one")
+                result.indentation_error = diff_grade.get("indentation")
+                result.syntax_error = diff_grade.get("syntax")
                 response_grade = await grade_model_response(response)
-                iteration_result.response_grade = response_grade
-                iteration_result.referenced_format = response_grade.get(
-                    "referenced_format"
-                )
+                result.response_grade = response_grade
+                result.referenced_format = response_grade.get("referenced_format")
 
                 # Clean up
                 repo.git.reset("--hard")
                 repo.git.clean("-fd")
-                results.append(iteration_result)
+                results.append(result)
 
                 # Set comparison grade information
                 if hasattr(benchmark, "comparison_commit"):
                     repo.git.checkout(benchmark.comparison_commit)
                     comparison_diff = repo.git.diff(benchmark.commit)
                     comparison_grade = await compare_diffs(diff, comparison_diff)
-                    iteration_result.comparison_grade = comparison_grade
-                    iteration_result.extra_functionality = comparison_grade.get(
+                    result.comparison_grade = comparison_grade
+                    result.extra_functionality = comparison_grade.get(
                         "extra_functionality"
                     )
-                    iteration_result.missing_functionality = comparison_grade.get(
+                    result.missing_functionality = comparison_grade.get(
                         "missing_functionality"
                     )
         repo.git.checkout(start_commit)

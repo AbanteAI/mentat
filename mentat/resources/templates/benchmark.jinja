@@ -28,6 +28,14 @@
             });
         </script>
         <script>
+            function toggleVisibility(family) {
+                const familyButtons = document.querySelectorAll('.' + family + '-child');
+                familyButtons.forEach(button => {
+                    button.classList.toggle('hidden');
+                });
+            }
+        </script>
+        <script>
             {% include 'js/transcript.js' %}
         </script>
     </head>
@@ -39,8 +47,15 @@
         </div>
         <div id="container">
             <div id="selector">
-                {% for test, result in summary.results_map.items() %}
-                    <button class="{{ result.display_color() }}" onclick="window.location.hash='{{ result.escaped_name() }}'">{{ test }}</button>
+                {% for family, results in summary.result_groups.items() %}
+                    {% if results|length == 1 %}
+                        <button class="{{ results[0].display_color() }}" onclick="window.location.hash='{{ results[0].name }}'">{{ results[0].name }}</button>
+                    {% else %}
+                        <button class="{{ results[0].display_color() }}" onclick="toggleVisibility('{{family}}')">{{family}}</button>
+                        {% for result in results %}
+                            <button class="hidden {{ family }}-child family-child {{ result.display_color() }}" onclick="window.location.hash='{{ result.name }}'">{{ result.name }}</button>
+                        {% endfor %}
+                    {% endif %}
                 {% endfor %}
             </div>
             <div id="viewer">
