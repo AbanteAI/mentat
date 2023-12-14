@@ -1,6 +1,9 @@
-from termcolor import colored
+from typing import List
 
-from mentat.command.command import Command
+from termcolor import colored
+from typing_extensions import override
+
+from mentat.command.command import Command, CommandArgument
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
@@ -9,6 +12,7 @@ SEARCH_RESULT_BATCH_SIZE = 5
 
 
 class SearchCommand(Command, command_name="search"):
+    @override
     async def apply(self, *args: str) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
@@ -87,10 +91,24 @@ class SearchCommand(Command, command_name="search"):
                             stream.send(f"{rel_path} added to context", color="green")
                     break
 
+    @override
     @classmethod
-    def argument_names(cls) -> list[str]:
-        return ["search_query"]
+    def arguments(cls) -> List[CommandArgument]:
+        return [CommandArgument("required", "query")]
 
+    @override
+    @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        ctx = SESSION_CONTEXT.get()
+
+        return [
+            completion["display"] or completion["content"]
+            for completion in ctx.auto_completer.get_file_completions(arguments[-1])
+        ]
+
+    @override
     @classmethod
     def help_message(cls) -> str:
-        return "Semantic search of files in code context."
+        return "Search files in context semantically with embeddings."

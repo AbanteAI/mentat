@@ -17,6 +17,7 @@ from openai.types.chat.chat_completion_chunk import ChoiceDelta
 
 from mentat import config
 from mentat.agent_handler import AgentHandler
+from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config, config_file_name
@@ -276,6 +277,8 @@ def mock_session_context(temp_testbed):
 
     agent_handler = AgentHandler()
 
+    auto_completer = AutoCompleter()
+
     session_context = SessionContext(
         Path.cwd(),
         stream,
@@ -287,6 +290,7 @@ def mock_session_context(temp_testbed):
         conversation,
         vision_manager,
         agent_handler,
+        auto_completer,
     )
     token = SESSION_CONTEXT.set(session_context)
     yield session_context
