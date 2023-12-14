@@ -9,7 +9,7 @@ import attr
 from attr import converters, validators
 
 from mentat.git_handler import get_git_root_for_path
-from mentat.llm_api_handler import known_embedding_models, known_models
+from mentat.llm_api_handler import known_models
 from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
@@ -43,7 +43,11 @@ class Config:
     )
     embedding_model: str = attr.field(
         default="text-embedding-ada-002",
-        metadata={"auto_completions": known_embedding_models},
+        metadata={
+            "auto_completions": [
+                model.name for model in known_models.values() if model.embedding_model
+            ]
+        },
     )
     temperature: float = attr.field(
         default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)]

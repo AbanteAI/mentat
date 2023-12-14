@@ -64,10 +64,12 @@ def get_command_filename_completions(cur_path: str) -> List[str]:
     completions: List[str] = []
     for child_path in parent_path.iterdir():
         child_file = child_path.parts[-1]
-        is_dir = child_path.is_dir()
+        # is_dir = child_path.is_dir()
         if str(child_file).startswith(cur_file):
             completions.append(
-                str(actual_parent / child_file) + (os.path.sep if is_dir else "")
+                # Because prompt_toolkit doesn't start a new completion until after the user types something,
+                # best UI unfortunately seems to be not having a trailing / and having the user type it.
+                str(actual_parent / child_file)  # + (os.path.sep if is_dir else "")
             )
 
     return completions
