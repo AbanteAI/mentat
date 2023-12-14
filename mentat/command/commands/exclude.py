@@ -3,7 +3,6 @@ from typing import List
 
 from typing_extensions import override
 
-from mentat import include_files
 from mentat.auto_completer import get_command_filename_completions
 from mentat.command.command import Command, CommandArgument
 from mentat.session_context import SESSION_CONTEXT
