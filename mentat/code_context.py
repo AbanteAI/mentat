@@ -30,7 +30,7 @@ from mentat.include_files import (
     validate_and_format_path,
 )
 from mentat.interval import split_intervals_from_path
-from mentat.llm_api_handler import count_tokens, is_test_environment
+from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import sha256
@@ -190,26 +190,28 @@ class CodeContext:
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
         remaining_tokens = None if max_tokens is None else max_tokens - meta_tokens
+        # Add include_features_tokens to the auto_tokens budget because we want (auto-tokens)
+        # tokens *in addition to* the included features.
+        include_features = self._get_include_features()
+        include_features_tokens = sum(f.count_tokens(model) for f in include_features)
         auto_tokens = (
             None
             if remaining_tokens is None
-            else min(remaining_tokens, config.auto_tokens)
+            else min(remaining_tokens, config.auto_tokens + include_features_tokens)
         )
 
         if remaining_tokens is not None and remaining_tokens <= 0:
             self.features = []
             return ""
         elif not config.auto_context:
-            self.features = self._get_include_features()
-            if remaining_tokens is not None:
-                if prompt and not config.auto_context and not is_test_environment():
-                    self.features = await EmbeddingSimilarityFilter(prompt).filter(
-                        self.features
-                    )
-                if sum(f.count_tokens(model) for f in self.features) > remaining_tokens:
-                    self.features = await TruncateFilter(
-                        remaining_tokens, model, respect_user_include=False
-                    ).filter(self.features)
+            self.features = include_features
+            if (
+                remaining_tokens is not None
+                and include_features_tokens > remaining_tokens
+            ):
+                self.features = await TruncateFilter(
+                    remaining_tokens, model, respect_user_include=False
+                ).filter(self.features)
         else:
             self.features = self.get_all_features(
                 CodeMessageLevel.INTERVAL,
