@@ -359,11 +359,11 @@ class CodeContext:
             return included_paths
 
         for code_feature in code_features:
-            # Path in included files
+            # Path not in included files
             if code_feature.path not in self.include_files:
                 self.include_files[code_feature.path] = [code_feature]
                 included_paths.add(Path(code_feature.ref()))
-            # Path not in included files
+            # Path in included files
             else:
                 code_feature_not_included = True
                 # NOTE: should have CodeFeatures in a hashtable
