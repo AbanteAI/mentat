@@ -12,6 +12,7 @@ from openai.types.chat import (
 
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
+from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
 from mentat.sampler.sampler import get_active_snapshot_commit, Sampler
 from mentat.session import Session
@@ -253,3 +254,149 @@ def test_get_active_snapshot_commit(temp_testbed):
     assert not (temp_testbed / "scripts" / "echo.py").exists()
     assert (temp_testbed / "scripts" / "graph.py").exists()
     assert not (temp_testbed / "scripts" / "graph_class.py").exists()
+
+
+def make_all_update_types(cwd, index):
+    assert index in range(3)
+    # Insert, Remove and Replace Lines
+    with open(cwd / "multifile_calculator" / "operations.py", "r") as f:
+        text_string = f.read()
+    lines = text_string.split("\n")
+    # Remove empty newline at end
+    if lines[-1] == "":
+        lines = lines[:-1]
+    lines = [f"# Inserted Line {index}"] + lines
+    lines[5] += f" # Replaced Line {index}"
+    # Remove the last line and any empties before it
+    lines = lines[:-1]
+    while lines[-1] == "":
+        lines = lines[:-1]
+    # Add a final empty line
+    lines.append("")
+    with open(cwd / "multifile_calculator" / "operations.py", "w") as f:
+        f.write("\n".join(lines))
+
+    # Create, Delete and Rename Files
+    (cwd / "multifile_calculator" / f"calculator{index}.py").write_text("test\n")
+    format_examples = ["block.txt", "git_diff.txt", "replacement.txt"]
+    (cwd / "format_examples" / format_examples[index]).unlink()
+    old_name = "echo.py" if index == 0 else f"echo{index-1}.py"
+    (cwd / "scripts" / old_name).rename(cwd / "scripts" / f"echo{index}.py")
+
+
+def get_updates_as_parsed_llm_message(cwd):
+    repo = Repo(cwd)
+    # Commit active changes
+    commit_active = get_active_snapshot_commit(repo)
+    repo.git.add("--all")
+    repo.git.commit("-m", "temporary commit")
+    # Make diff_edit edits
+    make_all_update_types(cwd, 2)
+    repo.git.add("--all")
+    diff_edit = repo.git.diff("HEAD")
+    parsedLLMResponse = GitParser().parse_string(diff_edit)
+    # Reset hard and remove uncommitted files
+    repo.git.reset("--hard")
+    repo.git.clean("-fd")
+    # Reset to previous commit, but keep changes as active
+    repo.git.checkout("HEAD~1")
+    repo.git.execute(["git", "merge", "--no-commit", commit_active])
+    
+    return parsedLLMResponse
+
+
+@pytest.mark.asyncio
+async def test_sampler_integration(temp_testbed, mock_session_context, mock_call_llm_api):
+    
+    # Setup the environemnt
+    repo = Repo(temp_testbed)
+    (temp_testbed / "test_file.py").write_text("permanent commit")
+    repo.git.add("test_file.py")
+    merge_base = repo.head.commit.hexsha
+    # Make diff_merge_base edits + commit
+    make_all_update_types(temp_testbed, 0)
+    repo.git.add("--all")
+    repo.git.commit("-m", "temporary commit")
+    # Make diff_active edits
+    make_all_update_types(temp_testbed, 1)
+    
+    # Verify it's setup correctly
+    with open(temp_testbed / "multifile_calculator" / "operations.py", "r") as f:
+        lines = f.readlines()
+    for i in range(2):
+        assert any(f"# Inserted Line {i}" in l for l in lines)
+        assert any(f"# Replaced Line {i}" in l for l in lines)
+    assert not any(f"# Inserted Line 2" in l for l in lines)
+    assert not any(f"# Replaced Line 2" in l for l in lines)
+    assert lines[-1] == "    return a - b\n"
+    assert (temp_testbed / "multifile_calculator" / "calculator0.py").exists()
+    assert (temp_testbed / "multifile_calculator" / "calculator1.py").exists()
+    assert not (temp_testbed / "format_examples" / "block.txt").exists()
+    assert not (temp_testbed / "format_examples" / "git_diff.txt").exists()
+    assert (temp_testbed / "format_examples" / "replacement.txt").exists()
+    
+    # Generate file_edits to be performed for test, verify they're setup correctly
+    parsed_llm_message = get_updates_as_parsed_llm_message(temp_testbed)
+    file_edits = parsed_llm_message.file_edits
+    assert any("Inserted Line 2" in str(f.replacements) for f in file_edits)
+    assert any("Replaced Line 2" in str(f.replacements) for f in file_edits)
+    assert any(
+        # In file-edit, the entire file is overwritten, so we verify it's missing the last line
+        ("operations.py" in str(f.file_path) and "return a - b" not in str(f.replacements))
+        for f in file_edits
+    )
+    assert any("calculator2.py" in str(f.file_path) for f in file_edits)
+    assert any("replacement.txt" in str(f.file_path) for f in file_edits)
+
+    llm_response = BlockParser().file_edits_to_llm_message(parsed_llm_message)
+    mock_call_llm_api.set_streamed_values(
+        f"I will make the following edits. {llm_response}"
+    )
+    
+    # Generate a sample using Mentat
+    python_client = PythonClient(cwd=temp_testbed, paths=["."])
+    await python_client.startup()
+    await python_client.call_mentat(dedent("""\
+        Make the following changes to "multifile_calculator/operations.py":
+        1. Add "# Inserted line 2" as the first line
+        2. Add "# Replaced Line 2" to the end of the 5th line
+        3. Remove the last non-blank line
+        Make the following other changes:
+        4. Create "multifile_calculator/calculator2.py"
+        5. Delete "format_examples/replacement.txt"
+        6. Rename "scripts/echo1.py" to "scripts/echo2.py"
+        """))
+    await python_client.call_mentat("y") # Accept edits
+    await python_client.call_mentat("y") # Confirm delete replacement.txt
+    await python_client.wait_for_edit_completion()
+
+    response1 = await python_client.call_mentat(f"/sample {temp_testbed}")
+    response2 = await python_client.call_mentat(merge_base)
+    response3 = await python_client.call_mentat("test_url")
+    response4 = await python_client.call_mentat("test_title")
+    response5 = await python_client.call_mentat("test_description")
+    response6 = await python_client.call_mentat("test_test_command")
+    response7 = await python_client.call_mentat("q")
+    python_client.shutdown()
+
+    # Evaluate the sample using Mentat
+    sample_files = list(temp_testbed.glob("sample_*.json"))
+    assert len(sample_files) == 1
+    sample = Sample.load(sample_files[0])
+    assert sample.title == "test_title"
+    assert sample.description == "test_description"
+    assert sample.repo == "test_url"
+    assert sample.merge_base == merge_base
+    assert sample.diff_merge_base != ""
+    assert sample.diff_active != ""
+    assert len(sample.messages) == 2
+    assert sample.messages[-2]["content"].startswith("Make the following changes")
+    assert len(sample.args) == 4
+    assert sample.diff_edit != ""
+
+    # TODO: Have evaluate_sample return the diff less diff_active
+    mock_call_llm_api.set_streamed_values(
+        f"I will make the following edits. {llm_response}"
+    )
+    resulting_diff = await evaluate_sample(sample, temp_testbed)
+    assert resulting_diff == sample.diff_edit

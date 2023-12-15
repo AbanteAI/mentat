@@ -20,6 +20,7 @@ from mentat.errors import SampleError
 from mentat.git_handler import get_diff_active
 from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
+from mentat.sampler.sampler import get_active_snapshot_commit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import clone_repo, mentat_dir_path
 
@@ -50,18 +51,21 @@ def apply_diff_to_repo(diff: str, repo: Repo, commit: bool = False) -> str | Non
         with open(f".sample_{temp_id}.diff", "w") as f:
             f.write(diff)
         repo.git.execute(["git", "apply", f".sample_{temp_id}.diff"])
+        os.remove(f".sample_{temp_id}.diff")
         if commit:
             repo.git.add(".")
             repo.git.commit("-m", f"sample_{temp_id}")
     except GitCommandError as e:
+        try: 
+            os.remove(f".sample_{temp_id}.diff")
+        except FileNotFoundError:
+            pass
         return str(e)
-    finally:
-        os.remove(f".sample_{temp_id}.diff")
 
 
-def setup_repo(sample: Sample, path_to_repo: Path | str | None = None) -> Path:
+def setup_repo(sample: Sample, cwd: Path | str | None = None) -> Path:
     """Clone repo, checkout merge_base, apply diff_merge_base and diff_active, return cwd."""
-    if path_to_repo is None:
+    if cwd is None:
         cwd = clone_repo(
             url=sample.repo,
             local_dir_name=sample.repo.split("/")[-1],
@@ -70,7 +74,7 @@ def setup_repo(sample: Sample, path_to_repo: Path | str | None = None) -> Path:
         if cwd is None:
             raise SampleError(f"Error cloning {sample.repo}")
     else:
-        cwd = Path(path_to_repo)
+        cwd = Path(cwd)
     os.chdir(cwd)
     repo = Repo(".")
     repo.head.reset(index=True, working_tree=True)  # reset tracked files
@@ -132,19 +136,23 @@ async def run_mentat_on_sample(sample: Sample, cwd: Path):
     for msg in conversation_history:
         conversation.add_message(msg)
 
-    await python_client.call_mentat_auto_accept(sample_prompt)
-    await python_client.wait_for_edit_completion()
+    await python_client.call_mentat(sample_prompt)
+    await python_client.call_mentat("y")
+    # TODO: ONLY IF INCLUDES DELETE
+    await python_client.call_mentat("y")
+    # await python_client.wait_for_edit_completion()
     await python_client.shutdown()
 
 
-async def evaluate_sample(sample):
+async def evaluate_sample(sample, cwd: Path | str | None = None):
     """Run a sample using Mentat and return the resulting diff"""
-    cwd = setup_repo(sample)
-    # TODO: Take a snapshot commit
-
+    cwd = setup_repo(sample, cwd)
+    repo = Repo(cwd)
+    ad1 = repo.git.diff()
+    commit_active = get_active_snapshot_commit(repo)
+    ad2 = repo.git.diff()
     await run_mentat_on_sample(sample, cwd)
-    diff_eval = get_diff_active() or ""
-    # TODO: Subtract snapshot commit
+    diff_eval = get_diff_active(cwd, target=commit_active)
 
     return diff_eval
 

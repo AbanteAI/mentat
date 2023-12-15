@@ -216,14 +216,14 @@ def get_diff_commit(commit1: str, commit2: str = "HEAD") -> str:
     return diff + "\n" if diff else ""  # Required to form a valid .diff file
 
 
-def get_diff_active(cwd: Path | None = None) -> str:
+def get_diff_active(cwd: Path | None = None, target: str = "HEAD") -> str:
     """Return edits to current files + new files in standard git diff format."""
     if cwd is None:
         session_context = SESSION_CONTEXT.get()
         cwd = session_context.cwd
 
     repo = Repo(cwd)
-    diff = repo.git.diff("HEAD", unified=1)
+    diff = repo.git.diff(target, unified=1)
     for new_file in repo.untracked_files:
         if not is_file_text_encoded(cwd / new_file):
             continue

@@ -167,18 +167,18 @@ class Sampler:
                 messages.append({"role": m["role"], "content": parsed})
                 # TODO Remove edits altogether from last assistant message
 
-        args = list[str]()
-        if code_context.include_files:
-            feature_refs = get_consolidated_feature_refs(
-                [f for fs in code_context.include_files.values() for f in fs]
-            )
-            args += [get_relative_path(Path(f), cwd).as_posix() for f in feature_refs]
-
         diff_active = ""
         diff_edit = get_diff_active() or ""
         if self.commit_active:
             diff_active = get_diff_commit('HEAD', self.commit_active)
             diff_edit = git_repo.git.diff("--cached", self.commit_active)
+
+        args = list[str]()
+        if code_context.include_files:
+            feature_refs = get_consolidated_feature_refs(
+                [f for fs in code_context.include_files.values() for f in fs]
+            )
+            args += [get_relative_path(Path(f), cwd).as_posix() for f in feature_refs]            
 
         sample = Sample(
             title=title,
