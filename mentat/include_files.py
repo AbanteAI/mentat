@@ -92,9 +92,9 @@ def validate_file_interval_path(path: Path, check_for_text: bool = True) -> None
     # check that each interval exists
     if check_for_text:
         with open(interval_path, "r") as f:
-            line_count = len(f.readlines())
+            line_count = len(f.read().split("\n"))
         for interval in intervals:
-            if interval.start < 0 or interval.end > line_count:
+            if interval.start < 0 or interval.end > line_count + 1:
                 raise PathValidationError(
                     f"Interval {interval.start}-{interval.end} is out of bounds for"
                     f" file {interval_path}"
