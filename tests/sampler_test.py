@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 from textwrap import dedent
 
+from git import Repo
 import pytest
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
@@ -12,7 +13,7 @@ from openai.types.chat import (
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
 from mentat.sampler.sample import Sample
-from mentat.sampler.sampler import Sampler
+from mentat.sampler.sampler import get_active_snapshot_commit, Sampler
 from mentat.session import Session
 from scripts.evaluate_samples import evaluate_sample
 
@@ -207,3 +208,48 @@ async def test_sample_eval(mock_call_llm_api):
     sample = Sample(**test_sample)
     result = await evaluate_sample(sample)
     assert remove_checksums(result) == remove_checksums(sample.diff_edit)
+
+
+def test_get_active_snapshot_commit(temp_testbed):
+    repo = Repo(temp_testbed)
+    # Add a test file and do an initial commit
+    (temp_testbed / "test_file.py").write_text("test")
+    repo.git.add("test_file.py")
+    repo.git.commit("-m", "test commit")
+    assert get_active_snapshot_commit(repo) == None  # No changes
+
+    # Insert, Remove and Replace Lines
+    with open(temp_testbed / "scripts" / "calculator.py", "r") as f:
+        lines = f.readlines()
+    lines = ["# Inserted Line\n"] + lines
+    lines[20] = lines[20][:-2] + "# Replaced Line\n"
+    lines = lines[:-4]  # "if __name__ == "__main__"
+    with open(temp_testbed / "scripts" / "calculator.py", "w") as f:
+        f.writelines(lines)
+
+    # Create, Delete and Rename Files
+    (temp_testbed / "scripts" / "calculator2.py").write_text("test")
+    (temp_testbed / "scripts" / "echo.py").unlink()
+    (temp_testbed / "scripts" / "graph_class.py").rename(
+        temp_testbed / "scripts" / "graph.py"
+    )
+
+    commit_active = get_active_snapshot_commit(repo)
+
+    # Confirm all changes in diff
+    diff = repo.git.diff("HEAD", commit_active)
+    assert "# Inserted Line" in diff
+    assert "# Replaced Line" in diff
+    assert "__main__" in diff
+    assert "calculator2.py" in diff
+    assert "echo.py" in diff
+    assert "graph.py" in diff
+
+    # Confirm current working files are unchanged
+    new_lines = open(temp_testbed / "scripts" / "calculator.py", "r").readlines()
+    for _line, _new_line in zip(lines, new_lines):
+        assert _line == _new_line
+    assert (temp_testbed / "scripts" / "calculator2.py").exists()
+    assert not (temp_testbed / "scripts" / "echo.py").exists()
+    assert (temp_testbed / "scripts" / "graph.py").exists()
+    assert not (temp_testbed / "scripts" / "graph_class.py").exists()

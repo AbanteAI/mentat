@@ -41,6 +41,7 @@ def get_active_snapshot_commit(repo: Repo) -> str | None:
         return None
     try:
         # Stash active changes and record the current position
+        repo.git.add("--all")  # So new files are included
         repo.git.stash("push", "-u")
         detached_head = repo.head.is_detached
         if detached_head:
