@@ -8,7 +8,7 @@ from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
 
-SEARCH_RESULT_BATCH_SIZE = 5
+SEARCH_RESULT_BATCH_SIZE = 10
 
 
 def _parse_include_input(user_input: str, max_num: int) -> Set[int] | None:
@@ -57,6 +57,11 @@ class SearchCommand(Command, command_name="search"):
             file_name = colored(file_name, "blue", attrs=["bold"])
             file_name += colored(feature.interval_string(), "light_cyan")
 
+            tokens = feature.count_tokens(config.model)
+            cumulative_tokens += tokens
+            tokens_str = colored(f"  ({tokens} tokens)", "yellow")
+            file_name += tokens_str
+
             name = []
             if feature.name:
                 name = feature.name.split(",")
@@ -65,14 +70,7 @@ class SearchCommand(Command, command_name="search"):
                     for i, n in enumerate(name)
                 ]
 
-            tokens = feature.count_tokens(config.model)
-            cumulative_tokens += tokens
-
-            tokens_str = colored(f"{tokens} Tokens", "yellow")
-
-            message = f"{str(i).ljust(3)}" + prefix.join(
-                [file_name] + name + [tokens_str, ""]
-            )
+            message = f"{str(i).ljust(3)}" + prefix.join([file_name] + name + [""])
             stream.send(message)
             if i > 1 and i % SEARCH_RESULT_BATCH_SIZE == 0:
                 # TODO: Required to avoid circular imports, but not ideal.
