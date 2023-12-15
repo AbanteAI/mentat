@@ -16,6 +16,7 @@
 <div class="container" id={{ transcript["id"] }}>
     <div class="left-viewer viewer">
         <h1 class="history-title">Conversation History</h1>
+        <button class="feedback_button">Give Feedback</button>
         <a class="download_parent"><span class="download_icon"></span></a>
         {% for message in transcript["messages"] %}
         <div class="message {{'user' if message["prior_messages"] is none else 'assistant clickable'}} {{message["message_type"] if message["message_type"]}}">
