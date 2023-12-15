@@ -69,7 +69,7 @@
                                 {% elif section.type == "code" %}
                                     <pre><code>{{ section.content }}</code></pre>
                                 {% elif section.type == "json" %}
-                                    <pre><code>{{ section.content |tojson(indent=4)|safe}}</code></pre>
+                                    <pre>{{ section.content |tojson(indent=4)|safe}}</pre>
                                 {% elif section.type == "transcript" %}
                                     {{ transcript_container(section.content) }}
                                 {% endif %}

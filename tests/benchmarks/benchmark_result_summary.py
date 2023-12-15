@@ -41,14 +41,14 @@ class BenchmarkResultSummary:
                 if len(values) == 0:
                     summary[name] = (0, 0)
                 else:
-                    percent_set = len(values) / len(self.results)
+                    total_set = len(values)
                     aggregation_type = field.metadata["aggregation"]
                     if aggregation_type == "sum":
-                        summary[name] = (sum(values), percent_set)
+                        summary[name] = (sum(values), total_set)
                     elif aggregation_type == "average":
-                        summary[name] = (sum(values) / len(values), percent_set)
+                        summary[name] = (sum(values) / len(values), total_set)
                     elif aggregation_type == "percent":
-                        summary[name] = (sum(values) / len(values) * 100, percent_set)
+                        summary[name] = (sum(values) / len(values) * 100, total_set)
                     elif aggregation_type == "histogram":
                         histogram = {val: values.count(val) for val in set(values)}
                         summary[name] = (histogram, len(values))
@@ -58,15 +58,16 @@ class BenchmarkResultSummary:
 
     def formatted_summary(self) -> dict[str, str]:
         formatted = {}
+        total = len(self.results)
         for field in attr.fields(BenchmarkResult):
             if "aggregation" in field.metadata:
                 name = field.name
-                value, percent_set = self.summary[name]
-                if percent_set == 0:
+                value, total_set = self.summary[name]
+                if total_set == 0:
                     continue
                 percent_set_display = ""
-                if percent_set < 1:
-                    percent_set_display = f" ({percent_set:.0%})"
+                if total_set < total:
+                    percent_set_display = f" ({total_set}/{total})"
                 formatted_value = ""
                 aggregation_type = field.metadata["aggregation"]
                 if aggregation_type == "average":
