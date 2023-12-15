@@ -98,11 +98,11 @@ pre {
     bottom: 20px;
     right: 70px;
     cursor: pointer;
-    padding: 10px 20px;
+    padding: 15px 30px;
     background-color: #ffcc00;
     border: none;
-    border-radius: 20px;
-    font-size: 16px;
+    border-radius: 90px;
+    font-size: 20px;
     color: #333;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     transition: background-color 0.3s ease, transform 0.3s ease;
