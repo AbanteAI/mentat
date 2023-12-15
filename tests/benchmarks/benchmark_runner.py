@@ -181,12 +181,13 @@ async def test_benchmark(retries, benchmarks):
                 }
 
                 await client.shutdown()
+                repo.git.add(["--all"])
 
                 if hasattr(benchmark, "verify"):
                     result.verify = benchmark.verify()
 
                 # Set syntax and response grade information
-                diff = repo.git.diff()
+                diff = repo.git.diff(["--staged"])
                 result.code = diff
                 diff_grade = await grade_diff_syntax(diff)
                 result.diff_grade = diff_grade
