@@ -36,3 +36,10 @@ class SessionExit(Exception):
 
 class PathValidationError(Exception):
     pass
+
+
+class ContextSizeInsufficient(Exception):
+    """
+    Raised when trying to call the API with too many tokens for that model.
+    Will give control back to the user after being raised.
+    """

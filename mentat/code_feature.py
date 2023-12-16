@@ -111,11 +111,13 @@ class CodeFeature:
         diff: The diff annotations to include.
     """
 
+    # TODO: Make code features have a list of intervals, and merge all features with same path
     def __init__(
         self,
         path: str | Path,
         level: CodeMessageLevel = CodeMessageLevel.CODE,
-        diff: str | None = None,
+        diff: str
+        | None = None,  # TODO: Remove diff from codefeature (it is always just diffcontext.target)
         user_included: bool = False,
         name: Optional[str] = None,
     ):
@@ -203,6 +205,8 @@ class CodeFeature:
         return code_message
 
     def get_checksum(self) -> str:
+        # TODO: Add modified time of file to checksum
+        # If we modify the file is it still giving the old cached file to the llm? Check
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
 

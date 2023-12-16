@@ -1,12 +1,11 @@
 from typing import Optional
 
 from mentat.code_feature import CodeFeature, CodeMessageLevel
-from mentat.errors import ModelError
+from mentat.errors import ContextSizeInsufficient, ModelError
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.llm_feature_filter import LLMFeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
-from mentat.feature_filters.user_include_sort_filter import UserIncludedSortFilter
 from mentat.session_context import SESSION_CONTEXT
 
 
@@ -33,9 +32,7 @@ class DefaultFilter(FeatureFilter):
             features = await EmbeddingSimilarityFilter(
                 self.user_prompt, (0.5 if self.use_llm else 1) * self.loading_multiplier
             ).filter(features)
-        # python sorts are stable (even with reversed=true) so the two groups: included and not included
-        # will maintain their relative orders
-        features = await UserIncludedSortFilter().filter(features)
+
         if self.use_llm:
             try:
                 features = await LLMFeatureFilter(
@@ -45,16 +42,17 @@ class DefaultFilter(FeatureFilter):
                     self.expected_edits,
                     (0.5 if self.user_prompt != "" else 1) * self.loading_multiplier,
                 ).filter(features)
-            except ModelError:
+            except (ModelError, ContextSizeInsufficient):
                 ctx.stream.send(
                     "Feature-selection LLM response invalid. Using TruncateFilter"
                     " instead."
                 )
                 features = await TruncateFilter(
-                    self.max_tokens, ctx.config.model, self.levels, True
+                    self.max_tokens, ctx.config.model, self.levels
                 ).filter(features)
         else:
             features = await TruncateFilter(
-                self.max_tokens, ctx.config.model, self.levels, True
+                self.max_tokens, ctx.config.model, self.levels
             ).filter(features)
+
         return features

@@ -164,8 +164,9 @@ class FileEdit:
                     color="light_yellow",
                 )
                 return False
+            # TODO: Fix this
             file_features_in_context = [
-                f for f in code_context.features if f.path == self.file_path
+                f for f in code_context.auto_features if f.path == self.file_path
             ] or code_context.include_files.get(self.file_path, [])
             if not all(
                 any(f.contains_line(i) for f in file_features_in_context)

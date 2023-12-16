@@ -110,11 +110,10 @@ class LLMFeatureFilter(FeatureFilter):
         n_tries = 3
         for i in range(n_tries):
             start_time = default_timer()
-            message = (
-                (await llm_api_handler.call_llm_api(messages, model, stream=False))
-                .choices[0]
-                .message.content
-            ) or ""
+            llm_response = await llm_api_handler.call_llm_api(
+                messages, model, stream=False
+            )
+            message = (llm_response.choices[0].message.content) or ""
 
             tokens = prompt_tokens(messages, model)
             response_tokens = count_tokens(message, model, full_message=True)

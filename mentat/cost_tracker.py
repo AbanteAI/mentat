@@ -1,8 +1,11 @@
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from timeit import default_timer
+from typing import AsyncIterator, Optional
 
-from mentat.llm_api_handler import model_price_per_1000_tokens
+from openai.types.chat import ChatCompletionChunk
+
+from mentat.llm_api_handler import count_tokens, model_price_per_1000_tokens
 from mentat.session_context import SESSION_CONTEXT
 
 
@@ -52,3 +55,23 @@ class CostTracker:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         stream.send(f"Total session cost: ${self.total_cost:.2f}", color="cyan")
+
+    async def response_logger_wrapper(
+        self,
+        prompt_tokens: int,
+        response: AsyncIterator[ChatCompletionChunk],
+        model: str,
+    ) -> AsyncIterator[ChatCompletionChunk]:
+        full_response = ""
+        start_time = default_timer()
+        async for chunk in response:
+            full_response += chunk.choices[0].delta.content or ""
+            yield chunk
+        time_elapsed = default_timer() - start_time
+        self.log_api_call_stats(
+            prompt_tokens,
+            count_tokens(full_response, model, full_message=False),
+            model,
+            time_elapsed,
+            display=True,
+        )

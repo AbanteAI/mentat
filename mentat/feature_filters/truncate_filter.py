@@ -10,12 +10,10 @@ class TruncateFilter(FeatureFilter):
         max_tokens: int,
         model: str = "gpt-4",
         levels: list[CodeMessageLevel] = [],
-        respect_user_include: bool = True,
     ):
         self.max_tokens = max_tokens
         self.model = model
         self.levels = levels
-        self.respect_user_include = respect_user_include
 
     async def filter(
         self,
@@ -29,11 +27,7 @@ class TruncateFilter(FeatureFilter):
             _levels = sorted(list(_levels), key=lambda v: v.rank)
             for level in _levels:
                 feature.level = level
-                if (
-                    feature.count_tokens(self.model) <= remaining_tokens
-                    or self.respect_user_include
-                    and feature.user_included
-                ):
+                if feature.count_tokens(self.model) <= remaining_tokens:
                     output.append(feature)
                     remaining_tokens -= feature.count_tokens(self.model)
                     break
