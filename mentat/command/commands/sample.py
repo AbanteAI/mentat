@@ -1,6 +1,8 @@
 from pathlib import Path
+from typing import List
+from typing_extensions import override
 
-from mentat.command.command import Command
+from mentat.command.command import Command, CommandArgument
 from mentat.errors import SampleError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
@@ -26,9 +28,17 @@ class SampleCommand(Command, command_name="sample"):
         sample.save(str(fpath))
         SESSION_CONTEXT.get().stream.send(f"Sample saved to {fpath}.", color="green")
 
+    @override
     @classmethod
-    def argument_names(cls) -> list[str]:
-        return ["path?"]
+    def arguments(cls) -> List[CommandArgument]:
+        return [CommandArgument("optional", "path")]
+
+    @override
+    @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return []
 
     @classmethod
     def help_message(cls) -> str:

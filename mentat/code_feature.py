@@ -12,7 +12,7 @@ from mentat.ctags import get_ctag_lines_and_names
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
-from mentat.interval import Interval, parse_intervals
+from mentat.interval import Interval, parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path, sha256
@@ -123,16 +123,14 @@ class CodeFeature:
             self.path = Path(path)
             self.interval = Interval(0, math.inf)
         else:
-            path = str(path)
-            split = path.rsplit(":", 1)
-            self.path = Path(split[0])
+            self.path, interval = split_intervals_from_path(path)
             if not self.path.exists():
                 self.path = Path(path)
                 self.interval = Interval(0, math.inf)
             else:
-                interval = parse_intervals(split[1])
+                interval = parse_intervals(interval)
                 if len(interval) > 1:
-                    raise MentatError("CodeFeatures should only have on interval.")
+                    raise MentatError("CodeFeatures should only have one interval.")
                 self.interval = interval[0]
                 level = CodeMessageLevel.INTERVAL
 
@@ -151,18 +149,22 @@ class CodeFeature:
             f" level={self.level.key}, diff={self.diff})"
         )
 
-    def ref(self, cwd: Optional[Path] = None) -> str:
-        if cwd is not None and self.path.is_relative_to(cwd):
-            path_string = self.path.relative_to(cwd)
+    def rel_path(self, cwd: Optional[Path] = None) -> str:
+        if cwd is not None:
+            path_string = str(get_relative_path(self.path, cwd))
         else:
             path_string = str(self.path)
+        return path_string
 
+    def interval_string(self) -> str:
         if self.level == CodeMessageLevel.INTERVAL:
             interval_string = f":{self.interval.start}-{self.interval.end}"
         else:
             interval_string = ""
+        return interval_string
 
-        return f"{path_string}{interval_string}"
+    def ref(self, cwd: Optional[Path] = None) -> str:
+        return self.rel_path(cwd) + self.interval_string()
 
     def contains_line(self, line_number: int):
         return self.interval.contains(line_number)

@@ -136,11 +136,8 @@ async def run_mentat_on_sample(sample: Sample, cwd: Path):
     for msg in conversation_history:
         conversation.add_message(msg)
 
-    await python_client.call_mentat(sample_prompt)
-    await python_client.call_mentat("y")
-    # TODO: ONLY IF INCLUDES DELETE
-    await python_client.call_mentat("y")
-    # await python_client.wait_for_edit_completion()
+    await python_client.call_mentat_auto_accept(sample_prompt)
+    await python_client.wait_for_edit_completion()
     await python_client.shutdown()
 
 

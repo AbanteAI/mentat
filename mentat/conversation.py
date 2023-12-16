@@ -5,7 +5,7 @@ import json
 import logging
 import subprocess
 from timeit import default_timer
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
 from openai import RateLimitError
 from openai.types.chat import (
@@ -23,13 +23,11 @@ from mentat.llm_api_handler import (
     model_context_size,
     prompt_tokens,
 )
+from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
-
-if TYPE_CHECKING:
-    from mentat.parsers.file_edit import FileEdit
 
 
 class Conversation:
@@ -315,7 +313,7 @@ class Conversation:
             parsed_llm_response, time_elapsed, num_prompt_tokens = response
         except RateLimitError:
             stream.send(
-                "Rate limit recieved from OpenAI's servers using model"
+                "Rate limit error received from OpenAI's servers using model"
                 f' {config.model}.\nUse "/config model <model_name>" to switch to a'
                 " different model.",
                 color="light_red",

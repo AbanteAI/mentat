@@ -1,6 +1,21 @@
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import attr
+
+
+def split_intervals_from_path(custom_path: str | Path) -> tuple[Path, str]:
+    match = re.match(
+        r"(.*?):((\d+-\d+|\d+)(,\d+(-\d+)?)*$)",  # One or more intervals/numbers
+        str(custom_path),
+    )
+    if match:
+        path, intervals = match.groups()[0], match.groups()[1]
+        return Path(path), intervals
+    else:
+        return Path(custom_path), ""
 
 
 def parse_intervals(interval_string: str) -> list[Interval]:

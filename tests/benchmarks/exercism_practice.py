@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 import webbrowser
 from functools import partial
@@ -7,12 +6,14 @@ from multiprocessing import Pool
 
 import pytest
 import tqdm
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from openai import BadRequestError
 
 from mentat.config import Config
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import clone_repo
+from tests.benchmarks.benchmark_result import BenchmarkResult
 from tests.benchmarks.exercise_runners.exercise_runner_factory import (
     ExerciseRunnerFactory,
 )
@@ -85,9 +86,8 @@ async def failure_analysis(exercise_runner, language):
     response = ""
     try:
         llm_api_handler = SESSION_CONTEXT.get().llm_api_handler
-        async for chunk in await llm_api_handler.call_llm_api(messages, model, True):
-            content = chunk["choices"][0]["delta"].get("content", "")
-            response += content
+        llm_grade = await llm_api_handler.call_llm_api(messages, model, False)
+        response = llm_grade.choices[0].message.content
     except BadRequestError:
         response = "Unable to analyze test case\nreason: too many tokens to analyze"
 
@@ -139,21 +139,25 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         iterations += 1
 
     had_error = client.stopped.is_set()
+    messages = client.get_conversation().literal_messages
     await client.shutdown()
     passed = exercise_runner.passed()
-    result = {
-        "iterations": iterations,
-        "passed": passed,
-        "test": exercise_runner.name,
-    }
+    cost_tracker = SESSION_CONTEXT.get().cost_tracker
+    result = BenchmarkResult(
+        iterations=iterations,
+        passed=passed,
+        name=exercise_runner.name,
+        tokens=cost_tracker.total_tokens,
+        cost=cost_tracker.total_cost,
+        transcript={"id": problem_dir, "messages": messages},
+    )
     if had_error:
-        result["response"] = "Error while running mentat"
-        result["reason"] = "error"
-    elif not result["passed"]:
+        result.response = "Error while running mentat"
+        result.reason = "error"
+    elif not result.passed:
         response, reason = await failure_analysis(exercise_runner, language)
-        result["response"] = response
-        result["reason"] = reason
-    result["tokens"] = SESSION_CONTEXT.get().cost_tracker.total_tokens
+        result.response = response
+        result.reason = reason
     return result
 
 
@@ -164,31 +168,70 @@ def run_exercise_sync(problem_dir, language="python", max_iterations=2):
     except Exception as e:
         print(f"\nError running {problem_dir}")
         print(str(e), flush=True)
-        result = {
-            "iterations": 0,
-            "passed": False,
-            "test": problem_dir,
-            "response": str(e),
-            "reason": "error",
-            "tokens": 0,
-        }
-    result["instructions"] = exercise_runner.read_instructions()
-    result["code"] = exercise_runner.read_code(language)
-    result["test-output"] = exercise_runner.read_test_results()
+        result = BenchmarkResult(
+            iterations=0,
+            passed=False,
+            name=problem_dir,
+            tokens=0,
+            cost=0,
+            response=str(e),
+            reason="error",
+            transcript={"id": problem_dir, "messages": []},
+        )
+    result.instructions = exercise_runner.read_instructions()
+    result.code = exercise_runner.read_code(language)
+    result.test_output = exercise_runner.read_test_results()
     return result
 
 
-def summarize_results(results):
+def tqdm_summary(results):
     passed_in_n = {}
     failed = 0
     for result in results:
-        if result["passed"]:
-            iteration = result["iterations"]
+        if result.passed:
+            iteration = result.iterations
             if iteration:
                 passed_in_n[iteration] = passed_in_n.get(iteration, 0) + 1
         else:
             failed += 1
     return "Passed: " + str(passed_in_n)[1:-1] + "| Failed: " + str(failed)
+
+
+def results_summary(results):
+    results_map = {}
+    passedIterations = {}
+    reasons = {}
+    passed = 0
+    failed = 0
+    tokens = 0
+    cost = 0
+    totalIterations = 0
+
+    for result in results:
+        name = result.name
+        cost += result.cost
+        results_map[name] = result
+        if result.passed:
+            passed += 1
+            iterations = result.iterations
+            passedIterations[iterations] = passedIterations.get(iterations, 0) + 1
+            tokens += result.tokens
+            totalIterations += iterations
+        else:
+            failed += 1
+            reason = result.reason
+            reasons[reason] = reasons.get(reason, 0) + 1
+
+    avgTokens = tokens // totalIterations if totalIterations > 0 else 0
+    return {
+        "cost": cost,
+        "results_map": results_map,
+        "passedIterations": passedIterations,
+        "reasons": reasons,
+        "passed": passed,
+        "failed": failed,
+        "avgTokens": avgTokens,
+    }
 
 
 def test_practice_directory_performance(
@@ -222,19 +265,23 @@ def test_practice_directory_performance(
             pbar.update()
             results.append(result)
             with open("results.txt", "a") as f:
-                json.dump(result, f)
+                f.write(result.to_json())
                 f.write("\n")
-            pbar.set_description(
-                summarize_results(results) + "| Last Ran: " + result["test"]
-            )
-        results.sort(key=lambda result: result["test"])
+            pbar.set_description(tqdm_summary(results) + "| Last Ran: " + result.name)
+        results.sort(key=lambda result: result.name)
 
-        # Update the html file
-        results_json = list(map(json.dumps, results))
-        results_str = "[" + ",".join(results_json) + "]"
-        with open(f"{os.path.dirname(__file__)}/exercism_benchmark.html", "r") as f:
-            html = f.read()
-        html = html.replace("{{ results }}", results_str)
+        env = Environment(
+            loader=FileSystemLoader(
+                os.path.join(
+                    os.path.dirname(__file__), "../../mentat/resources/templates"
+                )
+            ),
+            autoescape=select_autoescape(["html", "xml"]),
+        )
+        template = env.get_template("exercism_benchmark.jinja")
+        summary = results_summary(results)
+        rendered_html = template.render(summary=summary)
+
         with open("results.html", "w") as f:
-            f.write(html)
+            f.write(rendered_html)
         webbrowser.open("file://" + os.path.realpath("results.html"))

@@ -86,3 +86,9 @@ class PythonClient:
         self.acc_task.cancel()
         self.exit_task.cancel()
         self.stopped.set()
+
+    def get_conversation(self):
+        return self.session.ctx.conversation
+
+    def get_cost_tracker(self):
+        return self.session.ctx.cost_tracker

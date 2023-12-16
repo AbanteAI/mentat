@@ -27,7 +27,7 @@ TranscriptMessage = UserMessage | ModelMessage
 
 
 class Transcript(TypedDict):
-    timestamp: str
+    id: str
     messages: list[TranscriptMessage]
 
 
@@ -46,6 +46,6 @@ def get_transcript_logs() -> list[Transcript]:
             continue
 
         transcript = json.loads("[" + ", ".join(transcript) + "]")
-        ans.append(Transcript(timestamp=timestamp, messages=transcript))
+        ans.append(Transcript(id=timestamp, messages=transcript))
 
-    return sorted(ans, key=lambda x: x["timestamp"], reverse=True)
+    return sorted(ans, key=lambda x: x["id"], reverse=True)
