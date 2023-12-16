@@ -94,18 +94,11 @@ class CodeFileManager:
                 )
 
             if file_edit.is_deletion:
-                stream.send(
-                    f"Are you sure you want to delete {display_path}?",
-                    color="red",
-                )
-                if await ask_yes_no(default_yes=False):
-                    stream.send(f"Deleting {display_path}...", color="red")
-                    # We use the current lines rather than the stored lines for undo
-                    file_edit.previous_file_lines = self.read_file(file_edit.file_path)
-                    self.delete_file(file_edit.file_path)
-                    applied_edits.append(file_edit)
-                else:
-                    stream.send(f"Not deleting {display_path}", color="green")
+                stream.send(f"Deleting {display_path}...", color="red")
+                # We use the current lines rather than the stored lines for undo
+                file_edit.previous_file_lines = self.read_file(file_edit.file_path)
+                self.delete_file(file_edit.file_path)
+                applied_edits.append(file_edit)
                 continue
 
             if not file_edit.is_creation:
