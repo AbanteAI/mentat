@@ -127,7 +127,7 @@ class Sampler:
                 merge_base = response
         try:
             assert merge_base is not None, "No merge base found"
-            diff_merge_base = get_diff_commit(merge_base)
+            diff_merge_base = get_diff_commit(merge_base, "HEAD")
         except (AssertionError, GitCommandError) as e:
             raise SampleError(f"Error getting diff for merge base: {e}")
 
@@ -171,7 +171,7 @@ class Sampler:
         diff_edit = get_diff_active() or ""
         if self.commit_active:
             diff_active = get_diff_commit('HEAD', self.commit_active)
-            diff_edit = git_repo.git.diff("--cached", self.commit_active)
+            diff_edit = get_diff_commit(self.commit_active)
 
         args = list[str]()
         if code_context.include_files:

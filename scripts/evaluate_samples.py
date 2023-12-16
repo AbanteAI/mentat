@@ -17,7 +17,7 @@ from openai.types.chat import (
 )
 
 from mentat.errors import SampleError
-from mentat.git_handler import get_diff_active
+from mentat.git_handler import get_diff_commit
 from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
 from mentat.sampler.sampler import get_active_snapshot_commit
@@ -145,11 +145,9 @@ async def evaluate_sample(sample, cwd: Path | str | None = None):
     """Run a sample using Mentat and return the resulting diff"""
     cwd = setup_repo(sample, cwd)
     repo = Repo(cwd)
-    ad1 = repo.git.diff()
     commit_active = get_active_snapshot_commit(repo)
-    ad2 = repo.git.diff()
     await run_mentat_on_sample(sample, cwd)
-    diff_eval = get_diff_active(cwd, target=commit_active)
+    diff_eval = get_diff_commit(commit_active or 'HEAD', cwd=cwd)
 
     return diff_eval
 

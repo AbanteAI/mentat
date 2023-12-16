@@ -13,7 +13,7 @@ def test_get_diff_commit(temp_testbed, mock_session_context):
     os.remove("test_file.txt")
 
     # Expect the diff to contain the new file
-    diff = get_diff_commit("HEAD~1")
+    diff = get_diff_commit("HEAD~1", "HEAD")
     assert "forty two" in diff
 
 

@@ -222,14 +222,18 @@ def get_default_branch() -> str:
         raise Exception("Unable to determine the default branch.")
 
 
-def get_diff_commit(commit1: str, commit2: str = "HEAD") -> str:
+def get_diff_commit(*args: str, cwd: Optional[Path] = None) -> str:
     """Return diff of latest commit against sample_merge_base."""
-    session_context = SESSION_CONTEXT.get()
-    cwd = session_context.cwd
+    if cwd is None:
+        session_context = SESSION_CONTEXT.get()
+        cwd = session_context.cwd
 
     repo = Repo(cwd)
-    # NOTE: Need at least 1 line of context in order to 'git apply' later
-    diff = repo.git.diff(commit1, commit2, unified=1)
+    # Stage untracked files so they are included in the diff
+    repo.git.add(all=True, force=True)
+    diff = repo.git.diff(*args, unified=1)
+    # Unstage changes again
+    repo.git.reset()
     return diff + "\n" if diff else ""  # Required to form a valid .diff file
 
 

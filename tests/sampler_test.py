@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+import json
 from textwrap import dedent
 
 from git import Repo
@@ -208,8 +209,8 @@ async def test_sample_eval(mock_call_llm_api):
         return re.sub(pattern, "", text)
 
     sample = Sample(**test_sample)
-    result = await evaluate_sample(sample)
-    assert remove_checksums(result) == remove_checksums(sample.diff_edit)
+    diff_eval = await evaluate_sample(sample)
+    assert remove_checksums(diff_eval) == remove_checksums(sample.diff_edit)
 
 
 def test_get_active_snapshot_commit(temp_testbed):
@@ -403,5 +404,5 @@ async def test_sampler_integration(temp_testbed, mock_session_context, mock_call
     mock_call_llm_api.set_streamed_values(
         f"I will make the following edits. {llm_response}"
     )
-    resulting_diff = await evaluate_sample(sample, temp_testbed)
-    # assert resulting_diff == sample.diff_edit # TODO: Work it
+    diff_eval = await evaluate_sample(sample, temp_testbed)
+    assert diff_eval == sample.diff_edit
