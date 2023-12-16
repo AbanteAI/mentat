@@ -12,10 +12,10 @@ from mentat.utils import mentat_dir_path
 class SampleCommand(Command, command_name="sample"):
     async def apply(self, *args: str) -> None:
         session_context = SESSION_CONTEXT.get()
-        code_file_manager = session_context.code_file_manager
+        sampler = session_context.sampler
         stream = session_context.stream
         try:
-            sample = await code_file_manager.sampler.add_sample()
+            sample = await sampler.create_sample()
         except SampleError as e:
             stream.send(f"Failed to generate sample: {e}", color="light_red")
             return

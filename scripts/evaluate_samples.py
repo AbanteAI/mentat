@@ -92,51 +92,25 @@ def setup_repo(sample: Sample, cwd: Path | str | None = None) -> Path:
     return cwd
 
 
+def _message(m):
+    role, content = m.get("role"), m.get("content", "")
+    if role == "user":
+        return ChatCompletionUserMessageParam(role=role, content=content)
+    elif role == "assistant":
+        return ChatCompletionAssistantMessageParam(role=role, content=content)
+
 async def run_mentat_on_sample(sample: Sample, cwd: Path):
     """Initialize mentat in given cwd and run the sample."""
-    # Initialize Mentat PythonClient with args and messages
     paths = list[Path]()
-    for a in sample.args:
-        if a.startswith("--"):
-            break  # TODO: Handle other mentat args?
+    for a in sample.context:
         paths.append(Path(a))
     python_client = PythonClient(cwd=cwd, paths=paths)
     await python_client.startup()
     session_context = SESSION_CONTEXT.get()
     conversation = session_context.conversation
-    conversation_history = list[ChatCompletionMessageParam]()
-    sample_prompt: str | None = None
-    for m in sample.messages[::-1]:
-        role, content = m.get("role"), m.get("content", "")
-        if role == "user":
-            if sample_prompt is None:
-                sample_prompt = content
-            else:
-                msg = ChatCompletionUserMessageParam(role="user", content=content)
-                conversation_history.insert(0, msg)
-        elif role == "assistant":
-            if sample_prompt is None:
-                warn(
-                    "Ignoring assistant message after last user"
-                    f" prompt,'{content[:15]}'..."
-                )
-            else:
-                msg = ChatCompletionAssistantMessageParam(
-                    role="assistant", content=content
-                )
-                conversation_history.insert(0, msg)
-        else:
-            warn(
-                f"Only user and assistant messages are supported. Got {m['role']}."
-                " Skipping"
-            )
-            continue
-    if sample_prompt is None:
-        raise SampleError("Sample prompt not found in messages.")
-    for msg in conversation_history:
-        conversation.add_message(msg)
-
-    await python_client.call_mentat_auto_accept(sample_prompt)
+    for msg in sample.message_history:
+        conversation.add_message(_message(msg))
+    await python_client.call_mentat_auto_accept(sample.message_prompt)
     await python_client.wait_for_edit_completion()
     await python_client.shutdown()
 

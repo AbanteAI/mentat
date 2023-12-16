@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from mentat.edit_history import EditHistory
 from mentat.errors import MentatError
 from mentat.interval import Interval
-from mentat.sampler.sampler import Sampler
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
 from mentat.utils import get_relative_path, sha256
@@ -22,7 +21,6 @@ class CodeFileManager:
     def __init__(self):
         self.file_lines = dict[Path, list[str]]()
         self.history = EditHistory()
-        self.sampler = Sampler()
 
     def read_file(self, path: Path) -> list[str]:
         session_context = SESSION_CONTEXT.get()
@@ -78,9 +76,6 @@ class CodeFileManager:
 
         if not file_edits:
             return []
-
-        # Set pre-edit context in case /sample is called later
-        self.sampler.set_active_diff()
 
         applied_edits: list[FileEdit] = []
         for file_edit in file_edits:

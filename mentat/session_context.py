@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from mentat.conversation import Conversation
     from mentat.cost_tracker import CostTracker
     from mentat.llm_api_handler import LlmApiHandler
+    from mentat.sampler.sampler import Sampler
     from mentat.session_stream import SessionStream
     from mentat.vision.vision_manager import VisionManager
 
@@ -34,3 +35,4 @@ class SessionContext:
     vision_manager: VisionManager = attr.field()
     agent_handler: AgentHandler = attr.field()
     auto_completer: AutoCompleter = attr.field()
+    sampler: Sampler = attr.field()

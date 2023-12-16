@@ -12,26 +12,28 @@ In any github-connected repo:
 ## `Sample` API
 A `Sample` captures interactions between a developer and any LLM Coding Assistant. It consists of a starting codebase, a user command, and the expected LLM response - text, a git diff, or both. It can also include a list of paths/line-numbers to be included with the prompt, diffs to setup the git environment, and more:
 
-| Field            | Req | Type          | Description |
-|------------------|-----|---------------|-------------|
-| title            |     | `str`         | plaintext by creator |
-| description      |     | `str`         | plaintext by creator |
-| id               |     | `uuid`        |  |
-| parent_id        |     | `uuid`        | id of sample immediately before this |
-| repo             | *   | `str`         | a url to download the code |
-| merge_base       | *   | `str`         | the latest permanent commit |
-| diff_merge_base  |     | `str`         | between merge_base and latest commit |
-| diff_active      |     | `str`         | between latest commit and active (pre-edit) code |
-| messages         | *   | `list[dict]`  | user and assistant messages. |
-| args             |     | `list[str]`   | list of `<relative_path>[:<start_line>-<end_line>]` |
-| diff_edit        | *   | `str`         | between starting (diff_head) and ending code. |
-| test_command     |     | `str`         | discrete pass/fail, e.g. ‘pytest -k diff_active’ |
-| version          |     | `str`         | current Sample API version |
+| Field            | Req | Type                   | Description |
+|------------------|-----|------------------------|-------------|
+| title            |     | `str`                  | plaintext by creator |
+| description      |     | `str`                  | plaintext by creator |
+| id               |     | `uuid`                 |  |
+| parent_id        |     | `uuid`                 | id of sample immediately before this |
+| repo             | *   | `str`                  | a url to download the code |
+| merge_base       | *   | `str`                  | the latest permanent commit |
+| diff_merge_base  |     | `str`                  | between merge_base and latest commit |
+| diff_active      |     | `str`                  | between latest commit and active (pre-edit) code |
+| args             |     | `list[str]`            | list of `<relative_path>[:<start_line>-<end_line>]` |
+| message_history  |     | `list[dict[str, str]]` | list of prior user and assistant messages |
+| message_prompt   | *   | `str`                  | the sample task |
+| message_edit     |     | `str`                  | plaintext response returned for sample edit |
+| diff_edit        | *   | `str`                  | between starting (diff_head) and ending code. |
+| test_command     |     | `str`                  | discrete pass/fail, e.g. ‘pytest -k diff_active’ |
+| version          |     | `str`                  | current Sample API version |
 
 Notes:
 - All diffs and code changes follow standard git-diff format (`diff --git a/new_filename...`)
 - Samples should link to a permanent commit. Mentat has a config variable `sample_merge_base_target` (e.g. 'master'). If this value is None (default), merge_base is set to the latest commit on HEAD, otherwise it's set to the merge-base of HEAD and `..target`. 
-- Messages can be a single user message or a whole prior conversation. If any assistant messages include edits, they should be converted to git-diff format. Prior messages can include messages with mistakes, where the sample task is to find and/or correct it.
+- `message_history` can include user or  If any assistant messages include edits, they should be converted to git-diff format. It can include messages with mistakes, where the sample task is to find and/or correct it.
 
 ## Evaluate Samples
 The evaluation procedure, in abstract, is:
@@ -40,11 +42,11 @@ The evaluation procedure, in abstract, is:
    b. If there's a `diff_active`, it's applied using `git apply`. 
 2. Generate the conversation history
    a. Add code from files/lines in `paths` as a System message
-   b. Add messages from `messages` as User or Assistant messages
-   c. Add `user_prompt` as a User message
+   b. Add messages from `message_history` as User or Assistant messages
+   c. Add `message_prompt` as a User message
 3. Generate an LLM Completion for the conversation. 
 4. If using a Coding Assistant tool, process the response to apply edits to codebase.
-5. Return the text portion of the conversation and the git diff. 
+5. Return the text portion of the conversation and the git diff, corresponding to `message_edit` and `diff_edit`
 
 We provide two implementations of this:
 - Run `scripts/evaluate_samples.py [<id>...]` from the command line, in the mentat repo. Prints to terminal.

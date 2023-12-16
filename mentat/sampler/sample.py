@@ -4,6 +4,9 @@ import json
 
 import attr
 
+from mentat.errors import SampleError
+from mentat.sampler import __version__
+
 
 @attr.define
 class Sample:
@@ -16,11 +19,13 @@ class Sample:
     merge_base: str | None = attr.field(default=None)
     diff_merge_base: str = attr.field(default="")
     diff_active: str = attr.field(default="")
-    messages: list[dict[str, str]] = attr.field(default=[])  # type: ignore
-    args: list[str] = attr.field(default=[])  # type: ignore
+    message_history: list[dict[str, str]] = attr.field(default=[])  # type: ignore
+    message_prompt: str = attr.field(default="")
+    message_edit: str = attr.field(default="")
+    context: list[str] = attr.field(default=[])  # type: ignore
     diff_edit: str = attr.field(default="")
     test_command: str = attr.field(default="")
-    version: str = attr.field(default="0.1.0")
+    version: str = attr.field(default=__version__)
 
     def save(self, fname: str) -> None:
         with open(fname, "w") as f:
@@ -29,4 +34,11 @@ class Sample:
     @classmethod
     def load(cls, fname: str) -> Sample:
         with open(fname, "r") as f:
-            return cls(**json.loads(f.read()))
+            kwargs = json.load(f)
+            _version = kwargs.get("version")
+            if _version != __version__:
+                raise SampleError(
+                    f"Warning: sample version ({_version}) does not match current"
+                    f" version ({__version__})."
+                )
+            return cls(**kwargs)

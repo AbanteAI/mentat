@@ -11,14 +11,20 @@ from openai.types.chat import (
 )
 
 from mentat.errors import SampleError
-from mentat.git_handler import get_diff_active
+from mentat.git_handler import get_diff_commit
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
 from mentat.python_client.client import PythonClient
+from mentat.sampler import __version__
 from mentat.sampler.sample import Sample
 from mentat.sampler.sampler import Sampler, get_active_snapshot_commit
 from mentat.session import Session
 from scripts.evaluate_samples import evaluate_sample
+
+
+def remove_checksums(text):
+    pattern = r"\b[0-9a-f]{7}\b"
+    return re.sub(pattern, "", text)
 
 
 @pytest.mark.asyncio
@@ -53,7 +59,7 @@ async def test_sample_from_context(
     )
 
     with open("test_file.py", "w") as f:
-        f.write("test_file_content")
+        f.write("test_file_content\n")
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -64,27 +70,26 @@ async def test_sample_from_context(
         ]
     )
     sampler = Sampler()
-    sample = await sampler.add_sample()
+    sample = await sampler.create_sample()
     assert sample.title == "test_title"
     assert sample.description == "test_description"
     assert sample.repo == "test_sample_repo"
     assert is_sha1(sample.merge_base)
     assert sample.diff_merge_base == ""
     assert sample.diff_active == ""
-    assert sample.messages == [
-        {"role": "user", "content": "test_user_content"},
-        {"role": "assistant", "content": "test_assistant_content"},
-    ]
-    assert sample.args == ["multifile_calculator/operations.py"]
-    assert (
-        sample.diff_edit
-        == "diff --git a/test_file.py b/test_file.py\nnew file mode 100644\nindex"
-        " 0000000..ffffff\n--- /dev/null\n+++ b/test_file.py\n@@ -0,0 +1"
+    assert sample.message_history == []
+    assert sample.message_prompt == "test_user_content"
+    assert sample.message_edit == "test_assistant_content"
+    assert sample.context == ["multifile_calculator/operations.py"]
+    expected_diff = (
+        "diff --git a/test_file.py b/test_file.py\nnew file mode 100644\nindex"
+        " 0000000..fffffff\n--- /dev/null\n+++ b/test_file.py\n@@ -0,0 +1"
         " @@\n+test_file_content\n"
     )
+    assert remove_checksums(sample.diff_edit) == remove_checksums(expected_diff)
     assert sample.id != ""
     assert sample.test_command == "test_test_command"
-    assert sample.version == "0.1.0"
+    assert sample.version == __version__
 
 
 def is_sha1(string: str) -> bool:
@@ -142,15 +147,11 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
     assert is_sha1(sample.merge_base)
     assert sample.diff_merge_base == ""
     assert sample.diff_active == ""
-    assert len(sample.messages) == 2
-    assert sample.messages[0] == {"role": "user", "content": "Request"}
-    assert sample.messages[1]["role"] == "assistant"
-    assert sample.messages[1]["content"].startswith("I will insert a comment")
-    # TODO: This is hacky, find the correct way to split message/code
-    assert "@@start" not in sample.messages[1]["content"]
-    assert sample.args == [
+    assert sample.message_history == []
+    assert sample.message_prompt == "Request"
+    assert sample.message_edit == ("I will insert a comment in both files.")
+    assert sample.context == [
         "multifile_calculator/calculator.py",
-        "test_file.py",  # TODO: This shouldn't be here, but it's in included_files
     ]
     edits = [e for e in sample.diff_edit.split("diff --git") if e]
     assert len(edits) == 2
@@ -171,17 +172,13 @@ test_sample = {
     "merge_base": "f5057f1658b9c7edb5e45a2fa8c2198ded5b5c00",
     "diff_merge_base": "",
     "diff_active": "",
-    "messages": [
-        {"role": "user", "content": "Add a sha1 function to utils.py"},
-        {
-            "role": "assistant",
-            "content": (
-                "I will add a new sha1 function to the `utils.py` file.\n\nSteps:\n1."
-                " Add the sha1 function to `utils.py`.\n\n"
-            ),
-        },
-    ],
-    "args": ["mentat/utils.py"],
+    "message_history": [],
+    "message_prompt": "Add a sha1 function to utils.py",
+    "message_edit": (
+        "I will add a new sha1 function to the `utils.py` file.\n\nSteps:\n1."
+        " Add the sha1 function to `utils.py`."
+    ),
+    "context": ["mentat/utils.py"],
     "diff_edit": (
         "diff --git a/mentat/utils.py b/mentat/utils.py\nindex 46c3d7f..948b7f9"
         " 100644\n--- a/mentat/utils.py\n+++ b/mentat/utils.py\n@@ -35,2 +35,6 @@ def"
@@ -204,13 +201,19 @@ async def test_sample_eval(mock_call_llm_api):
         Steps:
         1. Add the `sha1` function to `mentat/utils.py`.{edit_message}""")])
 
-    def remove_checksums(text):
-        pattern = r"\b[0-9a-f]{7}\b"
-        return re.sub(pattern, "", text)
-
     sample = Sample(**test_sample)
     diff_eval = await evaluate_sample(sample)
     assert remove_checksums(diff_eval) == remove_checksums(sample.diff_edit)
+
+
+@pytest.mark.asyncio
+async def test_sample_version_mismatch(temp_testbed):
+    sample = Sample(**test_sample)
+    sample.version = "0.0.9"
+    sample_path = str(temp_testbed / "temp_sample.json")
+    sample.save(sample_path)
+    with pytest.raises(SampleError) as exc_info:
+        Sample.load(sample_path)
 
 
 def test_get_active_snapshot_commit(temp_testbed):
@@ -295,7 +298,7 @@ def get_updates_as_parsed_llm_message(cwd):
     repo.git.commit("-m", "temporary commit")
     # Make diff_edit edits
     make_all_update_types(cwd, 2)
-    diff_edit = get_diff_active(cwd)
+    diff_edit = get_diff_commit("HEAD", cwd)
     parsedLLMResponse = GitParser().parse_string(diff_edit)
     # Reset hard and remove uncommitted files
     repo.git.reset("--hard")
@@ -380,6 +383,8 @@ async def test_sampler_integration(
         """))
     await python_client.wait_for_edit_completion()
 
+    # Remove all included files; rely on the diff to include them
+    python_client.session.ctx.code_context.include_files = {}
     await python_client.call_mentat(f"/sample {temp_testbed}")
     await python_client.call_mentat(merge_base)
     await python_client.call_mentat("test_url")
@@ -387,7 +392,7 @@ async def test_sampler_integration(
     await python_client.call_mentat("test_description")
     await python_client.call_mentat("test_test_command")
     await python_client.call_mentat("q")
-    python_client.shutdown()
+    await python_client.shutdown()
 
     # Evaluate the sample using Mentat
     sample_files = list(temp_testbed.glob("sample_*.json"))
@@ -399,12 +404,15 @@ async def test_sampler_integration(
     assert sample.merge_base == merge_base
     assert sample.diff_merge_base != ""
     assert sample.diff_active != ""
-    assert len(sample.messages) == 2
-    assert sample.messages[-2]["content"].startswith("Make the following changes")
-    # assert len(sample.args) == 4 # TODO: Swap out renamed files
+    assert sample.message_history == []
+    assert sample.message_edit == "I will make the following edits. "
+    assert set(sample.context) == {
+        "scripts/echo1.py",
+        "multifile_calculator/operations.py",
+        "format_examples/replacement.txt",
+    }
     assert sample.diff_edit != ""
 
-    # TODO: Have evaluate_sample return the diff less diff_active
     mock_call_llm_api.set_streamed_values(
         f"I will make the following edits. {llm_response}"
     )

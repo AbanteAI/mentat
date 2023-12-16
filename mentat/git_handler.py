@@ -230,40 +230,10 @@ def get_diff_commit(*args: str, cwd: Optional[Path] = None) -> str:
 
     repo = Repo(cwd)
     # Stage untracked files so they are included in the diff
-    repo.git.add(all=True, force=True)
+    repo.git.add(all=True)
     diff = repo.git.diff(*args, unified=1)
     # Unstage changes again
     repo.git.reset()
-    return diff + "\n" if diff else ""  # Required to form a valid .diff file
-
-
-def get_diff_active(cwd: Path | None = None, target: str = "HEAD") -> str:
-    """Return edits to current files + new files in standard git diff format."""
-    if cwd is None:
-        session_context = SESSION_CONTEXT.get()
-        cwd = session_context.cwd
-
-    repo = Repo(cwd)
-    diff = repo.git.diff(target, unified=1)
-    for new_file in repo.untracked_files:
-        if not is_file_text_encoded(cwd / new_file):
-            continue
-        diff += ("\n" if diff else "") + "\n".join(
-            [
-                f"diff --git a/{new_file} b/{new_file}",
-                "new file mode 100644",
-                "index 0000000..ffffff",  # placeholder for git's SHA-1
-                "--- /dev/null",
-                f"+++ b/{new_file}",
-                "@@ -0,0 +1 @@",
-            ]
-        )
-        file_path = cwd / new_file
-        with open(file_path, "r") as f:
-            file_content = f.read()
-        if file_content:
-            diff += "\n" + "\n".join(f"+{line}" for line in file_content.splitlines())
-
     return diff + "\n" if diff else ""  # Required to form a valid .diff file
 
 

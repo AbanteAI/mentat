@@ -25,6 +25,7 @@ from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler
+from mentat.sampler.sampler import Sampler
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
 from mentat.streaming_printer import StreamingPrinter
@@ -279,6 +280,8 @@ def mock_session_context(temp_testbed):
 
     auto_completer = AutoCompleter()
 
+    sampler = Sampler()
+
     session_context = SessionContext(
         Path.cwd(),
         stream,
@@ -291,6 +294,7 @@ def mock_session_context(temp_testbed):
         vision_manager,
         agent_handler,
         auto_completer,
+        sampler,
     )
     token = SESSION_CONTEXT.set(session_context)
     yield session_context
