@@ -48,7 +48,7 @@ def get_active_snapshot_commit(repo: Repo) -> str | None:
             current_state = repo.head.commit.hexsha
         else:
             current_state = repo.active_branch.name
-        # Commit them on a temporary branch 
+        # Commit them on a temporary branch
         temp_branch = f"sample_{uuid4().hex}"
         repo.git.checkout("-b", temp_branch)
         repo.git.stash("apply")
@@ -170,7 +170,7 @@ class Sampler:
         diff_active = ""
         diff_edit = get_diff_active() or ""
         if self.commit_active:
-            diff_active = get_diff_commit('HEAD', self.commit_active)
+            diff_active = get_diff_commit("HEAD", self.commit_active)
             diff_edit = get_diff_commit(self.commit_active)
 
         args = list[str]()
@@ -178,7 +178,7 @@ class Sampler:
             feature_refs = get_consolidated_feature_refs(
                 [f for fs in code_context.include_files.values() for f in fs]
             )
-            args += [get_relative_path(Path(f), cwd).as_posix() for f in feature_refs]            
+            args += [get_relative_path(Path(f), cwd).as_posix() for f in feature_refs]
 
         sample = Sample(
             title=title,

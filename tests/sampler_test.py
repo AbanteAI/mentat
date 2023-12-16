@@ -1,22 +1,22 @@
 import re
 from pathlib import Path
-import json
 from textwrap import dedent
 
-from git import Repo
 import pytest
+from git import Repo
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
 
+from mentat.errors import SampleError
 from mentat.git_handler import get_diff_active
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
 from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
-from mentat.sampler.sampler import get_active_snapshot_commit, Sampler
+from mentat.sampler.sampler import Sampler, get_active_snapshot_commit
 from mentat.session import Session
 from scripts.evaluate_samples import evaluate_sample
 
@@ -219,7 +219,7 @@ def test_get_active_snapshot_commit(temp_testbed):
     (temp_testbed / "test_file.py").write_text("test")
     repo.git.add("test_file.py")
     repo.git.commit("-m", "test commit")
-    assert get_active_snapshot_commit(repo) == None  # No changes
+    assert get_active_snapshot_commit(repo) is None  # No changes
 
     # Insert, Remove and Replace Lines
     with open(temp_testbed / "scripts" / "calculator.py", "r") as f:
@@ -309,13 +309,14 @@ def get_updates_as_parsed_llm_message(cwd):
     ending_diff = repo.git.diff()
     if starting_diff != ending_diff:
         raise SampleError("Git state was not reset accurately.")
-    
+
     return parsedLLMResponse
 
 
 @pytest.mark.asyncio
-async def test_sampler_integration(temp_testbed, mock_session_context, mock_call_llm_api):
-    
+async def test_sampler_integration(
+    temp_testbed, mock_session_context, mock_call_llm_api
+):
     # Setup the environemnt
     repo = Repo(temp_testbed)
     (temp_testbed / "test_file.py").write_text("permanent commit")
@@ -327,15 +328,15 @@ async def test_sampler_integration(temp_testbed, mock_session_context, mock_call
     repo.git.commit("-m", "temporary commit")
     # Make diff_active edits
     make_all_update_types(temp_testbed, 1)
-    
+
     # Verify it's setup correctly
     with open(temp_testbed / "multifile_calculator" / "operations.py", "r") as f:
         lines = f.readlines()
     for i in range(2):
-        assert any(f"# Inserted Line {i}" in l for l in lines)
-        assert any(f"# Replaced Line {i}" in l for l in lines)
-    assert not any(f"# Inserted Line 2" in l for l in lines)
-    assert not any(f"# Replaced Line 2" in l for l in lines)
+        assert any(f"# Inserted Line {i}" in line for line in lines)
+        assert any(f"# Replaced Line {i}" in line for line in lines)
+    assert not any("# Inserted Line 2" in line for line in lines)
+    assert not any("# Replaced Line 2" in line for line in lines)
     assert lines[-1] == "    return a - b\n"
     assert (temp_testbed / "multifile_calculator" / "calculator0.py").exists()
     assert (temp_testbed / "multifile_calculator" / "calculator1.py").exists()
@@ -350,7 +351,10 @@ async def test_sampler_integration(temp_testbed, mock_session_context, mock_call
     assert any("Replaced Line 2" in str(f.replacements) for f in file_edits)
     assert any(
         # In file-edit, the entire file is overwritten, so we verify it's missing the last line
-        ("operations.py" in str(f.file_path) and "return a - b" not in str(f.replacements))
+        (
+            "operations.py" in str(f.file_path)
+            and "return a - b" not in str(f.replacements)
+        )
         for f in file_edits
     )
     assert any("calculator2.py" in str(f.file_path) for f in file_edits)
@@ -360,7 +364,7 @@ async def test_sampler_integration(temp_testbed, mock_session_context, mock_call
     mock_call_llm_api.set_streamed_values(
         f"I will make the following edits. {llm_response}"
     )
-    
+
     # Generate a sample using Mentat
     python_client = PythonClient(cwd=temp_testbed, paths=["."])
     await python_client.startup()
@@ -376,13 +380,13 @@ async def test_sampler_integration(temp_testbed, mock_session_context, mock_call
         """))
     await python_client.wait_for_edit_completion()
 
-    response1 = await python_client.call_mentat(f"/sample {temp_testbed}")
-    response2 = await python_client.call_mentat(merge_base)
-    response3 = await python_client.call_mentat("test_url")
-    response4 = await python_client.call_mentat("test_title")
-    response5 = await python_client.call_mentat("test_description")
-    response6 = await python_client.call_mentat("test_test_command")
-    response7 = await python_client.call_mentat("q")
+    await python_client.call_mentat(f"/sample {temp_testbed}")
+    await python_client.call_mentat(merge_base)
+    await python_client.call_mentat("test_url")
+    await python_client.call_mentat("test_title")
+    await python_client.call_mentat("test_description")
+    await python_client.call_mentat("test_test_command")
+    await python_client.call_mentat("q")
     python_client.shutdown()
 
     # Evaluate the sample using Mentat

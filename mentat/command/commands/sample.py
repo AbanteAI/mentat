@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List
+
 from typing_extensions import override
 
 from mentat.command.command import Command, CommandArgument

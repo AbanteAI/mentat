@@ -56,7 +56,7 @@ def apply_diff_to_repo(diff: str, repo: Repo, commit: bool = False) -> str | Non
             repo.git.add(".")
             repo.git.commit("-m", f"sample_{temp_id}")
     except GitCommandError as e:
-        try: 
+        try:
             os.remove(f".sample_{temp_id}.diff")
         except FileNotFoundError:
             pass
@@ -147,7 +147,7 @@ async def evaluate_sample(sample, cwd: Path | str | None = None):
     repo = Repo(cwd)
     commit_active = get_active_snapshot_commit(repo)
     await run_mentat_on_sample(sample, cwd)
-    diff_eval = get_diff_commit(commit_active or 'HEAD', cwd=cwd)
+    diff_eval = get_diff_commit(commit_active or "HEAD", cwd=cwd)
 
     return diff_eval
 
