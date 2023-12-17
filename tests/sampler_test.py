@@ -368,7 +368,7 @@ async def test_sampler_integration(
 
     llm_response = BlockParser().file_edits_to_llm_message(parsed_llm_message)
     mock_call_llm_api.set_streamed_values(
-        f"I will make the following edits. {llm_response}"
+        [f"I will make the following edits. {llm_response}"]
     )
 
     # Generate a sample using Mentat
@@ -417,7 +417,7 @@ async def test_sampler_integration(
     assert sample.diff_edit != ""
 
     mock_call_llm_api.set_streamed_values(
-        f"I will make the following edits. {llm_response}"
+        [f"I will make the following edits. {llm_response}"]
     )
     diff_eval = await evaluate_sample(sample, temp_testbed)
     assert diff_eval == sample.diff_edit
