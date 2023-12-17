@@ -134,7 +134,9 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
         # forty two
         @@end""")])
 
-    session = Session(cwd=Path.cwd(), paths=[Path("multifile_calculator/calculator.py")])
+    session = Session(
+        cwd=Path.cwd(), paths=[Path("multifile_calculator/calculator.py")]
+    )
     session.start()
     await session.stream.recv(channel="client_exit")
 
