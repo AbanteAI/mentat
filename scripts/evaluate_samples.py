@@ -16,7 +16,7 @@ from openai.types.chat import (
 )
 
 from mentat.errors import SampleError
-from mentat.git_handler import get_diff_commit
+from mentat.git_handler import get_git_diff
 from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import get_active_snapshot_commit
@@ -104,7 +104,7 @@ async def evaluate_sample(sample, cwd: Path | str | None = None):
     await python_client.shutdown()
 
     # Get the diff between pre- and post-edit
-    diff_eval = get_diff_commit(commit_active or "HEAD", cwd=cwd)
+    diff_eval = get_git_diff(commit_active or "HEAD", cwd=cwd)
 
     return diff_eval
 

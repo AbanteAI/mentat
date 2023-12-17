@@ -7,7 +7,7 @@ from openai.types.chat import ChatCompletionMessageParam
 
 from mentat.code_feature import get_consolidated_feature_refs
 from mentat.errors import SampleError
-from mentat.git_handler import get_diff_commit, get_git_root_for_path, get_hexsha_active
+from mentat.git_handler import get_git_diff, get_git_root_for_path, get_hexsha_active
 from mentat.parsers.git_parser import GitParser
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import get_active_snapshot_commit
@@ -100,7 +100,7 @@ class Sampler:
                 merge_base = response
         try:
             assert merge_base is not None, "No merge base found"
-            diff_merge_base = get_diff_commit(merge_base, "HEAD")
+            diff_merge_base = get_git_diff(merge_base, "HEAD")
         except (AssertionError, GitCommandError) as e:
             raise SampleError(f"Error getting diff for merge base: {e}")
 
@@ -148,10 +148,10 @@ class Sampler:
                 message_history.append({"role": m["role"], "content": text + code})
 
         diff_active = ""
-        diff_edit = get_diff_commit("HEAD")
+        diff_edit = get_git_diff("HEAD")
         if self.commit_active:
-            diff_active = get_diff_commit("HEAD", self.commit_active)
-            diff_edit = get_diff_commit(self.commit_active)
+            diff_active = get_git_diff("HEAD", self.commit_active)
+            diff_edit = get_git_diff(self.commit_active)
 
         context = set[str]()
 

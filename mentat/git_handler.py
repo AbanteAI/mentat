@@ -222,8 +222,8 @@ def get_default_branch() -> str:
         raise Exception("Unable to determine the default branch.")
 
 
-def get_diff_commit(*args: str, cwd: Optional[Path] = None) -> str:
-    """Return diff of latest commit against sample_merge_base."""
+def get_git_diff(*args: str, cwd: Optional[Path] = None) -> str:
+    """A wrapper on git diff that always includes new/untracked files."""
     if cwd is None:
         session_context = SESSION_CONTEXT.get()
         cwd = session_context.cwd

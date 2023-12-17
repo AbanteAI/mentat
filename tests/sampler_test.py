@@ -11,7 +11,7 @@ from openai.types.chat import (
 )
 
 from mentat.errors import SampleError
-from mentat.git_handler import get_diff_commit
+from mentat.git_handler import get_git_diff
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
 from mentat.python_client.client import PythonClient
@@ -301,7 +301,7 @@ def get_updates_as_parsed_llm_message(cwd):
     repo.git.commit("-m", "temporary commit")
     # Make diff_edit edits
     make_all_update_types(cwd, 2)
-    diff_edit = get_diff_commit("HEAD", cwd)
+    diff_edit = get_git_diff("HEAD", cwd)
     parsedLLMResponse = GitParser().parse_string(diff_edit)
     # Reset hard and remove uncommitted files
     repo.git.reset("--hard")

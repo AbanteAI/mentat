@@ -1,21 +1,21 @@
 import os
 import subprocess
 
-from mentat.git_handler import get_diff_commit, get_hexsha_active
+from mentat.git_handler import get_git_diff, get_hexsha_active
 
 
-def test_get_diff_commit(temp_testbed, mock_session_context):
+def test_get_git_diff(temp_testbed, mock_session_context):
     # Add a new file and commit it, then delete but don't commit
     with open(temp_testbed / "test_file.txt", "w") as f:
         f.write("forty two")
-    assert "forty two" in get_diff_commit("HEAD")
+    assert "forty two" in get_git_diff("HEAD")
     subprocess.run(["git", "add", "."])
     subprocess.run(["git", "commit", "-m", "test commit"])
-    assert "forty two" not in get_diff_commit("HEAD")
-    assert "forty two" in get_diff_commit("HEAD~1", "HEAD")
+    assert "forty two" not in get_git_diff("HEAD")
+    assert "forty two" in get_git_diff("HEAD~1", "HEAD")
     os.remove("test_file.txt")
-    assert "forty two" in get_diff_commit("HEAD")
-    assert "forty two" not in get_diff_commit("HEAD~1")
+    assert "forty two" in get_git_diff("HEAD")
+    assert "forty two" not in get_git_diff("HEAD~1")
 
 
 def test_get_hexsha_active(temp_testbed):
