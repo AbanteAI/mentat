@@ -103,7 +103,7 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
         [
             "Request",
             "y",
-            f"/sample {temp_testbed}",
+            f"/sample {temp_testbed.as_posix()}",
             "",
             "test_url",
             "test_title",
@@ -388,7 +388,7 @@ async def test_sampler_integration(
 
     # Remove all included files; rely on the diff to include them
     python_client.session.ctx.code_context.include_files = {}
-    await python_client.call_mentat(f"/sample {temp_testbed}")
+    await python_client.call_mentat(f"/sample {temp_testbed.as_posix()}")
     await python_client.call_mentat(merge_base)
     await python_client.call_mentat("test_url")
     await python_client.call_mentat("test_title")

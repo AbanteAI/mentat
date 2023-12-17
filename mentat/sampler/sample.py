@@ -29,7 +29,7 @@ class Sample:
     version: str = attr.field(default=__version__)
 
     def save(self, fname: str | Path) -> None:
-        with open(fname, "w") as f:
+        with open(Path(fname), "w") as f:
             json.dump(attr.asdict(self), f, indent=4)
 
     @classmethod
