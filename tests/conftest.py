@@ -372,7 +372,17 @@ def temp_testbed(monkeypatch, get_marks):
         m.chdir(temp_testbed)
         yield Path(temp_testbed)
 
-    shutil.rmtree(temp_dir, onerror=add_permissions)
+    # Retry loop for cleanup to handle PermissionError on Windows
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            shutil.rmtree(temp_dir, onerror=add_permissions)
+            break  # Cleanup successful, exit loop
+        except PermissionError:
+            if attempt < max_retries - 1:
+                time.sleep(1)  # Wait a bit before retrying
+            else:
+                raise  # Re-raise the exception if out of retries
 
 
 # Always set the user config to just be a config in the temp_testbed; that way,
