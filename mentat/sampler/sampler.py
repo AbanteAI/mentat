@@ -179,6 +179,7 @@ class Sampler:
                 context.remove(file_path)
             if rename_path and rename_path in context:
                 context.remove(rename_path)
+        # TODO: Prompt User to modify/approve context
 
         sample = Sample(
             title=title,

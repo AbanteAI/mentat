@@ -26,7 +26,7 @@ class SampleCommand(Command, command_name="sample"):
             samples_dir = mentat_dir_path / "samples"
             samples_dir.mkdir(exist_ok=True)
             fpath = samples_dir / fname
-        sample.save(str(fpath))
+        sample.save(fpath)
         SESSION_CONTEXT.get().stream.send(f"Sample saved to {fpath}.", color="green")
 
     @override

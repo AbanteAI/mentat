@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import attr
 
@@ -27,12 +28,12 @@ class Sample:
     test_command: str = attr.field(default="")
     version: str = attr.field(default=__version__)
 
-    def save(self, fname: str) -> None:
+    def save(self, fname: str | Path) -> None:
         with open(fname, "w") as f:
             json.dump(attr.asdict(self), f, indent=4)
 
     @classmethod
-    def load(cls, fname: str) -> Sample:
+    def load(cls, fname: str | Path) -> Sample:
         with open(fname, "r") as f:
             kwargs = json.load(f)
             _version = kwargs.get("version")

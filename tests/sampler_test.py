@@ -213,7 +213,7 @@ async def test_sample_eval(mock_call_llm_api):
 async def test_sample_version_mismatch(temp_testbed):
     sample = Sample(**test_sample)
     sample.version = "0.0.9"
-    sample_path = str(temp_testbed / "temp_sample.json")
+    sample_path = temp_testbed / "temp_sample.json"
     sample.save(sample_path)
     with pytest.raises(SampleError):
         Sample.load(sample_path)
