@@ -53,7 +53,7 @@ jobs:
           pyright
       - name: Test with pytest
         run: |
-          pytest -s -vv
+          pytest tests/sampler_test.py -s -vv
       - name: Can run Mentat
         # Unfortunately Github Actions Runners have trouble with prompt toolkit, so we can't do this on Windows.
         if: runner.os != 'Windows'

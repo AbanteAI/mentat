@@ -266,10 +266,6 @@ def test_get_active_snapshot_commit(temp_testbed):
     assert (temp_testbed / "scripts" / "graph.py").exists()
     assert not (temp_testbed / "scripts" / "graph_class.py").exists()
 
-    repo.git.reset("--hard")
-    repo.git.clean("-fd")
-
-
 
 def make_all_update_types(cwd, index):
     assert index in range(3)
