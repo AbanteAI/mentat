@@ -373,7 +373,7 @@ def temp_testbed(monkeypatch, get_marks):
         yield Path(temp_testbed)
 
     # Retry loop for cleanup to handle PermissionError on Windows
-    max_retries = 3
+    max_retries = 10
     for attempt in range(max_retries):
         try:
             shutil.rmtree(temp_dir, onerror=add_permissions)
