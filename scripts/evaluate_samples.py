@@ -5,7 +5,7 @@ import asyncio
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 from git import Repo  # type: ignore
@@ -19,7 +19,7 @@ from mentat.errors import SampleError
 from mentat.git_handler import get_diff_commit
 from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
-from mentat.sampler.sampler import get_active_snapshot_commit
+from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import clone_repo, mentat_dir_path
 
@@ -29,17 +29,6 @@ def warn(msg: Any):
 
 
 SAMPLES_DIR = mentat_dir_path / "samples"
-
-
-def find_sample_files(sample_ids: Optional[list[str]] = None) -> list[Path]:
-    """Return paths to samples in SAMPLES_DIR, optionally filtered by sample_ids."""
-    if sample_ids:
-        sample_files = []
-        for sample_id in sample_ids:
-            sample_files.extend(list(SAMPLES_DIR.glob(f"*{sample_id}*.json")))
-        return sample_files
-    else:
-        return SAMPLES_DIR.glob("*.json")
 
 
 def apply_diff_to_repo(diff: str, repo: Repo, commit: bool = False) -> str | None:
@@ -62,8 +51,10 @@ def apply_diff_to_repo(diff: str, repo: Repo, commit: bool = False) -> str | Non
         return str(e)
 
 
-def setup_repo(sample: Sample, cwd: Path | str | None = None) -> Path:
-    """Clone repo, checkout merge_base, apply diff_merge_base and diff_active, return cwd."""
+async def evaluate_sample(sample, cwd: Path | str | None = None):
+    """Run a sample using Mentat and return the resulting diff"""
+
+    # Setup repo
     if cwd is None:
         cwd = clone_repo(
             url=sample.repo,
@@ -88,19 +79,11 @@ def setup_repo(sample: Sample, cwd: Path | str | None = None) -> Path:
         errors = apply_diff_to_repo(sample.diff_active, repo)
         if errors:
             raise SampleError(f"Error applying diff_active: {errors}")
-    return cwd
 
+    # Make a commit from the pre-edited state (should match diff_active)
+    commit_active = get_active_snapshot_commit(repo)
 
-def _message(m):
-    role, content = m.get("role"), m.get("content", "")
-    if role == "user":
-        return ChatCompletionUserMessageParam(role=role, content=content)
-    elif role == "assistant":
-        return ChatCompletionAssistantMessageParam(role=role, content=content)
-
-
-async def run_mentat_on_sample(sample: Sample, cwd: Path):
-    """Initialize mentat in given cwd and run the sample."""
+    # Run sample in PythonClient
     paths = list[Path]()
     for a in sample.context:
         paths.append(Path(a))
@@ -109,18 +92,18 @@ async def run_mentat_on_sample(sample: Sample, cwd: Path):
     session_context = SESSION_CONTEXT.get()
     conversation = session_context.conversation
     for msg in sample.message_history:
-        conversation.add_message(_message(msg))
+        msg_cls = {
+            "user": ChatCompletionUserMessageParam,
+            "assistant": ChatCompletionAssistantMessageParam,
+        }.get(msg["role"])
+        if msg_cls is None:
+            raise SampleError(f"Invalid role found in message_history: {msg['role']}")
+        conversation.add_message(msg_cls(role=msg["role"], content=msg["content"]))
     await python_client.call_mentat_auto_accept(sample.message_prompt)
     await python_client.wait_for_edit_completion()
     await python_client.shutdown()
 
-
-async def evaluate_sample(sample, cwd: Path | str | None = None):
-    """Run a sample using Mentat and return the resulting diff"""
-    cwd = setup_repo(sample, cwd)
-    repo = Repo(cwd)
-    commit_active = get_active_snapshot_commit(repo)
-    await run_mentat_on_sample(sample, cwd)
+    # Get the diff between pre- and post-edit
     diff_eval = get_diff_commit(commit_active or "HEAD", cwd=cwd)
 
     return diff_eval
@@ -130,10 +113,16 @@ async def main():
     parser = argparse.ArgumentParser(description="Evaluate code samples.")
     parser.add_argument("sample_ids", nargs="*", help="Optional sample IDs to evaluate")
     args = parser.parse_args()
-    sample_files = find_sample_files(args.sample_ids)
+    sample_files = []
+    if args.sample_ids:
+        for sample_id in args.sample_ids:
+            sample_files.extend(list(SAMPLES_DIR.glob(f"*{sample_id}*.json")))
+    else:
+        sample_files = SAMPLES_DIR.glob("*.json")
     if not sample_files:
-        print(f"No {'matching' if args.sample_ids else ''} sample files found.")
+        print(f"No {'matching ' if args.sample_ids else ''}sample files found.")
         return
+
     for sample_file in sample_files:
         if sample_file.exists():
             sample = Sample.load(sample_file)

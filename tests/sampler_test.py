@@ -17,7 +17,8 @@ from mentat.parsers.git_parser import GitParser
 from mentat.python_client.client import PythonClient
 from mentat.sampler import __version__
 from mentat.sampler.sample import Sample
-from mentat.sampler.sampler import Sampler, get_active_snapshot_commit
+from mentat.sampler.sampler import Sampler
+from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session import Session
 from scripts.evaluate_samples import evaluate_sample
 
@@ -133,7 +134,7 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
         # forty two
         @@end""")])
 
-    session = Session(cwd=Path.cwd(), paths=["multifile_calculator/calculator.py"])
+    session = Session(cwd=Path.cwd(), paths=[Path("multifile_calculator/calculator.py")])
     session.start()
     await session.stream.recv(channel="client_exit")
 

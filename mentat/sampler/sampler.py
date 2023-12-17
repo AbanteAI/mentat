@@ -10,6 +10,7 @@ from mentat.errors import SampleError
 from mentat.git_handler import get_diff_commit, get_git_root_for_path, get_hexsha_active
 from mentat.parsers.git_parser import GitParser
 from mentat.sampler.sample import Sample
+from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import collect_user_input
 from mentat.utils import get_relative_path
@@ -41,42 +42,6 @@ def parse_message(message: ChatCompletionMessageParam) -> dict[str, str]:
         if "text" in content and isinstance(content.get("text"), str):  # type: ignore
             text = content.get("text")  # type: ignore
     return {"text": text, "code": code}
-
-
-def get_active_snapshot_commit(repo: Repo) -> str | None:
-    """Returns the commit hash of the current active snapshot, or None if there are no active changes."""
-    if not repo.is_dirty():
-        return None
-    try:
-        # Stash active changes and record the current position
-        repo.git.add("--all")  # So new files are included
-        repo.git.stash("push", "-u")
-        detached_head = repo.head.is_detached
-        if detached_head:
-            current_state = repo.head.commit.hexsha
-        else:
-            current_state = repo.active_branch.name
-        # Commit them on a temporary branch
-        temp_branch = f"sample_{uuid4().hex}"
-        repo.git.checkout("-b", temp_branch)
-        repo.git.stash("apply")
-        repo.git.commit("-am", temp_branch)
-        # Save the commit hash for diffing against later
-        new_commit = repo.head.commit.hexsha
-        # Reset repo to how it was before
-        repo.git.checkout(current_state)
-        repo.git.branch("-D", temp_branch)
-        repo.git.stash("apply")
-        repo.git.stash("drop")
-        # Return the hexsha of the new commit
-        return new_commit
-
-    except Exception as e:
-        raise SampleError(
-            "WARNING: Mentat encountered an error while making temporary git changes:"
-            f" {e}. If your active changes have disappeared, they can most likely be "
-            "recovered using 'git stash pop'."
-        )
 
 
 class Sampler:
