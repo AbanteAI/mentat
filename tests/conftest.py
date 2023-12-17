@@ -329,7 +329,7 @@ def add_permissions(func, path, exc_info):
     If the error is for another reason it re-raises the error.
     """
     # Retry loop for cleanup to handle PermissionError on Windows
-    for root, dirs, files in os.walk(directory):
+    for root, dirs, files in os.walk(path):
         for name in files + dirs:
             path = os.path.join(root, name)
             st = os.stat(path)
