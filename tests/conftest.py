@@ -328,14 +328,6 @@ def add_permissions(func, path, exc_info):
 
     If the error is for another reason it re-raises the error.
     """
-    # Retry loop for cleanup to handle PermissionError on Windows
-    for root, dirs, files in os.walk(path):
-        for name in files + dirs:
-            path = os.path.join(root, name)
-            st = os.stat(path)
-            permissions = stat.filemode(st.st_mode)
-            print(f"{path}: {permissions}")
-
     # Is the error an access error?
     if not os.access(path, os.W_OK):
         os.chmod(path, stat.S_IWUSR)
@@ -380,6 +372,15 @@ def temp_testbed(monkeypatch, get_marks):
         yield Path(temp_testbed)
 
     # Retry loop for cleanup to handle PermissionError on Windows
+    # Retry loop for cleanup to handle PermissionError on Windows
+    for root, dirs, files in os.walk(temp_dir):
+        for name in files + dirs:
+            path = os.path.join(root, name)
+            st = os.stat(path)
+            permissions = stat.filemode(st.st_mode)
+            print(f"{path}: {permissions}")
+
+
     max_retries = 10
     for attempt in range(max_retries):
         try:
