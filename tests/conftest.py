@@ -371,26 +371,34 @@ def temp_testbed(monkeypatch, get_marks):
         m.chdir(temp_testbed)
         yield Path(temp_testbed)
 
-    # Retry loop for cleanup to handle PermissionError on Windows
-    # Retry loop for cleanup to handle PermissionError on Windows
-    for root, dirs, files in os.walk(temp_dir):
-        for name in files + dirs:
-            path = os.path.join(root, name)
-            st = os.stat(path)
-            permissions = stat.filemode(st.st_mode)
-            print(f"{path}: {permissions}")
-
-
-    max_retries = 10
-    for attempt in range(max_retries):
+    # remove paths one-by-one to troubleshoot issue
+    def remove_path(path, retries=1):
         try:
-            shutil.rmtree(temp_dir, onerror=add_permissions)
-            break  # Cleanup successful, exit loop
-        except PermissionError:
-            if attempt < max_retries - 1:
-                time.sleep(1)  # Wait a bit before retrying
+            if os.path.isdir(path):
+                os.rmdir(path)
             else:
-                raise  # Re-raise the exception if out of retries
+                os.remove(path)
+        except PermissionError as e:
+            if retries > 1:
+                print(f"ERROR REMOVING {path}, RETRYING")
+                if not os.access(path, os.W_OK):
+                    os.chmod(path, stat.S_IWUSR)
+                return remove_path(path, retries - 1)
+            else:
+                raise e
+
+    for root, dirs, files in os.walk(temp_dir, topdown=False):
+        for name in files:
+            file_path = os.path.join(root, name)
+            remove_path(file_path)
+        for name in dirs:
+            dir_path = os.path.join(root, name)
+            remove_path(dir_path)
+
+    try:
+        os.rmdir(temp_dir)
+    except Exception as e:
+        print(f"Unable to remove temp_dir {temp_dir}: {e}")
 
 
 # Always set the user config to just be a config in the temp_testbed; that way,
