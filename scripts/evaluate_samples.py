@@ -12,7 +12,6 @@ from git import Repo  # type: ignore
 from git.exc import GitCommandError
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
-    ChatCompletionMessageParam,
     ChatCompletionUserMessageParam,
 )
 
@@ -98,6 +97,7 @@ def _message(m):
         return ChatCompletionUserMessageParam(role=role, content=content)
     elif role == "assistant":
         return ChatCompletionAssistantMessageParam(role=role, content=content)
+
 
 async def run_mentat_on_sample(sample: Sample, cwd: Path):
     """Initialize mentat in given cwd and run the sample."""

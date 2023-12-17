@@ -171,7 +171,9 @@ class Sampler:
         for m in conversation.get_messages()[::-1]:
             if m["role"] not in {"user", "assistant"}:
                 continue
-            text = parse_message(m)["text"]
+            parsed = parse_message(m)
+            text = parsed["text"]
+            code = parsed["code"]
             if not message_prompt:
                 if m["role"] == "user":
                     message_prompt = text
@@ -187,8 +189,10 @@ class Sampler:
             diff_edit = get_diff_commit(self.commit_active)
 
         context = set[str]()
+
         def _rp(f: str | Path) -> str:
             return get_relative_path(Path(f), cwd).as_posix()
+
         # Add include_files from context
         if code_context.include_files:
             feature_refs = get_consolidated_feature_refs(

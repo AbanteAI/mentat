@@ -149,7 +149,7 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
     assert sample.diff_active == ""
     assert sample.message_history == []
     assert sample.message_prompt == "Request"
-    assert sample.message_edit == ("I will insert a comment in both files.")
+    assert sample.message_edit == "I will insert a comment in both files."
     assert sample.context == [
         "multifile_calculator/calculator.py",
     ]
@@ -212,7 +212,7 @@ async def test_sample_version_mismatch(temp_testbed):
     sample.version = "0.0.9"
     sample_path = str(temp_testbed / "temp_sample.json")
     sample.save(sample_path)
-    with pytest.raises(SampleError) as exc_info:
+    with pytest.raises(SampleError):
         Sample.load(sample_path)
 
 
