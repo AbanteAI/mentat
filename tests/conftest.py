@@ -1,7 +1,9 @@
+import gc
 import os
 import shutil
 import stat
 import subprocess
+import traceback
 import tempfile
 import time
 from datetime import datetime
@@ -329,6 +331,7 @@ def add_permissions(func, path, exc_info):
     If the error is for another reason it re-raises the error.
     """
 
+    gc.collect()  # Force garbage collection
     # Is the error an access error?
     if not os.access(path, os.W_OK):
         os.chmod(path, stat.S_IWUSR)

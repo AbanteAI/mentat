@@ -222,7 +222,8 @@ async def test_sample_version_mismatch(temp_testbed):
 def test_get_active_snapshot_commit(temp_testbed):
     repo = Repo(temp_testbed)
     # Add a test file and do an initial commit
-    (temp_testbed / "test_file.py").write_text("test")
+    with open(temp_testbed / "test_file.py", "w") as f:
+        f.write("test")
     repo.git.add("test_file.py")
     repo.git.commit("-m", "test commit")
     assert get_active_snapshot_commit(repo) is None  # No changes
@@ -237,7 +238,8 @@ def test_get_active_snapshot_commit(temp_testbed):
         f.writelines(lines)
 
     # Create, Delete and Rename Files
-    (temp_testbed / "scripts" / "calculator2.py").write_text("test")
+    with open(temp_testbed / "scripts" / "calculator2.py", "w") as f:
+        f.write("test")
     (temp_testbed / "scripts" / "echo.py").unlink()
     (temp_testbed / "scripts" / "graph_class.py").rename(
         temp_testbed / "scripts" / "graph.py"
@@ -255,7 +257,8 @@ def test_get_active_snapshot_commit(temp_testbed):
     assert "graph.py" in diff
 
     # Confirm current working files are unchanged
-    new_lines = open(temp_testbed / "scripts" / "calculator.py", "r").readlines()
+    with open(temp_testbed / "scripts" / "calculator.py", "r") as f:
+        new_lines = f.readlines()
     for _line, _new_line in zip(lines, new_lines):
         assert _line == _new_line
     assert (temp_testbed / "scripts" / "calculator2.py").exists()
@@ -285,7 +288,8 @@ def make_all_update_types(cwd, index):
         f.write("\n".join(lines))
 
     # Create, Delete and Rename Files
-    (cwd / "multifile_calculator" / f"calculator{index}.py").write_text("test\n")
+    with open(cwd / "multifile_calculator" / f"calculator{index}.py", "w") as f:
+        f.write("test\n")
     format_examples = ["block.txt", "git_diff.txt", "replacement.txt"]
     (cwd / "format_examples" / format_examples[index]).unlink()
     old_name = "echo.py" if index == 0 else f"echo{index-1}.py"
