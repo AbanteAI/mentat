@@ -10,7 +10,7 @@ import sys
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "Mentat"
-copyright = "2023, Multiple Authors"
+copyright = "2023, Abante AI"
 author = "Multiple Authors"
 release = "1.0.6"
 
