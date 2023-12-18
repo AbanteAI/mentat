@@ -9,7 +9,6 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
 )
 
-from mentat.code_feature import CodeMessageLevel
 from mentat.llm_api_handler import prompt_tokens
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
@@ -42,7 +41,7 @@ class AgentHandler:
         ctx.stream.send(
             "Finding files to determine how to test changes...", color="cyan"
         )
-        features = ctx.code_context.get_all_features(CodeMessageLevel.FILE_NAME)
+        features = ctx.code_context.get_all_features(files_only=True)
         messages: List[ChatCompletionMessageParam] = [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_file_selection_prompt

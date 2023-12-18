@@ -1,6 +1,6 @@
 from typing import Optional
 
-from mentat.code_feature import CodeFeature, CodeMessageLevel
+from mentat.code_feature import CodeFeature
 from mentat.errors import ContextSizeInsufficient, ModelError
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
 from mentat.feature_filters.feature_filter import FeatureFilter
@@ -21,7 +21,6 @@ class DefaultFilter(FeatureFilter):
         self.max_tokens = max_tokens
         self.use_llm = use_llm
         self.user_prompt = user_prompt or ""
-        self.levels = [CodeMessageLevel.FILE_NAME]
         self.expected_edits = expected_edits
         self.loading_multiplier = loading_multiplier
 
@@ -38,7 +37,6 @@ class DefaultFilter(FeatureFilter):
                 features = await LLMFeatureFilter(
                     self.max_tokens,
                     self.user_prompt,
-                    self.levels,
                     self.expected_edits,
                     (0.5 if self.user_prompt != "" else 1) * self.loading_multiplier,
                 ).filter(features)
@@ -48,11 +46,11 @@ class DefaultFilter(FeatureFilter):
                     " instead."
                 )
                 features = await TruncateFilter(
-                    self.max_tokens, ctx.config.model, self.levels
+                    self.max_tokens, ctx.config.model
                 ).filter(features)
         else:
-            features = await TruncateFilter(
-                self.max_tokens, ctx.config.model, self.levels
-            ).filter(features)
+            features = await TruncateFilter(self.max_tokens, ctx.config.model).filter(
+                features
+            )
 
         return features

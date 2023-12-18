@@ -8,11 +8,7 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
 )
 
-from mentat.code_feature import (
-    CodeFeature,
-    CodeMessageLevel,
-    get_code_message_from_features,
-)
+from mentat.code_feature import CodeFeature, get_code_message_from_features
 from mentat.errors import ModelError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
@@ -29,13 +25,11 @@ class LLMFeatureFilter(FeatureFilter):
         self,
         max_tokens: int,
         user_prompt: Optional[str] = None,
-        levels: list[CodeMessageLevel] = [],
         expected_edits: Optional[list[str]] = None,
         loading_multiplier: float = 0.0,
     ):
         self.max_tokens = max_tokens
         self.user_prompt = user_prompt or ""
-        self.levels = levels
         self.expected_edits = expected_edits
         self.loading_multiplier = loading_multiplier
 
@@ -74,9 +68,7 @@ class LLMFeatureFilter(FeatureFilter):
             - expected_edits_tokens
             - config.token_buffer
         )
-        truncate_filter = TruncateFilter(
-            preselect_max_tokens, model, levels=self.levels
-        )
+        truncate_filter = TruncateFilter(preselect_max_tokens, model)
         preselected_features = await truncate_filter.filter(features)
 
         # Ask the model to return only relevant features
@@ -161,11 +153,7 @@ class LLMFeatureFilter(FeatureFilter):
                     f"No input feature found for llm-selected {parsed_feature}"
                 )
             # Copy metadata
-            parsed_feature.user_included = any(f.user_included for f in matching_inputs)
-            diff = any(f.diff for f in matching_inputs)
             name = any(f.name for f in matching_inputs)
-            if diff:
-                parsed_feature.diff = next(f.diff for f in matching_inputs if f.diff)
             if name:
                 parsed_feature.name = next(f.name for f in matching_inputs if f.name)
 

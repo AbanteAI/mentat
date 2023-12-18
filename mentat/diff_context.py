@@ -148,6 +148,8 @@ class DiffContext:
 
     _files_cache: list[Path] | None = None
 
+    # TODO: No need for this to be a cache; make this a function and make sure we don't call it too much
+    # Being a cache also means it sometimes misses new files
     @property
     def files(self) -> list[Path]:
         session_context = SESSION_CONTEXT.get()

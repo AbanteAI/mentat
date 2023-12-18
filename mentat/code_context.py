@@ -6,7 +6,6 @@ from typing import Dict, Iterable, List, Optional, Set, Union
 
 from mentat.code_feature import (
     CodeFeature,
-    CodeMessageLevel,
     get_code_message_from_features,
     get_consolidated_feature_refs,
     parse_intervals,
@@ -32,7 +31,6 @@ from mentat.interval import split_intervals_from_path
 from mentat.llm_api_handler import count_tokens, get_max_tokens, model_context_check
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
-from mentat.utils import get_relative_path
 
 
 class CodeContext:
@@ -55,9 +53,7 @@ class CodeContext:
                 stream, self.git_root, self.diff, self.pr_diff
             )
 
-        # TODO: This is a dict so we can quickly reference either a path (key)
-        # or the CodeFeatures (value) and their intervals. Redundant.
-        self.include_files: Dict[Path, List[CodeFeature]] = {}
+        self.include_files: List[CodeFeature] = []
         self.ignore_files: Set[Path] = set()
         self.auto_features: List[CodeFeature] = []
 
@@ -83,10 +79,7 @@ class CodeContext:
         if self.include_files:
             stream.send(f"{prefix}Included files:")
             stream.send(f"{prefix + prefix}{session_context.cwd.name}")
-            features = [
-                _feat for _file in self.include_files.values() for _feat in _file
-            ]
-            refs = get_consolidated_feature_refs(features)
+            refs = get_consolidated_feature_refs(list(self.include_files.values()))
             print_path_tree(
                 build_path_tree([Path(r) for r in refs], session_context.cwd),
                 get_paths_with_git_diffs(self.git_root) if self.git_root else set(),
@@ -141,8 +134,9 @@ class CodeContext:
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
 
-        include_files_features = self._get_include_features()
-        include_files_message = get_code_message_from_features(include_files_features)
+        include_files_message = get_code_message_from_features(
+            list(self.include_files.values())
+        )
         include_files_tokens = count_tokens(
             "\n".join(include_files_message), model, full_message=False
         )
@@ -155,9 +149,7 @@ class CodeContext:
         auto_tokens = min(get_max_tokens() - tokens_used, config.auto_tokens)
 
         if config.auto_context and auto_tokens > 0:
-            features = self.get_all_features(
-                CodeMessageLevel.INTERVAL,
-            )
+            features = self.get_all_features()
             feature_filter = DefaultFilter(
                 auto_tokens,
                 self.use_llm,
@@ -170,39 +162,14 @@ class CodeContext:
         # TODO: Merge auto features and include features and add to code message
         return "\n".join(code_message)
 
-    def _get_include_features(self) -> list[CodeFeature]:
-        session_context = SESSION_CONTEXT.get()
-
-        include_features: List[CodeFeature] = []
-        for path, features in self.include_files.items():
-            annotations = []
-            if self.diff_context:
-                annotations = self.diff_context.get_annotations(path)
-
-            for feature in features:
-                diff = None
-                if self.diff_context:
-                    has_diff = any(a.intersects(feature.interval) for a in annotations)
-                    diff = self.diff_context.target if has_diff else None
-
-                feature = CodeFeature(
-                    feature.ref(),
-                    feature.level,
-                    diff=diff,
-                    user_included=True,
-                )
-                include_features.append(feature)
-
-        def _feature_relative_path(f: CodeFeature) -> str:
-            return str(get_relative_path(f.path, session_context.cwd))
-
-        return sorted(include_features, key=_feature_relative_path)
-
     def get_all_features(
         self,
-        level: CodeMessageLevel,
         max_chars: int = 100000,
+        files_only: bool = False,
     ) -> list[CodeFeature]:
+        """
+        Retrieves every CodeFeature under the cwd. If files_only is True the features won't be split into intervals
+        """
         session_context = SESSION_CONTEXT.get()
 
         abs_exclude_patterns: Set[Path] = set()
@@ -221,33 +188,13 @@ class CodeContext:
             if not is_file_text_encoded(path) or os.path.getsize(path) > max_chars:
                 continue
 
-            diff_target = None
-            if self.diff_context:
-                diff_target = (
-                    self.diff_context.target
-                    if path in self.diff_context.files
-                    else None
-                )
-
-            user_included = path in self.include_files
-
-            if level == CodeMessageLevel.INTERVAL:
-                full_feature = CodeFeature(
-                    path,
-                    level=CodeMessageLevel.CODE,
-                    diff=diff_target,
-                    user_included=user_included,
-                )
-                _split_features = split_file_into_intervals(
-                    full_feature,
-                    user_features=self.include_files.get(path, []),
-                )
-                all_features += _split_features
-            else:
-                _feature = CodeFeature(
-                    path, level=level, diff=diff_target, user_included=user_included
-                )
+            if files_only:
+                _feature = CodeFeature(path)
                 all_features.append(_feature)
+            else:
+                full_feature = CodeFeature(path)
+                _split_features = split_file_into_intervals(full_feature)
+                all_features += _split_features
 
         return sorted(all_features, key=lambda f: f.path)
 
@@ -432,13 +379,10 @@ class CodeContext:
         self,
         query: str,
         max_results: int | None = None,
-        level: CodeMessageLevel = CodeMessageLevel.INTERVAL,
     ) -> list[tuple[CodeFeature, float]]:
         """Return the top n features that are most similar to the query."""
 
-        all_features = self.get_all_features(
-            level,
-        )
+        all_features = self.get_all_features()
 
         embedding_similarity_filter = EmbeddingSimilarityFilter(query)
         all_features_sorted = await embedding_similarity_filter.score(all_features)

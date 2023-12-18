@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from mentat.code_feature import CodeFeature, CodeMessageLevel
+from mentat.code_feature import CodeFeature
 from mentat.feature_filters.feature_filter import FeatureFilter
 
 
@@ -9,11 +9,9 @@ class TruncateFilter(FeatureFilter):
         self,
         max_tokens: int,
         model: str = "gpt-4",
-        levels: list[CodeMessageLevel] = [],
     ):
         self.max_tokens = max_tokens
         self.model = model
-        self.levels = levels
 
     async def filter(
         self,
@@ -23,13 +21,9 @@ class TruncateFilter(FeatureFilter):
         output = list[CodeFeature]()
         remaining_tokens = self.max_tokens
         for feature in features:
-            _levels = list(set(self.levels) | {feature.level})
-            _levels = sorted(list(_levels), key=lambda v: v.rank)
-            for level in _levels:
-                feature.level = level
-                if feature.count_tokens(self.model) <= remaining_tokens:
-                    output.append(feature)
-                    remaining_tokens -= feature.count_tokens(self.model)
-                    break
+            if feature.count_tokens(self.model) <= remaining_tokens:
+                output.append(feature)
+                remaining_tokens -= feature.count_tokens(self.model)
+                break
 
         return output
