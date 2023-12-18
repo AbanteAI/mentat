@@ -109,7 +109,7 @@ class Session:
             and len(code_context.include_files) == 0
             and (diff or pr_diff)
         ):
-            for file in code_context.diff_context.files:
+            for file in code_context.diff_context.diff_files():
                 code_context.include(file)
 
     def _create_task(self, coro: Coroutine[None, None, Any]):

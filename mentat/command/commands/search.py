@@ -73,7 +73,7 @@ class SearchCommand(Command, command_name="search"):
             message = f"{str(i).ljust(3)}" + prefix.join([file_name] + name + [""])
             stream.send(message)
             if i > 1 and i % SEARCH_RESULT_BATCH_SIZE == 0:
-                # TODO: Required to avoid circular imports, but not ideal.
+                # Required to avoid circular imports, but not ideal.
                 from mentat.session_input import collect_user_input
 
                 stream.send(

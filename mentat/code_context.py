@@ -53,7 +53,7 @@ class CodeContext:
                 stream, self.git_root, self.diff, self.pr_diff
             )
 
-        self.include_files: List[CodeFeature] = []
+        self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
         self.auto_features: List[CodeFeature] = []
 
@@ -79,7 +79,12 @@ class CodeContext:
         if self.include_files:
             stream.send(f"{prefix}Included files:")
             stream.send(f"{prefix + prefix}{session_context.cwd.name}")
-            refs = get_consolidated_feature_refs(list(self.include_files.values()))
+            features = [
+                feature
+                for file_features in self.include_files.values()
+                for feature in file_features
+            ]
+            refs = get_consolidated_feature_refs(features)
             print_path_tree(
                 build_path_tree([Path(r) for r in refs], session_context.cwd),
                 get_paths_with_git_diffs(self.git_root) if self.git_root else set(),
@@ -121,22 +126,24 @@ class CodeContext:
 
         # Setup code message metadata
         code_message = list[str]()
-        if self.diff_context:
-            self.diff_context.clear_cache()
-            if self.diff_context.files:
-                code_message += [
-                    "Diff References:",
-                    f' "-" = {self.diff_context.name}',
-                    ' "+" = Active Changes',
-                    "",
-                ]
+        if self.diff_context and self.diff_context.diff_files():
+            code_message += [
+                "Diff References:",
+                f' "-" = {self.diff_context.name}',
+                ' "+" = Active Changes',
+                "",
+            ]
 
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
 
-        include_files_message = get_code_message_from_features(
-            list(self.include_files.values())
-        )
+        # Calculate user included features token size
+        include_features = [
+            feature
+            for file_features in self.include_files.values()
+            for feature in file_features
+        ]
+        include_files_message = get_code_message_from_features(include_features)
         include_files_tokens = count_tokens(
             "\n".join(include_files_message), model, full_message=False
         )
@@ -148,7 +155,8 @@ class CodeContext:
             raise ContextSizeInsufficient
         auto_tokens = min(get_max_tokens() - tokens_used, config.auto_tokens)
 
-        if config.auto_context and auto_tokens > 0:
+        # Get auto included features
+        if config.auto_context:
             features = self.get_all_features()
             feature_filter = DefaultFilter(
                 auto_tokens,
@@ -158,8 +166,12 @@ class CodeContext:
                 loading_multiplier=loading_multiplier,
             )
             self.auto_features = await feature_filter.filter(features)
-            code_message += get_code_message_from_features(features)
-        # TODO: Merge auto features and include features and add to code message
+
+        # Merge include file features and auto features and add to code message
+        code_message += get_code_message_from_features(
+            include_features + self.auto_features
+        )
+
         return "\n".join(code_message)
 
     def get_all_features(
@@ -198,10 +210,36 @@ class CodeContext:
 
         return sorted(all_features, key=lambda f: f.path)
 
+    def _include_features(self, code_features: Set[CodeFeature]):
+        included_paths: Set[Path] = set()
+        for code_feature in code_features:
+            if code_feature.path not in self.include_files:
+                self.include_files[code_feature.path] = [code_feature]
+                included_paths.add(Path(code_feature.ref()))
+            else:
+                code_feature_not_included = True
+                for included_code_feature in self.include_files[code_feature.path]:
+                    # Intervals can still overlap if user includes intervals different than what ctags breaks up,
+                    # but we merge when making code message and don't duplicate lines
+                    if (
+                        included_code_feature.interval == code_feature.interval
+                        # No need to include an interval if the entire file is already included
+                        or included_code_feature.interval.whole_file()
+                    ):
+                        code_feature_not_included = False
+                        break
+                if code_feature_not_included:
+                    if code_feature.interval.whole_file():
+                        self.include_files[code_feature.path] = []
+                    self.include_files[code_feature.path].append(code_feature)
+                    included_paths.add(Path(code_feature.ref()))
+        return included_paths
+
     def include(
         self, path: Path | str, exclude_patterns: Iterable[Path | str] = []
     ) -> Set[Path]:
-        """Add code to the context
+        """
+        Add paths to the context
 
         Paths that are already in the context and invalid paths are ignored.
 
@@ -236,7 +274,6 @@ class CodeContext:
             else:
                 abs_exclude_patterns.add(Path(pattern))
 
-        included_paths: Set[Path] = set()
         try:
             code_features = get_code_features_for_path(
                 path=path,
@@ -245,29 +282,9 @@ class CodeContext:
             )
         except PathValidationError as e:
             session_context.stream.send(str(e), color="light_red")
-            return included_paths
+            return set()
 
-        for code_feature in code_features:
-            # Path not in included files
-            if code_feature.path not in self.include_files:
-                self.include_files[code_feature.path] = [code_feature]
-                included_paths.add(Path(code_feature.ref()))
-            # Path in included files
-            else:
-                code_feature_not_included = True
-                # NOTE: should have CodeFeatures in a hashtable
-                for included_code_feature in self.include_files[code_feature.path]:
-                    # TODO: If intervals overlap this will have duplicate lines in features
-                    # This can happen if the user specifically includes intervals different than ctags breaks up,
-                    # or if a full file is included and an interval of the file is included.
-                    if included_code_feature.interval == code_feature.interval:
-                        code_feature_not_included = False
-                        break
-                if code_feature_not_included:
-                    self.include_files[code_feature.path].append(code_feature)
-                    included_paths.add(Path(code_feature.ref()))
-
-        return included_paths
+        return self._include_features(code_features)
 
     def _exclude_file(self, path: Path) -> Path | None:
         session_context = SESSION_CONTEXT.get()

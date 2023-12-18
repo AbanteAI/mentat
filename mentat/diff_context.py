@@ -146,38 +146,24 @@ class DiffContext:
         self.target = target
         self.name = name
 
-    _files_cache: list[Path] | None = None
-
-    # TODO: No need for this to be a cache; make this a function and make sure we don't call it too much
-    # Being a cache also means it sometimes misses new files
-    @property
-    def files(self) -> list[Path]:
+    def diff_files(self) -> list[Path]:
         session_context = SESSION_CONTEXT.get()
 
-        if self._files_cache is None:
-            if self.target == "HEAD" and not check_head_exists():
-                return []  # A new repo without any commits
-            self._files_cache = [
-                session_context.cwd / f for f in get_files_in_diff(self.target)
-            ]
-        return self._files_cache
-
-    _annotations_cache: dict[Path, list[DiffAnnotation]] = {}
+        if self.target == "HEAD" and not check_head_exists():
+            return []  # A new repo without any commits
+        return [session_context.cwd / f for f in get_files_in_diff(self.target)]
 
     def get_annotations(self, rel_path: Path) -> list[DiffAnnotation]:
-        if rel_path not in self.files:
-            return []
-        if rel_path not in self._annotations_cache:
-            diff = get_diff_for_file(self.target, rel_path)
-            self._annotations_cache[rel_path] = parse_diff(diff)
-        return self._annotations_cache[rel_path]
+        diff = get_diff_for_file(self.target, rel_path)
+        return parse_diff(diff)
 
     def get_display_context(self) -> str:
-        if not self.files:
+        diff_files = self.diff_files()
+        if not diff_files:
             return ""
-        num_files = len(self.files)
+        num_files = len(diff_files)
         num_lines = 0
-        for file in self.files:
+        for file in diff_files:
             diff = get_diff_for_file(self.target, file)
             diff_lines = diff.splitlines()
             num_lines += len(
@@ -191,9 +177,6 @@ class DiffContext:
         """Return file_message annotated with active diff."""
         annotations = self.get_annotations(rel_path)
         return annotate_file_message(file_message, annotations)
-
-    def clear_cache(self):
-        self._files_cache = None
 
 
 TreeishType = Literal["commit", "branch", "relative"]

@@ -91,7 +91,6 @@ class CodeFeature:
         interval: The lines in the file.
     """
 
-    # TODO: Make code features have a list of intervals, and merge all features with same path
     def __init__(
         self,
         path: str | Path,
@@ -136,14 +135,16 @@ class CodeFeature:
             interval_string = ""
         return interval_string
 
-    # TODO: Intervals should never be accessed as a string outside of user input
+    # TODO THIS MERGE: Intervals should never be accessed as a string outside of user input
     def ref(self, cwd: Optional[Path] = None) -> str:
         return self.rel_path(cwd) + self.interval_string()
 
-    def contains_line(self, line_number: int):
-        return self.interval.contains(line_number)
-
-    def get_code_message(self) -> list[str]:
+    def get_code_message(self, standalone: bool = True) -> list[str]:
+        """
+        Gets this code features code message.
+        If standalone is true, will include the filename at top and extra newline at the end.
+        If feature contains entire file, will add inline diff annotations; otherwise, will append them to the end.
+        """
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
         parser = session_context.config.parser
@@ -151,21 +152,24 @@ class CodeFeature:
 
         code_message: list[str] = []
 
-        # We always want to give GPT posix paths
-        code_message_path = get_relative_path(self.path, session_context.cwd)
-        code_message.append(str(code_message_path.as_posix()))
+        if standalone:
+            # We always want to give GPT posix paths
+            code_message_path = get_relative_path(self.path, session_context.cwd)
+            code_message.append(str(code_message_path.as_posix()))
 
         # Get file lines
         file_lines = code_file_manager.read_file(self.path)
         for i, line in enumerate(file_lines):
-            if self.contains_line(i + 1):
+            if self.interval.contains(i + 1):
                 if parser.provide_line_numbers():
                     code_message.append(
                         f"{i + parser.line_number_starting_index()}:{line}"
                     )
                 else:
                     code_message.append(f"{line}")
-        code_message.append("")
+
+        if standalone:
+            code_message.append("")
 
         if code_context.diff_context is not None:
             diff = get_diff_for_file(code_context.diff_context.target, self.path)
@@ -201,28 +205,35 @@ async def count_feature_tokens(features: list[CodeFeature], model: str) -> list[
     return await asyncio.gather(*tasks)
 
 
-def get_code_message_from_intervals(features: list[CodeFeature]) -> list[str]:
-    """Merge multiple features for the same file into a single code message"""
-    features_sorted = sorted(features, key=lambda f: f.interval.start)
+def _get_code_message_from_intervals(features: list[CodeFeature]) -> list[str]:
+    """
+    Merge multiple features for the same file into a single code message.
+    """
+    features_sorted = sorted(features, key=lambda f: f.interval)
     posix_path = features_sorted[0].get_code_message()[0]
     code_message = [posix_path]
     next_line = 1
     for feature in features_sorted:
         starting_line = feature.interval.start
+        feature_to_use = feature
         if starting_line < next_line:
-            logging.warning(f"Features overlap: {feature}")
+            logging.info(f"Features overlap: {feature}")
             if feature.interval.end < next_line:
                 continue
-            feature.interval = Interval(next_line, feature.interval.end)
+            feature_to_use = CodeFeature(feature.path, name=feature.name)
+            feature_to_use.interval = Interval(next_line, feature.interval.end)
         elif starting_line > next_line:
             code_message += ["..."]
-        code_message += feature.get_code_message()[1:-1]
+        code_message += feature_to_use.get_code_message(standalone=False)
         next_line = feature.interval.end
     return code_message + [""]
 
 
 def get_code_message_from_features(features: list[CodeFeature]) -> list[str]:
-    """Generate a code message from a list of features"""
+    """
+    Generate a code message from a list of features.
+    Will automatically handle overlapping intervals.
+    """
     code_message = list[str]()
     features_by_path: dict[Path, list[CodeFeature]] = OrderedDict()
     for feature in features:
@@ -233,7 +244,7 @@ def get_code_message_from_features(features: list[CodeFeature]) -> list[str]:
         if len(path_features) == 1:
             code_message += path_features[0].get_code_message()
         else:
-            code_message += get_code_message_from_intervals(path_features)
+            code_message += _get_code_message_from_intervals(path_features)
     return code_message
 
 
