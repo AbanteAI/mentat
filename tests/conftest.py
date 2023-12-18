@@ -328,12 +328,21 @@ def add_permissions(func, path, exc_info):
 
     If the error is for another reason it re-raises the error.
     """
-    # Is the error an access error?
-    if not os.access(path, os.W_OK):
-        os.chmod(path, stat.S_IWUSR)
-        func(path)
-    else:
-        raise
+    max_retries = 5
+    retry_delay = 1  # seconds
+
+    for _ in range(max_retries):
+        try:
+            gc.collect()  # Force garbage collection
+            if not os.access(path, os.W_OK):
+                os.chmod(path, stat.S_IWUSR)
+            func(path)
+            break  # If successful, exit the loop
+        except PermissionError:
+            time.sleep(retry_delay)  # Wait and try again
+        except:
+            traceback.print_exc()
+            raise  # Re-raise if it's another kind of error
 
 
 @pytest.fixture(autouse=True)
@@ -371,34 +380,7 @@ def temp_testbed(monkeypatch, get_marks):
         m.chdir(temp_testbed)
         yield Path(temp_testbed)
 
-    # remove paths one-by-one to troubleshoot issue
-    def remove_path(path, retries=1):
-        try:
-            if os.path.isdir(path):
-                os.rmdir(path)
-            else:
-                os.remove(path)
-        except PermissionError as e:
-            if retries > 1:
-                print(f"ERROR REMOVING {path}, RETRYING")
-                if not os.access(path, os.W_OK):
-                    os.chmod(path, stat.S_IWUSR)
-                return remove_path(path, retries - 1)
-            else:
-                raise e
-
-    for root, dirs, files in os.walk(temp_dir, topdown=False):
-        for name in files:
-            file_path = os.path.join(root, name)
-            remove_path(file_path)
-        for name in dirs:
-            dir_path = os.path.join(root, name)
-            remove_path(dir_path)
-
-    try:
-        os.rmdir(temp_dir)
-    except Exception as e:
-        print(f"Unable to remove temp_dir {temp_dir}: {e}")
+    shutil.rmtree(temp_dir, onerror=add_permissions)
 
 
 # Always set the user config to just be a config in the temp_testbed; that way,
