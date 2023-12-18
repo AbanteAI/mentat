@@ -24,6 +24,5 @@ class TruncateFilter(FeatureFilter):
             if feature.count_tokens(self.model) <= remaining_tokens:
                 output.append(feature)
                 remaining_tokens -= feature.count_tokens(self.model)
-                break
 
         return output

@@ -89,7 +89,7 @@ class CodeFeature:
     def __init__(
         self,
         path: Path,
-        interval: Interval = Interval(0, INTERVAL_FILE_END),
+        interval: Interval = Interval(1, INTERVAL_FILE_END),
         name: Optional[str] = None,
     ):
         self.path = Path(path)
@@ -102,8 +102,8 @@ class CodeFeature:
 
     def __repr__(self):
         return (
-            f"CodeFeature(fname={self.path.name},"
-            f" interval={self.interval.start}-{self.interval.end}"
+            f"CodeFeature(path={self.path},"
+            f" interval={self.interval.start}-{self.interval.end}), name={self.name}"
         )
 
     def rel_path(self, cwd: Optional[Path] = None) -> str:
@@ -236,7 +236,9 @@ def get_code_message_from_features(features: list[CodeFeature]) -> list[str]:
 
 
 def get_consolidated_feature_refs(features: list[CodeFeature]) -> list[str]:
-    """Return a list of 'path:<interval>,<interval>' strings"""
+    """
+    Return a list of 'path:<interval>,<interval>' strings, merging code features with the same path
+    """
     level_info_by_path = defaultdict[Path, list[Interval | None]](list)
     for f in features:
         if f.interval.whole_file():
@@ -248,7 +250,7 @@ def get_consolidated_feature_refs(features: list[CodeFeature]) -> list[str]:
     for path, level_info in level_info_by_path.items():
         ref_string = str(path)
         intervals = sorted([level for level in level_info if level is not None])
-        if intervals:
+        if intervals and None not in level_info:
             ref_string += ":" + ",".join(str(interval) for interval in intervals)
         consolidated_refs.append(ref_string)
 

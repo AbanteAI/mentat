@@ -20,7 +20,7 @@ from mentat.utils import get_relative_path
 @attr.define(order=False)
 class Replacement:
     """
-    Represents that the lines from starting_line (inclusive) to ending_line (exclusive)
+    Represents that the 0-indexed lines from starting_line (inclusive) to ending_line (exclusive)
     should be replaced with new_lines
     """
 
@@ -169,7 +169,7 @@ class FileEdit:
             if not all(
                 any(f.interval.contains(i) for f in file_features_in_context)
                 for r in self.replacements
-                for i in range(r.starting_line, r.ending_line)
+                for i in range(r.starting_line + 1, r.ending_line + 1)
             ):
                 stream.send(
                     f"File {display_path} not in context, canceling all edits to file.",

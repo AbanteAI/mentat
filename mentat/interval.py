@@ -42,6 +42,10 @@ INTERVAL_FILE_END = math.inf
 
 @attr.define(order=True)
 class Interval:
+    """
+    1-indexed interval of file lines, inclusive start, exclusive end
+    """
+
     start: int | float = attr.field()
     end: int | float = attr.field()
 
@@ -52,7 +56,7 @@ class Interval:
         return not (other.end < self.start or self.end < other.start)
 
     def whole_file(self) -> bool:
-        return self.start == 0 and self.end == INTERVAL_FILE_END
+        return self.start == 1 and self.end == INTERVAL_FILE_END
 
     def __str__(self) -> str:
         if self.end == self.start + 1:
