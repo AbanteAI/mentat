@@ -3,7 +3,6 @@ import os
 import shutil
 import stat
 import subprocess
-import traceback
 import tempfile
 import time
 from datetime import datetime
