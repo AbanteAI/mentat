@@ -8,7 +8,6 @@ from mentat.code_feature import (
     CodeFeature,
     get_code_message_from_features,
     get_consolidated_feature_refs,
-    parse_intervals,
     split_file_into_intervals,
 )
 from mentat.diff_context import DiffContext
@@ -27,7 +26,7 @@ from mentat.include_files import (
     print_path_tree,
     validate_and_format_path,
 )
-from mentat.interval import split_intervals_from_path
+from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import count_tokens, get_max_tokens, model_context_check
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
@@ -210,12 +209,15 @@ class CodeContext:
 
         return sorted(all_features, key=lambda f: f.path)
 
-    def _include_features(self, code_features: Set[CodeFeature]):
+    def include_features(self, code_features: Iterable[CodeFeature]):
+        """
+        Adds the given code features to context. If the feature is already included, it will not be added.
+        """
         included_paths: Set[Path] = set()
         for code_feature in code_features:
             if code_feature.path not in self.include_files:
                 self.include_files[code_feature.path] = [code_feature]
-                included_paths.add(Path(code_feature.ref()))
+                included_paths.add(Path(str(code_feature)))
             else:
                 code_feature_not_included = True
                 for included_code_feature in self.include_files[code_feature.path]:
@@ -232,7 +234,7 @@ class CodeContext:
                     if code_feature.interval.whole_file():
                         self.include_files[code_feature.path] = []
                     self.include_files[code_feature.path].append(code_feature)
-                    included_paths.add(Path(code_feature.ref()))
+                    included_paths.add(Path(str(code_feature)))
         return included_paths
 
     def include(
@@ -284,7 +286,7 @@ class CodeContext:
             session_context.stream.send(str(e), color="light_red")
             return set()
 
-        return self._include_features(code_features)
+        return self.include_features(code_features)
 
     def _exclude_file(self, path: Path) -> Path | None:
         session_context = SESSION_CONTEXT.get()
@@ -314,7 +316,7 @@ class CodeContext:
             if code_feature.interval not in intervals:
                 included_code_features.append(code_feature)
             else:
-                excluded_paths.add(Path(code_feature.ref()))
+                excluded_paths.add(Path(str(code_feature)))
 
         if len(included_code_features) == 0:
             del self.include_files[interval_path]

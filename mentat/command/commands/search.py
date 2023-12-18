@@ -84,16 +84,13 @@ class SearchCommand(Command, command_name="search"):
                 while user_input.lower() not in "yn":
                     to_include = _parse_include_input(user_input, i)
                     if to_include is not None:
-                        for index in to_include:
-                            feat = results[index - 1][0]
-                            included_paths = code_context.include(feat.ref())
-                            for included_path in included_paths:
-                                rel_path = get_relative_path(
-                                    included_path, session_context.cwd
-                                )
-                                stream.send(
-                                    f"{rel_path} added to context", color="green"
-                                )
+                        features = [results[index - 1][0] for index in to_include]
+                        included_paths = code_context.include_features(features)
+                        for included_path in included_paths:
+                            rel_path = get_relative_path(
+                                included_path, session_context.cwd
+                            )
+                            stream.send(f"{rel_path} added to context", color="green")
                     else:
                         stream.send("(Y/n)")
                     user_input: str = (

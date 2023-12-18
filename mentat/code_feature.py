@@ -10,12 +10,7 @@ from mentat.ctags import get_ctag_lines_and_names
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
-from mentat.interval import (
-    INTERVAL_FILE_END,
-    Interval,
-    parse_intervals,
-    split_intervals_from_path,
-)
+from mentat.interval import INTERVAL_FILE_END, Interval
 from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
@@ -72,9 +67,9 @@ def split_file_into_intervals(
     # Create and return separate features for each interval
     _features = list[CodeFeature]()
     for name, start, end in named_intervals:
-        feature_string = f"{feature.path}:{start}-{end}"
         _feature = CodeFeature(
-            feature_string,
+            feature.path,
+            interval=Interval(start, end),
             name=name,
         )
         _features.append(_feature)
@@ -93,22 +88,12 @@ class CodeFeature:
 
     def __init__(
         self,
-        path: str | Path,
+        path: Path,
+        interval: Interval = Interval(0, INTERVAL_FILE_END),
         name: Optional[str] = None,
     ):
-        if Path(path).exists():
-            self.path = Path(path)
-            self.interval = Interval(0, INTERVAL_FILE_END)
-        else:
-            self.path, interval = split_intervals_from_path(path)
-            if not self.path.exists():
-                self.path = Path(path)
-                self.interval = Interval(0, INTERVAL_FILE_END)
-            else:
-                interval = parse_intervals(interval)
-                if len(interval) > 1:
-                    raise MentatError("CodeFeatures should only have one interval.")
-                self.interval = interval[0]
+        self.path = Path(path)
+        self.interval = interval
 
         if not self.path.is_absolute():
             raise MentatError("CodeFeature path must be absolute.")
@@ -135,8 +120,7 @@ class CodeFeature:
             interval_string = ""
         return interval_string
 
-    # TODO THIS MERGE: Intervals should never be accessed as a string outside of user input
-    def ref(self, cwd: Optional[Path] = None) -> str:
+    def __str__(self, cwd: Optional[Path] = None) -> str:
         return self.rel_path(cwd) + self.interval_string()
 
     def get_code_message(self, standalone: bool = True) -> list[str]:
@@ -220,8 +204,11 @@ def _get_code_message_from_intervals(features: list[CodeFeature]) -> list[str]:
             logging.info(f"Features overlap: {feature}")
             if feature.interval.end < next_line:
                 continue
-            feature_to_use = CodeFeature(feature.path, name=feature.name)
-            feature_to_use.interval = Interval(next_line, feature.interval.end)
+            feature_to_use = CodeFeature(
+                feature.path,
+                interval=Interval(next_line, feature.interval.end),
+                name=feature.name,
+            )
         elif starting_line > next_line:
             code_message += ["..."]
         code_message += feature_to_use.get_code_message(standalone=False)

@@ -273,9 +273,7 @@ def get_code_features_for_path(
             intervals = parse_intervals(interval_str)
             code_features: Set[CodeFeature] = set()
             for interval in intervals:
-                code_feature = CodeFeature(
-                    f"{interval_path}:{interval.start}-{interval.end}"
-                )
+                code_feature = CodeFeature(interval_path, interval)
                 code_features.add(code_feature)
         case PathType.DIRECTORY:
             paths = get_paths_for_directory(
