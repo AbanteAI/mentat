@@ -22,6 +22,11 @@ from mentat.sampler.sample import Sample
 from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import clone_repo, mentat_dir_path
+from tests.benchmarks.benchmark_runner import (
+    grade_diff_syntax,
+    grade_model_response,
+    compare_diffs,
+)
 
 
 def warn(msg: Any):
@@ -123,11 +128,21 @@ async def main():
         print(f"No {'matching ' if args.sample_ids else ''}sample files found.")
         return
 
+    results = {}
     for sample_file in sample_files:
         if sample_file.exists():
             sample = Sample.load(sample_file)
-            results = await evaluate_sample(sample)
-            print(f"Results for {sample_file.stem}: {json.dumps(results, indent=4)}")
+            print(f"Evaluating sample {sample.id[:8]}")
+            print(f"  Prompt: {sample.message_prompt}")
+            diff_eval = await evaluate_sample(sample)
+            message_eval = ""  # TODO: return from evaluate_sample
+            
+            diff_grade = await grade_diff_syntax(diff_eval)
+            print(f"  Diff Grade: {diff_grade}")
+            response_grade = await grade_model_response(message_eval + "\n" + diff_eval)
+            print(f"  Response Grade: {response_grade}")
+            comparison_grade = await compare_diffs(sample.diff_edit, diff_eval)
+            print(f"  Comparison Grade: {comparison_grade}")
         else:
             print(f"Sample file {sample_file} does not exist.")
 
