@@ -89,11 +89,11 @@ class ReplacementParser(Parser):
         )
 
         file_edit = FileEdit(
-            cwd / file_name,
+            (cwd / file_name).resolve(),
             [],
             is_creation=file_action_type == FileActionType.CreateFile,
             is_deletion=file_action_type == FileActionType.DeleteFile,
-            rename_file_path=cwd / new_name if new_name else None,
+            rename_file_path=(cwd / new_name).resolve() if new_name else None,
         )
         has_code = file_action_type == FileActionType.UpdateFile
         return (display_information, file_edit, has_code)

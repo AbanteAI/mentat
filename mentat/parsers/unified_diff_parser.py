@@ -108,11 +108,11 @@ class UnifiedDiffParser(Parser):
             file_name, file_lines, [], [], file_action_type, -1, -1, new_name
         )
         file_edit = FileEdit(
-            cwd / file_name,
+            (cwd / file_name).resolve(),
             [],
             is_creation,
             is_deletion,
-            cwd / new_name if new_name else None,
+            (cwd / new_name).resolve() if new_name else None,
         )
         return (
             display_information,

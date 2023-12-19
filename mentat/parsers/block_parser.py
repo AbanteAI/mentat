@@ -167,12 +167,14 @@ class BlockParser(Parser):
         if deserialized_json.action == _BlockParserAction.Delete:
             replacements.append(Replacement(starting_line, ending_line, []))
         file_edit = FileEdit(
-            cwd / deserialized_json.file,
+            (cwd / deserialized_json.file).resolve(),
             replacements,
             is_creation=file_action == FileActionType.CreateFile,
             is_deletion=file_action == FileActionType.DeleteFile,
             rename_file_path=(
-                cwd / deserialized_json.name if deserialized_json.name else None
+                (cwd / deserialized_json.name).resolve()
+                if deserialized_json.name
+                else None
             ),
         )
         has_code = block[-1] == _BlockParserIndicator.Code.value
