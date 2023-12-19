@@ -136,7 +136,7 @@ class UnifiedDiffParser(Parser):
         file_edit: FileEdit,
     ) -> str:
         file_lines = self._get_file_lines(
-            code_file_manager, rename_map, display_information.file_name
+            code_file_manager, rename_map, file_edit.file_path
         ).copy()
 
         # First, we split by the symbols that separate changes.
