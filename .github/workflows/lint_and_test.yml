@@ -13,12 +13,11 @@ jobs:
       - uses: chartboost/ruff-action@v1
       - name: Install dependencies
         run: |
-          python -m pip install .
-          pip install -r dev-requirements.txt
+          poetry install
       - name: black check
-        run: black --check --preview .
+        run: poetry run black --check --preview .
       - name: isort check
-        run: isort --profile black --check .
+        run: poetry run isort --profile black --check .
 
   build:
     runs-on: ${{ matrix.os }}
@@ -46,14 +45,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          python -m pip install .
-          python -m pip install -r dev-requirements.txt
+          poetry install
       - name: Check types with pyright
         run: |
-          pyright
+          poetry run pyright
       - name: Test with pytest
         run: |
-          pytest
+          poetry run pytest
       - name: Can run Mentat
         # Unfortunately Github Actions Runners have trouble with prompt toolkit, so we can't do this on Windows.
         if: runner.os != 'Windows'
@@ -73,8 +71,7 @@ jobs:
           python-version: 3.11
       - name: Install dependencies
         run: |
-          python -m pip install .
-          pip install -r dev-requirements.txt
+          poetry install
       - name: Run license checking script
         run: |
-          python tests/license_check.py
+          poetry run tests/license_check.py
