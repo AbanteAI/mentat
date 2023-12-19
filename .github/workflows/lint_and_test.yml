@@ -77,4 +77,4 @@ jobs:
           poetry install
       - name: Run license checking script
         run: |
-          poetry run tests/license_check.py
+          poetry run python tests/license_check.py
