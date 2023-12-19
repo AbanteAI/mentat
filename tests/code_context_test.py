@@ -2,12 +2,14 @@ import os
 from pathlib import Path
 from textwrap import dedent
 from unittest import TestCase
+from unittest.mock import AsyncMock
 
 import pytest
 
 from mentat.code_context import CodeContext
 from mentat.config import Config
 from mentat.errors import ContextSizeInsufficient
+from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
 from mentat.interval import Interval
@@ -213,9 +215,11 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     code_context.include("file_1.py")
     code_context.use_llm = False
     mock_session_context.config.auto_context = True
+    filter_mock = AsyncMock(side_effect=lambda features: features)
+    mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
 
     async def _count_max_tokens_where(tokens_used: int) -> int:
-        code_message = await code_context.get_code_message(tokens_used)
+        code_message = await code_context.get_code_message(tokens_used, prompt="prompt")
         return count_tokens(code_message, "gpt-4", full_message=True)
 
     assert await _count_max_tokens_where(0) == 89  # Code
@@ -256,13 +260,15 @@ def test_get_all_features(temp_testbed, mock_code_context):
 async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_context):
     mock_session_context.config.auto_context = True
     mocker.patch.object(Config, "maximum_context", new=7000)
+    filter_mock = AsyncMock(side_effect=lambda features: features)
+    mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
     code_context = CodeContext(
         mock_session_context.stream,
         temp_testbed,
         ignore_patterns=["scripts", "**/*.txt"],
     )
     code_context.use_llm = False
-    code_message = await code_context.get_code_message(0)
+    code_message = await code_context.get_code_message(0, prompt="prompt")
 
     # Iterate through all files in temp_testbed; if they're not in the ignore
     # list, they should be in the code message.
