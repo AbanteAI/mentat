@@ -151,15 +151,10 @@ class BlockParser(Parser):
 
         full_path = (cwd / deserialized_json.file).resolve()
         rename_file_path = (
-                (cwd / deserialized_json.name).resolve()
-                if deserialized_json.name
-                else None
-                )
-
-
-        file_lines = self._get_file_lines(
-            code_file_manager, rename_map, full_path
+            (cwd / deserialized_json.name).resolve() if deserialized_json.name else None
         )
+
+        file_lines = self._get_file_lines(code_file_manager, rename_map, full_path)
         display_information = DisplayInformation(
             deserialized_json.file,
             file_lines,
