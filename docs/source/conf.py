@@ -22,7 +22,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
-    "sphinxarg.ext"
+    "sphinxarg.ext",
 ]
 
 templates_path = ["_templates"]

@@ -1,6 +1,5 @@
 import argparse
 import asyncio
-#from cli import get_parser
 import logging
 import signal
 from asyncio import Event
@@ -196,7 +195,6 @@ class TerminalClient:
 
 
 def get_parser():
-
     parser = argparse.ArgumentParser(
         description="Run conversation with command line args"
     )
@@ -243,6 +241,7 @@ def get_parser():
         "--cwd", default=Path.cwd(), help="The current working directory"
     )
     return parser
+
 
 def run_cli():
     parser = get_parser()
