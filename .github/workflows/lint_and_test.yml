@@ -13,6 +13,7 @@ jobs:
       - uses: chartboost/ruff-action@v1
       - name: Install dependencies
         run: |
+          pipx install poetry
           poetry install
       - name: black check
         run: poetry run black --check --preview .
@@ -45,6 +46,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
+          pipx install poetry
           poetry install
       - name: Check types with pyright
         run: |
@@ -71,6 +73,7 @@ jobs:
           python-version: 3.11
       - name: Install dependencies
         run: |
+          pipx install poetry
           poetry install
       - name: Run license checking script
         run: |

@@ -17,6 +17,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          pipx install poetry
           poetry install
 
       - name: Run and upload benchmarks
