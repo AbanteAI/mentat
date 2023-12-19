@@ -3,18 +3,18 @@ from mentat.config import Config
 title = "Pre tags around mentat output"
 
 description = """
-We changed the conversation viewer to use pre tags to display whitespace as it is outputed.
+We changed the conversation viewer to use pre tags to display white space as it is output.
 We had to set line wrap so users wouldn't have to side scroll.
 """
 
 prompts = [
-    "Change the conversation viewer to display whitespace in the messages unchanged.",
+    "Change the conversation viewer to display white space in the messages unchanged.",
     (
-        "Change the conversation viewer to display whitespace in the messages"
+        "Change the conversation viewer to display white space in the messages"
         " unchanged. Be sure the lines still wrap so side scrolling isn't necessary."
     ),
     (
-        "Remove the logic from the conversatin viewer that replaces new lines with"
+        "Remove the logic from the conversation viewer that replaces new lines with"
         " breaks and add pre tags. Set it to pre-wrap with css so side scrolling isn't"
         " necessary."
     ),
