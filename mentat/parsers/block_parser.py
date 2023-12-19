@@ -149,8 +149,16 @@ class BlockParser(Parser):
         if ending_line < starting_line:
             raise ModelError("Error: Model output malformed edit.")
 
+        full_path = (cwd / deserialized_json.file).resolve()
+        rename_file_path = (
+                (cwd / deserialized_json.name).resolve()
+                if deserialized_json.name
+                else None
+                )
+
+
         file_lines = self._get_file_lines(
-            code_file_manager, rename_map, deserialized_json.file
+            code_file_manager, rename_map, full_path
         )
         display_information = DisplayInformation(
             deserialized_json.file,
@@ -167,15 +175,11 @@ class BlockParser(Parser):
         if deserialized_json.action == _BlockParserAction.Delete:
             replacements.append(Replacement(starting_line, ending_line, []))
         file_edit = FileEdit(
-            (cwd / deserialized_json.file).resolve(),
+            full_path,
             replacements,
             is_creation=file_action == FileActionType.CreateFile,
             is_deletion=file_action == FileActionType.DeleteFile,
-            rename_file_path=(
-                (cwd / deserialized_json.name).resolve()
-                if deserialized_json.name
-                else None
-            ),
+            rename_file_path=rename_file_path,
         )
         has_code = block[-1] == _BlockParserIndicator.Code.value
         return (display_information, file_edit, has_code)

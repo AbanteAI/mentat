@@ -43,7 +43,8 @@ class ReplacementParser(Parser):
             raise ModelError("Error: Invalid model output")
 
         file_name = Path(info[0])
-        file_lines = self._get_file_lines(code_file_manager, rename_map, file_name)
+        full_path = (cwd / file_name).resolve()
+        file_lines = self._get_file_lines(code_file_manager, rename_map, full_path)
         new_name = None
 
         # For an insert, just make the second number 1 less than the starting line (since we sub 1 from starting line)
@@ -89,7 +90,7 @@ class ReplacementParser(Parser):
         )
 
         file_edit = FileEdit(
-            (cwd / file_name).resolve(),
+            full_path,
             [],
             is_creation=file_action_type == FileActionType.CreateFile,
             is_deletion=file_action_type == FileActionType.DeleteFile,
