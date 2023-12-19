@@ -140,7 +140,7 @@ class Model:
 
 known_models: Dict[str, Model] = {
     "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
-    # model name on Azure 🙄
+    # model name on Azure
     "gpt-4-1106-Preview": Model("gpt-4-1106-Preview", 128000, 0.01, 0.03),
     "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
     "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),

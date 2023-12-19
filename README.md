@@ -68,10 +68,9 @@ You'll need to have API access to GPT-4 to run Mentat. There are a few options t
 
 ### Azure OpenAI
 
-Instead of the "vanilla" OpenAI API, you may also use the "corporate" version offered by Microsoft ("Azure OpenAI"). In that case, instead of `OPENAI_API_KEY` as described above, provide `AZURE_OPENAI_ENDPOINT` (`https://<your-instance-name>.openai.azure.com/`) and `AZURE_OPENAI_KEY`.
+Mentat also works with the Azure OpenAI API. To use the Azure API, provide the `AZURE_OPENAI_ENDPOINT` (`https://<your-instance-name>.openai.azure.com/`) and `AZURE_OPENAI_KEY` environment variables instead of `OPENAI_API_KEY`.
 
-> [!IMPORTANT]
-> if you were previously using the `OPENAI_API_BASE` variable to access Azure OpenAI with Mentat: this no longer works, due to breaking changes in the SDK. See [this issue](https://github.com/AbanteAI/mentat/issues/408) for details. 
+> **_Important:_** Due to changes in the OpenAI Python SDK, you can no longer use `OPENAI_API_BASE` to access the Azure API with Mentat.
 
 ## Configuration
 
