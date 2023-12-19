@@ -167,7 +167,9 @@ class CodeContext:
                 expected_edits,
                 loading_multiplier=loading_multiplier,
             )
-            self.auto_features = await feature_filter.filter(features)
+            self.auto_features = list(
+                set(self.auto_features) | set(await feature_filter.filter(features))
+            )
 
         # Merge include file features and auto features and add to code message
         code_message += get_code_message_from_features(

@@ -2,6 +2,8 @@ import subprocess
 from pathlib import Path
 from typing import List, Literal, Optional
 
+import attr
+
 from mentat.errors import UserError
 from mentat.git_handler import (
     check_head_exists,
@@ -14,13 +16,17 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
 
+@attr.define(frozen=True)
 class DiffAnnotation(Interval):
-    message: list[str]
-
-    def __init__(self, start: int, message: list[str]):
-        self.message = message
-        self.length = sum(bool(line.startswith("-")) for line in self.message)
-        super().__init__(start, start + self.length)
+    start: int | float = attr.field()
+    message: List[str] = attr.field()
+    end: int | float = attr.field(
+        default=attr.Factory(
+            lambda self: self.start
+            + sum(bool(line.startswith("-")) for line in self.message),
+            takes_self=True,
+        )
+    )
 
 
 def parse_diff(diff: str) -> list[DiffAnnotation]:
@@ -39,7 +45,7 @@ def parse_diff(diff: str) -> list[DiffAnnotation]:
                 new_start = _new_index[1:].split(",")[0]
             else:
                 new_start = _new_index[1:]
-            active_annotation = DiffAnnotation(int(new_start), [])
+            active_annotation = DiffAnnotation(start=int(new_start), message=[])
         elif line.startswith(("+", "-")):
             if not active_annotation:
                 raise UserError("Invalid diff")

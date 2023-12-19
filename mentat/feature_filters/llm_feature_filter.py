@@ -3,6 +3,7 @@ from pathlib import Path
 from timeit import default_timer
 from typing import Optional, Set
 
+import attr
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
@@ -142,6 +143,7 @@ class LLMFeatureFilter(FeatureFilter):
         # parsed_features, _ = get_include_files(selected_refs, [])
         # postselected_features = [feature for features in parsed_features.values() for feature in features]
 
+        named_features: Set[CodeFeature] = set()
         for parsed_feature in parsed_features:
             # Match with corresponding inputs
             matching_inputs = [
@@ -155,10 +157,15 @@ class LLMFeatureFilter(FeatureFilter):
                     f"No input feature found for llm-selected {parsed_feature}"
                 )
             # Copy metadata
-            name = any(f.name for f in matching_inputs)
+            name = next((f.name for f in matching_inputs if f.name), "")
             if name:
-                parsed_feature.name = next(f.name for f in matching_inputs if f.name)
+                feature_dict = attr.asdict(parsed_feature)
+                feature_dict["name"] = name
+                new_feature = CodeFeature(**feature_dict)
+                named_features.add(new_feature)
+            else:
+                named_features.add(parsed_feature)
 
         # Greedy again to enforce max_tokens
         truncate_filter = TruncateFilter(self.max_tokens, config.model)
-        return await truncate_filter.filter(parsed_features)
+        return await truncate_filter.filter(named_features)
