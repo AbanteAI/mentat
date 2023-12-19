@@ -55,7 +55,7 @@ git clone https://github.com/AbanteAI/mentat.git
 cd mentat
 
 # install with pip in editable mode:
-pip install -e .
+poetry install
 ```
 
 ## Add your OpenAI API Key
