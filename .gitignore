@@ -12,3 +12,4 @@ build
 .mentat_config.json
 .pytest_cache
 benchmark_repos
+docs/build
