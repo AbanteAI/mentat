@@ -33,7 +33,7 @@ class BenchmarkResult:
     diff_grade: Optional[dict] = attr.ib(default=None, metadata={"display": "json"})
     response_grade: Optional[dict] = attr.ib(default=None, metadata={"display": "json"})
     comparison_grade: Optional[dict] = attr.ib(
-        default=None, metadata={"display": "code"}
+        default=None, metadata={"display": "json"}
     )
     verify: Optional[bool] = attr.ib(default=None, metadata={"aggregation": "percent"})
     off_by_one: Optional[bool] = attr.ib(
