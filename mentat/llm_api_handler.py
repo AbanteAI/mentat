@@ -299,7 +299,7 @@ class LlmApiHandler:
 
         # We have to cast response since pyright isn't smart enough to connect
         # the dots between stream and the overloaded create function
-        if stream:
+        if not stream:
             time_elapsed = default_timer() - start_time
             response_tokens = count_tokens(
                 cast(ChatCompletion, response).choices[0].message.content or "",
@@ -307,9 +307,10 @@ class LlmApiHandler:
                 full_message=False,
             )
             cost_tracker.log_api_call_stats(
-                tokens, response_tokens, model, time_elapsed, display=True
+                tokens, response_tokens, model, time_elapsed
             )
         else:
+            cost_tracker.last_api_call = ""
             response = cost_tracker.response_logger_wrapper(
                 tokens, cast(AsyncStream[ChatCompletionChunk], response), model
             )

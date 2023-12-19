@@ -116,6 +116,7 @@ class CodeContext:
         """
         Retrieves the current code message.
         'prompt' argument is embedded and used to search for similar files when auto-context is enabled.
+        If prompt is empty, auto context won't be used.
         'prompt_tokens' argument is the total number of tokens used by the prompt before the code message,
         used to ensure that the code message won't overflow the model's context size
         """
@@ -155,7 +156,7 @@ class CodeContext:
         auto_tokens = min(get_max_tokens() - tokens_used, config.auto_tokens)
 
         # Get auto included features
-        if config.auto_context:
+        if config.auto_context and prompt:
             features = self.get_all_features()
             feature_filter = DefaultFilter(
                 auto_tokens,

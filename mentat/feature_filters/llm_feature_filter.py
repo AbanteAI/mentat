@@ -100,6 +100,8 @@ class LLMFeatureFilter(FeatureFilter):
             )
         selected_refs = list[Path]()
         n_tries = 3
+        # TODO: When we switch to JSON format and don't have to try multiple times,
+        # use cost_tracker.display_last_api_call to show cost after loading bar disappears
         for i in range(n_tries):
             start_time = default_timer()
             llm_response = await llm_api_handler.call_llm_api(

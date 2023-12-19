@@ -19,7 +19,7 @@ class DiffAnnotation(Interval):
 
     def __init__(self, start: int, message: list[str]):
         self.message = message
-        self.length = sum(bool(line.startswith("+")) for line in self.message)
+        self.length = sum(bool(line.startswith("-")) for line in self.message)
         super().__init__(start, start + self.length)
 
 

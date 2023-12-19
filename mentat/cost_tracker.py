@@ -14,6 +14,8 @@ class CostTracker:
     total_tokens: int = 0
     total_cost: float = 0
 
+    last_api_call: str = ""
+
     def log_api_call_stats(
         self,
         num_prompt_tokens: int,
@@ -47,6 +49,16 @@ class CostTracker:
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
+        self.last_api_call = speed_and_cost_string
+
+    def display_last_api_call(self):
+        """
+        Used so that places that call the llm can print the api call stats after they finish printing everything else.
+        The api call will not be logged if it gets interrupted!
+        """
+        ctx = SESSION_CONTEXT.get()
+        if self.last_api_call:
+            ctx.stream.send(self.last_api_call, color="cyan")
 
     def log_whisper_call_stats(self, seconds: float):
         self.total_cost += seconds * 0.0001
@@ -73,5 +85,4 @@ class CostTracker:
             count_tokens(full_response, model, full_message=False),
             model,
             time_elapsed,
-            display=True,
         )

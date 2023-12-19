@@ -176,6 +176,7 @@ class Conversation:
         config = session_context.config
         parser = config.parser
         llm_api_handler = session_context.llm_api_handler
+        cost_tracker = session_context.cost_tracker
 
         if loading_multiplier:
             stream.send(
@@ -203,6 +204,18 @@ class Conversation:
         async with parser.interrupt_catcher():
             parsed_llm_response = await parser.stream_and_parse_llm_response(
                 add_newline(response)
+            )
+        if not parsed_llm_response.interrupted:
+            cost_tracker.display_last_api_call()
+        else:
+            # Generator doesn't log the api call if we interrupt it
+            cost_tracker.log_api_call_stats(
+                num_prompt_tokens,
+                count_tokens(
+                    parsed_llm_response.full_response, config.model, full_message=False
+                ),
+                config.model,
+                display=True,
             )
 
         messages.append(

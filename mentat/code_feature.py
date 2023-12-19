@@ -162,7 +162,12 @@ class CodeFeature:
                 code_message = annotate_file_message(code_message, diff_annotations)
             else:
                 for section in diff_annotations:
-                    code_message += section.message
+                    # TODO: Place diff_annotations inside interval where they belong
+                    if (
+                        section.start >= self.interval.start
+                        and section.start < self.interval.end
+                    ):
+                        code_message += section.message
         return code_message
 
     def get_checksum(self) -> str:

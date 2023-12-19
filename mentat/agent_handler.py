@@ -71,6 +71,7 @@ class AgentHandler:
             color="cyan",
         )
         ctx.stream.send("\n".join(str(path) for path in paths))
+        ctx.cost_tracker.display_last_api_call()
 
         messages.append(
             ChatCompletionAssistantMessageParam(role="assistant", content=content)
@@ -108,6 +109,7 @@ class AgentHandler:
         try:
             # TODO: Should this even be a separate call or should we collect commands in the edit call?
             response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
+            ctx.cost_tracker.display_last_api_call()
         except BadRequestError as e:
             ctx.stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
             return []
