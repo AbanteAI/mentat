@@ -6,3 +6,6 @@ pip-licenses==4.3.3
 pyright==1.1.339
 pytest-xdist==3.3.1
 ruff==0.0.292
+sphinx==7.2.6
+sphinx-rtd-theme==2.0.0
+
