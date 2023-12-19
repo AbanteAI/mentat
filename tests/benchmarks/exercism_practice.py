@@ -233,4 +233,6 @@ def test_practice_directory_performance(
         results.sort(key=lambda result: result.name)
 
         summary = BenchmarkResultSummary(results)
+        with open("results.json", "w") as f:
+            f.write(summary.to_json())
         summary.render_results()

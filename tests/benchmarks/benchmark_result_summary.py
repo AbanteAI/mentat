@@ -1,3 +1,4 @@
+import json
 import os
 import webbrowser
 from typing import Tuple
@@ -115,6 +116,11 @@ class BenchmarkResultSummary:
             formatted[result.name] = formatted_result
         return formatted
 
+    def summary_string(self) -> str:
+        return ", ".join(
+            f"{name}: {value}" for name, value in self.formatted_summary().items()
+        )
+
     def render_results(self):
         env = Environment(
             loader=FileSystemLoader(
@@ -130,3 +136,13 @@ class BenchmarkResultSummary:
         with open("results.html", "w") as f:
             f.write(rendered_html)
         webbrowser.open("file://" + os.path.realpath("results.html"))
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {
+                "results": [result.to_dict() for result in self.results],
+                "summary": self.formatted_summary(),
+                "summary_string": self.summary_string(),
+            },
+            indent=4,
+        )

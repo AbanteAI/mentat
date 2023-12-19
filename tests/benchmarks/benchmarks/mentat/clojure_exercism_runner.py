@@ -38,5 +38,5 @@ def verify():
         made_runner = made_runner and hasattr(ClojureExerciseRunner, "passed")
 
         return added_to_factory and made_runner
-    except (IndentationError, ModuleNotFoundError, SyntaxError):
+    except Exception:
         return False
