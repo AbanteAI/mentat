@@ -218,14 +218,11 @@ class Parser(ABC):
                         cur_block = ""
 
                         # Rename map handling
-                        if display_information.new_name is not None:
-                            rename_map[display_information.new_name] = (
-                                display_information.file_name
-                            )
-                        if display_information.file_name in rename_map:
+                        if file_edit.rename_file_path is not None:
+                            rename_map[file_edit.rename_file_path] = file_edit.file_path
+                        if file_edit.file_path in rename_map:
                             file_edit.file_path = (
-                                session_context.cwd
-                                / rename_map[display_information.file_name]
+                                session_context.cwd / rename_map[file_edit.file_path]
                             )
 
                         # New file_edit creation and merging
@@ -332,15 +329,13 @@ class Parser(ABC):
         self,
         code_file_manager: CodeFileManager,
         rename_map: dict[Path, Path],
-        rel_path: Path,
+        abs_path: Path,
     ) -> list[str]:
-        ctx = SESSION_CONTEXT.get()
-
         path = rename_map.get(
-            rel_path,
-            rel_path,
+            abs_path,
+            abs_path,
         )
-        return code_file_manager.file_lines.get(ctx.cwd / path, [])
+        return code_file_manager.file_lines.get(path, [])
 
     # These methods aren't abstract, since most parsers will use this implementation, but can be overriden easily
     def provide_line_numbers(self) -> bool:
