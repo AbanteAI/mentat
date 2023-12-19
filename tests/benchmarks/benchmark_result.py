@@ -76,8 +76,11 @@ class BenchmarkResult:
         else:
             return "red"
 
+    def to_dict(self):
+        return attr.asdict(self)
+
     def to_json(self):
-        return json.dumps(attr.asdict(self))
+        return json.dumps(self.to_dict())
 
     @classmethod
     def from_json(cls, json_str):

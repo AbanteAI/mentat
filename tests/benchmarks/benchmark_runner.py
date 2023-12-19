@@ -219,4 +219,6 @@ async def test_benchmark(retries, benchmarks):
 
     summary = BenchmarkResultSummary(results)
     os.chdir("../..")
+    with open("results.json", "w") as f:
+        f.write(summary.to_json())
     summary.render_results()
