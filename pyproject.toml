@@ -2,8 +2,11 @@
 name = "mentat"
 version = "0.1.0"
 description = ""
-authors = ["@bio_bootloader"]
+authors = ["bio_bootloader <bio_bootloader@example.com>"]
 readme = "README.md"
+
+[tool.poetry.scripts]
+mentat = 'mentat.terminal.client:run_cli'
 
 [tool.poetry.dependencies]
 python = "^3.10"
