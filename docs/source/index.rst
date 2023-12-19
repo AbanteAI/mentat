@@ -10,6 +10,7 @@ Welcome to Mentat's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   user/guides
 
 
 Indices and tables
