@@ -102,7 +102,7 @@ class CodeFileManager:
                 continue
 
             if not file_edit.is_creation:
-                stored_lines = self.file_lines[file_edit.file_path]
+                stored_lines = self.get_file_lines(file_edit)
                 if stored_lines != self.read_file(file_edit.file_path):
                     logging.info(
                         f"File '{file_edit.file_path}' changed while generating changes"
@@ -152,3 +152,7 @@ class CodeFileManager:
             ]
             text = "\n".join(filtered_lines)
         return sha256(text)
+
+    def get_file_lines(self, file_edit: FileEdit) -> list[str]:
+        path = file_edit.file_path.resolve()
+        return self.file_lines[path]
