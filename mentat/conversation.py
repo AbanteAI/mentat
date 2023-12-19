@@ -236,7 +236,7 @@ class Conversation:
         messages_snapshot = self.get_messages()
 
         # Get current code message
-        loading_multiplier = 1.0 if config.auto_context else 0.0
+        loading_multiplier = 1.0 if config.auto_context_tokens > 0 else 0.0
         prompt = messages_snapshot[-1]["content"]
         if isinstance(prompt, list):
             text_prompts = [

@@ -214,7 +214,7 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     )
     code_context.include("file_1.py")
     code_context.use_llm = False
-    mock_session_context.config.auto_context = True
+    mock_session_context.config.auto_context_tokens = 8000
     filter_mock = AsyncMock(side_effect=lambda features: features)
     mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
 
@@ -258,7 +258,7 @@ def test_get_all_features(temp_testbed, mock_code_context):
 
 @pytest.mark.asyncio
 async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_context):
-    mock_session_context.config.auto_context = True
+    mock_session_context.config.auto_context_tokens = 8000
     mocker.patch.object(Config, "maximum_context", new=7000)
     filter_mock = AsyncMock(side_effect=lambda features: features)
     mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)

@@ -16,7 +16,7 @@ commit = "d611e2ff742856c7328d54f6e71c2418f9c5508b"
 minimum_context = ["tests/benchmarks/exercise_runners"]
 
 config = Config(
-    auto_context=True,
+    auto_context_tokens=8000,
     maximum_context=8000,
 )
 

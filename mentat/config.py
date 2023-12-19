@@ -91,7 +91,7 @@ class Config:
         metadata={
             "description": (
                 "Whether to include the parser prompt in the system message. This"
-                " should only be set to true for fine tuned models"
+                " should only be set to true for fine tuned models."
             ),
             "auto_completions": bool_autocomplete,
         },
@@ -103,21 +103,17 @@ class Config:
         factory=list,
         metadata={"description": "List of glob patterns to exclude from context"},
     )
-    auto_context: bool = attr.field(
-        default=False,
+    auto_context_tokens: int = attr.field(  # pyright: ignore
+        default=0,
         metadata={
-            "description": "Automatically select code files to include in context.",
+            "description": (
+                "Automatically selects code files for every request to include in"
+                " context. Adds this many tokens to context each request."
+            ),
             "abbreviation": "a",
-            "auto_completions": bool_autocomplete,
-        },
-        converter=converters.optional(converters.to_bool),
-    )
-    auto_tokens: int = attr.field(
-        default=8000,
-        metadata={
-            "description": "The number of tokens auto-context will add.",
         },
         converter=int,
+        validator=validators.ge(0),  # pyright: ignore
     )
 
     # Sample specific settings

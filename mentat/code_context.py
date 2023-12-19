@@ -69,9 +69,9 @@ class CodeContext:
             stream.send(f"{prefix}Diff:", end=" ")
             stream.send(self.diff_context.get_display_context(), color="green")
 
-        if config.auto_context:
+        if config.auto_context_tokens > 0:
             stream.send(f"{prefix}Auto-Context: Enabled")
-            stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
+            stream.send(f"{prefix}Auto-Context Tokens: {config.auto_context_tokens}")
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 
@@ -155,10 +155,10 @@ class CodeContext:
         )
         if not is_context_sufficient(tokens_used):
             raise ContextSizeInsufficient()
-        auto_tokens = min(get_max_tokens() - tokens_used, config.auto_tokens)
+        auto_tokens = min(get_max_tokens() - tokens_used, config.auto_context_tokens)
 
         # Get auto included features
-        if config.auto_context and prompt:
+        if config.auto_context_tokens > 0 and prompt:
             features = self.get_all_features()
             feature_filter = DefaultFilter(
                 auto_tokens,

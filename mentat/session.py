@@ -137,7 +137,7 @@ class Session:
         agent_handler = session_context.agent_handler
 
         # check early for ctags so we can fail fast
-        if session_context.config.auto_context:
+        if session_context.config.auto_context_tokens > 0:
             ensure_ctags_installed()
 
         session_context.llm_api_handler.initialize_client()
