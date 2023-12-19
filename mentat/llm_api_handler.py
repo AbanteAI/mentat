@@ -11,7 +11,13 @@ import attr
 import sentry_sdk
 import tiktoken
 from dotenv import load_dotenv
-from openai import APIConnectionError, AsyncOpenAI, AsyncStream, AuthenticationError
+from openai import (
+    APIConnectionError,
+    AsyncAzureOpenAI,
+    AsyncOpenAI,
+    AsyncStream,
+    AuthenticationError,
+)
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -134,6 +140,8 @@ class Model:
 
 known_models: Dict[str, Model] = {
     "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
+    # model name on Azure 🙄
+    "gpt-4-1106-Preview": Model("gpt-4-1106-Preview", 128000, 0.01, 0.03),
     "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
     "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
     "gpt-4-32k": Model("gpt-4-32k", 32768, 0.06, 0.12),
@@ -190,19 +198,28 @@ class LlmApiHandler:
             load_dotenv()
         key = os.getenv("OPENAI_API_KEY")
         base_url = os.getenv("OPENAI_API_BASE")
-        if not key:
+        azure_key = os.getenv("AZURE_OPENAI_KEY")
+        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+
+        if not key and not azure_key:
             raise UserError(
                 "No OpenAI api key detected.\nEither place your key into a .env"
                 " file or export it as an environment variable."
             )
 
         # We don't have any use for a synchronous client, but if we ever do we can easily make it here
-        self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
+        if azure_endpoint:
+            self.async_client = AsyncAzureOpenAI(
+                api_key=azure_key,
+                api_version="2023-12-01-preview",
+                azure_endpoint=azure_endpoint,
+            )
+        else:
+            self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
         try:
-            self.async_client.api_key = key
             self.async_client.models.list()  # Test the key
         except AuthenticationError as e:
-            raise UserError(f"OpenAI gave an Authentication Error:\n{e}")
+            raise UserError(f"API gave an Authentication Error:\n{e}")
 
     @overload
     async def call_llm_api(
