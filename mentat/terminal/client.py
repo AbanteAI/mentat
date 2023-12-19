@@ -244,7 +244,7 @@ def run_cli():
     Config.add_fields_to_argparse(parser)
     args = parser.parse_args()
 
-    cwd = Path(args.cwd).resolve()
+    cwd = Path(args.cwd).expanduser().resolve()
     paths = args.paths
     exclude_paths = args.exclude
     ignore_paths = args.ignore

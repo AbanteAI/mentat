@@ -20,7 +20,7 @@ class PythonClient:
         pr_diff: str | None = None,
         config: Config = Config(),
     ):
-        self.cwd = cwd.resolve()
+        self.cwd = cwd.expanduser().resolve()
         self.paths = paths
         self.exclude_paths = exclude_paths
         self.ignore_paths = ignore_paths
