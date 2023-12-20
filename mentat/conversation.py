@@ -208,7 +208,8 @@ class Conversation:
         if num_prompt_tokens > TOKEN_COUNT_WARNING:
             stream.send(
                 "Warning: LLM performance drops off rapidly at large context sizes. Use"
-                " /clear to clear context.",
+                " /clear to clear context or use /exclude to exclude any uneccessary"
+                " files.",
                 color="light_yellow",
             )
 
