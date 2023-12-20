@@ -120,19 +120,19 @@ class Config:
         converter=int,
     )
 
-    # Sample specific settings
-    sample_repo: str | None = attr.field(
-        default=None,
-        metadata={
-            "description": "A public url for a cloneable git repository to sample from."
-        },
-    )
-    sample_merge_base_target: str | None = attr.field(
-        default=None,
-        metadata={
-            "description": "The branch or commit to use as the merge base for samples."
-        },
-    )
+    # # Sample specific settings
+    # sample_repo: str | None = attr.field(
+    #     default=None,
+    #     metadata={
+    #         "description": "A public url for a cloneable git repository to sample from."
+    #     },
+    # )
+    # sample_merge_base_target: str | None = attr.field(
+    #     default=None,
+    #     metadata={
+    #         "description": "The branch or commit to use as the merge base for samples."
+    #     },
+    # )
 
     # Only settable by config file
     input_style: list[tuple[str, str]] = attr.field(
