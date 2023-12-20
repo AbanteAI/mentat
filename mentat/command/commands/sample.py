@@ -10,6 +10,8 @@ from mentat.utils import mentat_dir_path
 
 
 class SampleCommand(Command, command_name="sample"):
+    hidden = True  # Waiting for parse_message to be complete
+
     async def apply(self, *args: str) -> None:
         session_context = SESSION_CONTEXT.get()
         sampler = session_context.sampler
