@@ -214,6 +214,12 @@ class CodeContext:
 
         return sorted(all_features, key=lambda f: f.path)
 
+    def clear_auto_context(self):
+        """
+        Clears all auto-features added to the conversation so far.
+        """
+        self.auto_features = []
+
     def include_features(self, code_features: Iterable[CodeFeature]):
         """
         Adds the given code features to context. If the feature is already included, it will not be added.
