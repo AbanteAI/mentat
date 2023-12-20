@@ -28,6 +28,12 @@ class HistoryError(Exception):
     """
 
 
+class SampleError(Exception):
+    """
+    Raised when an exception is raised by a Sample.
+    """
+
+
 class SessionExit(Exception):
     """
     Stops the session without any sign of error.

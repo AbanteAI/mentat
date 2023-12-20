@@ -24,6 +24,7 @@ from mentat.errors import MentatError, SessionExit, UserError
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
+from mentat.sampler.sampler import Sampler
 from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_input import collect_input_with_commands
@@ -83,6 +84,8 @@ class Session:
 
         auto_completer = AutoCompleter()
 
+        sampler = Sampler()
+
         session_context = SessionContext(
             cwd,
             stream,
@@ -95,6 +98,7 @@ class Session:
             vision_manager,
             agent_handler,
             auto_completer,
+            sampler,
         )
         self.ctx = session_context
         SESSION_CONTEXT.set(session_context)
@@ -166,6 +170,9 @@ class Session:
                         )
                     for file_edit in file_edits:
                         file_edit.resolve_conflicts()
+
+                    if session_context.sampler:
+                        session_context.sampler.set_active_diff()
 
                     applied_edits = await code_file_manager.write_changes_to_files(
                         file_edits

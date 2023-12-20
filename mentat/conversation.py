@@ -291,8 +291,7 @@ class Conversation:
             loading_multiplier=0.5 * loading_multiplier,
         )
         messages_snapshot.insert(
-            1,
-            ChatCompletionSystemMessageParam(role="system", content=code_message),
+            1, ChatCompletionSystemMessageParam(role="system", content=code_message)
         )
 
         # If we want to add agent specific messages in (this one didn't work too well):

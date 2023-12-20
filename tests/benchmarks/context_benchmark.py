@@ -15,7 +15,7 @@ from mentat.config import Config
 from mentat.interval import Interval
 from mentat.llm_api import CostTracker, count_tokens, model_context_size, setup_api_key
 from mentat.session_context import SESSION_CONTEXT, SessionContext
-from tests.benchmarks.utils import clone_repo
+from mentat.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
