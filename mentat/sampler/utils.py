@@ -1,8 +1,11 @@
+from pathlib import Path
 from uuid import uuid4
 
 from git import Repo  # type: ignore
 
 from mentat.errors import SampleError
+from mentat.git_handler import get_non_gitignored_files
+from mentat.utils import is_file_text_encoded
 
 
 def get_active_snapshot_commit(repo: Repo) -> str | None:
@@ -11,7 +14,9 @@ def get_active_snapshot_commit(repo: Repo) -> str | None:
         return None
     try:
         # Stash active changes and record the current position
-        repo.git.add("--all")  # So new files are included
+        for file in get_non_gitignored_files(Path(repo.working_dir)):
+            if is_file_text_encoded(file):
+                repo.git.add(file)
         repo.git.stash("push", "-u")
         detached_head = repo.head.is_detached
         if detached_head:
