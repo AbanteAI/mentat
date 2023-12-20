@@ -1,6 +1,6 @@
 import subprocess
 from pathlib import Path
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from mentat.errors import UserError
 from mentat.git_handler import (
@@ -146,12 +146,27 @@ class DiffContext:
         self.target = target
         self.name = name
 
-    def diff_files(self) -> list[Path]:
+    _diff_files: List[Path] | None = None
+
+    def diff_files(self) -> List[Path]:
         session_context = SESSION_CONTEXT.get()
 
-        if self.target == "HEAD" and not check_head_exists():
-            return []  # A new repo without any commits
-        return [session_context.cwd / f for f in get_files_in_diff(self.target)]
+        if self._diff_files is None:
+            if self.target == "HEAD" and not check_head_exists():
+                self._diff_files = []  # A new repo without any commits
+            else:
+                self._diff_files = [
+                    (session_context.cwd / f).resolve()
+                    for f in get_files_in_diff(self.target)
+                ]
+        return self._diff_files
+
+    def clear_cache(self):
+        """
+        Since there is no way of knowing when the git diff changes,
+        we just clear the cache every time get_code_message is called
+        """
+        self._diff_files = None
 
     def get_annotations(self, rel_path: Path) -> list[DiffAnnotation]:
         diff = get_diff_for_file(self.target, rel_path)

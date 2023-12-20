@@ -126,13 +126,15 @@ class CodeContext:
 
         # Setup code message metadata
         code_message = list[str]()
-        if self.diff_context and self.diff_context.diff_files():
-            code_message += [
-                "Diff References:",
-                f' "-" = {self.diff_context.name}',
-                ' "+" = Active Changes',
-                "",
-            ]
+        if self.diff_context:
+            self.diff_context.clear_cache()
+            if self.diff_context.diff_files():
+                code_message += [
+                    "Diff References:",
+                    f' "-" = {self.diff_context.name}',
+                    ' "+" = Active Changes',
+                    "",
+                ]
 
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)

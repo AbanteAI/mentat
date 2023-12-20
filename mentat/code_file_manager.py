@@ -23,6 +23,8 @@ class CodeFileManager:
         self.history = EditHistory()
 
     def read_file(self, path: Path) -> list[str]:
+        # TODO: Change to only ever using this function to read files, then cache files and
+        # only re-read them when their last modified time is updated
         session_context = SESSION_CONTEXT.get()
 
         abs_path = path if path.is_absolute() else session_context.cwd / path
