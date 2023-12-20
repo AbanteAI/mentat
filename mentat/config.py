@@ -111,7 +111,7 @@ class Config:
                 " context. Adds this many tokens to context each request."
             ),
             "abbreviation": "a",
-            "const": 2000,
+            "const": 5000,
         },
         converter=int,
         validator=validators.ge(0),  # pyright: ignore
