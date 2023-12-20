@@ -20,7 +20,7 @@ aws s3 cp benchmark_repos/exercism-javascript/results.json s3://abante-benchmark
 
 # Send slack notification
 JAVASCRIPT_RESULTS_URL="https://abante-benchmark-results.s3.amazonaws.com/exercism-javascript-results-${TIMESTAMP}.html"
-curl -X POST -H "Content-Type: application/json" -d "{\"benchmark_report\": \"${JAVASCRIPT_RESULTS_URL}\", \"summary\": \"${SUMMARY}\"}" $SLACK_BENCHMARK_NOTIFICATION_WEBHOOK
+curl -X POST -H "Content-Type: application/json" -d "{\"benchmark_report\": \"${JAVASCRIPT_RESULTS_URL}\", \"summary\": ${SUMMARY}}" $SLACK_BENCHMARK_NOTIFICATION_WEBHOOK
 
 
 #################
@@ -41,7 +41,7 @@ aws s3 cp benchmark_repos/exercism-python/results.json s3://abante-benchmark-res
 
 # Send slack notification
 PYTHON_RESULTS_URL="https://abante-benchmark-results.s3.amazonaws.com/exercism-python-results-${TIMESTAMP}.html"
-curl -X POST -H "Content-Type: application/json" -d "{\"benchmark_report\": \"${PYTHON_RESULTS_URL}\", \"summary\": \"${SUMMARY}\"}" $SLACK_BENCHMARK_NOTIFICATION_WEBHOOK
+curl -X POST -H "Content-Type: application/json" -d "{\"benchmark_report\": \"${PYTHON_RESULTS_URL}\", \"summary\": ${SUMMARY}}" $SLACK_BENCHMARK_NOTIFICATION_WEBHOOK
 
 
 #######################
@@ -56,4 +56,4 @@ aws s3 cp results.json s3://abante-benchmark-results-json/real-world-benchmark-r
 
 # Send slack notification
 REAL_WORLD_RESULTS_URL="https://abante-benchmark-results.s3.amazonaws.com/real-world-benchmark-results-${TIMESTAMP}.html"
-curl -X POST -H "Content-Type: application/json" -d "{\"benchmark_report\": \"${REAL_WORLD_RESULTS_URL}\", \"summary\": \"${SUMMARY}\"}" $SLACK_BENCHMARK_NOTIFICATION_WEBHOOK
+curl -X POST -H "Content-Type: application/json" -d "{\"benchmark_report\": \"${REAL_WORLD_RESULTS_URL}\", \"summary\": ${SUMMARY}}" $SLACK_BENCHMARK_NOTIFICATION_WEBHOOK
