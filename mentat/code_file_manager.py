@@ -109,6 +109,8 @@ class CodeFileManager:
                 continue
 
             if not file_edit.is_creation:
+                # TODO: We use read_file so much that this probably doesn't work anymore
+                # We should instead make sure the last modified time doesn't change between code message and now
                 stored_lines = self.file_lines[file_edit.file_path]
                 if stored_lines != self.read_file(file_edit.file_path):
                     logging.info(
