@@ -72,7 +72,7 @@ class Sampler:
         code_context = session_context.code_context
         config = session_context.config
         conversation = session_context.conversation
-        
+
         git_root = get_git_root_for_path(session_context.cwd, raise_error=False)
         if not git_root:
             raise SampleError("No git repo found")

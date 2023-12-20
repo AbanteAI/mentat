@@ -10,9 +10,9 @@ from openai.types.chat.completion_create_params import ResponseFormat
 from mentat.llm_api_handler import model_context_size, prompt_tokens
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import clone_repo
 from tests.benchmarks.benchmark_result import BenchmarkResult
 from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
-from mentat.utils import clone_repo
 
 
 def dynamic_import(path_to_module, module_name):
