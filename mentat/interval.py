@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from pathlib import Path
 
@@ -27,19 +28,38 @@ def parse_intervals(interval_string: str) -> list[Interval]:
                 interval = Interval(int(interval[0]), int(interval[0]) + 1)
             else:
                 interval = Interval(int(interval[0]), int(interval[1]))
+            if interval.end <= interval.start:
+                continue
             intervals.append(interval)
         return intervals
     except (ValueError, IndexError):
         return []
 
 
-@attr.define
+# Unfortunately there is no any way to set class properties with attrs so we can't make this part of Interval
+INTERVAL_FILE_END = math.inf
+
+
+@attr.define(order=True)
 class Interval:
+    """
+    1-indexed interval of file lines, inclusive start, exclusive end
+    """
+
     start: int | float = attr.field()
     end: int | float = attr.field()
 
-    def contains(self, line_number: int):
+    def contains(self, line_number: int) -> bool:
         return self.start <= line_number < self.end
 
     def intersects(self, other: Interval) -> bool:
-        return not (other.end < self.start or self.end < other.start)
+        return self.start < other.end and other.start < self.end
+
+    def whole_file(self) -> bool:
+        return self.start == 1 and self.end == INTERVAL_FILE_END
+
+    def __str__(self) -> str:
+        if self.end == self.start + 1:
+            return f"{self.start}"
+        else:
+            return f"{self.start}-{self.end}"

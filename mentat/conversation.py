@@ -4,7 +4,6 @@ import asyncio
 import json
 import logging
 import subprocess
-from timeit import default_timer
 from typing import List, Optional
 
 from openai import RateLimitError
@@ -17,12 +16,7 @@ from openai.types.chat import (
 )
 
 from mentat.errors import MentatError
-from mentat.llm_api_handler import (
-    count_tokens,
-    get_max_tokens,
-    model_context_size,
-    prompt_tokens,
-)
+from mentat.llm_api_handler import count_tokens, get_max_tokens, prompt_tokens
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
@@ -63,38 +57,29 @@ class Conversation:
                     color="yellow",
                 )
 
-        context_size = model_context_size(config.model)
-        maximum_context = config.maximum_context
-        if maximum_context:
-            if context_size:
-                context_size = min(context_size, maximum_context)
-            else:
-                context_size = maximum_context
-
-        included_code_message = ["Code Files:"] + [
-            line
-            for features_for_path in code_context.include_files.values()
-            for feature in features_for_path
-            for line in feature.get_code_message()
-        ]  # NOTE: missing diff info. negligible (0-30 tokens)
-        messages = self.get_messages() + [
+        messages = self.get_messages()
+        code_message = await code_context.get_code_message(
+            prompt_tokens(
+                messages,
+                config.model,
+            )
+        )
+        messages.append(
             ChatCompletionSystemMessageParam(
                 role="system",
-                content="\n".join(included_code_message),
+                content=code_message,
             )
-        ]
-        tokens = prompt_tokens(
-            messages,
-            config.model,
         )
+        tokens = prompt_tokens(messages, config.model)
 
         context_size = get_max_tokens()
         if not context_size:
-            raise MentatError(
+            stream.send(
                 f"Context size for {config.model} is not known. Please set"
-                " maximum-context with `/config maximum_context value`."
+                " the maximum context with `/config maximum_context value`.",
+                color="light_red",
             )
-        if tokens + config.token_buffer > context_size:
+        elif tokens + config.token_buffer > context_size:
             _plural = len(code_context.include_files) > 1
             _exceed = tokens > context_size
             message: dict[tuple[bool, bool], str] = {
@@ -185,24 +170,13 @@ class Conversation:
         self,
         messages: list[ChatCompletionMessageParam],
         loading_multiplier: float = 0.0,
-    ):
+    ) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
         parser = config.parser
         llm_api_handler = session_context.llm_api_handler
-
-        start_time = default_timer()
-
-        num_prompt_tokens = prompt_tokens(messages, config.model)
-        context_size = model_context_size(config.model)
-        if context_size:
-            if num_prompt_tokens > context_size - config.token_buffer:
-                stream.send(
-                    f"Warning: {config.model} has a maximum context length of"
-                    f" {context_size} tokens. Attempting to run anyway:",
-                    color="yellow",
-                )
+        cost_tracker = session_context.cost_tracker
 
         if loading_multiplier:
             stream.send(
@@ -224,28 +198,44 @@ class Conversation:
                 terminate=True,
             )
 
+        num_prompt_tokens = prompt_tokens(messages, config.model)
         stream.send(f"Total token count: {num_prompt_tokens}", color="cyan")
         stream.send("Streaming... use control-c to interrupt the model at any point\n")
         async with parser.interrupt_catcher():
             parsed_llm_response = await parser.stream_and_parse_llm_response(
                 add_newline(response)
             )
+        if not parsed_llm_response.interrupted:
+            cost_tracker.display_last_api_call()
+        else:
+            # Generator doesn't log the api call if we interrupt it
+            cost_tracker.log_api_call_stats(
+                num_prompt_tokens,
+                count_tokens(
+                    parsed_llm_response.full_response, config.model, full_message=False
+                ),
+                config.model,
+                display=True,
+            )
 
-        time_elapsed = default_timer() - start_time
-        return (parsed_llm_response, time_elapsed, num_prompt_tokens)
+        messages.append(
+            ChatCompletionAssistantMessageParam(
+                role="assistant", content=parsed_llm_response.full_response
+            )
+        )
+        self.add_model_message(parsed_llm_response.full_response, messages)
+
+        return parsed_llm_response
 
     async def get_model_response(self) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
         code_context = session_context.code_context
-        cost_tracker = session_context.cost_tracker
 
         messages_snapshot = self.get_messages()
 
-        # Rebuild code context with active code and available tokens
-        tokens = prompt_tokens(messages_snapshot, config.model)
-
+        # Get current code message
         loading_multiplier = 1.0 if config.auto_context else 0.0
         prompt = messages_snapshot[-1]["content"]
         if isinstance(prompt, list):
@@ -253,64 +243,24 @@ class Conversation:
                 p.get("text", "") for p in prompt if p.get("type") == "text"
             ]
             prompt = " ".join(text_prompts)
-        max_tokens = get_max_tokens()
-        if max_tokens is None:
-            stream.send(
-                f"Context size for {config.model} is not known. Please set"
-                " maximum-context with `/config maximum_context value`.",
-                color="light_red",
-            )
-            return ParsedLLMResponse("", "", list[FileEdit]())
-
-        if max_tokens - tokens < config.token_buffer:
-            if max_tokens - tokens < 0:
-                stream.send(
-                    f"The context size is limited to {max_tokens} tokens and"
-                    f" previous messages plus system prompts use {tokens} tokens."
-                    " Please use `/clear` to reset or restart the session.",
-                    color="light_red",
-                )
-            else:
-                stream.send(
-                    f"The context size is limited to {max_tokens} tokens and"
-                    f" previous messages plus system prompts use {tokens} tokens,"
-                    " leaving insufficent tokens for a response. Please use"
-                    " `/clear` to reset or restart the session.",
-                    color="light_red",
-                )
-            return ParsedLLMResponse("", "", list[FileEdit]())
-
         code_message = await code_context.get_code_message(
-            (
-                # Prompt can be image as well as text
-                prompt
+            prompt_tokens(messages_snapshot, config.model),
+            prompt=(
+                prompt  # Prompt can be image as well as text
                 if isinstance(prompt, str)
                 else ""
             ),
-            max_tokens - tokens - config.token_buffer,
             loading_multiplier=0.5 * loading_multiplier,
         )
         messages_snapshot.insert(
             1, ChatCompletionSystemMessageParam(role="system", content=code_message)
         )
 
-        # If we want to add agent specific messages in (this one didn't work too well):
-        # if agent_handler.agent_enabled:
-        # agent_message = (
-        #    "You are currently being run autonomously. After making your changes,"
-        #    " you will have the chance to lint and test your code. If applicable,"
-        #    " add tests that you can use to test your code."
-        # )
-        # messages_snapshot.append(
-        #    ChatCompletionSystemMessageParam(role="system", content=agent_message)
-        # )
-
         try:
             response = await self._stream_model_response(
                 messages_snapshot,
                 loading_multiplier=0.5 * loading_multiplier,
             )
-            parsed_llm_response, time_elapsed, num_prompt_tokens = response
         except RateLimitError:
             stream.send(
                 "Rate limit error received from OpenAI's servers using model"
@@ -322,32 +272,11 @@ class Conversation:
         finally:
             if loading_multiplier:
                 stream.send(None, channel="loading", terminate=True)
-
-        cost_tracker.log_api_call_stats(
-            num_prompt_tokens,
-            count_tokens(
-                parsed_llm_response.full_response, config.model, full_message=False
-            ),
-            config.model,
-            time_elapsed,
-            display=True,
-        )
-
-        messages_snapshot.append(
-            ChatCompletionAssistantMessageParam(
-                role="assistant", content=parsed_llm_response.full_response
-            )
-        )
-        self.add_model_message(parsed_llm_response.full_response, messages_snapshot)
-        return parsed_llm_response
+        return response
 
     def remaining_context(self) -> int | None:
         ctx = SESSION_CONTEXT.get()
-        max_context = get_max_tokens()
-        if max_context is None:
-            return None
-
-        return max_context - prompt_tokens(self.get_messages(), ctx.config.model)
+        return get_max_tokens() - prompt_tokens(self.get_messages(), ctx.config.model)
 
     def can_add_to_context(self, message: str) -> bool:
         """

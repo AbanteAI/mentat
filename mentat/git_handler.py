@@ -139,6 +139,7 @@ def commit(message: str) -> None:
 
 def get_diff_for_file(target: str, path: Path) -> str:
     """Return commit data & diff for target versus active code"""
+    # TODO: Cache git diffs and check last modified time on file
     session_context = SESSION_CONTEXT.get()
 
     try:

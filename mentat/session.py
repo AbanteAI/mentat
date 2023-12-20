@@ -20,7 +20,7 @@ from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
-from mentat.errors import MentatError, SessionExit, UserError
+from mentat.errors import ContextSizeInsufficient, MentatError, SessionExit, UserError
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
@@ -108,6 +108,13 @@ class Session:
         config.send_errors_to_stream()
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)
+        if (
+            code_context.diff_context is not None
+            and len(code_context.include_files) == 0
+            and (diff or pr_diff)
+        ):
+            for file in code_context.diff_context.diff_files():
+                code_context.include(file)
 
     def _create_task(self, coro: Coroutine[None, None, Any]):
         """Utility method for running a Task in the background"""
@@ -137,10 +144,10 @@ class Session:
         code_context.display_context()
         await conversation.display_token_count()
 
-        try:
-            stream.send("Type 'q' or use Ctrl-C to quit at any time.")
-            need_user_request = True
-            while True:
+        stream.send("Type 'q' or use Ctrl-C to quit at any time.")
+        need_user_request = True
+        while True:
+            try:
                 if need_user_request:
                     # Normally, the code_file_manager pushes the edits; but when agent mode is on, we want all
                     # edits made between user input to be collected together.
@@ -190,10 +197,14 @@ class Session:
                 else:
                     need_user_request = True
                 stream.send(bool(file_edits), channel="edits_complete")
-        except SessionExit:
-            pass
-        except (APITimeoutError, RateLimitError, BadRequestError) as e:
-            stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
+            except SessionExit:
+                break
+            except ContextSizeInsufficient:
+                need_user_request = True
+                continue
+            except (APITimeoutError, RateLimitError, BadRequestError) as e:
+                stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
+                break
 
     async def listen_for_session_exit(self):
         await self.stream.recv(channel="session_exit")

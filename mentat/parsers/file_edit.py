@@ -17,11 +17,10 @@ from mentat.session_input import ask_yes_no
 from mentat.utils import get_relative_path
 
 
-# TODO: Add 'owner' to Replacement so that interactive mode can accept/reject multiple replacements at once
 @attr.define(order=False)
 class Replacement:
     """
-    Represents that the lines from starting_line (inclusive) to ending_line (exclusive)
+    Represents that the 0-indexed lines from starting_line (inclusive) to ending_line (exclusive)
     should be replaced with new_lines
     """
 
@@ -165,12 +164,12 @@ class FileEdit:
                 )
                 return False
             file_features_in_context = [
-                f for f in code_context.features if f.path == self.file_path
-            ] or code_context.include_files.get(self.file_path, [])
+                f for f in code_context.auto_features if f.path == self.file_path
+            ] + code_context.include_files.get(self.file_path, [])
             if not all(
-                any(f.contains_line(i) for f in file_features_in_context)
+                any(f.interval.contains(i) for f in file_features_in_context)
                 for r in self.replacements
-                for i in range(r.starting_line, r.ending_line)
+                for i in range(r.starting_line + 1, r.ending_line + 1)
             ):
                 stream.send(
                     f"File {display_path} not in context, canceling all edits to file.",

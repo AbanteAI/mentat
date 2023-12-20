@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import math
 from collections import OrderedDict, defaultdict
-from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -12,10 +10,10 @@ from mentat.ctags import get_ctag_lines_and_names
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
-from mentat.interval import Interval, parse_intervals, split_intervals_from_path
+from mentat.interval import INTERVAL_FILE_END, Interval
 from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import get_relative_path, sha256
+from mentat.utils import get_relative_path
 
 MIN_INTERVAL_LINES = 10
 
@@ -23,11 +21,7 @@ MIN_INTERVAL_LINES = 10
 def split_file_into_intervals(
     feature: CodeFeature,
     min_lines: int | None = None,
-    user_features: list[CodeFeature] = [],
 ) -> list[CodeFeature]:
-    if feature.level != CodeMessageLevel.CODE:
-        return [feature]
-
     min_lines = min_lines or MIN_INTERVAL_LINES
     session_context = SESSION_CONTEXT.get()
     code_file_manager = session_context.code_file_manager
@@ -73,30 +67,13 @@ def split_file_into_intervals(
     # Create and return separate features for each interval
     _features = list[CodeFeature]()
     for name, start, end in named_intervals:
-        _user_included = any(
-            u.contains_line(i) for u in user_features for i in range(start, end + 1)
-        )
-        feature_string = f"{feature.path}:{start}-{end}"
         _feature = CodeFeature(
-            feature_string,
-            level=CodeMessageLevel.INTERVAL,
-            diff=feature.diff,
-            user_included=_user_included,
+            feature.path,
+            interval=Interval(start, end),
             name=name,
         )
         _features.append(_feature)
     return _features
-
-
-class CodeMessageLevel(Enum):
-    CODE = ("code", 1, "Full File")
-    INTERVAL = ("interval", 2, "Specific range")
-    FILE_NAME = ("file_name", 3, "Relative path/filename")
-
-    def __init__(self, key: str, rank: int, description: str):
-        self.key = key
-        self.rank = rank
-        self.description = description
 
 
 class CodeFeature:
@@ -107,46 +84,26 @@ class CodeFeature:
     Attributes:
         path: The absolute path to the file.
         interval: The lines in the file.
-        level: The level of information to include.
-        diff: The diff annotations to include.
     """
 
     def __init__(
         self,
-        path: str | Path,
-        level: CodeMessageLevel = CodeMessageLevel.CODE,
-        diff: str | None = None,
-        user_included: bool = False,
+        path: Path,
+        interval: Interval = Interval(1, INTERVAL_FILE_END),
         name: Optional[str] = None,
     ):
-        if Path(path).exists():
-            self.path = Path(path)
-            self.interval = Interval(0, math.inf)
-        else:
-            self.path, interval = split_intervals_from_path(path)
-            if not self.path.exists():
-                self.path = Path(path)
-                self.interval = Interval(0, math.inf)
-            else:
-                interval = parse_intervals(interval)
-                if len(interval) > 1:
-                    raise MentatError("CodeFeatures should only have one interval.")
-                self.interval = interval[0]
-                level = CodeMessageLevel.INTERVAL
+        self.path = Path(path)
+        self.interval = interval
 
         if not self.path.is_absolute():
             raise MentatError("CodeFeature path must be absolute.")
 
-        self.level = level
-        self.diff = diff
-        self.user_included = user_included
         self.name = name
 
     def __repr__(self):
         return (
-            f"CodeFeature(fname={self.path.name},"
-            f" interval={self.interval.start}-{self.interval.end},"
-            f" level={self.level.key}, diff={self.diff})"
+            f"CodeFeature(path={self.path},"
+            f" interval={self.interval.start}-{self.interval.end}), name={self.name}"
         )
 
     def rel_path(self, cwd: Optional[Path] = None) -> str:
@@ -157,67 +114,71 @@ class CodeFeature:
         return path_string
 
     def interval_string(self) -> str:
-        if self.level == CodeMessageLevel.INTERVAL:
+        if not self.interval.whole_file():
             interval_string = f":{self.interval.start}-{self.interval.end}"
         else:
             interval_string = ""
         return interval_string
 
-    def ref(self, cwd: Optional[Path] = None) -> str:
+    def __str__(self, cwd: Optional[Path] = None) -> str:
         return self.rel_path(cwd) + self.interval_string()
 
-    def contains_line(self, line_number: int):
-        return self.interval.contains(line_number)
-
-    def _get_code_message(self) -> list[str]:
+    def get_code_message(self, standalone: bool = True) -> list[str]:
+        """
+        Gets this code features code message.
+        If standalone is true, will include the filename at top and extra newline at the end.
+        If feature contains entire file, will add inline diff annotations; otherwise, will append them to the end.
+        """
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
         parser = session_context.config.parser
+        code_context = session_context.code_context
 
         code_message: list[str] = []
 
-        # We always want to give GPT posix paths
-        code_message_path = get_relative_path(self.path, session_context.cwd)
-        code_message.append(str(code_message_path.as_posix()))
+        if standalone:
+            # We always want to give GPT posix paths
+            code_message_path = get_relative_path(self.path, session_context.cwd)
+            code_message.append(str(code_message_path.as_posix()))
 
-        if self.level in {CodeMessageLevel.CODE, CodeMessageLevel.INTERVAL}:
-            file_lines = code_file_manager.read_file(self.path)
-            for i, line in enumerate(file_lines):
-                if self.contains_line(i + 1):
-                    if parser.provide_line_numbers():
-                        code_message.append(
-                            f"{i + parser.line_number_starting_index()}:{line}"
-                        )
-                    else:
-                        code_message.append(f"{line}")
-        code_message.append("")
+        # Get file lines
+        file_lines = code_file_manager.read_file(self.path)
+        for i, line in enumerate(file_lines):
+            if self.interval.contains(i + 1):
+                if parser.provide_line_numbers():
+                    code_message.append(
+                        f"{i + parser.line_number_starting_index()}:{line}"
+                    )
+                else:
+                    code_message.append(f"{line}")
 
-        if self.diff is not None:
-            diff: str = get_diff_for_file(self.diff, self.path)
+        if standalone:
+            code_message.append("")
+
+        if (
+            code_context.diff_context is not None
+            and self.path in code_context.diff_context.diff_files()
+        ):
+            diff = get_diff_for_file(code_context.diff_context.target, self.path)
             diff_annotations = parse_diff(diff)
-            if self.level == CodeMessageLevel.CODE:
+            if self.interval.whole_file():
                 code_message = annotate_file_message(code_message, diff_annotations)
             else:
                 for section in diff_annotations:
-                    code_message += section.message
+                    # TODO: Place diff_annotations inside interval where they belong
+                    if (
+                        section.start >= self.interval.start
+                        and section.start < self.interval.end
+                    ):
+                        code_message += section.message
         return code_message
 
     def get_checksum(self) -> str:
+        # TODO: Only update checksum if last modified time of file updates to conserve file system reads
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
 
-        file_checksum = code_file_manager.get_file_checksum(self.path, self.interval)
-        return sha256(f"{file_checksum}{self.level.key}{self.diff}")
-
-    _feature_checksum: str | None = None
-    _code_message: list[str] | None = None
-
-    def get_code_message(self) -> list[str]:
-        feature_checksum = self.get_checksum()
-        if feature_checksum != self._feature_checksum or self._code_message is None:
-            self._feature_checksum = feature_checksum
-            self._code_message = self._get_code_message()
-        return self._code_message
+        return code_file_manager.get_file_checksum(self.path, self.interval)
 
     def count_tokens(self, model: str) -> int:
         code_message = self.get_code_message()
@@ -236,28 +197,37 @@ async def count_feature_tokens(features: list[CodeFeature], model: str) -> list[
     return await asyncio.gather(*tasks)
 
 
-def get_code_message_from_intervals(features: list[CodeFeature]) -> list[str]:
-    """Merge multiple features for the same file into a single code message"""
-    features_sorted = sorted(features, key=lambda f: f.interval.start)
+def _get_code_message_from_intervals(features: list[CodeFeature]) -> list[str]:
+    """
+    Merge multiple features for the same file into a single code message.
+    """
+    features_sorted = sorted(features, key=lambda f: f.interval)
     posix_path = features_sorted[0].get_code_message()[0]
     code_message = [posix_path]
     next_line = 1
     for feature in features_sorted:
         starting_line = feature.interval.start
         if starting_line < next_line:
-            logging.warning(f"Features overlap: {feature}")
-            if feature.interval.end < next_line:
+            logging.info(f"Features overlap: {feature}")
+            if feature.interval.end <= next_line:
                 continue
-            feature.interval = Interval(next_line, feature.interval.end)
+            feature = CodeFeature(
+                feature.path,
+                interval=Interval(next_line, feature.interval.end),
+                name=feature.name,
+            )
         elif starting_line > next_line:
             code_message += ["..."]
-        code_message += feature.get_code_message()[1:-1]
+        code_message += feature.get_code_message(standalone=False)
         next_line = feature.interval.end
     return code_message + [""]
 
 
 def get_code_message_from_features(features: list[CodeFeature]) -> list[str]:
-    """Generate a code message from a list of features"""
+    """
+    Generate a code message from a list of features.
+    Will automatically handle overlapping intervals.
+    """
     code_message = list[str]()
     features_by_path: dict[Path, list[CodeFeature]] = OrderedDict()
     for feature in features:
@@ -268,36 +238,27 @@ def get_code_message_from_features(features: list[CodeFeature]) -> list[str]:
         if len(path_features) == 1:
             code_message += path_features[0].get_code_message()
         else:
-            code_message += get_code_message_from_intervals(path_features)
+            code_message += _get_code_message_from_intervals(path_features)
     return code_message
 
 
 def get_consolidated_feature_refs(features: list[CodeFeature]) -> list[str]:
-    """Return a list of 'path:<interval>,<interval>' strings"""
+    """
+    Return a list of 'path:<interval>,<interval>' strings, merging code features with the same path
+    """
     level_info_by_path = defaultdict[Path, list[Interval | None]](list)
     for f in features:
-        if f.level == CodeMessageLevel.CODE:
+        if f.interval.whole_file():
             level_info_by_path[f.path].append(None)
-        elif f.level == CodeMessageLevel.INTERVAL:
-            level_info_by_path[f.path].append(f.interval)
         else:
-            pass  # Skipping filename, code_maps
+            level_info_by_path[f.path].append(f.interval)
 
     consolidated_refs = list[str]()
     for path, level_info in level_info_by_path.items():
         ref_string = str(path)
-        if not any(level is None for level in level_info):
-            intervals = sorted(
-                [level for level in level_info if isinstance(level, Interval)],
-                key=lambda i: i.start,
-            )
-            ref_string += f":{intervals[0].start}-"
-            last_end = intervals[0].end
-            for i in intervals[1:]:
-                if i.start > last_end + 1:
-                    ref_string += f"{last_end},{i.start}-"
-                last_end = i.end
-            ref_string += str(last_end)
+        intervals = sorted([level for level in level_info if level is not None])
+        if intervals and None not in level_info:
+            ref_string += ":" + ",".join(str(interval) for interval in intervals)
         consolidated_refs.append(ref_string)
 
     return consolidated_refs
