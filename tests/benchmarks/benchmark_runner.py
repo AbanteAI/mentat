@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import re
 
 import pytest
 from git import Repo
@@ -9,6 +10,8 @@ from openai.types.chat.completion_create_params import ResponseFormat
 from mentat.llm_api_handler import model_context_size, prompt_tokens
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
+from tests.benchmarks.benchmark_result import BenchmarkResult
+from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
 from mentat.utils import clone_repo
 
 
@@ -84,7 +87,7 @@ model_response_grade_prompt = """\
 You will be give a models response to a prompt. You won't be given the full
 context of the response. You are just looking for certain stylistic errors.
 Respond in json. The following fields are required:
-format_reference: boolean, true if the model talks about its edit format in any
+referenced_format: boolean, true if the model talks about its edit format in any
 way in its response. For example if it has a clause like "The edits in the
 requested format are:"
 trailing_waffling: boolean, true if after the structured edits the model ends
@@ -124,8 +127,8 @@ async def test_benchmark(retries, benchmarks):
             if file.endswith(".py"):
                 benchmark_paths.append(os.path.join(root, file))
 
-    print("Found benchmarks:", " ".join(benchmark_paths))
-    results = {}
+    print("Found benchmarks:\n" + "\n".join(benchmark_paths))
+    results = []
     for path in benchmark_paths:
         benchmark = dynamic_import(path, "benchmark")
         title = benchmark.title
@@ -141,7 +144,6 @@ async def test_benchmark(retries, benchmarks):
             continue
 
         print("Benchmark:", title)
-        results[title] = {}
 
         codebase = clone_repo(
             url=benchmark.repo,
@@ -154,12 +156,14 @@ async def test_benchmark(retries, benchmarks):
         start_commit = repo.commit()
         repo.git.checkout(benchmark.commit)
 
-        for prompt in benchmark.prompts:
+        for i, prompt in enumerate(benchmark.prompts):
             print("  Prompt:", prompt)
-            results[title][prompt] = {
-                "Verified": 0,
-            }
-            for i in range(1, retries + 1):
+            for j in range(1, retries + 1):
+                formatted_title = re.sub(r"[ '\"/\\-^]", "", title).replace(" ", "_")
+                result = BenchmarkResult(
+                    name=f"{formatted_title}-{i}-{j}",
+                    family=formatted_title,
+                )
                 client = PythonClient(cwd=codebase, config=benchmark.config)
                 await client.startup()
                 response = await client.call_mentat(prompt)
@@ -167,30 +171,54 @@ async def test_benchmark(retries, benchmarks):
                 await client.wait_for_edit_completion()
 
                 await client.call_mentat("q")
+                messages = client.get_conversation().literal_messages
+                cost_tracker = client.get_cost_tracker()
+                result.cost = cost_tracker.total_cost
+                result.tokens = cost_tracker.total_tokens
+                result.transcript = {
+                    "id": result.name,
+                    "messages": messages,
+                }
+
                 await client.shutdown()
+                repo.git.add(["--all"])
 
                 if hasattr(benchmark, "verify"):
-                    if benchmark.verify():
-                        results[title][prompt]["Verified"] += 1
+                    result.verify = benchmark.verify()
 
-                diff = repo.git.diff(start_commit)
+                # Set syntax and response grade information
+                diff = repo.git.diff(["--staged"])
+                result.code = diff
                 diff_grade = await grade_diff_syntax(diff)
-                results[title][prompt]["Diff_Grade"] = diff_grade
+                result.diff_grade = diff_grade
+                result.off_by_one = diff_grade.get("off_by_one")
+                result.indentation_error = diff_grade.get("indentation")
+                result.syntax_error = diff_grade.get("syntax")
                 response_grade = await grade_model_response(response)
-                results[title][prompt]["Response_Grade"] = response_grade
+                result.response_grade = response_grade
+                result.referenced_format = response_grade.get("referenced_format")
 
                 # Clean up
                 repo.git.reset("--hard")
                 repo.git.clean("-fd")
+                results.append(result)
 
+                # Set comparison grade information
                 if hasattr(benchmark, "comparison_commit"):
                     repo.git.checkout(benchmark.comparison_commit)
                     comparison_diff = repo.git.diff(benchmark.commit)
                     comparison_grade = await compare_diffs(diff, comparison_diff)
-                    results[title][prompt]["Comparison"] = comparison_grade
-
-            if hasattr(benchmark, "verify"):
-                print(f"  Succeeded: {results[title][prompt]['Verified']}/{retries}")
-
+                    result.comparison_grade = comparison_grade
+                    result.extra_functionality = comparison_grade.get(
+                        "extra_functionality"
+                    )
+                    result.missing_functionality = comparison_grade.get(
+                        "missing_functionality"
+                    )
         repo.git.checkout(start_commit)
-    print(results)
+
+    summary = BenchmarkResultSummary(results)
+    os.chdir("../..")
+    with open("results.json", "w") as f:
+        f.write(summary.to_json())
+    summary.render_results()

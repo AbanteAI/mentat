@@ -53,9 +53,10 @@ class Sampler:
     def set_active_diff(self):
         # Create a temporary commit with the active changes
         ctx = SESSION_CONTEXT.get()
-        if not get_git_root_for_path(ctx.cwd, raise_error=False):
+        git_root = get_git_root_for_path(ctx.cwd, raise_error=False)
+        if not git_root:
             return
-        repo = Repo(ctx.cwd)
+        repo = Repo(git_root)
         self.commit_active = get_active_snapshot_commit(repo)
         # If changes were made since the last sample, don't list it as parent.
         if not self.last_sample_hexsha:
@@ -71,10 +72,13 @@ class Sampler:
         code_context = session_context.code_context
         config = session_context.config
         conversation = session_context.conversation
-        cwd = session_context.cwd
+        
+        git_root = get_git_root_for_path(session_context.cwd, raise_error=False)
+        if not git_root:
+            raise SampleError("No git repo found")
 
         stream.send("Input sample data", color="light_blue")
-        git_repo = Repo(cwd)
+        git_repo = Repo(git_root)
         merge_base = None
         if config.sample_merge_base_target:
             target = config.sample_merge_base_target
@@ -156,7 +160,7 @@ class Sampler:
         context = set[str]()
 
         def _rp(f: str | Path) -> str:
-            return get_relative_path(Path(f), cwd).as_posix()
+            return get_relative_path(Path(f), git_root).as_posix()
 
         # Add include_files from context
         if code_context.include_files:

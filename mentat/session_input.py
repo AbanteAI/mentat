@@ -77,9 +77,9 @@ async def listen_for_interrupt(
     asyncio.Task created from `coro` will be canceled.
 
     TODO:
-    - make sure task cancellation actually cancels the tasks
+      - make sure task cancellation actually cancels the tasks
       - Is there any kind of delay, or a possiblity of one?
-    - make sure there's no race conditions
+      - make sure there's no race conditions
 
     The `.result()` call for `wrapped_task` will re-raise any exceptions thrown
     inside of that Task.

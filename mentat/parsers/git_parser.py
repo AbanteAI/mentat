@@ -56,7 +56,7 @@ class GitParser:
                 new_name = None
 
             file_edit = FileEdit(
-                session_context.cwd / start_file_name,
+                (session_context.cwd / start_file_name).resolve(),
                 [],
                 is_creation=is_creation,
                 is_deletion=is_deletion,
