@@ -248,7 +248,7 @@ def test_get_all_features(temp_testbed, mock_code_context):
 
     # Test with include_files argument matching one file
     mock_code_context.include(path1)
-    features = mock_code_context.get_all_features(files_only=True)
+    features = mock_code_context.get_all_features(split_intervals=False)
     assert len(features) == 2
     feature1b = next(f for f in features if f.path == path1)
     feature2b = next(f for f in features if f.path == path2)

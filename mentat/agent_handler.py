@@ -41,7 +41,7 @@ class AgentHandler:
         ctx.stream.send(
             "Finding files to determine how to test changes...", color="cyan"
         )
-        features = ctx.code_context.get_all_features(files_only=True)
+        features = ctx.code_context.get_all_features(split_intervals=False)
         messages: List[ChatCompletionMessageParam] = [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_file_selection_prompt
@@ -85,26 +85,21 @@ class AgentHandler:
         ctx = SESSION_CONTEXT.get()
 
         model = ctx.config.model
-        messages = (
-            [
-                ChatCompletionSystemMessageParam(
-                    role="system", content=self.agent_command_prompt
-                )
-            ]
-            + ctx.conversation.get_messages(include_system_prompt=False)
-            + [
-                ChatCompletionSystemMessageParam(
-                    role="system", content=self.agent_file_message
-                ),
-            ]
-        )
+        messages = [
+            ChatCompletionSystemMessageParam(
+                role="system", content=self.agent_command_prompt
+            ),
+            ChatCompletionSystemMessageParam(
+                role="system", content=self.agent_file_message
+            ),
+        ] + ctx.conversation.get_messages(include_system_prompt=False)
         code_message = await ctx.code_context.get_code_message(
             prompt_tokens=prompt_tokens(messages, model)
         )
         code_message = ChatCompletionSystemMessageParam(
             role="system", content=code_message
         )
-        messages.append(code_message)
+        messages.insert(1, code_message)
 
         try:
             # TODO: Should this even be a separate call or should we collect commands in the edit call?

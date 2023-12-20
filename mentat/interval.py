@@ -53,7 +53,7 @@ class Interval:
         return self.start <= line_number < self.end
 
     def intersects(self, other: Interval) -> bool:
-        return not (other.end < self.start or self.end < other.start)
+        return self.start < other.end and other.start < self.end
 
     def whole_file(self) -> bool:
         return self.start == 1 and self.end == INTERVAL_FILE_END

@@ -204,19 +204,18 @@ def _get_code_message_from_intervals(features: list[CodeFeature]) -> list[str]:
     next_line = 1
     for feature in features_sorted:
         starting_line = feature.interval.start
-        feature_to_use = feature
         if starting_line < next_line:
             logging.info(f"Features overlap: {feature}")
-            if feature.interval.end < next_line:
+            if feature.interval.end <= next_line:
                 continue
-            feature_to_use = CodeFeature(
+            feature = CodeFeature(
                 feature.path,
                 interval=Interval(next_line, feature.interval.end),
                 name=feature.name,
             )
         elif starting_line > next_line:
             code_message += ["..."]
-        code_message += feature_to_use.get_code_message(standalone=False)
+        code_message += feature.get_code_message(standalone=False)
         next_line = feature.interval.end
     return code_message + [""]
 

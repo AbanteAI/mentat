@@ -27,7 +27,7 @@ from mentat.include_files import (
     validate_and_format_path,
 )
 from mentat.interval import parse_intervals, split_intervals_from_path
-from mentat.llm_api_handler import count_tokens, get_max_tokens, model_context_check
+from mentat.llm_api_handler import count_tokens, get_max_tokens, is_context_sufficient
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
@@ -151,8 +151,8 @@ class CodeContext:
         tokens_used = (
             prompt_tokens + meta_tokens + include_files_tokens + config.token_buffer
         )
-        if not model_context_check(tokens_used):
-            raise ContextSizeInsufficient
+        if not is_context_sufficient(tokens_used):
+            raise ContextSizeInsufficient()
         auto_tokens = min(get_max_tokens() - tokens_used, config.auto_tokens)
 
         # Get auto included features
@@ -177,7 +177,7 @@ class CodeContext:
     def get_all_features(
         self,
         max_chars: int = 100000,
-        files_only: bool = False,
+        split_intervals: bool = True,
     ) -> list[CodeFeature]:
         """
         Retrieves every CodeFeature under the cwd. If files_only is True the features won't be split into intervals
@@ -200,7 +200,7 @@ class CodeContext:
             if not is_file_text_encoded(path) or os.path.getsize(path) > max_chars:
                 continue
 
-            if files_only:
+            if not split_intervals:
                 _feature = CodeFeature(path)
                 all_features.append(_feature)
             else:

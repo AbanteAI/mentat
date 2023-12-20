@@ -195,13 +195,13 @@ def get_max_tokens() -> int:
     else:
         stream.send(
             f"Context size for {config.model} is not known. Please set"
-            " maximum-context with `/config maximum_context value`.",
+            " maximum-context with `/config maximum_context <value>`.",
             color="light_red",
         )
-        raise ContextSizeInsufficient
+        raise ContextSizeInsufficient()
 
 
-def model_context_check(tokens: int) -> bool:
+def is_context_sufficient(tokens: int) -> bool:
     ctx = SESSION_CONTEXT.get()
 
     max_tokens = get_max_tokens()
@@ -271,8 +271,8 @@ class LlmApiHandler:
 
         # Confirm that model has enough tokens remaining.
         tokens = prompt_tokens(messages, model)
-        if not model_context_check(tokens):
-            raise ContextSizeInsufficient
+        if not is_context_sufficient(tokens):
+            raise ContextSizeInsufficient()
 
         start_time = default_timer()
         with sentry_sdk.start_span(description="LLM Call") as span:
