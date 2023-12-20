@@ -111,6 +111,7 @@ class Config:
                 " context. Adds this many tokens to context each request."
             ),
             "abbreviation": "a",
+            "const": 2000,
         },
         converter=int,
         validator=validators.ge(0),  # pyright: ignore
@@ -162,6 +163,9 @@ class Config:
             arguments = {
                 "help": field.metadata.get("description", ""),
             }
+            if "const" in field.metadata:
+                arguments["nargs"] = "?"
+                arguments["const"] = field.metadata["const"]
 
             if field.type == "bool":
                 if arguments.get("default", False):
