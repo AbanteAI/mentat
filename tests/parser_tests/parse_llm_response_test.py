@@ -8,8 +8,8 @@ from mentat.parsers.parser_map import parser_map
 
 @pytest.mark.asyncio
 async def test_parse_llm_response(mocker, temp_testbed):
-    mock_file_name = temp_testbed / "mulfile_calculator" / "calculator.py"
-    mock_renamed_name = temp_testbed / "mulfile_calculator" / "calculator_renamed.py"
+    mock_file_name = temp_testbed / "multifile_calculator" / "calculator.py"
+    mock_renamed_name = temp_testbed / "multifile_calculator" / "calculator_renamed.py"
     response = dedent(f"""\
         I will insert a comment then rename the file
 
