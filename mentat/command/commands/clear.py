@@ -35,5 +35,5 @@ class ClearCommand(Command, command_name="clear"):
     @classmethod
     def help_message(cls) -> str:
         return (
-            "Clear the current message history and auto included features from context."
+            "Clear the current message history and auto included code features from context."
         )
