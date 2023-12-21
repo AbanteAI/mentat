@@ -27,7 +27,8 @@ from mentat.parsers.change_display_helper import (
 )
 from mentat.parsers.file_edit import FileEdit
 from mentat.session_context import SESSION_CONTEXT
-from mentat.streaming_printer import StreamingPrinter
+from mentat.streaming_printer import DummyPrinter, StreamingPrinter
+from mentat.utils import convert_string_to_asynciter
 
 
 @attr.define
@@ -42,6 +43,7 @@ class Parser(ABC):
     def __init__(self):
         self.shutdown = Event()
         self._interrupt_task = None
+        self._silence_printer = False
 
     async def listen_for_interrupt(self):
         session_context = SESSION_CONTEXT.get()
@@ -86,8 +88,12 @@ class Parser(ABC):
         stream = session_context.stream
         code_file_manager = session_context.code_file_manager
 
-        printer = StreamingPrinter()
-        printer_task = asyncio.create_task(printer.print_lines())
+        if self._silence_printer:
+            printer = DummyPrinter()
+            printer_task = None
+        else:
+            printer = StreamingPrinter()
+            printer_task = asyncio.create_task(printer.print_lines())
         message = ""
         conversation = ""
         file_edits = dict[Path, FileEdit]()
@@ -108,7 +114,8 @@ class Parser(ABC):
             if self.shutdown.is_set():
                 interrupted = True
                 printer.shutdown_printer()
-                await printer_task
+                if printer_task is not None:
+                    await printer_task
                 stream.send(
                     colored("")  # Reset ANSI codes
                     + "\n\nInterrupted by user. Using the response up to this point."
@@ -204,7 +211,8 @@ class Parser(ABC):
                             printer.add_string(str(e), color="red")
                             printer.add_string("Using existing changes.")
                             printer.wrap_it_up()
-                            await printer_task
+                            if printer_task is not None:
+                                await printer_task
                             logging.debug("LLM Response:")
                             logging.debug(message)
                             return ParsedLLMResponse(
@@ -313,7 +321,8 @@ class Parser(ABC):
 
             # Only finish printing if we don't quit from ctrl-c
             printer.wrap_it_up()
-            await printer_task
+            if printer_task is not None:
+                await printer_task
 
         logging.debug("LLM Response:")
         logging.debug(message)
@@ -419,3 +428,10 @@ class Parser(ABC):
         Can return a message to print after this change is finished.
         """
         raise NotImplementedError()
+
+    async def parse_llm_response(self, response: str) -> ParsedLLMResponse:
+        self._silence_printer = True
+        async_iter_response = convert_string_to_asynciter(response, chunk_size=100)
+        parsed_response = await self.stream_and_parse_llm_response(async_iter_response)
+        self._silence_printer = False
+        return parsed_response
