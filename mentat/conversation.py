@@ -108,21 +108,20 @@ class Conversation:
 
     def add_user_message(self, message: str, image: Optional[str] = None):
         """Used for actual user input messages"""
-        content: List[ChatCompletionContentPartParam] = [
-            {
-                "type": "text",
-                "text": message,
-            },
-        ]
+        content: List[ChatCompletionContentPartParam] | str = message
         if image:
-            content.append(
+            content = [
+                {
+                    "type": "text",
+                    "text": message,
+                },
                 {
                     "type": "image_url",
                     "image_url": {
                         "url": image,
                     },
                 },
-            )
+            ]
         self.add_transcript_message(UserMessage(message=content, prior_messages=None))
         self.add_message(ChatCompletionUserMessageParam(role="user", content=content))
 
