@@ -60,20 +60,3 @@ class StreamingPrinter:
 
     def shutdown_printer(self):
         self.shutdown = True
-
-
-class DummyPrinter:
-    def add_string(self, string: str, end: str = "\n", color: str | None = None):
-        pass
-
-    def sleep_time(self) -> float:
-        return 0.0
-
-    async def print_lines(self):
-        pass
-
-    def wrap_it_up(self):
-        pass
-
-    def shutdown_printer(self):
-        pass

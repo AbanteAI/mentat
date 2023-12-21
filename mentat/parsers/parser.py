@@ -27,7 +27,7 @@ from mentat.parsers.change_display_helper import (
 )
 from mentat.parsers.file_edit import FileEdit
 from mentat.session_context import SESSION_CONTEXT
-from mentat.streaming_printer import DummyPrinter, StreamingPrinter
+from mentat.streaming_printer import StreamingPrinter
 from mentat.utils import convert_string_to_asynciter
 
 
@@ -88,11 +88,10 @@ class Parser(ABC):
         stream = session_context.stream
         code_file_manager = session_context.code_file_manager
 
+        printer = StreamingPrinter()
         if self._silence_printer:
-            printer = DummyPrinter()
             printer_task = None
         else:
-            printer = StreamingPrinter()
             printer_task = asyncio.create_task(printer.print_lines())
         message = ""
         conversation = ""
