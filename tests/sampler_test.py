@@ -388,7 +388,6 @@ async def test_sampler_integration(
         5. Delete "format_examples/replacement.txt"
         6. Rename "scripts/echo1.py" to "scripts/echo2.py"
         """))
-    await python_client.wait_for_edit_completion()
 
     # Remove all included files; rely on the diff to include them
     python_client.session.ctx.code_context.include_files = {}

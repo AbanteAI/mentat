@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List
 
 from mentat.config import Config
+from mentat.errors import MentatError
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 
@@ -30,23 +31,32 @@ class PythonClient:
 
         self._accumulated_message = ""
         self.stopped = Event()
+        self._call_mentat_task = None
 
-    async def call_mentat(self, message: str):
+    async def _call_mentat(self, message: str):
         input_request_message = await self.session.stream.recv("input_request")
         self.session.stream.send(
             message,
             source=StreamMessageSource.CLIENT,
             channel=f"input_request:{input_request_message.id}",
         )
+        if message == "y":
+            await self.wait_for_edit_completion()
 
         temp = self._accumulated_message
         self._accumulated_message = ""
         return temp
 
+    async def call_mentat(self, message: str):
+        self._call_mentat_task = asyncio.create_task(self._call_mentat(message))
+        try:
+            return await self._call_mentat_task
+        except asyncio.CancelledError:
+            print(self.session.error)
+            raise MentatError("Session failed")
+
     async def call_mentat_auto_accept(self, message: str):
         await self.call_mentat(message)
-        if self.stopped.is_set():
-            return
         await self.call_mentat("y")
 
     async def wait_for_edit_completion(self):
@@ -85,6 +95,8 @@ class PythonClient:
     async def _stop(self):
         self.acc_task.cancel()
         self.exit_task.cancel()
+        if self._call_mentat_task:
+            self._call_mentat_task.cancel()
         self.stopped.set()
 
     def get_conversation(self):

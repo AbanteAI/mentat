@@ -166,11 +166,8 @@ async def test_benchmark(retries, benchmarks):
                 )
                 client = PythonClient(cwd=codebase, config=benchmark.config)
                 await client.startup()
-                response = await client.call_mentat(prompt)
-                await client.call_mentat("y")
-                await client.wait_for_edit_completion()
-
-                await client.call_mentat("q")
+                response = await client.call_mentat_auto_accept(prompt)
+                await client.shutdown()
                 messages = client.get_conversation().literal_messages
                 cost_tracker = client.get_cost_tracker()
                 result.cost = cost_tracker.total_cost

@@ -2,6 +2,7 @@ import asyncio
 import os
 from functools import partial
 from multiprocessing import Pool
+from pathlib import Path
 
 import pytest
 import tqdm
@@ -100,6 +101,7 @@ async def failure_analysis(exercise_runner, language):
 async def run_exercise(problem_dir, language="python", max_iterations=2):
     exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
     client = PythonClient(
+        cwd=Path("."),
         paths=exercise_runner.include_files(),
         exclude_paths=exercise_runner.exclude_files(),
         config=Config(),
@@ -129,7 +131,6 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
             else exercise_runner.get_error_message() + prompt_2
         )
         await client.call_mentat_auto_accept(message)
-        await client.wait_for_edit_completion()
 
         exercise_runner.run_test()
         iterations += 1

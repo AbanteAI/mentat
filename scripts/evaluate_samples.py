@@ -104,7 +104,6 @@ async def evaluate_sample(sample, cwd: Path | str | None = None):
             raise SampleError(f"Invalid role found in message_history: {msg['role']}")
         conversation.add_message(msg_cls(role=msg["role"], content=msg["content"]))
     await python_client.call_mentat_auto_accept(sample.message_prompt)
-    await python_client.wait_for_edit_completion()
     await python_client.shutdown()
 
     # Get the diff between pre- and post-edit
