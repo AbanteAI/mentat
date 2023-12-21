@@ -19,7 +19,7 @@ async def test_parse_llm_response(mocker, temp_testbed):
 
         @@start
         {{
-            "file": "{mock_file_name}",
+            "file": "{mock_file_name.as_posix()}",
             "action": "insert",
             "insert-after-line": 0,
             "insert-before-line": 1
@@ -29,9 +29,9 @@ async def test_parse_llm_response(mocker, temp_testbed):
         @@end
         @@start
         {{
-            "file": "{mock_file_name}",
+            "file": "{mock_file_name.as_posix()}",
             "action": "rename-file",
-            "name": "{mock_renamed_name}"
+            "name": "{mock_renamed_name.as_posix()}"
         }}
         @@code
         @@end""")
