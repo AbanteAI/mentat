@@ -102,6 +102,7 @@ class Session:
         )
         self.ctx = session_context
         SESSION_CONTEXT.set(session_context)
+        self.error = None
 
         # Functions that require session_context
         check_version()
@@ -245,6 +246,7 @@ class Session:
                 # Helps us handle errors in tests
                 if is_test_environment():
                     print(error)
+                self.error = error
                 sentry_sdk.capture_exception(e)
                 self.stream.send(error, color="red")
             finally:
