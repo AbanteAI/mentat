@@ -42,6 +42,8 @@ from mentat.errors import ContextSizeInsufficient, MentatError, UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
+TOKEN_COUNT_WARNING = 32000
+
 
 def is_test_environment():
     """Returns True if in pytest and not benchmarks"""

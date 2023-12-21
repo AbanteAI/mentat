@@ -40,7 +40,7 @@ def parse_intervals(interval_string: str) -> list[Interval]:
 INTERVAL_FILE_END = math.inf
 
 
-@attr.define(order=True)
+@attr.define(order=True, frozen=True)
 class Interval:
     """
     1-indexed interval of file lines, inclusive start, exclusive end

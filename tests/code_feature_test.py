@@ -40,11 +40,11 @@ def test_ref_method(temp_testbed):
 def test_consolidated_refs(temp_testbed):
     scripts_dir = temp_testbed / "scripts"
     features = [
-        CodeFeature(str(scripts_dir / "calculator.py"), Interval(1, 10)),
-        CodeFeature(str(scripts_dir / "calculator.py"), Interval(10, 20)),
-        CodeFeature(str(scripts_dir / "calculator.py"), Interval(30, 40)),
-        CodeFeature(str(scripts_dir / "echo.py")),
-        CodeFeature(str(scripts_dir / "echo.py"), Interval(10, 20)),
+        CodeFeature(scripts_dir / "calculator.py", Interval(1, 10)),
+        CodeFeature(scripts_dir / "calculator.py", Interval(10, 20)),
+        CodeFeature(scripts_dir / "calculator.py", Interval(30, 40)),
+        CodeFeature(scripts_dir / "echo.py"),
+        CodeFeature(scripts_dir / "echo.py", Interval(10, 20)),
     ]
     consolidated = get_consolidated_feature_refs(features)
     assert len(consolidated) == 2

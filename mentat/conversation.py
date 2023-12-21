@@ -16,7 +16,12 @@ from openai.types.chat import (
 )
 
 from mentat.errors import MentatError
-from mentat.llm_api_handler import count_tokens, get_max_tokens, prompt_tokens
+from mentat.llm_api_handler import (
+    TOKEN_COUNT_WARNING,
+    count_tokens,
+    get_max_tokens,
+    prompt_tokens,
+)
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
@@ -199,6 +204,14 @@ class Conversation:
 
         num_prompt_tokens = prompt_tokens(messages, config.model)
         stream.send(f"Total token count: {num_prompt_tokens}", color="cyan")
+        if num_prompt_tokens > TOKEN_COUNT_WARNING:
+            stream.send(
+                "Warning: LLM performance drops off rapidly at large context sizes. Use"
+                " /clear to clear context or use /exclude to exclude any uneccessary"
+                " files.",
+                color="light_yellow",
+            )
+
         stream.send("Streaming... use control-c to interrupt the model at any point\n")
         async with parser.interrupt_catcher():
             parsed_llm_response = await parser.stream_and_parse_llm_response(
@@ -235,7 +248,7 @@ class Conversation:
         messages_snapshot = self.get_messages()
 
         # Get current code message
-        loading_multiplier = 1.0 if config.auto_context else 0.0
+        loading_multiplier = 1.0 if config.auto_context_tokens > 0 else 0.0
         prompt = messages_snapshot[-1]["content"]
         if isinstance(prompt, list):
             text_prompts = [

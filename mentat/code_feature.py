@@ -6,6 +6,8 @@ from collections import OrderedDict, defaultdict
 from pathlib import Path
 from typing import Optional
 
+import attr
+
 from mentat.ctags import get_ctag_lines_and_names
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
@@ -76,6 +78,7 @@ def split_file_into_intervals(
     return _features
 
 
+@attr.define(frozen=True)
 class CodeFeature:
     """
     Represents a section of the code_message which is included with the prompt.
@@ -84,26 +87,22 @@ class CodeFeature:
     Attributes:
         path: The absolute path to the file.
         interval: The lines in the file.
+        name: The names of the features/functions in this CodeFeature
     """
 
-    def __init__(
-        self,
-        path: Path,
-        interval: Interval = Interval(1, INTERVAL_FILE_END),
-        name: Optional[str] = None,
-    ):
-        self.path = Path(path)
-        self.interval = interval
+    path: Path = attr.field()
+    interval: Interval = attr.field(factory=lambda: Interval(1, INTERVAL_FILE_END))
+    # eq is set to false so that we can compare duplicate features without names getting in the way
+    name: Optional[str] = attr.field(default=None, eq=False)
 
+    def __attrs_post_init__(self):
         if not self.path.is_absolute():
             raise MentatError("CodeFeature path must be absolute.")
-
-        self.name = name
 
     def __repr__(self):
         return (
             f"CodeFeature(path={self.path},"
-            f" interval={self.interval.start}-{self.interval.end}), name={self.name}"
+            f" interval={self.interval.start}-{self.interval.end}, name={self.name})"
         )
 
     def rel_path(self, cwd: Optional[Path] = None) -> str:
