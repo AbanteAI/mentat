@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-pytest -s tests/benchmarks/exercism_practice.py \
+poetry run pytest -s tests/benchmarks/exercism_practice.py \
     --max_iterations 2 \
     --max_workers 1 \
     --max_benchmarks 4 \
