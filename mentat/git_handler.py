@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Optional, Set
 
 from git import Repo  # type: ignore
-from git.exc import GitCommandError
 
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
@@ -255,17 +254,15 @@ def get_hexsha_active() -> str:
     return hexsha
 
 
-def set_git_user(repo_path: Path, email: str, name: str) -> bool:
+def set_git_user(repo_path: Path, email: str, name: str) -> None:
     """Set local config for user.name and user.email.
 
     Set automatically on MacOS, but not Windows/Ubuntu"""
+    repo = Repo(repo_path)
+    config_writer = repo.config_writer()
     try:
-        repo = Repo(repo_path)
-        if not repo.config_reader().has_option("user", "name"):
-            repo.config_writer().set_value("user", "name", name)
-        if not repo.config_reader().has_option("user", "email"):
-            repo.config_writer().set_value("user", "email", email)
-        return True
-    except GitCommandError as e:
-        logging.error(f"Error setting git user: {e}")
-        return False
+        config_writer.set_value("user", "name", name)
+        config_writer.set_value("user", "email", email)
+        config_writer.write()
+    finally:
+        config_writer.release()
