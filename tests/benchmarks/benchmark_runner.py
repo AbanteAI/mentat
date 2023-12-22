@@ -10,9 +10,9 @@ from openai.types.chat.completion_create_params import ResponseFormat
 from mentat.llm_api_handler import model_context_size, prompt_tokens
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import clone_repo
 from tests.benchmarks.benchmark_result import BenchmarkResult
 from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
-from tests.benchmarks.utils import clone_repo
 
 
 def dynamic_import(path_to_module, module_name):
@@ -166,11 +166,8 @@ async def test_benchmark(retries, benchmarks):
                 )
                 client = PythonClient(cwd=codebase, config=benchmark.config)
                 await client.startup()
-                response = await client.call_mentat(prompt)
-                await client.call_mentat("y")
-                await client.wait_for_edit_completion()
-
-                await client.call_mentat("q")
+                response = await client.call_mentat_auto_accept(prompt)
+                await client.shutdown()
                 messages = client.get_conversation().literal_messages
                 cost_tracker = client.get_cost_tracker()
                 result.cost = cost_tracker.total_cost
@@ -219,4 +216,6 @@ async def test_benchmark(retries, benchmarks):
 
     summary = BenchmarkResultSummary(results)
     os.chdir("../..")
+    with open("results.json", "w") as f:
+        f.write(summary.to_json())
     summary.render_results()

@@ -2,12 +2,14 @@ import os
 from pathlib import Path
 from textwrap import dedent
 from unittest import TestCase
+from unittest.mock import AsyncMock
 
 import pytest
 
 from mentat.code_context import CodeContext
-from mentat.code_feature import CodeMessageLevel
 from mentat.config import Config
+from mentat.errors import ContextSizeInsufficient
+from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
 from mentat.interval import Interval
@@ -183,85 +185,6 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
     assert not code_context.include_files
 
 
-@pytest.fixture
-def features(mocker):
-    features_meta = [
-        ("somefile.txt", CodeMessageLevel.CODE, "some diff"),
-        ("somefile.txt", CodeMessageLevel.CODE, None),
-        ("differentfile.txt", CodeMessageLevel.CODE, "some diff"),
-    ]
-    features = []
-    for file, level, diff in features_meta:
-        feature = mocker.MagicMock()
-        feature.path = Path(file)
-        feature.level = level
-        feature.diff = diff
-        features.append(feature)
-    return features
-
-
-@pytest.mark.asyncio
-async def test_get_code_message_cache(mocker, temp_testbed, mock_code_context):
-    mocker.patch.object(Config, "maximum_context", new=10)
-    mock_code_context.include(
-        "multifile_calculator", exclude_patterns=["multifile_calculator/calculator.py"]
-    )
-
-    file = Path("multifile_calculator/operations.py")
-    feature = mocker.MagicMock()
-    feature.path = file
-    mock_code_context.features = [feature]
-
-    # Return cached value if no changes to file or settings
-    mock_get_code_message = mocker.patch(
-        "mentat.code_context.CodeContext._get_code_message"
-    )
-    mock_get_code_message.return_value = "test1"
-    value1 = await mock_code_context.get_code_message(prompt="", max_tokens=1e6)
-    mock_get_code_message.return_value = "test2"
-    value2 = await mock_code_context.get_code_message(prompt="", max_tokens=1e6)
-    assert value1 == value2
-
-    # Regenerate if settings change
-    value3 = await mock_code_context.get_code_message(prompt="", max_tokens=1e5)
-    assert value1 != value3
-
-    # Regenerate if feature files change
-    mock_get_code_message.return_value = "test3"
-    lines = file.read_text().splitlines()
-    lines[0] = "something different"
-    file.write_text("\n".join(lines))
-    value4 = await mock_code_context.get_code_message(prompt="", max_tokens=1e6)
-    assert value3 != value4
-
-
-@pytest.mark.asyncio
-async def test_get_code_message_include(mocker, temp_testbed, mock_code_context):
-    mocker.patch.object(Config, "maximum_context", new=0)
-    mock_code_context.include(
-        "multifile_calculator", exclude_patterns=["multifile_calculator/calculator.py"]
-    )
-
-    # If max tokens is less than include_files, return include_files without
-    # raising and Exception (that's handled elsewhere)
-    code_message = await mock_code_context.get_code_message(prompt="", max_tokens=1e6)
-    expected = [
-        "Code Files:",
-        "",
-        "multifile_calculator/__init__.py",
-        "1:",
-        "",
-        "multifile_calculator/operations.py",
-        *[
-            f"{i+1}:{line}"
-            for i, line in enumerate(
-                Path("multifile_calculator/operations.py").read_text().split("\n")
-            )
-        ],
-    ]
-    assert code_message.splitlines() == expected
-
-
 @pytest.mark.asyncio
 @pytest.mark.clear_testbed
 async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
@@ -291,15 +214,17 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     )
     code_context.include("file_1.py")
     code_context.use_llm = False
-    mock_session_context.config.auto_context = True
+    mock_session_context.config.auto_context_tokens = 8000
+    filter_mock = AsyncMock(side_effect=lambda features: features)
+    mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
 
-    async def _count_max_tokens_where(limit: int) -> int:
-        code_message = await code_context.get_code_message(prompt="", max_tokens=limit)
+    async def _count_max_tokens_where(tokens_used: int) -> int:
+        code_message = await code_context.get_code_message(tokens_used, prompt="prompt")
         return count_tokens(code_message, "gpt-4", full_message=True)
 
-    assert await _count_max_tokens_where(1e6) == 89  # Code
-    assert await _count_max_tokens_where(52) == 51  # fnames
-    assert await _count_max_tokens_where(0) == 4  # empty
+    assert await _count_max_tokens_where(0) == 89  # Code
+    with pytest.raises(ContextSizeInsufficient):
+        await _count_max_tokens_where(1e6)
 
 
 @pytest.mark.clear_testbed
@@ -313,40 +238,37 @@ def test_get_all_features(temp_testbed, mock_code_context):
         file2.write("def sample_function():\n    pass\n")
 
     # Test without include_files
-    features = mock_code_context.get_all_features(level=CodeMessageLevel.CODE)
+    features = mock_code_context.get_all_features()
     assert len(features) == 2
     feature1 = next(f for f in features if f.path == path1)
     feature2 = next(f for f in features if f.path == path2)
     for _f, _p in zip((feature1, feature2), (path1, path2)):
         feature = next(f for f in features if f.path == _p)
         assert feature.path == _p
-        assert feature.level == CodeMessageLevel.CODE
-        assert feature.diff is None
-        assert feature.user_included is False
 
     # Test with include_files argument matching one file
     mock_code_context.include(path1)
-    features = mock_code_context.get_all_features(level=CodeMessageLevel.FILE_NAME)
+    features = mock_code_context.get_all_features(split_intervals=False)
     assert len(features) == 2
     feature1b = next(f for f in features if f.path == path1)
     feature2b = next(f for f in features if f.path == path2)
-    assert feature1b.user_included is True
-    assert feature1b.level == CodeMessageLevel.FILE_NAME
-    assert feature2b.user_included is False
-    assert feature2b.level == CodeMessageLevel.FILE_NAME
+    assert feature1b.interval.whole_file()
+    assert feature2b.interval.whole_file()
 
 
 @pytest.mark.asyncio
 async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_context):
-    mock_session_context.config.auto_context = True
+    mock_session_context.config.auto_context_tokens = 8000
     mocker.patch.object(Config, "maximum_context", new=7000)
+    filter_mock = AsyncMock(side_effect=lambda features: features)
+    mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
     code_context = CodeContext(
         mock_session_context.stream,
         temp_testbed,
         ignore_patterns=["scripts", "**/*.txt"],
     )
     code_context.use_llm = False
-    code_message = await code_context.get_code_message("", 1e6)
+    code_message = await code_context.get_code_message(0, prompt="prompt")
 
     # Iterate through all files in temp_testbed; if they're not in the ignore
     # list, they should be in the code message.
@@ -400,29 +322,29 @@ def test_include_missing_file_interval(mock_code_context):
 
 @pytest.mark.no_git_testbed
 def test_include_overlapping_file_intervals(mock_code_context):
-    mock_code_context.include("multifile_calculator/calculator.py:0-5")
-    mock_code_context.include("multifile_calculator/calculator.py:0-6")
+    mock_code_context.include("multifile_calculator/calculator.py:1-5")
+    mock_code_context.include("multifile_calculator/calculator.py:1-6")
     assert len(mock_code_context.include_files) == 1
     multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
     assert len(mock_code_context.include_files[multifile_calculator_path]) == 2
     assert mock_code_context.include_files[multifile_calculator_path][
         0
-    ].interval == Interval(0, 5)
+    ].interval == Interval(1, 5)
     assert mock_code_context.include_files[multifile_calculator_path][
         1
-    ].interval == Interval(0, 6)
+    ].interval == Interval(1, 6)
 
 
 @pytest.mark.no_git_testbed
 def test_include_duplicate_file_interval(mock_code_context):
-    mock_code_context.include("multifile_calculator/calculator.py:0-5")
-    mock_code_context.include("multifile_calculator/calculator.py:0-5")
+    mock_code_context.include("multifile_calculator/calculator.py:1-5")
+    mock_code_context.include("multifile_calculator/calculator.py:1-5")
     assert len(mock_code_context.include_files) == 1
     multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
     assert len(mock_code_context.include_files[multifile_calculator_path]) == 1
     assert mock_code_context.include_files[multifile_calculator_path][
         0
-    ].interval == Interval(0, 5)
+    ].interval == Interval(1, 5)
 
 
 @pytest.mark.no_git_testbed
@@ -434,9 +356,9 @@ def test_exclude_single_file_interval(mock_code_context):
 
 @pytest.mark.no_git_testbed
 def test_exclude_multiple_file_intervals(mock_code_context):
-    mock_code_context.include("multifile_calculator/calculator.py:0-5")
+    mock_code_context.include("multifile_calculator/calculator.py:1-5")
     mock_code_context.include("multifile_calculator/calculator.py:6-10")
-    mock_code_context.exclude("multifile_calculator/calculator.py:0-5")
+    mock_code_context.exclude("multifile_calculator/calculator.py:1-5")
     assert len(mock_code_context.include_files) == 1
     multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
     assert len(mock_code_context.include_files[multifile_calculator_path]) == 1
@@ -447,14 +369,14 @@ def test_exclude_multiple_file_intervals(mock_code_context):
 
 @pytest.mark.no_git_testbed
 def test_exclude_missing_file_interval(mock_code_context):
-    mock_code_context.include("multifile_calculator/calculator.py:0-5")
+    mock_code_context.include("multifile_calculator/calculator.py:1-5")
     mock_code_context.exclude("multifile_calculator/calculator.py:3-10")
     assert len(mock_code_context.include_files) == 1
     multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
     assert len(mock_code_context.include_files[multifile_calculator_path]) == 1
     assert mock_code_context.include_files[multifile_calculator_path][
         0
-    ].interval == Interval(0, 5)
+    ].interval == Interval(1, 5)
 
 
 @pytest.mark.no_git_testbed

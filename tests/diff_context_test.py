@@ -72,12 +72,12 @@ def test_diff_context_default(temp_testbed, git_history, mock_session_context):
     )
     assert diff_context.target == "HEAD"
     assert diff_context.name == "HEAD (last commit)"
-    assert diff_context.files == []
+    assert diff_context.diff_files() == []
 
     # DiffContext.files (property): return git-tracked files with active changes
     _update_ops(temp_testbed, "commit5")
-    diff_context._files_cache = None  # This is usually cached
-    assert diff_context.files == [abs_path]
+    diff_context._diff_files = None  # This is usually cached
+    assert diff_context.diff_files() == [abs_path]
 
     # DiffContext.annotate_file_message(): modify file_message with diff
     file_message = _get_file_message(abs_path)
@@ -104,7 +104,7 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
     )
     assert diff_context.target == last_commit
     assert diff_context.name == f"{last_commit[:8]}: add testbed"
-    assert diff_context.files == [abs_path]
+    assert diff_context.diff_files() == [abs_path]
 
     file_message = _get_file_message(abs_path)
     annotated_message = diff_context.annotate_file_message(abs_path, file_message)
@@ -127,7 +127,7 @@ async def test_diff_context_branch(temp_testbed, git_history, mock_session_conte
     assert diff_context.target == "test_branch"
     assert diff_context.name.startswith("Branch test_branch:")
     assert diff_context.name.endswith(": commit4")
-    assert diff_context.files == [abs_path]
+    assert diff_context.diff_files() == [abs_path]
 
     file_message = _get_file_message(abs_path)
     annotated_message = diff_context.annotate_file_message(abs_path, file_message)
@@ -150,7 +150,7 @@ async def test_diff_context_relative(temp_testbed, git_history, mock_session_con
     assert diff_context.target == "HEAD~2"
     assert diff_context.name.startswith("HEAD~2: ")
     assert diff_context.name.endswith(": add testbed")
-    assert diff_context.files == [abs_path]
+    assert diff_context.diff_files() == [abs_path]
 
     file_message = _get_file_message(abs_path)
     annotated_message = diff_context.annotate_file_message(abs_path, file_message)
@@ -178,7 +178,7 @@ async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
     assert diff_context.target == commit2
     assert diff_context.name.startswith("Merge-base Branch master:")
     assert diff_context.name.endswith(": commit2")  # NOT the latest
-    assert diff_context.files == [abs_path]
+    assert diff_context.diff_files() == [abs_path]
 
 
 @pytest.mark.asyncio
@@ -191,13 +191,13 @@ async def test_diff_context_end_to_end(temp_testbed, git_history, mock_call_llm_
 
     session_context = SESSION_CONTEXT.get()
     code_context = session_context.code_context
-    code_message = await code_context.get_code_message("", 500)
+    code_message = await code_context.get_code_message(500)
     diff_context = code_context.diff_context
 
     assert diff_context.target == "HEAD~2"
     assert diff_context.name.startswith("HEAD~2: ")
     assert diff_context.name.endswith(": add testbed")
-    assert diff_context.files == [abs_path]
+    assert diff_context.diff_files() == [abs_path]
 
     assert "multifile_calculator" in code_message
     await python_client.shutdown()

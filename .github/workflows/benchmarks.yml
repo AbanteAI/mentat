@@ -4,7 +4,7 @@ name: Benchmark
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs at midnight UTC every day
+    - cron: '0 14 * * *'  # Runs at 6 am PST
   workflow_dispatch:
 
 jobs:

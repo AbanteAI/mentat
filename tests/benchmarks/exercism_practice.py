@@ -2,6 +2,7 @@ import asyncio
 import os
 from functools import partial
 from multiprocessing import Pool
+from pathlib import Path
 
 import pytest
 import tqdm
@@ -10,12 +11,12 @@ from openai import BadRequestError
 from mentat.config import Config
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import clone_repo
 from tests.benchmarks.benchmark_result import BenchmarkResult
 from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
 from tests.benchmarks.exercise_runners.exercise_runner_factory import (
     ExerciseRunnerFactory,
 )
-from tests.benchmarks.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
@@ -100,6 +101,7 @@ async def failure_analysis(exercise_runner, language):
 async def run_exercise(problem_dir, language="python", max_iterations=2):
     exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
     client = PythonClient(
+        cwd=Path("."),
         paths=exercise_runner.include_files(),
         exclude_paths=exercise_runner.exclude_files(),
         config=Config(),
@@ -129,7 +131,6 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
             else exercise_runner.get_error_message() + prompt_2
         )
         await client.call_mentat_auto_accept(message)
-        await client.wait_for_edit_completion()
 
         exercise_runner.run_test()
         iterations += 1
@@ -233,4 +234,6 @@ def test_practice_directory_performance(
         results.sort(key=lambda result: result.name)
 
         summary = BenchmarkResultSummary(results)
+        with open("results.json", "w") as f:
+            f.write(summary.to_json())
         summary.render_results()

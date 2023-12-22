@@ -78,7 +78,7 @@ class BlockParser(Parser):
         return any(
             to_match.value.startswith(cur_line.strip())
             for to_match in _BlockParserIndicator
-        )
+        ) and (bool(cur_line.strip()) or not cur_line.endswith("\n"))
 
     @override
     def _starts_special(self, line: str) -> bool:

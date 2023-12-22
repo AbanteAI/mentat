@@ -23,7 +23,6 @@ async def test_llm_feature_filter(mocker, temp_testbed, mock_call_llm_api):
     messages, model = mock_call_llm_api.call_args.args
     assert messages[0]["content"].startswith("You are part of")
     assert "User Query:\ntest prompt\n\nCode Files:" in messages[1]["content"]
-
     # Both files send to llm
     assert all(
         f.path.relative_to(temp_testbed).as_posix() in messages[1]["content"]

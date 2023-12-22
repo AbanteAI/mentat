@@ -11,18 +11,7 @@ from mentat.errors import PathValidationError
 from mentat.git_handler import get_git_root_for_path, get_non_gitignored_files
 from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.session_context import SESSION_CONTEXT
-
-
-# TODO: replace this with something that doesn't load the file into memory
-def is_file_text_encoded(abs_path: Path):
-    """Checks if a file is text encoded."""
-    try:
-        # The ultimate filetype test
-        with open(abs_path, "r") as f:
-            f.read()
-        return True
-    except UnicodeDecodeError:
-        return False
+from mentat.utils import is_file_text_encoded
 
 
 class PathType(Enum):
@@ -273,9 +262,7 @@ def get_code_features_for_path(
             intervals = parse_intervals(interval_str)
             code_features: Set[CodeFeature] = set()
             for interval in intervals:
-                code_feature = CodeFeature(
-                    f"{interval_path}:{interval.start}-{interval.end}"
-                )
+                code_feature = CodeFeature(interval_path, interval)
                 code_features.add(code_feature)
         case PathType.DIRECTORY:
             paths = get_paths_for_directory(

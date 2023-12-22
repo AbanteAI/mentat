@@ -9,7 +9,7 @@ from mentat.logging_config import logs_path
 
 
 class UserMessage(TypedDict):
-    message: list[ChatCompletionContentPartParam]
+    message: list[ChatCompletionContentPartParam] | str
     # We need this field so that it is included when we convert to JSON
     prior_messages: None
 

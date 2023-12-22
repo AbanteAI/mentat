@@ -6,17 +6,14 @@ from typing import Dict, Iterable, List, Optional, Set, Union
 
 from mentat.code_feature import (
     CodeFeature,
-    CodeMessageLevel,
     get_code_message_from_features,
     get_consolidated_feature_refs,
-    parse_intervals,
     split_file_into_intervals,
 )
 from mentat.diff_context import DiffContext
-from mentat.errors import PathValidationError
+from mentat.errors import ContextSizeInsufficient, PathValidationError
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
-from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.git_handler import get_paths_with_git_diffs
 from mentat.include_files import (
     PathType,
@@ -29,11 +26,10 @@ from mentat.include_files import (
     print_path_tree,
     validate_and_format_path,
 )
-from mentat.interval import split_intervals_from_path
-from mentat.llm_api_handler import count_tokens
+from mentat.interval import parse_intervals, split_intervals_from_path
+from mentat.llm_api_handler import count_tokens, get_max_tokens, is_context_sufficient
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
-from mentat.utils import sha256
 
 
 class CodeContext:
@@ -56,11 +52,9 @@ class CodeContext:
                 stream, self.git_root, self.diff, self.pr_diff
             )
 
-        # TODO: This is a dict so we can quickly reference either a path (key)
-        # or the CodeFeatures (value) and their intervals. Redundant.
         self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
-        self.features: List[CodeFeature] = []
+        self.auto_features: List[CodeFeature] = []
 
     def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
@@ -75,27 +69,20 @@ class CodeContext:
             stream.send(f"{prefix}Diff:", end=" ")
             stream.send(self.diff_context.get_display_context(), color="green")
 
-        if config.auto_context:
+        if config.auto_context_tokens > 0:
             stream.send(f"{prefix}Auto-Context: Enabled")
-            stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
+            stream.send(f"{prefix}Auto-Context Tokens: {config.auto_context_tokens}")
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 
-        features = None
-        if self.features:
-            stream.send(f"{prefix}Active Features:")
-            features = self.features
-        elif self.include_files:
+        if self.include_files:
             stream.send(f"{prefix}Included files:")
             stream.send(f"{prefix + prefix}{session_context.cwd.name}")
             features = [
-                _feat for _file in self.include_files.values() for _feat in _file
+                feature
+                for file_features in self.include_files.values()
+                for feature in file_features
             ]
-        else:
-            stream.send(f"{prefix}Included files: ", end="")
-            stream.send("None", color="yellow")
-
-        if features is not None:
             refs = get_consolidated_feature_refs(features)
             print_path_tree(
                 build_path_tree([Path(r) for r in refs], session_context.cwd),
@@ -103,70 +90,36 @@ class CodeContext:
                 session_context.cwd,
                 prefix + prefix,
             )
-
-    _code_message: str | None = None
-    _code_message_checksum: str | None = None
-
-    def _get_code_message_checksum(
-        self, prompt: Optional[str] = None, max_tokens: Optional[int] = None
-    ) -> str:
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        code_file_manager = session_context.code_file_manager
-
-        if not self.features:
-            features_checksum = ""
         else:
-            feature_files = {
-                session_context.cwd / f.path
-                for f in self.features
-                if (session_context.cwd / f.path).exists()
-            }
-            feature_file_checksums = [
-                code_file_manager.get_file_checksum(f) for f in feature_files
-            ]
-            features_checksum = sha256("".join(feature_file_checksums))
-        settings = {
-            "prompt": prompt or "",
-            "auto_context": config.auto_context,
-            "use_llm": self.use_llm,
-            "diff": self.diff,
-            "pr_diff": self.pr_diff,
-            "max_tokens": max_tokens or "",
-            "include_files": self.include_files,
-        }
-        settings_checksum = sha256(str(settings))
-        return features_checksum + settings_checksum
+            stream.send(f"{prefix}Included files: ", end="")
+            stream.send("None", color="yellow")
 
-    async def get_code_message(
-        self,
-        prompt: Optional[str] = None,
-        max_tokens: Optional[int] = None,
-        expected_edits: Optional[list[str]] = None,  # for training/benchmarking
-        loading_multiplier: float = 0.0,
-    ) -> str:
-        code_message_checksum = self._get_code_message_checksum(prompt, max_tokens)
-        if (
-            self._code_message is None
-            or code_message_checksum != self._code_message_checksum
-        ):
-            self._code_message = await self._get_code_message(
-                prompt, max_tokens, expected_edits, loading_multiplier
+        if self.auto_features:
+            stream.send(f"{prefix}Auto-Included Features:")
+            refs = get_consolidated_feature_refs(self.auto_features)
+            print_path_tree(
+                build_path_tree([Path(r) for r in refs], session_context.cwd),
+                get_paths_with_git_diffs(self.git_root) if self.git_root else set(),
+                session_context.cwd,
+                prefix + prefix,
             )
-            self._code_message_checksum = self._get_code_message_checksum(
-                prompt, max_tokens
-            )
-        return self._code_message
 
     use_llm: bool = False
 
-    async def _get_code_message(
+    async def get_code_message(
         self,
+        prompt_tokens: int,
         prompt: Optional[str] = None,
-        max_tokens: Optional[int] = None,
-        expected_edits: Optional[list[str]] = None,
+        expected_edits: Optional[list[str]] = None,  # for training/benchmarking
         loading_multiplier: float = 0.0,
     ) -> str:
+        """
+        Retrieves the current code message.
+        'prompt' argument is embedded and used to search for similar files when auto-context is enabled.
+        If prompt is empty, auto context won't be used.
+        'prompt_tokens' argument is the total number of tokens used by the prompt before the code message,
+        used to ensure that the code message won't overflow the model's context size
+        """
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         model = config.model
@@ -175,7 +128,7 @@ class CodeContext:
         code_message = list[str]()
         if self.diff_context:
             self.diff_context.clear_cache()
-            if self.diff_context.files:
+            if self.diff_context.diff_files():
                 code_message += [
                     "Diff References:",
                     f' "-" = {self.diff_context.name}',
@@ -183,86 +136,56 @@ class CodeContext:
                     "",
                 ]
 
-                if len(self.include_files) == 0 and (self.diff or self.pr_diff):
-                    for file in self.diff_context.files:
-                        self.include(file)
-
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
-        remaining_tokens = None if max_tokens is None else max_tokens - meta_tokens
-        # Add include_features_tokens to the auto_tokens budget because we want (auto-tokens)
-        # tokens *in addition to* the included features.
-        include_features = self._get_include_features()
-        include_features_tokens = sum(f.count_tokens(model) for f in include_features)
-        auto_tokens = (
-            None
-            if remaining_tokens is None
-            else min(remaining_tokens, config.auto_tokens + include_features_tokens)
+
+        # Calculate user included features token size
+        include_features = [
+            feature
+            for file_features in self.include_files.values()
+            for feature in file_features
+        ]
+        include_files_message = get_code_message_from_features(include_features)
+        include_files_tokens = count_tokens(
+            "\n".join(include_files_message), model, full_message=False
         )
 
-        if remaining_tokens is not None and remaining_tokens <= 0:
-            self.features = []
-            return ""
-        elif not config.auto_context:
-            self.features = include_features
-            if (
-                remaining_tokens is not None
-                and include_features_tokens > remaining_tokens
-            ):
-                self.features = await TruncateFilter(
-                    remaining_tokens, model, respect_user_include=False
-                ).filter(self.features)
-        else:
-            self.features = self.get_all_features(
-                CodeMessageLevel.INTERVAL,
+        tokens_used = (
+            prompt_tokens + meta_tokens + include_files_tokens + config.token_buffer
+        )
+        if not is_context_sufficient(tokens_used):
+            raise ContextSizeInsufficient()
+        auto_tokens = min(get_max_tokens() - tokens_used, config.auto_context_tokens)
+
+        # Get auto included features
+        if config.auto_context_tokens > 0 and prompt:
+            features = self.get_all_features()
+            feature_filter = DefaultFilter(
+                auto_tokens,
+                self.use_llm,
+                prompt,
+                expected_edits,
+                loading_multiplier=loading_multiplier,
             )
-            if auto_tokens:
-                feature_filter = DefaultFilter(
-                    auto_tokens,
-                    self.use_llm,
-                    prompt,
-                    expected_edits,
-                    loading_multiplier=loading_multiplier,
-                )
-                self.features = await feature_filter.filter(self.features)
+            self.auto_features = list(
+                set(self.auto_features) | set(await feature_filter.filter(features))
+            )
 
-        # Group intervals by file, separated by ellipses if there are gaps
-        code_message += get_code_message_from_features(self.features)
+        # Merge include file features and auto features and add to code message
+        code_message += get_code_message_from_features(
+            include_features + self.auto_features
+        )
+
         return "\n".join(code_message)
-
-    def _get_include_features(self) -> list[CodeFeature]:
-        session_context = SESSION_CONTEXT.get()
-
-        include_features: List[CodeFeature] = []
-        for path, features in self.include_files.items():
-            annotations = []
-            if self.diff_context:
-                annotations = self.diff_context.get_annotations(path)
-
-            for feature in features:
-                diff = None
-                if self.diff_context:
-                    has_diff = any(a.intersects(feature.interval) for a in annotations)
-                    diff = self.diff_context.target if has_diff else None
-
-                feature = CodeFeature(
-                    feature.ref(),
-                    feature.level,
-                    diff=diff,
-                    user_included=True,
-                )
-                include_features.append(feature)
-
-        def _feature_relative_path(f: CodeFeature) -> str:
-            return os.path.relpath(f.path, session_context.cwd)
-
-        return sorted(include_features, key=_feature_relative_path)
 
     def get_all_features(
         self,
-        level: CodeMessageLevel,
         max_chars: int = 100000,
+        split_intervals: bool = True,
     ) -> list[CodeFeature]:
+        """
+        Retrieves every CodeFeature under the cwd. If files_only is True the features won't be split into intervals
+        """
         session_context = SESSION_CONTEXT.get()
 
         abs_exclude_patterns: Set[Path] = set()
@@ -281,40 +204,55 @@ class CodeContext:
             if not is_file_text_encoded(path) or os.path.getsize(path) > max_chars:
                 continue
 
-            diff_target = None
-            if self.diff_context:
-                diff_target = (
-                    self.diff_context.target
-                    if path in self.diff_context.files
-                    else None
-                )
-
-            user_included = path in self.include_files
-
-            if level == CodeMessageLevel.INTERVAL:
-                full_feature = CodeFeature(
-                    path,
-                    level=CodeMessageLevel.CODE,
-                    diff=diff_target,
-                    user_included=user_included,
-                )
-                _split_features = split_file_into_intervals(
-                    full_feature,
-                    user_features=self.include_files.get(path, []),
-                )
-                all_features += _split_features
-            else:
-                _feature = CodeFeature(
-                    path, level=level, diff=diff_target, user_included=user_included
-                )
+            if not split_intervals:
+                _feature = CodeFeature(path)
                 all_features.append(_feature)
+            else:
+                full_feature = CodeFeature(path)
+                _split_features = split_file_into_intervals(full_feature)
+                all_features += _split_features
 
         return sorted(all_features, key=lambda f: f.path)
+
+    def clear_auto_context(self):
+        """
+        Clears all auto-features added to the conversation so far.
+        """
+        self.auto_features = []
+
+    def include_features(self, code_features: Iterable[CodeFeature]):
+        """
+        Adds the given code features to context. If the feature is already included, it will not be added.
+        """
+        included_paths: Set[Path] = set()
+        for code_feature in code_features:
+            if code_feature.path not in self.include_files:
+                self.include_files[code_feature.path] = [code_feature]
+                included_paths.add(Path(str(code_feature)))
+            else:
+                code_feature_not_included = True
+                for included_code_feature in self.include_files[code_feature.path]:
+                    # Intervals can still overlap if user includes intervals different than what ctags breaks up,
+                    # but we merge when making code message and don't duplicate lines
+                    if (
+                        included_code_feature.interval == code_feature.interval
+                        # No need to include an interval if the entire file is already included
+                        or included_code_feature.interval.whole_file()
+                    ):
+                        code_feature_not_included = False
+                        break
+                if code_feature_not_included:
+                    if code_feature.interval.whole_file():
+                        self.include_files[code_feature.path] = []
+                    self.include_files[code_feature.path].append(code_feature)
+                    included_paths.add(Path(str(code_feature)))
+        return included_paths
 
     def include(
         self, path: Path | str, exclude_patterns: Iterable[Path | str] = []
     ) -> Set[Path]:
-        """Add code to the context
+        """
+        Add paths to the context
 
         Paths that are already in the context and invalid paths are ignored.
 
@@ -349,7 +287,6 @@ class CodeContext:
             else:
                 abs_exclude_patterns.add(Path(pattern))
 
-        included_paths: Set[Path] = set()
         try:
             code_features = get_code_features_for_path(
                 path=path,
@@ -358,26 +295,9 @@ class CodeContext:
             )
         except PathValidationError as e:
             session_context.stream.send(str(e), color="light_red")
-            return included_paths
+            return set()
 
-        for code_feature in code_features:
-            # Path not in included files
-            if code_feature.path not in self.include_files:
-                self.include_files[code_feature.path] = [code_feature]
-                included_paths.add(Path(code_feature.ref()))
-            # Path in included files
-            else:
-                code_feature_not_included = True
-                # NOTE: should have CodeFeatures in a hashtable
-                for included_code_feature in self.include_files[code_feature.path]:
-                    if included_code_feature.interval == code_feature.interval:
-                        code_feature_not_included = False
-                        break
-                if code_feature_not_included:
-                    self.include_files[code_feature.path].append(code_feature)
-                    included_paths.add(Path(code_feature.ref()))
-
-        return included_paths
+        return self.include_features(code_features)
 
     def _exclude_file(self, path: Path) -> Path | None:
         session_context = SESSION_CONTEXT.get()
@@ -407,7 +327,7 @@ class CodeContext:
             if code_feature.interval not in intervals:
                 included_code_features.append(code_feature)
             else:
-                excluded_paths.add(Path(code_feature.ref()))
+                excluded_paths.add(Path(str(code_feature)))
 
         if len(included_code_features) == 0:
             del self.include_files[interval_path]
@@ -489,13 +409,10 @@ class CodeContext:
         self,
         query: str,
         max_results: int | None = None,
-        level: CodeMessageLevel = CodeMessageLevel.INTERVAL,
     ) -> list[tuple[CodeFeature, float]]:
         """Return the top n features that are most similar to the query."""
 
-        all_features = self.get_all_features(
-            level,
-        )
+        all_features = self.get_all_features()
 
         embedding_similarity_filter = EmbeddingSimilarityFilter(query)
         all_features_sorted = await embedding_similarity_filter.score(all_features)

@@ -1,6 +1,8 @@
 import subprocess
 from pathlib import Path
-from typing import Literal, Optional
+from typing import List, Literal, Optional
+
+import attr
 
 from mentat.errors import UserError
 from mentat.git_handler import (
@@ -14,13 +16,17 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
 
+@attr.define(frozen=True)
 class DiffAnnotation(Interval):
-    message: list[str]
-
-    def __init__(self, start: int, message: list[str]):
-        self.message = message
-        self.length = sum(bool(line.startswith("+")) for line in self.message)
-        super().__init__(start, start + self.length)
+    start: int | float = attr.field()
+    message: List[str] = attr.field()
+    end: int | float = attr.field(
+        default=attr.Factory(
+            lambda self: self.start
+            + sum(bool(line.startswith("-")) for line in self.message),
+            takes_self=True,
+        )
+    )
 
 
 def parse_diff(diff: str) -> list[DiffAnnotation]:
@@ -39,7 +45,7 @@ def parse_diff(diff: str) -> list[DiffAnnotation]:
                 new_start = _new_index[1:].split(",")[0]
             else:
                 new_start = _new_index[1:]
-            active_annotation = DiffAnnotation(int(new_start), [])
+            active_annotation = DiffAnnotation(start=int(new_start), message=[])
         elif line.startswith(("+", "-")):
             if not active_annotation:
                 raise UserError("Invalid diff")
@@ -146,36 +152,39 @@ class DiffContext:
         self.target = target
         self.name = name
 
-    _files_cache: list[Path] | None = None
+    _diff_files: List[Path] | None = None
 
-    @property
-    def files(self) -> list[Path]:
+    def diff_files(self) -> List[Path]:
         session_context = SESSION_CONTEXT.get()
 
-        if self._files_cache is None:
+        if self._diff_files is None:
             if self.target == "HEAD" and not check_head_exists():
-                return []  # A new repo without any commits
-            self._files_cache = [
-                session_context.cwd / f for f in get_files_in_diff(self.target)
-            ]
-        return self._files_cache
+                self._diff_files = []  # A new repo without any commits
+            else:
+                self._diff_files = [
+                    (session_context.cwd / f).resolve()
+                    for f in get_files_in_diff(self.target)
+                ]
+        return self._diff_files
 
-    _annotations_cache: dict[Path, list[DiffAnnotation]] = {}
+    def clear_cache(self):
+        """
+        Since there is no way of knowing when the git diff changes,
+        we just clear the cache every time get_code_message is called
+        """
+        self._diff_files = None
 
     def get_annotations(self, rel_path: Path) -> list[DiffAnnotation]:
-        if rel_path not in self.files:
-            return []
-        if rel_path not in self._annotations_cache:
-            diff = get_diff_for_file(self.target, rel_path)
-            self._annotations_cache[rel_path] = parse_diff(diff)
-        return self._annotations_cache[rel_path]
+        diff = get_diff_for_file(self.target, rel_path)
+        return parse_diff(diff)
 
     def get_display_context(self) -> str:
-        if not self.files:
+        diff_files = self.diff_files()
+        if not diff_files:
             return ""
-        num_files = len(self.files)
+        num_files = len(diff_files)
         num_lines = 0
-        for file in self.files:
+        for file in diff_files:
             diff = get_diff_for_file(self.target, file)
             diff_lines = diff.splitlines()
             num_lines += len(
@@ -189,9 +198,6 @@ class DiffContext:
         """Return file_message annotated with active diff."""
         annotations = self.get_annotations(rel_path)
         return annotate_file_message(file_message, annotations)
-
-    def clear_cache(self):
-        self._files_cache = None
 
 
 TreeishType = Literal["commit", "branch", "relative"]

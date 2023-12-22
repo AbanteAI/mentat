@@ -91,7 +91,7 @@ class Config:
         metadata={
             "description": (
                 "Whether to include the parser prompt in the system message. This"
-                " should only be set to true for fine tuned models"
+                " should only be set to true for fine tuned models."
             ),
             "auto_completions": bool_autocomplete,
         },
@@ -103,21 +103,32 @@ class Config:
         factory=list,
         metadata={"description": "List of glob patterns to exclude from context"},
     )
-    auto_context: bool = attr.field(
-        default=False,
+    auto_context_tokens: int = attr.field(  # pyright: ignore
+        default=0,
         metadata={
-            "description": "Automatically select code files to include in context.",
+            "description": (
+                "Automatically selects code files for every request to include in"
+                " context. Adds this many tokens to context each request."
+            ),
             "abbreviation": "a",
-            "auto_completions": bool_autocomplete,
-        },
-        converter=converters.optional(converters.to_bool),
-    )
-    auto_tokens: int = attr.field(
-        default=8000,
-        metadata={
-            "description": "The number of tokens auto-context will add.",
+            "const": 5000,
         },
         converter=int,
+        validator=validators.ge(0),  # pyright: ignore
+    )
+
+    # Sample specific settings
+    sample_repo: str | None = attr.field(
+        default=None,
+        metadata={
+            "description": "A public url for a cloneable git repository to sample from."
+        },
+    )
+    sample_merge_base_target: str | None = attr.field(
+        default=None,
+        metadata={
+            "description": "The branch or commit to use as the merge base for samples."
+        },
     )
 
     # Only settable by config file
@@ -152,6 +163,9 @@ class Config:
             arguments = {
                 "help": field.metadata.get("description", ""),
             }
+            if "const" in field.metadata:
+                arguments["nargs"] = "?"
+                arguments["const"] = field.metadata["const"]
 
             if field.type == "bool":
                 if arguments.get("default", False):

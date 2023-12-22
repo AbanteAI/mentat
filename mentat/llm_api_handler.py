@@ -5,13 +5,30 @@ import io
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Optional, cast, overload
+from timeit import default_timer
+from typing import (
+    Any,
+    AsyncIterator,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    cast,
+    overload,
+)
 
 import attr
 import sentry_sdk
 import tiktoken
 from dotenv import load_dotenv
-from openai import APIConnectionError, AsyncOpenAI, AsyncStream, AuthenticationError
+from openai import (
+    APIConnectionError,
+    AsyncAzureOpenAI,
+    AsyncOpenAI,
+    AsyncStream,
+    AuthenticationError,
+)
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -21,9 +38,11 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
 
-from mentat.errors import MentatError, UserError
+from mentat.errors import ContextSizeInsufficient, MentatError, UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
+
+TOKEN_COUNT_WARNING = 32000
 
 
 def is_test_environment():
@@ -134,6 +153,8 @@ class Model:
 
 known_models: Dict[str, Model] = {
     "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
+    # model name on Azure
+    "gpt-4-1106-Preview": Model("gpt-4-1106-Preview", 128000, 0.01, 0.03),
     "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
     "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
     "gpt-4-32k": Model("gpt-4-32k", 32768, 0.06, 0.12),
@@ -167,19 +188,43 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
         return known_models[model].input_cost, known_models[model].output_cost
 
 
-def get_max_tokens() -> Optional[int]:
+def get_max_tokens() -> int:
     session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
     config = session_context.config
 
     context_size = model_context_size(config.model)
     maximum_context = config.maximum_context
-    if maximum_context is not None:
-        if context_size:
-            return min(context_size, maximum_context)
-        else:
-            return maximum_context
-    else:
+
+    if context_size is not None and maximum_context is not None:
+        return min(context_size, maximum_context)
+    elif context_size is not None:
         return context_size
+    elif maximum_context is not None:
+        return maximum_context
+    else:
+        stream.send(
+            f"Context size for {config.model} is not known. Please set"
+            " maximum-context with `/config maximum_context <value>`.",
+            color="light_red",
+        )
+        raise ContextSizeInsufficient()
+
+
+def is_context_sufficient(tokens: int) -> bool:
+    ctx = SESSION_CONTEXT.get()
+
+    max_tokens = get_max_tokens()
+    if max_tokens - tokens < ctx.config.token_buffer:
+        ctx.stream.send(
+            f"The context size is limited to {max_tokens} tokens and your current"
+            f" request uses {tokens} tokens. Please use `/exclude` to remove"
+            " some files from context or `/clear` to reset the conversation",
+            color="light_red",
+        )
+        return False
+
+    return True
 
 
 class LlmApiHandler:
@@ -190,19 +235,28 @@ class LlmApiHandler:
             load_dotenv()
         key = os.getenv("OPENAI_API_KEY")
         base_url = os.getenv("OPENAI_API_BASE")
-        if not key:
+        azure_key = os.getenv("AZURE_OPENAI_KEY")
+        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+
+        if not key and not azure_key:
             raise UserError(
                 "No OpenAI api key detected.\nEither place your key into a .env"
                 " file or export it as an environment variable."
             )
 
         # We don't have any use for a synchronous client, but if we ever do we can easily make it here
-        self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
+        if azure_endpoint:
+            self.async_client = AsyncAzureOpenAI(
+                api_key=azure_key,
+                api_version="2023-12-01-preview",
+                azure_endpoint=azure_endpoint,
+            )
+        else:
+            self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
         try:
-            self.async_client.api_key = key
             self.async_client.models.list()  # Test the key
         except AuthenticationError as e:
-            raise UserError(f"OpenAI gave an Authentication Error:\n{e}")
+            raise UserError(f"API gave an Authentication Error:\n{e}")
 
     @overload
     async def call_llm_api(
@@ -211,7 +265,7 @@ class LlmApiHandler:
         model: str,
         stream: Literal[True],
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> AsyncStream[ChatCompletionChunk]: ...
+    ) -> AsyncIterator[ChatCompletionChunk]: ...
 
     @overload
     async def call_llm_api(
@@ -229,10 +283,17 @@ class LlmApiHandler:
         model: str,
         stream: bool,
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> ChatCompletion | AsyncStream[ChatCompletionChunk]:
+    ) -> ChatCompletion | AsyncIterator[ChatCompletionChunk]:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
+        cost_tracker = session_context.cost_tracker
 
+        # Confirm that model has enough tokens remaining.
+        tokens = prompt_tokens(messages, model)
+        if not is_context_sufficient(tokens):
+            raise ContextSizeInsufficient()
+
+        start_time = default_timer()
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
             # OpenAI's API is bugged; when gpt-4-vision-preview is used, including the response format
@@ -254,6 +315,24 @@ class LlmApiHandler:
                     stream=stream,
                     response_format=response_format,
                 )
+
+        # We have to cast response since pyright isn't smart enough to connect
+        # the dots between stream and the overloaded create function
+        if not stream:
+            time_elapsed = default_timer() - start_time
+            response_tokens = count_tokens(
+                cast(ChatCompletion, response).choices[0].message.content or "",
+                model,
+                full_message=False,
+            )
+            cost_tracker.log_api_call_stats(
+                tokens, response_tokens, model, time_elapsed
+            )
+        else:
+            cost_tracker.last_api_call = ""
+            response = cost_tracker.response_logger_wrapper(
+                tokens, cast(AsyncStream[ChatCompletionChunk], response), model
+            )
 
         return response
 

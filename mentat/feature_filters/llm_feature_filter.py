@@ -3,16 +3,13 @@ from pathlib import Path
 from timeit import default_timer
 from typing import Optional, Set
 
+import attr
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
 )
 
-from mentat.code_feature import (
-    CodeFeature,
-    CodeMessageLevel,
-    get_code_message_from_features,
-)
+from mentat.code_feature import CodeFeature, get_code_message_from_features
 from mentat.errors import ModelError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
@@ -29,13 +26,11 @@ class LLMFeatureFilter(FeatureFilter):
         self,
         max_tokens: int,
         user_prompt: Optional[str] = None,
-        levels: list[CodeMessageLevel] = [],
         expected_edits: Optional[list[str]] = None,
         loading_multiplier: float = 0.0,
     ):
         self.max_tokens = max_tokens
         self.user_prompt = user_prompt or ""
-        self.levels = levels
         self.expected_edits = expected_edits
         self.loading_multiplier = loading_multiplier
 
@@ -74,9 +69,7 @@ class LLMFeatureFilter(FeatureFilter):
             - expected_edits_tokens
             - config.token_buffer
         )
-        truncate_filter = TruncateFilter(
-            preselect_max_tokens, model, levels=self.levels
-        )
+        truncate_filter = TruncateFilter(preselect_max_tokens, model)
         preselected_features = await truncate_filter.filter(features)
 
         # Ask the model to return only relevant features
@@ -108,13 +101,14 @@ class LLMFeatureFilter(FeatureFilter):
             )
         selected_refs = list[Path]()
         n_tries = 3
+        # TODO: When we switch to JSON format and don't have to try multiple times,
+        # use cost_tracker.display_last_api_call to show cost after loading bar disappears
         for i in range(n_tries):
             start_time = default_timer()
-            message = (
-                (await llm_api_handler.call_llm_api(messages, model, stream=False))
-                .choices[0]
-                .message.content
-            ) or ""
+            llm_response = await llm_api_handler.call_llm_api(
+                messages, model, stream=False
+            )
+            message = (llm_response.choices[0].message.content) or ""
 
             tokens = prompt_tokens(messages, model)
             response_tokens = count_tokens(message, model, full_message=True)
@@ -149,6 +143,7 @@ class LLMFeatureFilter(FeatureFilter):
         # parsed_features, _ = get_include_files(selected_refs, [])
         # postselected_features = [feature for features in parsed_features.values() for feature in features]
 
+        named_features: Set[CodeFeature] = set()
         for parsed_feature in parsed_features:
             # Match with corresponding inputs
             matching_inputs = [
@@ -162,14 +157,15 @@ class LLMFeatureFilter(FeatureFilter):
                     f"No input feature found for llm-selected {parsed_feature}"
                 )
             # Copy metadata
-            parsed_feature.user_included = any(f.user_included for f in matching_inputs)
-            diff = any(f.diff for f in matching_inputs)
-            name = any(f.name for f in matching_inputs)
-            if diff:
-                parsed_feature.diff = next(f.diff for f in matching_inputs if f.diff)
+            name = next((f.name for f in matching_inputs if f.name), "")
             if name:
-                parsed_feature.name = next(f.name for f in matching_inputs if f.name)
+                feature_dict = attr.asdict(parsed_feature)
+                feature_dict["name"] = name
+                new_feature = CodeFeature(**feature_dict)
+                named_features.add(new_feature)
+            else:
+                named_features.add(parsed_feature)
 
         # Greedy again to enforce max_tokens
         truncate_filter = TruncateFilter(self.max_tokens, config.model)
-        return await truncate_filter.filter(parsed_features)
+        return await truncate_filter.filter(named_features)
