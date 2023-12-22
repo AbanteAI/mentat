@@ -21,10 +21,10 @@ async def test_get_feature_similarity_scores(mocker, mock_call_embedding_api):
     ]
     mock_call_embedding_api.set_embedding_values(
         [
+            [0.7, 0.7, 0.7],  # The prompt
             [0.4, 0.4, 0.4],
             [0.5, 0.6, 0.7],
             [0.69, 0.7, 0.71],
-            [0.7, 0.7, 0.7],  # The prompt
         ]
     )
     result = await get_feature_similarity_scores(prompt, features)
