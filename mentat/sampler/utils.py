@@ -12,6 +12,11 @@ def get_active_snapshot_commit(repo: Repo) -> str | None:
     """Returns the commit hash of the current active snapshot, or None if there are no active changes."""
     if not repo.is_dirty():
         return None
+    if not repo.config_reader().has_option("user", "name"):
+        raise SampleError(
+            "ERROR: Git user.name not set. Please run 'git config --global user.name"
+            ' "Your Name"\'.'
+        )
     try:
         # Stash active changes and record the current position
         for file in get_non_gitignored_files(Path(repo.working_dir)):
