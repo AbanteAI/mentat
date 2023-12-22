@@ -15,7 +15,7 @@ from mentat.config import Config
 from mentat.interval import Interval
 from mentat.llm_api import CostTracker, count_tokens, model_context_size, setup_api_key
 from mentat.session_context import SESSION_CONTEXT, SessionContext
-from tests.benchmarks.utils import clone_repo
+from mentat.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
@@ -27,9 +27,9 @@ class MockStream:
 
 
 def _load_benchmarks() -> dict[str, dict[str, Any]]:
-    """Load all benchmarks found in tests/benchmarks/repos"""
+    """Load all benchmarks found in benchmark_repos"""
     benchmarks = {}
-    benchmarks_dir = Path(__file__).parent / "repos"
+    benchmarks_dir = Path(__file__).parent / "../../benchmark_repos"
     for repo_dir in benchmarks_dir.iterdir():
         benchmarks_path = repo_dir / "benchmarks.json"
         if benchmarks_path.exists():
@@ -110,8 +110,8 @@ async def select_features_for_benchmark(
         model_context_size(model) - mentat_prompt_tokens - expected_edits_tokens
     )
     # Fill-in available context
-    config.auto_context = True
-    config.auto_context_llm = use_llm
+    config.auto_context_tokens = 8000
+    code_context.use_llm = use_llm
     await code_context.get_code_message(
         benchmark["prompt"], max_context_tokens, expected_edits
     )

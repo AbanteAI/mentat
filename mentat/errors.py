@@ -22,7 +22,30 @@ class UserError(Exception):
     """
 
 
+class HistoryError(Exception):
+    """
+    Raised when an execption is encountered undoing or redoing edits.
+    """
+
+
+class SampleError(Exception):
+    """
+    Raised when an exception is raised by a Sample.
+    """
+
+
 class SessionExit(Exception):
     """
     Stops the session without any sign of error.
+    """
+
+
+class PathValidationError(Exception):
+    pass
+
+
+class ContextSizeInsufficient(Exception):
+    """
+    Raised when trying to call the API with too many tokens for that model.
+    Will give control back to the user after being raised.
     """

@@ -1,12 +1,11 @@
 from typing import Optional
 
-from mentat.code_feature import CodeFeature, CodeMessageLevel
-from mentat.errors import ModelError
+from mentat.code_feature import CodeFeature
+from mentat.errors import ContextSizeInsufficient, ModelError
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.llm_feature_filter import LLMFeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
-from mentat.feature_filters.user_include_sort_filter import UserIncludedSortFilter
 from mentat.session_context import SESSION_CONTEXT
 
 
@@ -20,41 +19,37 @@ class DefaultFilter(FeatureFilter):
     ):
         self.max_tokens = max_tokens
         self.user_prompt = user_prompt or ""
-        self.levels = [CodeMessageLevel.FILE_NAME]
         self.expected_edits = expected_edits
         self.loading_multiplier = loading_multiplier
 
     async def filter(self, features: list[CodeFeature]) -> list[CodeFeature]:
-        session = SESSION_CONTEXT.get()
-        stream = session.stream
-        model = session.config.model
-        use_llm = session.config.auto_context_llm
-        if self.user_prompt != "":
+        ctx = SESSION_CONTEXT.get()
+        use_llm = ctx.config.llm_feature_filter
+
+        if ctx.config.auto_context_tokens > 0 and self.user_prompt != "":
             features = await EmbeddingSimilarityFilter(
                 self.user_prompt, (0.5 if use_llm else 1) * self.loading_multiplier
             ).filter(features)
-        # python sorts are stable (even with reversed=true) so the two groups: included and not included
-        # will maintain their relative orders
-        features = await UserIncludedSortFilter().filter(features)
+
         if use_llm:
             try:
                 features = await LLMFeatureFilter(
                     self.max_tokens,
                     self.user_prompt,
-                    self.levels,
                     self.expected_edits,
                     (0.5 if self.user_prompt != "" else 1) * self.loading_multiplier,
                 ).filter(features)
-            except ModelError:
-                stream.send(
+            except (ModelError, ContextSizeInsufficient):
+                ctx.stream.send(
                     "Feature-selection LLM response invalid. Using TruncateFilter"
                     " instead."
                 )
                 features = await TruncateFilter(
-                    self.max_tokens, model, self.levels, True
+                    self.max_tokens, ctx.config.model
                 ).filter(features)
         else:
-            features = await TruncateFilter(
-                self.max_tokens, model, self.levels, True
-            ).filter(features)
+            features = await TruncateFilter(self.max_tokens, ctx.config.model).filter(
+                features
+            )
+
         return features

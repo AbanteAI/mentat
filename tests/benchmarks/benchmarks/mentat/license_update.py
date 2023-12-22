@@ -1,5 +1,7 @@
 import importlib
 
+from mentat.config import Config
+
 title = "License Update"
 
 description = """
@@ -21,10 +23,15 @@ repo = "https://github.com/AbanteAI/mentat"
 commit = "b0848711c36e0c2fe9619ebb2b77dc6d27396ff2"
 minimum_context = ["tests/license_check.py:11-22"]
 
+config = Config(
+    auto_context=True,
+    maximum_context=8000,
+)
+
 
 def verify():
     try:
-        import tests.benchmarks.repos.mentat.tests.license_check as license_check
+        import benchmark_repos.mentat.tests.license_check as license_check
 
         importlib.reload(license_check)
         return set(license_check.accepted_licenses) == set(

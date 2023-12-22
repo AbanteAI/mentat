@@ -1,30 +1,31 @@
 import os
 import subprocess
-from pathlib import Path
 
-import pytest
-
-from mentat.errors import UserError
-from mentat.git_handler import get_shared_git_root_for_paths
+from mentat.git_handler import get_git_diff, get_hexsha_active
 
 
-def test_no_paths_given(temp_testbed):
-    # Get temp_testbed as the git root when given no paths
-    git_root = get_shared_git_root_for_paths([])
-    assert git_root == Path(temp_testbed)
+def test_get_git_diff(temp_testbed, mock_session_context):
+    # Add a new file and commit it, then delete but don't commit
+    with open(temp_testbed / "test_file.txt", "w") as f:
+        f.write("forty two")
+    assert "forty two" in get_git_diff("HEAD")
+    subprocess.run(["git", "add", "."])
+    subprocess.run(["git", "commit", "-m", "test commit"])
+    assert "forty two" not in get_git_diff("HEAD")
+    assert "forty two" in get_git_diff("HEAD~1", "HEAD")
+    os.remove("test_file.txt")
+    assert "forty two" in get_git_diff("HEAD")
+    assert "forty two" not in get_git_diff("HEAD~1")
 
 
-def test_paths_given(temp_testbed):
-    # Get temp_testbed when given directory in temp_testbed
-    git_root = get_shared_git_root_for_paths(["scripts"])
-    assert git_root == Path(temp_testbed)
-
-
-def test_two_git_roots_given():
-    # Exits when given 2 paths with separate git roots
-    with pytest.raises(UserError) as e_info:
-        os.makedirs("git_testing_dir")
-        subprocess.run(["git", "init"], cwd="git_testing_dir")
-
-        _ = get_shared_git_root_for_paths(["./", "git_testing_dir"])
-    assert e_info.type == UserError
+def test_get_hexsha_active(temp_testbed):
+    a = get_hexsha_active()
+    with open("multifile_calculator/calculator.py", "a") as f:
+        f.write("forty three")
+    b = get_hexsha_active()
+    with open("test_file.txt", "w") as f:
+        f.write("forty two")
+    c = get_hexsha_active()
+    assert a != b
+    assert b != c
+    assert a != c

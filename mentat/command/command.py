@@ -1,10 +1,22 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Literal
+
+import attr
 
 from mentat.errors import MentatError
 from mentat.session_context import SESSION_CONTEXT
+
+
+@attr.define
+class CommandArgument:
+    # Required: <arg>, Optional: [arg], Literal: arg
+    arg_type: Literal["required", "optional", "literal"] = attr.field()
+    # Multiple descriptions will be separated with |: desc1|desc2
+    description: str | List[str] = attr.field()
+    # Repeatable arguments will be followed with ...: <arg1> ...
+    repeatable: bool = attr.field(default=False)
 
 
 class Command(ABC):
@@ -37,18 +49,24 @@ class Command(ABC):
             if not command.hidden
         ]
 
-    @classmethod
-    def get_command_completions(cls) -> List[str]:
-        return list(map(lambda name: "/" + name, cls.get_command_names()))
-
     @abstractmethod
     async def apply(self, *args: str) -> None:
         pass
 
-    # TODO: make more robust way to specify arguments for commands
     @classmethod
     @abstractmethod
-    def argument_names(cls) -> list[str]:
+    def arguments(cls) -> List[CommandArgument]:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        """
+        Returns a list of possible completions for the argument in the specified position (0-indexed)
+        given the previous arguments
+        """
         pass
 
     @classmethod
@@ -72,8 +90,14 @@ class InvalidCommand(Command, command_name=None):
         )
 
     @classmethod
-    def argument_names(cls) -> list[str]:
+    def arguments(cls) -> List[CommandArgument]:
         raise MentatError("Argument names called on invalid command")
+
+    @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return []
 
     @classmethod
     def help_message(cls) -> str:

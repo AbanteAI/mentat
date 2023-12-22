@@ -9,21 +9,25 @@ from mentat.logging_config import logs_path
 
 
 class UserMessage(TypedDict):
-    message: list[ChatCompletionContentPartParam]
+    message: list[ChatCompletionContentPartParam] | str
     # We need this field so that it is included when we convert to JSON
     prior_messages: None
 
 
-class ModelMessage(TypedDict):
+class ModelMessage(TypedDict, total=False):
     message: str
     prior_messages: list[ChatCompletionMessageParam]
+
+    # Used to mark different types of messages; e.g., an agent message that isn't part of the regular conversation
+    # NotRequired isn't available until 3.11, so we have to use total=False instead
+    message_type: str
 
 
 TranscriptMessage = UserMessage | ModelMessage
 
 
 class Transcript(TypedDict):
-    timestamp: str
+    id: str
     messages: list[TranscriptMessage]
 
 
@@ -42,6 +46,6 @@ def get_transcript_logs() -> list[Transcript]:
             continue
 
         transcript = json.loads("[" + ", ".join(transcript) + "]")
-        ans.append(Transcript(timestamp=timestamp, messages=transcript))
+        ans.append(Transcript(id=timestamp, messages=transcript))
 
-    return sorted(ans, key=lambda x: x["timestamp"], reverse=True)
+    return sorted(ans, key=lambda x: x["id"], reverse=True)

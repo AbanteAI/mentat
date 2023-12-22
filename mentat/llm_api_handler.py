@@ -4,12 +4,31 @@ import base64
 import io
 import os
 import sys
-from typing import List, Literal, Optional, cast, overload
+from pathlib import Path
+from timeit import default_timer
+from typing import (
+    Any,
+    AsyncIterator,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    cast,
+    overload,
+)
 
+import attr
 import sentry_sdk
 import tiktoken
 from dotenv import load_dotenv
-from openai import AsyncOpenAI, AsyncStream, AuthenticationError
+from openai import (
+    APIConnectionError,
+    AsyncAzureOpenAI,
+    AsyncOpenAI,
+    AsyncStream,
+    AuthenticationError,
+)
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -19,9 +38,11 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
 
-from mentat.errors import UserError
+from mentat.errors import ContextSizeInsufficient, MentatError, UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
+
+TOKEN_COUNT_WARNING = 32000
 
 
 def is_test_environment():
@@ -34,10 +55,27 @@ def is_test_environment():
     )
 
 
-def raise_if_in_test_environment():
-    assert (
-        not is_test_environment()
-    ), "OpenAI call attempted in non benchmark test environment!"
+def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Decorator that should be used on any function that calls the OpenAI API
+
+    It does two things:
+    1. Raises if the function is called in tests (that aren't benchmarks)
+    2. Converts APIConnectionErrors to MentatErrors
+    """
+
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        assert (
+            not is_test_environment()
+        ), "OpenAI call attempted in non-benchmark test environment!"
+        try:
+            return await func(*args, **kwargs)
+        except APIConnectionError:
+            raise MentatError(
+                "API connection error: please check your internet connection and try"
+                " again."
+            )
+
+    return wrapper
 
 
 # Ensures that each chunk will have at most one newline character
@@ -51,7 +89,7 @@ def count_tokens(message: str, model: str, full_message: bool) -> int:
     Calculates the tokens in this message. Will NOT be accurate for a full prompt!
     Use prompt_tokens to get the exact amount of tokens for a prompt.
     If full_message is true, will include the extra 4 tokens used in a chat completion by this message
-    if this message is part of a prompt. The majority of the time, you'll want full_message to be true.
+    if this message is part of a prompt. You do NOT want full_message to be true for a response.
     """
     try:
         encoding = tiktoken.encoding_for_model(model)
@@ -104,45 +142,89 @@ def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str):
     return num_tokens
 
 
+@attr.define
+class Model:
+    name: str = attr.field()
+    context_size: int = attr.field()
+    input_cost: float = attr.field()
+    output_cost: float = attr.field()
+    embedding_model: bool = attr.field(default=False)
+
+
+known_models: Dict[str, Model] = {
+    "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
+    # model name on Azure
+    "gpt-4-1106-Preview": Model("gpt-4-1106-Preview", 128000, 0.01, 0.03),
+    "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
+    "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
+    "gpt-4-32k": Model("gpt-4-32k", 32768, 0.06, 0.12),
+    "gpt-4-0613": Model("gpt-4-0613", 8192, 0.03, 0.06),
+    "gpt-4-32k-0613": Model("gpt-4-32k-0613", 32768, 0.06, 0.12),
+    "gpt-4-0314": Model("gpt-4-0314", 8192, 0.03, 0.06),
+    "gpt-4-32k-0314": Model("gpt-4-32k-0314", 32768, 0.06, 0.12),
+    "gpt-3.5-turbo-1106": Model("gpt-3.5-turbo-1106", 16385, 0.001, 0.002),
+    "gpt-3.5-turbo": Model("gpt-3.5-turbo", 16385, 0.001, 0.002),
+    "gpt-3.5-turbo-0613": Model("gpt-3.5-turbo-0613", 4096, 0.0015, 0.002),
+    "gpt-3.5-turbo-16k-0613": Model("gpt-3.5-turbo-16k-0613", 16385, 0.003, 0.004),
+    "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
+    "text-embedding-ada-002": Model(
+        "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
+    ),
+}
+
+
 def model_context_size(model: str) -> Optional[int]:
-    context_sizes = {
-        "gpt-4-1106-preview": 128000,
-        "gpt-4-vision-preview": 128000,
-        "gpt-4": 8192,
-        "gpt-4-32k": 32768,
-        "gpt-4-0613": 8192,
-        "gpt-4-32k-0613": 32768,
-        "gpt-4-0314": 8192,
-        "gpt-4-32k-0314": 32768,
-        "gpt-3.5-turbo-1106": 16385,
-        "gpt-3.5-turbo": 16385,
-        "gpt-3.5-turbo-0613": 4096,
-        "gpt-3.5-turbo-16k-0613": 16385,
-        "gpt-3.5-turbo-0301": 4096,
-        "text-embedding-ada-002": 8191,
-    }
-    return context_sizes.get(model, None)
+    if model not in known_models:
+        return None
+    else:
+        return known_models[model].context_size
 
 
 def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
     """Returns (input, output) cost per 1000 tokens in USD"""
-    prices = {
-        "gpt-4-1106-preview": (0.01, 0.03),
-        "gpt-4-vision-preview": (0.01, 0.03),
-        "gpt-4": (0.03, 0.06),
-        "gpt-4-32k": (0.06, 0.12),
-        "gpt-4-0613": (0.03, 0.06),
-        "gpt-4-32k-0613": (0.06, 0.12),
-        "gpt-4-0314": (0.03, 0.06),
-        "gpt-4-32k-0314": (0.06, 0.12),
-        "gpt-3.5-turbo-1106": (0.001, 0.002),
-        "gpt-3.5-turbo": (0.001, 0.002),
-        "gpt-3.5-turbo-0613": (0.0015, 0.002),
-        "gpt-3.5-turbo-16k-0613": (0.003, 0.004),
-        "gpt-3.5-turbo-0301": (0.0015, 0.002),
-        "text-embedding-ada-002": (0.0001, 0),
-    }
-    return prices.get(model, None)
+    if model not in known_models:
+        return None
+    else:
+        return known_models[model].input_cost, known_models[model].output_cost
+
+
+def get_max_tokens() -> int:
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+    config = session_context.config
+
+    context_size = model_context_size(config.model)
+    maximum_context = config.maximum_context
+
+    if context_size is not None and maximum_context is not None:
+        return min(context_size, maximum_context)
+    elif context_size is not None:
+        return context_size
+    elif maximum_context is not None:
+        return maximum_context
+    else:
+        stream.send(
+            f"Context size for {config.model} is not known. Please set"
+            " maximum-context with `/config maximum_context <value>`.",
+            color="light_red",
+        )
+        raise ContextSizeInsufficient()
+
+
+def is_context_sufficient(tokens: int) -> bool:
+    ctx = SESSION_CONTEXT.get()
+
+    max_tokens = get_max_tokens()
+    if max_tokens - tokens < ctx.config.token_buffer:
+        ctx.stream.send(
+            f"The context size is limited to {max_tokens} tokens and your current"
+            f" request uses {tokens} tokens. Please use `/exclude` to remove"
+            " some files from context or `/clear` to reset the conversation",
+            color="light_red",
+        )
+        return False
+
+    return True
 
 
 class LlmApiHandler:
@@ -153,19 +235,28 @@ class LlmApiHandler:
             load_dotenv()
         key = os.getenv("OPENAI_API_KEY")
         base_url = os.getenv("OPENAI_API_BASE")
-        if not key:
+        azure_key = os.getenv("AZURE_OPENAI_KEY")
+        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+
+        if not key and not azure_key:
             raise UserError(
                 "No OpenAI api key detected.\nEither place your key into a .env"
                 " file or export it as an environment variable."
             )
 
         # We don't have any use for a synchronous client, but if we ever do we can easily make it here
-        self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
+        if azure_endpoint:
+            self.async_client = AsyncAzureOpenAI(
+                api_key=azure_key,
+                api_version="2023-12-01-preview",
+                azure_endpoint=azure_endpoint,
+            )
+        else:
+            self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
         try:
-            self.async_client.api_key = key
             self.async_client.models.list()  # Test the key
         except AuthenticationError as e:
-            raise UserError(f"OpenAI gave an Authentication Error:\n{e}")
+            raise UserError(f"API gave an Authentication Error:\n{e}")
 
     @overload
     async def call_llm_api(
@@ -174,7 +265,7 @@ class LlmApiHandler:
         model: str,
         stream: Literal[True],
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> AsyncStream[ChatCompletionChunk]: ...
+    ) -> AsyncIterator[ChatCompletionChunk]: ...
 
     @overload
     async def call_llm_api(
@@ -185,18 +276,24 @@ class LlmApiHandler:
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> ChatCompletion: ...
 
+    @api_guard
     async def call_llm_api(
         self,
         messages: list[ChatCompletionMessageParam],
         model: str,
         stream: bool,
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> ChatCompletion | AsyncStream[ChatCompletionChunk]:
-        raise_if_in_test_environment()
-
+    ) -> ChatCompletion | AsyncIterator[ChatCompletionChunk]:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
+        cost_tracker = session_context.cost_tracker
 
+        # Confirm that model has enough tokens remaining.
+        tokens = prompt_tokens(messages, model)
+        if not is_context_sufficient(tokens):
+            raise ContextSizeInsufficient()
+
+        start_time = default_timer()
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
             # OpenAI's API is bugged; when gpt-4-vision-preview is used, including the response format
@@ -219,22 +316,47 @@ class LlmApiHandler:
                     response_format=response_format,
                 )
 
+        # We have to cast response since pyright isn't smart enough to connect
+        # the dots between stream and the overloaded create function
+        if not stream:
+            time_elapsed = default_timer() - start_time
+            response_tokens = count_tokens(
+                cast(ChatCompletion, response).choices[0].message.content or "",
+                model,
+                full_message=False,
+            )
+            cost_tracker.log_api_call_stats(
+                tokens, response_tokens, model, time_elapsed
+            )
+        else:
+            cost_tracker.last_api_call = ""
+            response = cost_tracker.response_logger_wrapper(
+                tokens, cast(AsyncStream[ChatCompletionChunk], response), model
+            )
+
         return response
 
+    @api_guard
     async def call_embedding_api(
         self, input_texts: list[str], model: str = "text-embedding-ada-002"
     ) -> list[list[float]]:
-        raise_if_in_test_environment()
-
         response = await self.async_client.embeddings.create(
             input=input_texts, model=model
         )
         return [embedding.embedding for embedding in response.data]
 
+    @api_guard
     async def is_model_available(self, model: str) -> bool:
-        raise_if_in_test_environment()
-
         available_models: list[str] = [
             model.id async for model in self.async_client.models.list()
         ]
         return model in available_models
+
+    @api_guard
+    async def call_whisper_api(self, audio_path: Path) -> str:
+        audio_file = open(audio_path, "rb")
+        transcript = await self.async_client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file,
+        )
+        return transcript.text

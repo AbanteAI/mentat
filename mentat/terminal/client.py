@@ -59,6 +59,11 @@ class TerminalClient:
         async for message in self.session.stream.listen():
             print_stream_message(message)
 
+    async def _default_prompt_stream(self):
+        self._default_prompt = ""
+        async for message in self.session.stream.listen("default_prompt"):
+            self._default_prompt += message.data
+
     async def _handle_loading_messages(self):
         loading_handler = LoadingHandler()
         async for message in self.session.stream.listen("loading"):
@@ -73,7 +78,12 @@ class TerminalClient:
             else:
                 prompt_session = self._prompt_session
 
-            user_input = await prompt_session.prompt_async(handle_sigint=False)
+            default_prompt = self._default_prompt.strip()
+            self._default_prompt = ""
+
+            user_input = await prompt_session.prompt_async(
+                handle_sigint=False, default=default_prompt
+            )
             if user_input == "q":
                 self._should_exit.set()
                 return
@@ -92,7 +102,9 @@ class TerminalClient:
     async def _listen_for_should_exit(self):
         """This listens for a user event signaling shutdown (like SigInt), and tells the session to shutdown."""
         await self._should_exit.wait()
-        self.session.stream.send(None, channel="session_exit")
+        self.session.stream.send(
+            None, source=StreamMessageSource.CLIENT, channel="session_exit"
+        )
 
     async def _send_session_stream_interrupt(self):
         logging.debug("Sending interrupt to session stream")
@@ -135,7 +147,7 @@ class TerminalClient:
         )
         self.session.start()
 
-        mentat_completer = MentatCompleter()
+        mentat_completer = MentatCompleter(self.session.stream)
         self._prompt_session = MentatPromptSession(
             completer=mentat_completer,
             style=Style(self.config.input_style),
@@ -160,10 +172,10 @@ class TerminalClient:
             enable_suspend=True,
         )
 
-        self._create_task(mentat_completer.refresh_completions())
         self._create_task(self._cprint_session_stream())
         self._create_task(self._handle_input_requests())
         self._create_task(self._handle_loading_messages())
+        self._create_task(self._default_prompt_stream())
         self._create_task(self._listen_for_client_exit())
         self._create_task(self._listen_for_should_exit())
 
@@ -232,13 +244,14 @@ def run_cli():
     Config.add_fields_to_argparse(parser)
     args = parser.parse_args()
 
-    config = Config.create(args)
-    cwd = args.cwd
+    cwd = Path(args.cwd).expanduser().resolve()
     paths = args.paths
     exclude_paths = args.exclude
     ignore_paths = args.ignore
     diff = args.diff
     pr_diff = args.pr_diff
+
+    config = Config.create(cwd, args)
 
     terminal_client = TerminalClient(
         cwd,

@@ -1,11 +1,15 @@
-from pathlib import Path
+from typing import List
 
-from mentat.command.command import Command
-from mentat.include_files import print_invalid_path
+from typing_extensions import override
+
+from mentat.auto_completer import get_command_filename_completions
+from mentat.command.command import Command, CommandArgument
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import get_relative_path
 
 
 class IncludeCommand(Command, command_name="include"):
+    @override
     async def apply(self, *args: str) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
@@ -15,22 +19,24 @@ class IncludeCommand(Command, command_name="include"):
             stream.send("No files specified", color="yellow")
             return
         for file_path in args:
-            included_paths, invalid_paths = code_context.include_file(
-                Path(file_path).absolute()
-            )
-            for invalid_path in invalid_paths:
-                print_invalid_path(invalid_path)
+            included_paths = code_context.include(file_path)
             for included_path in included_paths:
-                if included_path.is_relative_to(session_context.cwd):
-                    display_path = included_path.relative_to(session_context.cwd)
-                else:
-                    display_path = included_path
-                stream.send(f"{display_path} added to context", color="green")
+                rel_path = get_relative_path(included_path, session_context.cwd)
+                stream.send(f"{rel_path} added to context", color="green")
 
+    @override
     @classmethod
-    def argument_names(cls) -> list[str]:
-        return ["file1", "file2", "..."]
+    def arguments(cls) -> List[CommandArgument]:
+        return [CommandArgument("required", ["path", "glob pattern"], repeatable=True)]
 
+    @override
+    @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return get_command_filename_completions(arguments[-1])
+
+    @override
     @classmethod
     def help_message(cls) -> str:
-        return "Add files to the code context"
+        return "Add files to context."

@@ -8,7 +8,8 @@ from pathlib import Path
 import attr
 from attr import converters, validators
 
-from mentat.git_handler import get_shared_git_root_for_paths
+from mentat.git_handler import get_git_root_for_path
+from mentat.llm_api_handler import known_models
 from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
@@ -24,14 +25,30 @@ def int_or_none(s: str | None) -> int | None:
     return None
 
 
+bool_autocomplete = ["True", "False"]
+
+
 @attr.define
 class Config:
     _errors: list[str] = attr.field(factory=list)
 
     # Model specific settings
-    model: str = attr.field(default="gpt-4-1106-preview")
-    feature_selection_model: str = attr.field(default="gpt-4-1106-preview")
-    embedding_model: str = attr.field(default="text-embedding-ada-002")
+    model: str = attr.field(
+        default="gpt-4-1106-preview",
+        metadata={"auto_completions": list(known_models.keys())},
+    )
+    feature_selection_model: str = attr.field(
+        default="gpt-4-1106-preview",
+        metadata={"auto_completions": list(known_models.keys())},
+    )
+    embedding_model: str = attr.field(
+        default="text-embedding-ada-002",
+        metadata={
+            "auto_completions": [
+                model.name for model in known_models.values() if model.embedding_model
+            ]
+        },
+    )
     temperature: float = attr.field(
         default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)]
     )
@@ -43,7 +60,7 @@ class Config:
                 "The maximum number of lines of context to include in the prompt. It is"
                 " inferred automatically for openai models but you can still set it to"
                 " save costs. It must be set for other models."
-            )
+            ),
         },
         converter=int_or_none,
         validator=validators.optional(validators.ge(0)),
@@ -54,7 +71,7 @@ class Config:
             "description": (
                 "The amount of tokens to always be reserved as a buffer for user and"
                 " model messages."
-            )
+            ),
         },
     )
     parser: Parser = attr.field(  # pyright: ignore
@@ -64,6 +81,7 @@ class Config:
                 "The format for the LLM to write code in. You probably don't want to"
                 " mess with this setting."
             ),
+            "auto_completions": list(parser_map.keys()),
         },
         converter=parser_map.get,  # pyright: ignore
         validator=validators.instance_of(Parser),  # pyright: ignore
@@ -73,8 +91,9 @@ class Config:
         metadata={
             "description": (
                 "Whether to include the parser prompt in the system message. This"
-                " should only be set to true for fine tuned models"
-            )
+                " should only be set to true for fine tuned models."
+            ),
+            "auto_completions": bool_autocomplete,
         },
         converter=converters.optional(converters.to_bool),
     )
@@ -84,27 +103,47 @@ class Config:
         factory=list,
         metadata={"description": "List of glob patterns to exclude from context"},
     )
-    auto_context: bool = attr.field(
-        default=False,
+    auto_context_tokens: int = attr.field(  # pyright: ignore
+        default=0,
         metadata={
-            "description": "Automatically select code files to include in context.",
+            "description": (
+                "Automatically selects code files for every request to include in"
+                " context. Adds this many tokens to context each request."
+            ),
             "abbreviation": "a",
-        },
-        converter=converters.optional(converters.to_bool),
-    )
-    auto_context_llm: bool = attr.field(
-        default=False,
-        metadata={
-            "description": "Use LLM to post-select files for context (beta)",
-        },
-        converter=converters.optional(converters.to_bool),
-    )
-    auto_tokens: int = attr.field(
-        default=8000,
-        metadata={
-            "description": "The number of tokens auto-context will add.",
+            "const": 5000,
         },
         converter=int,
+        validator=validators.ge(0),  # pyright: ignore
+    )
+    llm_feature_filter: int = attr.field(  # pyright: ignore
+        default=0,
+        metadata={
+            "description": (
+                "Send this many tokens of auto-context-selected code files to an LLM"
+                " along with the user_prompt to post-select only files which are"
+                " relevant to the task. Post-files will then be sent to the LLM again"
+                " to respond to the user's prompt."
+            ),
+            "abbreviation": "l",
+            "const": 5000,
+        },
+        converter=int,
+        validator=validators.ge(0),  # pyright: ignore
+    )
+
+    # Sample specific settings
+    sample_repo: str | None = attr.field(
+        default=None,
+        metadata={
+            "description": "A public url for a cloneable git repository to sample from."
+        },
+    )
+    sample_merge_base_target: str | None = attr.field(
+        default=None,
+        metadata={
+            "description": "The branch or commit to use as the merge base for samples."
+        },
     )
 
     # Only settable by config file
@@ -122,8 +161,14 @@ class Config:
     )
 
     @classmethod
+    def get_fields(cls) -> list[str]:
+        return [
+            field.name for field in attr.fields(cls) if not field.name.startswith("_")
+        ]
+
+    @classmethod
     def add_fields_to_argparse(cls, parser: ArgumentParser) -> None:
-        for field in attr.fields(Config):
+        for field in attr.fields(cls):
             if "no_flag" in field.metadata:
                 continue
             name = [f"--{field.name.replace('_', '-')}"]
@@ -133,6 +178,9 @@ class Config:
             arguments = {
                 "help": field.metadata.get("description", ""),
             }
+            if "const" in field.metadata:
+                arguments["nargs"] = "?"
+                arguments["const"] = field.metadata["const"]
 
             if field.type == "bool":
                 if arguments.get("default", False):
@@ -149,12 +197,15 @@ class Config:
             parser.add_argument(*name, **arguments)
 
     @classmethod
-    def create(cls, args: Namespace | None = None) -> Config:
+    def create(cls, cwd: Path, args: Namespace | None = None) -> Config:
         config = Config()
 
         # Each method overwrites the previous so they are in order of precedence
         config.load_file(user_config_path)
-        config.load_file(get_shared_git_root_for_paths([Path(".")]) / config_file_name)
+        git_root = get_git_root_for_path(cwd, raise_error=False)
+        if git_root is not None:
+            config.load_file(git_root / config_file_name)
+        config.load_file(cwd / config_file_name)
 
         if args is not None:
             config.load_namespace(args)

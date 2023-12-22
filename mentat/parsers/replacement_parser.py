@@ -34,7 +34,7 @@ class ReplacementParser(Parser):
     def _special_block(
         self,
         code_file_manager: CodeFileManager,
-        git_root: Path,
+        cwd: Path,
         rename_map: dict[Path, Path],
         special_block: str,
     ) -> tuple[DisplayInformation, FileEdit, bool]:
@@ -43,7 +43,8 @@ class ReplacementParser(Parser):
             raise ModelError("Error: Invalid model output")
 
         file_name = Path(info[0])
-        file_lines = self._get_file_lines(code_file_manager, rename_map, file_name)
+        full_path = (cwd / file_name).resolve()
+        file_lines = self._get_file_lines(code_file_manager, rename_map, full_path)
         new_name = None
 
         # For an insert, just make the second number 1 less than the starting line (since we sub 1 from starting line)
@@ -89,11 +90,11 @@ class ReplacementParser(Parser):
         )
 
         file_edit = FileEdit(
-            git_root / file_name,
+            full_path,
             [],
             is_creation=file_action_type == FileActionType.CreateFile,
             is_deletion=file_action_type == FileActionType.DeleteFile,
-            rename_file_path=git_root / new_name if new_name else None,
+            rename_file_path=(cwd / new_name).resolve() if new_name else None,
         )
         has_code = file_action_type == FileActionType.UpdateFile
         return (display_information, file_edit, has_code)
@@ -126,7 +127,6 @@ class ReplacementParser(Parser):
         Inverse of stream_and_parse_llm_response
         """
         session_context = SESSION_CONTEXT.get()
-        git_root = session_context.git_root
 
         ans = parsedLLMResponse.conversation.strip() + "\n\n"
         for file_edit in parsedLLMResponse.file_edits:
@@ -137,10 +137,12 @@ class ReplacementParser(Parser):
                 action_indicator = "-"
             elif file_edit.rename_file_path is not None:
                 action_indicator = file_edit.rename_file_path.relative_to(
-                    git_root
+                    session_context.cwd
                 ).as_posix()
 
-            file_rel_path = file_edit.file_path.relative_to(git_root).as_posix()
+            file_rel_path = file_edit.file_path.relative_to(
+                session_context.cwd
+            ).as_posix()
             if action_indicator != "":
                 ans += f"@ {file_rel_path} {action_indicator}\n"
 

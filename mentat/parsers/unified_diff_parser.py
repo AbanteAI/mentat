@@ -86,7 +86,7 @@ class UnifiedDiffParser(Parser):
     def _special_block(
         self,
         code_file_manager: CodeFileManager,
-        git_root: Path,
+        cwd: Path,
         rename_map: dict[Path, Path],
         special_block: str,
     ) -> tuple[DisplayInformation, FileEdit, bool]:
@@ -102,17 +102,18 @@ class UnifiedDiffParser(Parser):
         else:
             new_name = Path(new_name)
         file_name = Path(file_name)
-        file_lines = self._get_file_lines(code_file_manager, rename_map, file_name)
+        full_path = (cwd / file_name).resolve()
+        file_lines = self._get_file_lines(code_file_manager, rename_map, full_path)
         file_action_type = get_file_action_type(is_creation, is_deletion, new_name)
         display_information = DisplayInformation(
             file_name, file_lines, [], [], file_action_type, -1, -1, new_name
         )
         file_edit = FileEdit(
-            git_root / file_name,
+            full_path,
             [],
             is_creation,
             is_deletion,
-            git_root / new_name if new_name else None,
+            (cwd / new_name).resolve() if new_name else None,
         )
         return (
             display_information,
@@ -135,7 +136,7 @@ class UnifiedDiffParser(Parser):
         file_edit: FileEdit,
     ) -> str:
         file_lines = self._get_file_lines(
-            code_file_manager, rename_map, display_information.file_name
+            code_file_manager, rename_map, file_edit.file_path
         ).copy()
 
         # First, we split by the symbols that separate changes.

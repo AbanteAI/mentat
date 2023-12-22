@@ -59,7 +59,7 @@ async def generate_variations(
           3. To also identify relevant context to the query, such as the type-definitions of variables which will be edited, or functions which would be directly affected by the edits. \
           4. To NOT select irrelevant files or lines of code. \
           5. It's critical respond to this with a JSON-parsable list of strings (one for each prompt). \
-    """).format(population=population)
+    """).format(population=population)  # ruff: noqa: E501
     scores = [(prompt, recall_weighted_mean(scores[prompt])) for prompt in scores]
     top_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:population]
     messages = [

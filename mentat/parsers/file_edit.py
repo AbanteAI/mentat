@@ -5,7 +5,7 @@ from typing import Any
 
 import attr
 
-from mentat.errors import MentatError
+from mentat.errors import HistoryError, MentatError
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
@@ -14,13 +14,13 @@ from mentat.parsers.change_display_helper import (
 )
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
+from mentat.utils import get_relative_path
 
 
-# TODO: Add 'owner' to Replacement so that interactive mode can accept/reject multiple replacements at once
 @attr.define(order=False)
 class Replacement:
     """
-    Represents that the lines from starting_line (inclusive) to ending_line (exclusive)
+    Represents that the 0-indexed lines from starting_line (inclusive) to ending_line (exclusive)
     should be replaced with new_lines
     """
 
@@ -39,12 +39,11 @@ class Replacement:
 
 
 async def _ask_user_change(
-    display_information: DisplayInformation,
     text: str,
 ) -> bool:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
-    stream.send(get_full_change(display_information))
+
     stream.send(text, color="light_blue")
     return await ask_yes_no(default_yes=True)
 
@@ -64,22 +63,91 @@ class FileEdit:
     # Should be abs path
     rename_file_path: Path | None = attr.field(default=None)
 
+    # Used for undo
+    previous_file_lines: list[str] | None = attr.field(default=None)
+
     @file_path.validator  # pyright: ignore
     def is_abs_path(self, attribute: attr.Attribute[Path], value: Any):
         if not isinstance(value, Path):
-            raise ValueError(f"file_path must be a Path, got {type(value)}")
+            raise ValueError(f"File_path must be a Path, got {type(value)}")
         if not value.is_absolute():
-            raise ValueError(f"file_path must be an absolute path, got {value}")
+            raise ValueError(f"File_path must be an absolute path, got {value}")
+
+    def _display_creation(self, prefix: str = ""):
+        ctx = SESSION_CONTEXT.get()
+
+        added_lines = list[str]()
+        for replacement in self.replacements:
+            added_lines.extend(replacement.new_lines)
+        display_information = DisplayInformation(
+            self.file_path, [], added_lines, [], FileActionType.CreateFile
+        )
+        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+
+    def _display_deletion(self, file_lines: list[str], prefix: str = ""):
+        ctx = SESSION_CONTEXT.get()
+
+        display_information = DisplayInformation(
+            self.file_path,
+            [],
+            [],
+            file_lines,
+            FileActionType.DeleteFile,
+        )
+        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+
+    def _display_rename(self, prefix: str = ""):
+        ctx = SESSION_CONTEXT.get()
+
+        display_information = DisplayInformation(
+            self.file_path,
+            [],
+            [],
+            [],
+            FileActionType.RenameFile,
+            new_name=self.rename_file_path,
+        )
+        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+
+    def _display_replacement(
+        self, replacement: Replacement, file_lines: list[str], prefix: str = ""
+    ):
+        ctx = SESSION_CONTEXT.get()
+
+        removed_block = file_lines[replacement.starting_line : replacement.ending_line]
+        display_information = DisplayInformation(
+            self.file_path,
+            file_lines,
+            replacement.new_lines,
+            removed_block,
+            FileActionType.UpdateFile,
+            replacement.starting_line,
+            replacement.ending_line,
+            self.rename_file_path,
+        )
+        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+
+    def _display_replacements(self, file_lines: list[str], prefix: str = ""):
+        for replacement in self.replacements:
+            self._display_replacement(replacement, file_lines, prefix=prefix)
+
+    def display_full_edit(self, file_lines: list[str], prefix: str = ""):
+        """Displays the full edit as if it were altering a file with the lines given"""
+        if self.is_deletion:
+            self._display_deletion(file_lines, prefix=prefix)
+        if self.rename_file_path:
+            self._display_rename(prefix=prefix)
+        if self.is_creation:
+            self._display_creation(prefix=prefix)
+        else:
+            self._display_replacements(file_lines, prefix=prefix)
 
     def is_valid(self) -> bool:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
 
-        if self.file_path.is_relative_to(session_context.cwd):
-            display_path = self.file_path.relative_to(session_context.cwd)
-        else:
-            display_path = self.file_path
+        display_path = get_relative_path(self.file_path, session_context.cwd)
 
         if self.is_creation:
             if self.file_path.exists():
@@ -96,12 +164,12 @@ class FileEdit:
                 )
                 return False
             file_features_in_context = [
-                f for f in code_context.features if f.path == self.file_path
-            ] or code_context.include_files.get(self.file_path, [])
+                f for f in code_context.auto_features if f.path == self.file_path
+            ] + code_context.include_files.get(self.file_path, [])
             if not all(
-                any(f.contains_line(i) for f in file_features_in_context)
+                any(f.interval.contains(i) for f in file_features_in_context)
                 for r in self.replacements
-                for i in range(r.starting_line, r.ending_line)
+                for i in range(r.starting_line + 1, r.ending_line + 1)
             ):
                 stream.send(
                     f"File {display_path} not in context, canceling all edits to file.",
@@ -128,52 +196,30 @@ class FileEdit:
         code_file_manager = session_context.code_file_manager
 
         if self.is_creation:
-            display_information = DisplayInformation(
-                self.file_path, [], [], [], FileActionType.CreateFile
-            )
-            if not await _ask_user_change(display_information, "Create this file?"):
+            self._display_creation()
+            if not await _ask_user_change("Create this file?"):
                 return False
             file_lines = []
         else:
             file_lines = code_file_manager.file_lines[self.file_path]
 
         if self.is_deletion:
-            display_information = DisplayInformation(
-                self.file_path, [], [], file_lines, FileActionType.DeleteFile
-            )
-            if not await _ask_user_change(display_information, "Delete this file?"):
+            self._display_deletion(file_lines)
+            if not await _ask_user_change("Delete this file?"):
                 return False
 
         if self.rename_file_path is not None:
-            display_information = DisplayInformation(
-                self.file_path,
-                [],
-                [],
-                [],
-                FileActionType.RenameFile,
-                new_name=self.rename_file_path,
-            )
-            if not await _ask_user_change(display_information, "Rename this file?"):
+            self._display_rename()
+            if not await _ask_user_change("Rename this file?"):
                 self.rename_file_path = None
 
-        new_replacements = list[Replacement]()
-        for replacement in self.replacements:
-            removed_block = file_lines[
-                replacement.starting_line : replacement.ending_line
-            ]
-            display_information = DisplayInformation(
-                self.file_path,
-                file_lines,
-                replacement.new_lines,
-                removed_block,
-                FileActionType.UpdateFile,
-                replacement.starting_line,
-                replacement.ending_line,
-                self.rename_file_path,
-            )
-            if await _ask_user_change(display_information, "Keep this change?"):
-                new_replacements.append(replacement)
-        self.replacements = new_replacements
+        if not self.is_creation:
+            new_replacements = list[Replacement]()
+            for replacement in self.replacements:
+                self._display_replacement(replacement, file_lines)
+                if await _ask_user_change("Keep this change?"):
+                    new_replacements.append(replacement)
+            self.replacements = new_replacements
 
         return (
             self.is_creation
@@ -191,7 +237,7 @@ class FileEdit:
         stream.send(change_delimiter)
         for line in first.new_lines + second.new_lines:
             stream.send("+ " + line, color="green")
-        stream.send("")
+        stream.send(change_delimiter)
 
     def resolve_conflicts(self):
         self.replacements.sort(reverse=True)
@@ -230,3 +276,75 @@ class FileEdit:
                 + file_lines[replacement.ending_line :]
             )
         return file_lines
+
+    def undo(self):
+        ctx = SESSION_CONTEXT.get()
+
+        prefix = "UNDO: "
+
+        if self.is_creation:
+            if not self.file_path.exists():
+                raise HistoryError(
+                    f"File {self.file_path} does not exist; unable to delete"
+                )
+            ctx.code_file_manager.delete_file(self.file_path)
+
+            self._display_creation(prefix=prefix)
+            ctx.stream.send(
+                f"Creation of file {self.file_path} undone", color="light_blue"
+            )
+            return
+
+        if self.rename_file_path is not None:
+            if self.file_path.exists():
+                raise HistoryError(
+                    f"File {self.file_path} already exists; unable to undo rename to"
+                    f" {self.rename_file_path}"
+                )
+            if not self.rename_file_path.exists():
+                raise HistoryError(
+                    f"File {self.rename_file_path} does not exist; unable to undo"
+                    f" rename from {self.file_path}"
+                )
+            ctx.code_file_manager.rename_file(self.rename_file_path, self.file_path)
+
+            self._display_rename(prefix=prefix)
+            ctx.stream.send(
+                f"Rename of file {self.file_path} to {self.rename_file_path} undone",
+                color="light_blue",
+            )
+
+        if self.is_deletion:
+            if self.file_path.exists():
+                raise HistoryError(
+                    f"File {self.file_path} already exists; unable to re-create"
+                )
+            if not self.previous_file_lines:
+                # Should never happen
+                raise ValueError(
+                    "Previous file lines not set when undoing file deletion"
+                )
+            ctx.code_file_manager.create_file(
+                self.file_path, content="\n".join(self.previous_file_lines)
+            )
+
+            self._display_deletion(self.previous_file_lines, prefix=prefix)
+            ctx.stream.send(
+                f"Deletion of file {self.file_path} undone", color="light_red"
+            )
+        elif self.replacements:
+            if not self.file_path.exists():
+                raise HistoryError(
+                    f"File {self.file_path} does not exist; unable to undo edit"
+                )
+            if not self.previous_file_lines:
+                # Should never happen
+                raise ValueError("Previous file lines not set when undoing file edit")
+
+            with open(self.file_path, "w") as f:
+                f.write("\n".join(self.previous_file_lines))
+
+            self._display_replacements(self.previous_file_lines, prefix=prefix)
+            ctx.stream.send(
+                f"Edits to file {self.file_path} undone", color="light_blue"
+            )

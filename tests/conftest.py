@@ -1,3 +1,4 @@
+import gc
 import os
 import shutil
 import stat
@@ -16,12 +17,16 @@ from openai.types.chat.chat_completion_chunk import Choice as AsyncChoice
 from openai.types.chat.chat_completion_chunk import ChoiceDelta
 
 from mentat import config
+from mentat.agent_handler import AgentHandler
+from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config, config_file_name
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
+from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler
+from mentat.sampler.sampler import Sampler
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
 from mentat.streaming_printer import StreamingPrinter
@@ -255,8 +260,7 @@ def mock_session_context(temp_testbed):
     set by a Session if the test creates a Session.
     If you create a Session or Client in your test, do NOT use this SessionContext!
     """
-    # TODO make this `None` if there's no git (SessionContext needs to allow it)
-    git_root = temp_testbed
+    git_root = get_git_root_for_path(temp_testbed, raise_error=False)
 
     stream = SessionStream()
 
@@ -273,21 +277,37 @@ def mock_session_context(temp_testbed):
 
     vision_manager = VisionManager()
 
+    agent_handler = AgentHandler()
+
+    auto_completer = AutoCompleter()
+
+    sampler = Sampler()
+
     session_context = SessionContext(
         Path.cwd(),
         stream,
         llm_api_handler,
         cost_tracker,
-        git_root,
         config,
         code_context,
         code_file_manager,
         conversation,
         vision_manager,
+        agent_handler,
+        auto_completer,
+        sampler,
     )
     token = SESSION_CONTEXT.set(session_context)
     yield session_context
     SESSION_CONTEXT.reset(token)
+
+
+@pytest.fixture
+def mock_code_context(temp_testbed, mock_session_context):
+    return mock_session_context.code_context
+
+
+### Auto-used fixtures
 
 
 def run_git_command(cwd, *args):
@@ -310,6 +330,7 @@ def add_permissions(func, path, exc_info):
     If the error is for another reason it re-raises the error.
     """
 
+    gc.collect()  # Force garbage collection
     # Is the error an access error?
     if not os.access(path, os.W_OK):
         os.chmod(path, stat.S_IWUSR)

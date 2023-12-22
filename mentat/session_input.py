@@ -15,6 +15,7 @@ async def _get_input_request(**kwargs: Any) -> StreamMessage:
 
     message = stream.send("", channel="input_request", **kwargs)
     response = await stream.recv(f"input_request:{message.id}")
+    logging.debug(f"User Input: {response.data}")
     return response
 
 
@@ -26,26 +27,8 @@ async def collect_user_input(plain: bool = False) -> StreamMessage:
     create a new broadcast channel that listens for the input
     close the channel after receiving the input
     """
-    session_context = SESSION_CONTEXT.get()
-    stream = session_context.stream
 
     response = await _get_input_request(plain=plain)
-    logging.debug(f"User Input: {response.data}")
-
-    # Intercept and run commands
-    if not plain:
-        while isinstance(response.data, str) and response.data.startswith("/"):
-            try:
-                arguments = shlex.split(response.data[1:])
-                command = Command.create_command(arguments[0])
-                await command.apply(*arguments[1:])
-            except ValueError as e:
-                stream.send(
-                    f"Error processing command arguments: {e}", color="light_red"
-                )
-
-            response = await _get_input_request(plain=plain)
-
     # Quit on q
     if isinstance(response.data, str) and response.data.strip() == "q":
         raise SessionExit
@@ -67,6 +50,23 @@ async def ask_yes_no(default_yes: bool) -> bool:
     return content == "y" or (content != "n" and default_yes)
 
 
+async def collect_input_with_commands() -> StreamMessage:
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+
+    response = await collect_user_input()
+    while isinstance(response.data, str) and response.data.startswith("/"):
+        try:
+            # We only use shlex to split the arguments, not the command itself
+            arguments = shlex.split(" ".join(response.data.split(" ")[1:]))
+            command = Command.create_command(response.data[1:].split(" ")[0])
+            await command.apply(*arguments)
+        except ValueError as e:
+            stream.send(f"Error processing command arguments: {e}", color="light_red")
+        response = await collect_user_input()
+    return response
+
+
 async def listen_for_interrupt(
     coro: Coroutine[None, None, Any], raise_exception_on_interrupt: bool = True
 ):
@@ -77,9 +77,9 @@ async def listen_for_interrupt(
     asyncio.Task created from `coro` will be canceled.
 
     TODO:
-    - make sure task cancellation actually cancels the tasks
+      - make sure task cancellation actually cancels the tasks
       - Is there any kind of delay, or a possiblity of one?
-    - make sure there's no race conditions
+      - make sure there's no race conditions
 
     The `.result()` call for `wrapped_task` will re-raise any exceptions thrown
     inside of that Task.

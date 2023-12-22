@@ -1,9 +1,8 @@
 import asyncio
-import json
 import os
-import webbrowser
 from functools import partial
 from multiprocessing import Pool
+from pathlib import Path
 
 import pytest
 import tqdm
@@ -12,10 +11,12 @@ from openai import BadRequestError
 from mentat.config import Config
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import clone_repo
+from tests.benchmarks.benchmark_result import BenchmarkResult
+from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
 from tests.benchmarks.exercise_runners.exercise_runner_factory import (
     ExerciseRunnerFactory,
 )
-from tests.benchmarks.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
@@ -85,9 +86,8 @@ async def failure_analysis(exercise_runner, language):
     response = ""
     try:
         llm_api_handler = SESSION_CONTEXT.get().llm_api_handler
-        async for chunk in await llm_api_handler.call_llm_api(messages, model):
-            content = chunk["choices"][0]["delta"].get("content", "")
-            response += content
+        llm_grade = await llm_api_handler.call_llm_api(messages, model, False)
+        response = llm_grade.choices[0].message.content
     except BadRequestError:
         response = "Unable to analyze test case\nreason: too many tokens to analyze"
 
@@ -100,10 +100,8 @@ async def failure_analysis(exercise_runner, language):
 
 async def run_exercise(problem_dir, language="python", max_iterations=2):
     exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
-    old_result = exercise_runner.get_result_from_txt()
-    if old_result:
-        return old_result
     client = PythonClient(
+        cwd=Path("."),
         paths=exercise_runner.include_files(),
         exclude_paths=exercise_runner.exclude_files(),
         config=Config(),
@@ -133,57 +131,68 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
             else exercise_runner.get_error_message() + prompt_2
         )
         await client.call_mentat_auto_accept(message)
-        await client.wait_for_edit_completion()
 
         exercise_runner.run_test()
         iterations += 1
 
     had_error = client.stopped.is_set()
+    messages = client.get_conversation().literal_messages
     await client.shutdown()
     passed = exercise_runner.passed()
-    result = {
-        "iterations": iterations,
-        "passed": passed,
-        "test": exercise_runner.name,
-    }
+    cost_tracker = SESSION_CONTEXT.get().cost_tracker
+    result = BenchmarkResult(
+        iterations=iterations,
+        passed=passed,
+        name=exercise_runner.name,
+        tokens=cost_tracker.total_tokens,
+        cost=cost_tracker.total_cost,
+        transcript={"id": problem_dir, "messages": messages},
+    )
     if had_error:
-        result["response"] = "Error while running mentat"
-        result["reason"] = "error"
-    elif not result["passed"]:
+        result.response = "Error while running mentat"
+        result.reason = "error"
+    elif not result.passed:
         response, reason = await failure_analysis(exercise_runner, language)
-        result["response"] = response
-        result["reason"] = reason
-    result["tokens"] = SESSION_CONTEXT.get().cost_tracker.total_tokens
+        result.response = response
+        result.reason = reason
     return result
 
 
 def run_exercise_sync(problem_dir, language="python", max_iterations=2):
     exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
+    old_result = exercise_runner.get_result_from_txt()
+    if old_result:
+        return old_result
     try:
         result = asyncio.run(run_exercise(problem_dir, language, max_iterations))
     except Exception as e:
         print(f"\nError running {problem_dir}")
         print(str(e), flush=True)
-        result = {
-            "iterations": 0,
-            "passed": False,
-            "test": problem_dir,
-            "response": str(e),
-            "reason": "error",
-            "tokens": 0,
-        }
-    result["instructions"] = exercise_runner.read_instructions()
-    result["code"] = exercise_runner.read_code(language)
-    result["test-output"] = exercise_runner.read_test_results()
+        result = BenchmarkResult(
+            iterations=0,
+            passed=False,
+            name=problem_dir,
+            tokens=0,
+            cost=0,
+            response=str(e),
+            reason="error",
+            transcript={"id": problem_dir, "messages": []},
+        )
+    result.instructions = exercise_runner.read_instructions()
+    result.code = exercise_runner.read_code(language)
+    result.test_output = exercise_runner.read_test_results()
+    with open("results.txt", "a") as f:
+        f.write(result.to_json())
+        f.write("\n")
     return result
 
 
-def summarize_results(results):
+def tqdm_summary(results):
     passed_in_n = {}
     failed = 0
     for result in results:
-        if result["passed"]:
-            iteration = result["iterations"]
+        if result.passed:
+            iteration = result.iterations
             if iteration:
                 passed_in_n[iteration] = passed_in_n.get(iteration, 0) + 1
         else:
@@ -221,20 +230,10 @@ def test_practice_directory_performance(
         for result in result_map:
             pbar.update()
             results.append(result)
-            with open("results.txt", "a") as f:
-                json.dump(result, f)
-                f.write("\n")
-            pbar.set_description(
-                summarize_results(results) + "| Last Ran: " + result["test"]
-            )
-        results.sort(key=lambda result: result["test"])
+            pbar.set_description(tqdm_summary(results) + "| Last Ran: " + result.name)
+        results.sort(key=lambda result: result.name)
 
-        # Update the html file
-        results_json = list(map(json.dumps, results))
-        results_str = "[" + ",".join(results_json) + "]"
-        with open(f"{os.path.dirname(__file__)}/exercism_benchmark.html", "r") as f:
-            html = f.read()
-        html = html.replace("{{ results }}", results_str)
-        with open("results.html", "w") as f:
-            f.write(html)
-        webbrowser.open("file://" + os.path.realpath("results.html"))
+        summary = BenchmarkResultSummary(results)
+        with open("results.json", "w") as f:
+            f.write(summary.to_json())
+        summary.render_results()

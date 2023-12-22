@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import os
 import time
 from importlib import resources
 from importlib.abc import Traversable
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Literal, Optional
+from typing import TYPE_CHECKING, AsyncIterator, List, Literal, Optional, Union
 
 import packaging.version
 import requests
+from git import Repo  # type: ignore
 from jinja2 import Environment, PackageLoader, select_autoescape
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
@@ -144,3 +146,66 @@ async def add_newline(
             object=last_chunk.object,
             system_fingerprint=last_chunk.system_fingerprint,
         )
+
+
+def get_relative_path(path: Path, target: Path) -> Path:
+    """Get the relative path of a file from a given directory.
+
+    This function is a 'backport' of `PurePath.relative_to` from Python 3.12 and later which has directory walk-up
+    support. See https://docs.python.org/3.12/library/pathlib.html#pathlib.PurePath.relative_to.
+
+    Args:
+        path (Path): The path to get the relative path of. This path must exist on the filesystem.
+        target (Path): The target path to base the relative path off of. This path must exist on the filesystem.
+
+    Returns:
+        Path: A relative path
+    """
+    path = path.resolve()
+    target = target.resolve()
+
+    if path.is_relative_to(target):
+        relative_path = path.relative_to(target)
+    else:
+        relative_parts: List[Union[str, Path]] = []
+        parent = target
+        while not path.is_relative_to(parent):
+            relative_parts.append("..")
+            parent = parent.parent
+        relative_parts.append(path.relative_to(parent))
+        relative_path = Path(*relative_parts)
+
+    return relative_path
+
+
+CLONE_TO_DIR = Path(__file__).parent.parent / "benchmark_repos"
+
+
+def clone_repo(
+    url: str, local_dir_name: str, refresh: bool = False, depth: int = 0
+) -> Path | None:
+    local_dir = CLONE_TO_DIR / local_dir_name
+    if os.path.exists(local_dir):
+        if refresh:
+            repo = Repo(local_dir)
+            repo.git.reset("--hard")
+            repo.git.clean("-fd")
+            repo.remotes.origin.pull()
+    else:
+        if depth > 0:
+            repo = Repo.clone_from(url, local_dir, depth=depth)
+        else:
+            repo = Repo.clone_from(url, local_dir)
+    return local_dir
+
+
+# TODO: replace this with something that doesn't load the file into memory
+def is_file_text_encoded(abs_path: Path):
+    """Checks if a file is text encoded."""
+    try:
+        # The ultimate filetype test
+        with open(abs_path, "r") as f:
+            f.read()
+        return True
+    except UnicodeDecodeError:
+        return False
