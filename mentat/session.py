@@ -20,7 +20,13 @@ from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
-from mentat.errors import ContextSizeInsufficient, MentatError, SessionExit, UserError
+from mentat.errors import (
+    ContextSizeInsufficient,
+    MentatError,
+    SampleError,
+    SessionExit,
+    UserError,
+)
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
@@ -179,8 +185,16 @@ class Session:
                     for file_edit in file_edits:
                         file_edit.resolve_conflicts()
 
-                    if session_context.sampler:
-                        session_context.sampler.set_active_diff()
+                    if session_context.sampler and session_context.sampler.active:
+                        try:
+                            session_context.sampler.set_active_diff()
+                        except SampleError as e:
+                            stream.send(
+                                f"Sampler error setting active diff: {e}. Disabling"
+                                " sampler.",
+                                color="red",
+                            )
+                            session_context.sampler.active = False
 
                     applied_edits = await code_file_manager.write_changes_to_files(
                         file_edits
