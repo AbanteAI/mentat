@@ -7,7 +7,12 @@ from openai.types.chat import ChatCompletionMessageParam
 
 from mentat.code_feature import get_consolidated_feature_refs
 from mentat.errors import SampleError
-from mentat.git_handler import get_git_diff, get_git_root_for_path, get_hexsha_active
+from mentat.git_handler import (
+    get_git_diff,
+    get_git_root_for_path,
+    get_hexsha_active,
+    set_git_user,
+)
 from mentat.parsers.git_parser import GitParser
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import get_active_snapshot_commit
@@ -55,6 +60,8 @@ class Sampler:
         ctx = SESSION_CONTEXT.get()
         git_root = get_git_root_for_path(ctx.cwd, raise_error=False)
         if not git_root:
+            return
+        if not set_git_user(git_root, "test@test.com", "Test User"):
             return
         repo = Repo(git_root)
         self.commit_active = get_active_snapshot_commit(repo)

@@ -24,7 +24,7 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config, config_file_name
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
-from mentat.git_handler import get_git_root_for_path
+from mentat.git_handler import get_git_root_for_path, set_git_user
 from mentat.llm_api_handler import LlmApiHandler
 from mentat.sampler.sampler import Sampler
 from mentat.session_context import SESSION_CONTEXT, SessionContext
@@ -351,13 +351,8 @@ def temp_testbed(monkeypatch, get_marks):
     os.mkdir(temp_testbed)
 
     if "no_git_testbed" not in get_marks:
-        # Initialize git repo
         run_git_command(temp_testbed, "init")
-
-        # Set local config for user.name and user.email. Set automatically on
-        # MacOS, but not Windows/Ubuntu, which prevents commits from taking.
-        run_git_command(temp_testbed, "config", "user.email", "test@example.com")
-        run_git_command(temp_testbed, "config", "user.name", "Test User")
+        set_git_user(temp_testbed, "test@example.com", "Test User")
 
     if "clear_testbed" not in get_marks:
         # Copy testbed
