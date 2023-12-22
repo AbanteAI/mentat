@@ -16,13 +16,13 @@ If you want to make the changes yourself, or if you want to become a regular con
 
 ## Getting Started
 
-### Contribution Process.
+### Contribution Process
 
 Mentat follows the usual open source contribution process on Github. In order to contribute, you must fork the repository, create a branch based on the main branch, make your changes there and then create a pull request. Github has excellent documentation (and contributed documentation and videos) on how to do this. See [Contributing to a project](https://docs.github.com/en/get-started/exploring-projects-on-github/contributing-to-a-project), [first contributions](https://github.com/firstcontributions/first-contributions) for more details.
 
 The project, like most projects, does have some customizations specific to Mentat such as code formatting, quality checks which are enforced on each pull request using Github actions. Pull Requests (PRs - described later) are not accepted unless all the checks are passed.
 
-### Setup the Environment.
+### Setup the Environment
 
 Mentat requires Python (version 3.10 or later) for development. The source code comes with two sets of requirements. The first in requirements.txt are needed to run Mentat. The second additional requirements in dev-requirements.txt are needed to do development work. As a contributor you will need to install both sets of requirements. In addition, you may need some tools outside of the python environment. 
 
