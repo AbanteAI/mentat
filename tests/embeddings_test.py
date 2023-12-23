@@ -3,15 +3,7 @@ from pathlib import Path
 import pytest
 
 from mentat.code_feature import CodeFeature
-from mentat.embeddings import _batch_ffd, get_feature_similarity_scores
-
-
-def test_batch_ffd():
-    data = {"a": 4, "b": 5, "c": 3, "d": 2}
-    batch_size = 6
-    result = _batch_ffd(data, batch_size)
-    expected = [["b"], ["a", "d"], ["c"]]
-    assert result == expected
+from mentat.embeddings import get_feature_similarity_scores
 
 
 def _make_code_feature(path, text):
@@ -29,10 +21,10 @@ async def test_get_feature_similarity_scores(mocker, mock_call_embedding_api):
     ]
     mock_call_embedding_api.set_embedding_values(
         [
+            [0.7, 0.7, 0.7],  # The prompt
             [0.4, 0.4, 0.4],
             [0.5, 0.6, 0.7],
             [0.69, 0.7, 0.71],
-            [0.7, 0.7, 0.7],  # The prompt
         ]
     )
     result = await get_feature_similarity_scores(prompt, features)
