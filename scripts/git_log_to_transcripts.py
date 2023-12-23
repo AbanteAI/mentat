@@ -117,8 +117,6 @@ async def translate_commits_to_transcripts(repo, count=10):
     git_root = session_context.git_root
     parser = config.parser
 
-    config.auto_context = True
-    config.auto_context_llm = True
     for commit in repo.iter_commits("HEAD", max_count=count):
         try:
             sha = commit.hexsha
@@ -175,6 +173,7 @@ async def translate_commits_to_transcripts(repo, count=10):
                     benchmark,
                     eval=False,
                     use_expected=True,
+                    use_llm=True,
                 )
                 benchmark["selected_features"] = result["features"]
             except Exception as e:

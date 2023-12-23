@@ -24,7 +24,7 @@ class DefaultFilter(FeatureFilter):
 
     async def filter(self, features: list[CodeFeature]) -> list[CodeFeature]:
         ctx = SESSION_CONTEXT.get()
-        use_llm = ctx.config.llm_feature_filter
+        use_llm = bool(ctx.config.llm_feature_filter)
 
         if ctx.config.auto_context_tokens > 0 and self.user_prompt != "":
             features = await EmbeddingSimilarityFilter(
