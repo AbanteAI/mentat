@@ -46,6 +46,13 @@ class LLMFeatureFilter(FeatureFilter):
         cost_tracker = session_context.cost_tracker
         llm_api_handler = session_context.llm_api_handler
 
+        if self.loading_multiplier:
+            stream.send(
+                "Asking LLM to filter out irrelevant context...",
+                channel="loading",
+                progress=50 * self.loading_multiplier,
+            )
+
         # Preselect as many features as fit in the context window
         model = config.feature_selection_model
         context_size = model_context_size(model)
@@ -106,43 +113,23 @@ class LLMFeatureFilter(FeatureFilter):
                 ),
             )
         )
-
-        if self.loading_multiplier:
-            stream.send(
-                "Asking LLM to filter out irrelevant context...",
-                channel="loading",
-                progress=50 * self.loading_multiplier,
-            )
         selected_refs = list[Path]()
-        n_tries = 3
-        # TODO: When we switch to JSON format and don't have to try multiple times,
-        # use cost_tracker.display_last_api_call to show cost after loading bar disappears
-        for i in range(n_tries):
-            start_time = default_timer()
-            llm_response = await llm_api_handler.call_llm_api(
-                messages=messages,
-                model=model,
-                stream=False,
-                response_format=ResponseFormat(type="json_object"),
-            )
-            message = (llm_response.choices[0].message.content) or ""
-
-            tokens = prompt_tokens(messages, model)
-            response_tokens = count_tokens(message, model, full_message=True)
-            cost_tracker.log_api_call_stats(
-                tokens,
-                response_tokens,
-                model,
-                default_timer() - start_time,
-            )
-            try:
-                response = json.loads(message)  # type: ignore
-                selected_refs = [Path(r) for r in response]
-                break
-            except json.JSONDecodeError:
-                # TODO: Update Loader
-                if i == n_tries - 1:
-                    raise ModelError(f"The response is not valid json: {message}")
+        start_time = default_timer()
+        llm_response = await llm_api_handler.call_llm_api(
+            messages=messages,
+            model=model,
+            stream=False,
+            response_format=ResponseFormat(type="json_object"),
+        )
+        message = (llm_response.choices[0].message.content) or ""
+        tokens = prompt_tokens(messages, model)
+        response_tokens = count_tokens(message, model, full_message=True)
+        cost_tracker.log_api_call_stats(
+            tokens,
+            response_tokens,
+            model,
+            default_timer() - start_time,
+        )
         if self.loading_multiplier:
             stream.send(
                 "Parsing LLM response...",
@@ -150,6 +137,12 @@ class LLMFeatureFilter(FeatureFilter):
                 progress=50 * self.loading_multiplier,
             )
 
+        # Parse response into features
+        try:
+            response = json.loads(message)  # type: ignore
+            selected_refs = [Path(r) for r in response]
+        except json.JSONDecodeError:
+            raise ModelError(f"The response is not valid json: {message}")
         postselected_features: Set[CodeFeature] = set()
         for selected_ref in selected_refs:
             try:
@@ -167,8 +160,7 @@ class LLMFeatureFilter(FeatureFilter):
                     f"LLM selected invalid path: {selected_ref}, skipping.",
                     color="light_yellow",
                 )
-                continue
 
-        # Greedy again to enforce max_tokens
+        # Truncate again to enforce max_tokens
         truncate_filter = TruncateFilter(self.max_tokens, config.model)
         return await truncate_filter.filter(postselected_features)
