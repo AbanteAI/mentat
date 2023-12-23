@@ -12,7 +12,7 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 
 from mentat.code_feature import CodeFeature, get_code_message_from_features
-from mentat.errors import ModelError, UserError
+from mentat.errors import ModelError, PathValidationError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.include_files import get_code_features_for_path
@@ -152,21 +152,22 @@ class LLMFeatureFilter(FeatureFilter):
 
         postselected_features: Set[CodeFeature] = set()
         for selected_ref in selected_refs:
-            parsed_features = get_code_features_for_path(
-                path=selected_ref, cwd=session_context.cwd
-            )
-            for feature in parsed_features:
-                matching_inputs = [
-                    in_feat
-                    for in_feat in preselected_features
-                    if in_feat.path == feature.path
-                    and in_feat.interval.intersects(feature.interval)
-                ]
-                if len(matching_inputs) == 0:
-                    raise ModelError(
-                        f"No input feature found for llm-selected {feature}"
+            try:
+                parsed_features = get_code_features_for_path(
+                    path=selected_ref, cwd=session_context.cwd
+                )
+                for feature in parsed_features:
+                    assert any(
+                        in_feat.path == feature.path and in_feat.interval.intersects
+                        for in_feat in preselected_features
                     )
-            postselected_features.update(parsed_features)
+                    postselected_features.add(feature)
+            except (PathValidationError, AssertionError):
+                stream.send(
+                    f"LLM selected invalid path: {selected_ref}, skipping.",
+                    color="light_yellow",
+                )
+                continue
 
         # Greedy again to enforce max_tokens
         truncate_filter = TruncateFilter(self.max_tokens, config.model)
