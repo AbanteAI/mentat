@@ -16,7 +16,7 @@ from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import Parser
 from mentat.prompts.prompts import read_prompt
 
-unified_diff_parser_prompt_filename = Path("unified_diff_parser_prompt.txt")
+unified_diff_parser_prompt_filename = Path("markdown/unified_diff_parser_prompt.md")
 
 
 class UnifiedDiffDelimiter(Enum):

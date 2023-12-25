@@ -10,7 +10,7 @@ from mentat.parsers.parser import ParsedLLMResponse, Parser
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
-replacement_parser_prompt_filename = Path("replacement_parser_prompt.txt")
+replacement_parser_prompt_filename = Path("markdown/replacement_parser_prompt.md")
 
 
 class ReplacementParser(Parser):

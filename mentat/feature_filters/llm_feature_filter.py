@@ -23,7 +23,7 @@ from mentat.session_context import SESSION_CONTEXT
 
 
 class LLMFeatureFilter(FeatureFilter):
-    feature_selection_prompt_path = Path("feature_selection_prompt.txt")
+    feature_selection_prompt_path = Path("markdown/feature_selection_prompt.md")
 
     def __init__(
         self,

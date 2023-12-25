@@ -19,7 +19,7 @@ from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.streaming_printer import StreamingPrinter
 
-json_parser_prompt_filename = Path("json_parser_prompt.txt")
+json_parser_prompt_filename = Path("markdown/json_parser_prompt.md")
 
 comment_schema = {
     "type": "object",

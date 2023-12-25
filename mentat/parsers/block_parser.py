@@ -14,7 +14,7 @@ from mentat.parsers.parser import ParsedLLMResponse, Parser
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
-block_parser_prompt_filename = Path("block_parser_prompt.txt")
+block_parser_prompt_filename = Path("markdown/block_parser_prompt.md")
 
 
 class _BlockParserAction(Enum):
