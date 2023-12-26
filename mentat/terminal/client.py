@@ -11,13 +11,51 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.styles import Style
 
-from mentat.config import Config
+from mentat.config import config, update_config
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.loading import LoadingHandler
 from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
+
+from typing import List
+from pathlib import Path
+
+import anyio
+import inspect
+import typer
+from functools import partial, wraps
+from typer import Typer
+
+from mentat.utils import dd
+from asyncio import run as aiorun
+
+class AsyncTyper(Typer):
+    @staticmethod
+    def maybe_run_async(decorator, f):
+        if inspect.iscoroutinefunction(f):
+
+            @wraps(f)
+            def runner(*args, **kwargs):
+                return asyncio.run(f(*args, **kwargs))
+
+            decorator(runner)
+        else:
+            decorator(f)
+        return f
+
+    def callback(self, *args, **kwargs):
+        decorator = super().callback(*args, **kwargs)
+        return partial(self.maybe_run_async, decorator)
+
+    def command(self, *args, **kwargs):
+        decorator = super().command(*args, **kwargs)
+        return partial(self.maybe_run_async, decorator)
+
+
+app = AsyncTyper()
+
 
 
 class TerminalClient:
@@ -28,8 +66,7 @@ class TerminalClient:
         exclude_paths: List[str] = [],
         ignore_paths: List[str] = [],
         diff: str | None = None,
-        pr_diff: str | None = None,
-        config: Config = Config(),
+        pr_diff: str | None = None
     ):
         self.cwd = cwd
         self.paths = [Path(path) for path in paths]
@@ -142,15 +179,14 @@ class TerminalClient:
             self.exclude_paths,
             self.ignore_paths,
             self.diff,
-            self.pr_diff,
-            self.config,
+            self.pr_diff
         )
         self.session.start()
 
         mentat_completer = MentatCompleter(self.session.stream)
         self._prompt_session = MentatPromptSession(
             completer=mentat_completer,
-            style=Style(self.config.input_style),
+            style=Style(self.config.ui.input_style),
             enable_suspend=True,
         )
 
@@ -166,7 +202,7 @@ class TerminalClient:
 
         self._plain_session = PromptSession[str](
             message=[("class:prompt", ">>> ")],
-            style=Style(self.config.input_style),
+            style=Style(self.config.ui.input_style),
             completer=None,
             key_bindings=plain_bindings,
             enable_suspend=True,
@@ -190,68 +226,37 @@ class TerminalClient:
             task.cancel()
         self._stopped.set()
 
-    def run(self):
-        asyncio.run(self._run())
+
+@app.command()
+async def async_hello(name: str, last_name: str = "") -> None:
+    await anyio.sleep(1)
+    typer.echo(f"Hello World {name} {last_name}")
 
 
-def run_cli():
-    parser = argparse.ArgumentParser(
-        description="Run conversation with command line args"
-    )
-    parser.add_argument(
-        "paths",
-        nargs="*",
-        default=[],
-        help="List of file paths, directory paths, or glob patterns",
-    )
-    parser.add_argument(
-        "--exclude",
-        "-e",
-        nargs="*",
-        default=[],
-        help="List of file paths, directory paths, or glob patterns to exclude",
-    )
-    parser.add_argument(
-        "--ignore",
-        "-g",
-        nargs="*",
-        default=[],
-        help=(
-            "List of file paths, directory paths, or glob patterns to ignore in"
-            " auto-context"
-        ),
-    )
-    parser.add_argument(
-        "--diff",
-        "-d",
-        nargs="?",
-        type=str,
-        default=None,
-        const="HEAD",
-        help="A git tree-ish (e.g. commit, branch, tag) to diff against",
-    )
-    parser.add_argument(
-        "--pr-diff",
-        "-p",
-        type=str,
-        default=None,
-        help="A git tree-ish to diff against the latest common ancestor of",
-    )
-    parser.add_argument(
-        "--cwd", default=Path.cwd(), help="The current working directory"
-    )
+@app.command()
+def start(paths: List[str] = typer.Argument(...),
+          exclude_paths: List[str] = typer.Option([], "--exclude-paths", "-e", help="List of file paths, directory paths, or glob patterns to exclude"),
+          ignore_paths: List[str] = typer.Option([], "--ignore-paths", "-g", help="List of file paths, directory paths, or glob patterns to ignore in auto-context"),
+          diff: str = typer.Option(None, "--diff", "-d", show_default='HEAD', help="A git tree-ish (e.g. commit, branch, tag) to diff against"),
+          pr_diff: str = typer.Option(None, "--pr-diff", "-p", help="A git tree-ish to diff against the latest common ancestor of"),
+          cwd: Path = typer.Option(Path.cwd(), "--cwd", help="The current working directory")) -> None:
+    # Check if these variables are set and pass them to update_config function as kwargs
+    kwargs = {}
+    if paths:
+        kwargs["paths"] = paths
+    if exclude_paths:
+        kwargs["exclude"] = exclude_paths
+    if ignore_paths:
+        kwargs["ignore"] = ignore_paths
+    if diff:
+        kwargs["diff"] = diff
+    if pr_diff:
+        kwargs["pr_diff"] = pr_diff
+    if cwd:
+        kwargs["cwd"] = cwd
+    update_config(**kwargs)
 
-    Config.add_fields_to_argparse(parser)
-    args = parser.parse_args()
-
-    cwd = args.cwd
-    paths = args.paths
-    exclude_paths = args.exclude
-    ignore_paths = args.ignore
-    diff = args.diff
-    pr_diff = args.pr_diff
-
-    config = Config.create(cwd, args)
+    cwd = Path(cwd).expanduser().resolve()
 
     terminal_client = TerminalClient(
         cwd,
@@ -259,7 +264,11 @@ def run_cli():
         exclude_paths,
         ignore_paths,
         diff,
-        pr_diff,
-        config,
+        pr_diff
     )
-    terminal_client.run()
+    asyncio.run(terminal_client._run())
+
+
+
+if __name__ == "__main__":
+    typer.run(start())

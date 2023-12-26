@@ -28,7 +28,9 @@ from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
+from mentat.config import config
 
+from rich import print
 
 class Conversation:
     def __init__(self):
@@ -40,31 +42,28 @@ class Conversation:
     async def display_token_count(self):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        config = session_context.config
         code_context = session_context.code_context
         llm_api_handler = session_context.llm_api_handler
 
-        if not await llm_api_handler.is_model_available(config.model):
+        if not await llm_api_handler.is_model_available(config.ai.model):
             raise MentatError(
-                f"Model {config.model} is not available. Please try again with a"
+                f"Model {config.ai.model} is not available. Please try again with a"
                 " different model."
             )
-        if "gpt-4" not in config.model:
-            stream.send(
-                "Warning: Mentat has only been tested on GPT-4. You may experience"
+        if "gpt-4" not in config.ai.model:
+            print(
+                "[yellow]Warning: Mentat has only been tested on GPT-4. You may experience"
                 " issues with quality. This model may not be able to respond in"
-                " mentat's edit format.",
-                color="yellow",
+                " mentat's edit format.[/yellow]",
             )
-            if "gpt-3.5" not in config.model:
-                stream.send(
-                    "Warning: Mentat does not know how to calculate costs or context"
-                    " size for this model.",
-                    color="yellow",
+            if "gpt-3.5" not in config.ai.model:
+                print(
+                    "[yellow]Warning: Mentat does not know how to calculate costs or context"
+                    " size for this model.[/yellow]"
                 )
 
-        context_size = model_context_size(config.model)
-        maximum_context = config.maximum_context
+        context_size = model_context_size(config.ai.model)
+        maximum_context = config.ai.maximum_context
         if maximum_context:
             if context_size:
                 context_size = min(context_size, maximum_context)
@@ -85,7 +84,7 @@ class Conversation:
         ]
         tokens = prompt_tokens(
             messages,
-            config.model,
+            config.ai.model,
         )
 
         context_size = get_max_tokens()
@@ -94,7 +93,7 @@ class Conversation:
                 f"Context size for {config.model} is not known. Please set"
                 " maximum-context with `/config maximum_context value`."
             )
-        if tokens + config.token_buffer > context_size:
+        if tokens + config.ai.token_buffer > context_size:
             _plural = len(code_context.include_files) > 1
             _exceed = tokens > context_size
             message: dict[tuple[bool, bool], str] = {
@@ -103,16 +102,10 @@ class Conversation:
                 (True, False): "s are close to",
                 (True, True): "s exceed",
             }
-            stream.send(
-                f"Included file{message[(_plural, _exceed)]} token limit"
-                f" ({tokens} / {context_size}). Truncating based on task similarity.",
-                color="yellow",
-            )
+            print(f"[yellow]Included file{message[(_plural, _exceed)]} token limit \n ({tokens} / {context_size}). Truncating based on task similarity.[/yellow]")
         else:
-            stream.send(
-                f"Prompt and included files token count: {tokens} / {context_size}",
-                color="cyan",
-            )
+            print(
+                f"[cyan]Prompt and included files token count: {tokens} / {context_size}[/cyan]")
 
     # The transcript logger logs tuples containing the actual message sent by the user or LLM
     # and (for LLM messages) the LLM conversation that led to that LLM response
@@ -162,12 +155,10 @@ class Conversation:
         """Returns the messages in the conversation. The system message may change throughout
         the conversation so it is important to access the messages through this method.
         """
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        if config.no_parser_prompt or not include_system_prompt:
+        if config.ai.no_parser_prompt or not include_system_prompt:
             return self._messages.copy()
         else:
-            parser = config.parser
+            parser = config.parser.parser
             prompt = parser.get_system_prompt()
             prompt_message: ChatCompletionMessageParam = (
                 ChatCompletionSystemMessageParam(
@@ -188,21 +179,19 @@ class Conversation:
     ):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        config = session_context.config
-        parser = config.parser
+
+        parser = config.parser.parser
         llm_api_handler = session_context.llm_api_handler
 
         start_time = default_timer()
 
-        num_prompt_tokens = prompt_tokens(messages, config.model)
-        context_size = model_context_size(config.model)
+        num_prompt_tokens = prompt_tokens(messages, config.ai.model)
+        context_size = model_context_size(config.ai.model)
         if context_size:
-            if num_prompt_tokens > context_size - config.token_buffer:
-                stream.send(
-                    f"Warning: {config.model} has a maximum context length of"
-                    f" {context_size} tokens. Attempting to run anyway:",
-                    color="yellow",
-                )
+            if num_prompt_tokens > context_size - config.ai.token_buffer:
+                print(
+                    f"[yellow]Warning: {config.ai.model} has a maximum context length of"
+                    f" {context_size} tokens. Attempting to run anyway:[/yellow]")
 
         if loading_multiplier:
             stream.send(
@@ -212,7 +201,7 @@ class Conversation:
             )
         response = await llm_api_handler.call_llm_api(
             messages,
-            config.model,
+            config.ai.model,
             stream=True,
             response_format=parser.response_format(),
         )
@@ -224,8 +213,9 @@ class Conversation:
                 terminate=True,
             )
 
-        stream.send(f"Total token count: {num_prompt_tokens}", color="cyan")
-        stream.send("Streaming... use control-c to interrupt the model at any point\n")
+        print(f"[cyan]Total token count: {num_prompt_tokens}[/cyan]")
+        print("Streaming... use control-c to interrupt the model at any point\n")
+
         async with parser.interrupt_catcher():
             parsed_llm_response = await parser.stream_and_parse_llm_response(
                 add_newline(response)
@@ -237,16 +227,15 @@ class Conversation:
     async def get_model_response(self) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        config = session_context.config
         code_context = session_context.code_context
         cost_tracker = session_context.cost_tracker
 
         messages_snapshot = self.get_messages()
 
         # Rebuild code context with active code and available tokens
-        tokens = prompt_tokens(messages_snapshot, config.model)
+        tokens = prompt_tokens(messages_snapshot, config.ai.model)
 
-        loading_multiplier = 1.0 if config.auto_context else 0.0
+        loading_multiplier = 1.0 if config.run.auto_context else 0.0
         prompt = messages_snapshot[-1]["content"]
         if isinstance(prompt, list):
             text_prompts = [
@@ -255,14 +244,10 @@ class Conversation:
             prompt = " ".join(text_prompts)
         max_tokens = get_max_tokens()
         if max_tokens is None:
-            stream.send(
-                f"Context size for {config.model} is not known. Please set"
-                " maximum-context with `/config maximum_context value`.",
-                color="light_red",
-            )
+            print(f"[pink]Context size for {config.ai.model} is not known. Please set maximum-context with `/config maximum_context value`.[/pink]")
             return ParsedLLMResponse("", "", list[FileEdit]())
 
-        if max_tokens - tokens < config.token_buffer:
+        if max_tokens - tokens < config.ai.token_buffer:
             if max_tokens - tokens < 0:
                 stream.send(
                     f"The context size is limited to {max_tokens} tokens and"
@@ -287,7 +272,7 @@ class Conversation:
                 if isinstance(prompt, str)
                 else ""
             ),
-            max_tokens - tokens - config.token_buffer,
+            max_tokens - tokens - config.ai.token_buffer,
             loading_multiplier=0.5 * loading_multiplier,
         )
         messages_snapshot.insert(
@@ -315,7 +300,7 @@ class Conversation:
         except RateLimitError:
             stream.send(
                 "Rate limit error received from OpenAI's servers using model"
-                f' {config.model}.\nUse "/config model <model_name>" to switch to a'
+                f' {config.ai.model}.\nUse "/config model <model_name>" to switch to a'
                 " different model.",
                 color="light_red",
             )
@@ -327,9 +312,9 @@ class Conversation:
         cost_tracker.log_api_call_stats(
             num_prompt_tokens,
             count_tokens(
-                parsed_llm_response.full_response, config.model, full_message=False
+                parsed_llm_response.full_response, config.ai.model, full_message=False
             ),
-            config.model,
+            config.ai.model,
             time_elapsed,
             display=True,
         )
@@ -343,26 +328,24 @@ class Conversation:
         return parsed_llm_response
 
     def remaining_context(self) -> int | None:
-        ctx = SESSION_CONTEXT.get()
         max_context = get_max_tokens()
         if max_context is None:
             return None
 
-        return max_context - prompt_tokens(self.get_messages(), ctx.config.model)
+        return max_context - prompt_tokens(self.get_messages(), config.ai.model)
 
     def can_add_to_context(self, message: str) -> bool:
         """
         Whether or not the model has enough context remaining to add this message.
         Will take token buffer into account and uses full_message=True.
         """
-        ctx = SESSION_CONTEXT.get()
 
         remaining_context = self.remaining_context()
         return (
             remaining_context is not None
             and remaining_context
-            - count_tokens(message, ctx.config.model, full_message=True)
-            - ctx.config.token_buffer
+            - count_tokens(message, config.ai.model, full_message=True)
+            - config.ai.token_buffer
             > 0
         )
 

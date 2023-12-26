@@ -16,7 +16,7 @@ from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
-from mentat.config import Config
+from mentat.config import config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
@@ -39,6 +39,8 @@ class Session:
     A message will be sent on the client_exit channel when ready for client to quit.
     """
 
+    _errors = []
+
     def __init__(
         self,
         cwd: Path,
@@ -47,7 +49,6 @@ class Session:
         ignore_paths: List[Path] = [],
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
-        config: Config = Config(),
     ):
         # All errors thrown here need to be caught here
         self.stopped = False
@@ -101,7 +102,7 @@ class Session:
 
         # Functions that require session_context
         check_version()
-        config.send_errors_to_stream()
+        self.send_errors_to_stream()
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)
 
@@ -126,7 +127,7 @@ class Session:
         agent_handler = session_context.agent_handler
 
         # check early for ctags so we can fail fast
-        if session_context.config.auto_context:
+        if config.run.auto_context:
             ensure_ctags_installed()
 
         session_context.llm_api_handler.initialize_client()
@@ -215,7 +216,8 @@ class Session:
                 with sentry_sdk.start_transaction(
                     op="mentat_started", name="Mentat Started"
                 ) as transaction:
-                    transaction.set_tag("config", attr.asdict(ctx.config))
+                    #TODO: check if we need this as config should be gloabl now
+                    #transaction.set_tag("config", attr.asdict(config))
                     await self._main()
             except (SessionExit, CancelledError):
                 pass
@@ -263,3 +265,10 @@ class Session:
         self.stream.send(None, channel="client_exit")
         await self.stream.join()
         self.stream.stop()
+
+    def send_errors_to_stream(self):
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        for error in self._errors:
+            stream.send(error, color="light_yellow")
+        self._errors = []

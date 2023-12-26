@@ -168,11 +168,9 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
 
 
 def get_max_tokens() -> Optional[int]:
-    session_context = SESSION_CONTEXT.get()
-    config = session_context.config
-
-    context_size = model_context_size(config.model)
-    maximum_context = config.maximum_context
+    from mentat.config import config
+    context_size = model_context_size(config.ai.model)
+    maximum_context = config.ai.maximum_context
     if maximum_context is not None:
         if context_size:
             return min(context_size, maximum_context)
@@ -230,8 +228,8 @@ class LlmApiHandler:
         stream: bool,
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> ChatCompletion | AsyncStream[ChatCompletionChunk]:
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
+        from mentat.config import config
+
 
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
@@ -242,7 +240,7 @@ class LlmApiHandler:
                 response = await self.async_client.chat.completions.create(
                     model=model,
                     messages=messages,
-                    temperature=config.temperature,
+                    temperature=config.ai.temperature,
                     stream=stream,
                     max_tokens=4096,
                 )
@@ -250,7 +248,7 @@ class LlmApiHandler:
                 response = await self.async_client.chat.completions.create(
                     model=model,
                     messages=messages,
-                    temperature=config.temperature,
+                    temperature=config.ai.temperature,
                     stream=stream,
                     response_format=response_format,
                 )

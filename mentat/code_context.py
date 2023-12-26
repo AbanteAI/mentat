@@ -34,7 +34,8 @@ from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import sha256
-
+from mentat.config import config
+from rich import print
 
 class CodeContext:
     def __init__(
@@ -66,20 +67,19 @@ class CodeContext:
         """Display the baseline context: included files and auto-context settings"""
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        config = session_context.config
 
-        stream.send("Code Context:", color="blue")
+
+        print("[blue]Code Context:[/blue]")
         prefix = "  "
         stream.send(f"{prefix}Directory: {session_context.cwd}")
         if self.diff_context and self.diff_context.name:
-            stream.send(f"{prefix}Diff:", end=" ")
-            stream.send(self.diff_context.get_display_context(), color="green")
+            print(f"{prefix}Diff: [green]{self.diff_context.get_display_context()}[/green]")
 
-        if config.auto_context:
-            stream.send(f"{prefix}Auto-Context: Enabled")
-            stream.send(f"{prefix}Auto-Tokens: {config.auto_tokens}")
+        if config.run.auto_context:
+            print(f"{prefix}Auto-Context: [green]Enabled[/green]")
+            print(f"{prefix}Auto-Tokens: [green]{config.auto_tokens}[/green]")
         else:
-            stream.send(f"{prefix}Auto-Context: Disabled")
+            print(f"{prefix}Auto-Context: [red]Disabled[/red]")
 
         features = None
         if self.features:
@@ -92,8 +92,7 @@ class CodeContext:
                 _feat for _file in self.include_files.values() for _feat in _file
             ]
         else:
-            stream.send(f"{prefix}Included files: ", end="")
-            stream.send("None", color="yellow")
+            print(f"{prefix}Included files: [yellow]None[/green]")
 
         if features is not None:
             refs = get_consolidated_feature_refs(features)
@@ -111,7 +110,7 @@ class CodeContext:
         self, prompt: Optional[str] = None, max_tokens: Optional[int] = None
     ) -> str:
         session_context = SESSION_CONTEXT.get()
-        config = session_context.config
+
         code_file_manager = session_context.code_file_manager
 
         if not self.features:
@@ -128,7 +127,7 @@ class CodeContext:
             features_checksum = sha256("".join(feature_file_checksums))
         settings = {
             "prompt": prompt or "",
-            "auto_context": config.auto_context,
+            "auto_context": config.run.auto_context,
             "use_llm": self.use_llm,
             "diff": self.diff,
             "pr_diff": self.pr_diff,
@@ -167,9 +166,7 @@ class CodeContext:
         expected_edits: Optional[list[str]] = None,
         loading_multiplier: float = 0.0,
     ) -> str:
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        model = config.model
+        model = config.ai.model
 
         # Setup code message metadata
         code_message = list[str]()
@@ -197,13 +194,13 @@ class CodeContext:
         auto_tokens = (
             None
             if remaining_tokens is None
-            else min(remaining_tokens, config.auto_tokens + include_features_tokens)
+            else min(remaining_tokens, config.run.auto_tokens + include_features_tokens)
         )
 
         if remaining_tokens is not None and remaining_tokens <= 0:
             self.features = []
             return ""
-        elif not config.auto_context:
+        elif not config.run.auto_context:
             self.features = include_features
             if (
                 remaining_tokens is not None
@@ -340,7 +337,7 @@ class CodeContext:
             [
                 *exclude_patterns,
                 *self.ignore_patterns,
-                *session_context.config.file_exclude_glob_list,
+                *config.run.file_exclude_glob_list,
             ]
         )
         for pattern in all_exclude_patterns:

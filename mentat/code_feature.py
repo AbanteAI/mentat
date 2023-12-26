@@ -15,7 +15,8 @@ from mentat.git_handler import get_diff_for_file
 from mentat.interval import Interval, parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import get_relative_path, sha256
+from mentat.utils import get_relative_path, sha256, dd
+from mentat.config import config
 
 MIN_INTERVAL_LINES = 10
 
@@ -172,8 +173,7 @@ class CodeFeature:
     def _get_code_message(self) -> list[str]:
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
-        parser = session_context.config.parser
-
+        parser = config.parser.parser
         code_message: list[str] = []
 
         # We always want to give GPT posix paths

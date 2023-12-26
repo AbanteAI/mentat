@@ -17,6 +17,9 @@ from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
 from mentat import __version__
 from mentat.session_context import SESSION_CONTEXT
 
+import pprint
+import sys
+
 if TYPE_CHECKING:
     from mentat.transcripts import Transcript
 
@@ -174,3 +177,37 @@ def get_relative_path(path: Path, target: Path) -> Path:
         relative_path = Path(*relative_parts)
 
     return relative_path
+
+
+def dd(args):
+    """
+    This method dd takes an argument args and performs the following operations:
+
+    1. Checks if any arguments are provided. If not, raises a ValueError with the message "No args provided".
+
+    2. Prints the argument args in a pretty format using pprint.pprint().
+
+    3. Handles any exception that might occur, and prints the exception message.
+
+    4. Finally, exits the program using sys.exit().
+
+    Note: This method does not return any value.
+
+    Example usage:
+    args = [1, 2, 3]
+    dd(args)
+    """
+    try:
+        # Throw an exception if needed
+        if not args:
+            raise ValueError("No args provided")
+
+        # Pretty print the argument
+        pprint.pprint(args)
+
+    except Exception as e:
+        print(f"Exception occurred: {e}")
+
+    finally:
+        # Exit the program
+        sys.exit()

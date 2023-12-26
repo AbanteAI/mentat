@@ -1,23 +1,29 @@
 from __future__ import annotations
 
-import json
-from argparse import ArgumentParser, Namespace
-from json import JSONDecodeError
+import os
 from pathlib import Path
+import yaml
+import shutil
 
-import attr
-from attr import converters, validators
+from dataclasses import asdict
 
 from mentat.git_handler import get_git_root_for_path
-from mentat.llm_api_handler import known_models
-from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
-from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import mentat_dir_path
+from mentat.parsers.block_parser import BlockParser
+from mentat.utils import mentat_dir_path, dd
+from dataclasses import dataclass, field
+from dataclasses_json import DataClassJsonMixin
+from typing import Optional, List, Tuple
+from mentat.parsers.parser import Parser
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
-config_file_name = Path(".mentat_config.json")
+
+config_file_name = Path(".mentat_config.yaml")
 user_config_path = mentat_dir_path / config_file_name
 
+APP_ROOT = Path.cwd()
+MENTAT_ROOT = Path(__file__).parent
+USER_MENTAT_ROOT = Path.home() / ".mentat"
 
 def int_or_none(s: str | None) -> int | None:
     if s is not None:
@@ -28,206 +34,150 @@ def int_or_none(s: str | None) -> int | None:
 bool_autocomplete = ["True", "False"]
 
 
-@attr.define
-class Config:
-    _errors: list[str] = attr.field(factory=list)
+@dataclass()
+class RunSettings(DataClassJsonMixin):
+    file_exclude_glob_list: List[Path] = field(default_factory=list)
+    auto_context: bool = False
+    auto_tokens: int = 8000
 
-    # Model specific settings
-    model: str = attr.field(
-        default="gpt-4-1106-preview",
-        metadata={"auto_completions": list(known_models.keys())},
-    )
-    feature_selection_model: str = attr.field(
-        default="gpt-4-1106-preview",
-        metadata={"auto_completions": list(known_models.keys())},
-    )
-    embedding_model: str = attr.field(
-        default="text-embedding-ada-002",
-        metadata={
-            "auto_completions": [
-                model.name for model in known_models.values() if model.embedding_model
-            ]
-        },
-    )
-    temperature: float = attr.field(
-        default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)]
-    )
+@dataclass()
+class AIModelSettings(DataClassJsonMixin):
+    model: str = "gpt-4-1106-preview"
+    feature_selection_model: str = "gpt-4-1106-preview"
+    embedding_model: str = "text-embedding-ada-002"
+    temperature: float = 0.2
 
-    maximum_context: int | None = attr.field(
-        default=None,
-        metadata={
-            "description": (
-                "The maximum number of lines of context to include in the prompt. It is"
-                " inferred automatically for openai models but you can still set it to"
-                " save costs. It must be set for other models."
-            ),
-        },
-        converter=int_or_none,
-        validator=validators.optional(validators.ge(0)),
-    )
-    token_buffer: int = attr.field(
-        default=1000,
-        metadata={
-            "description": (
-                "The amount of tokens to always be reserved as a buffer for user and"
-                " model messages."
-            ),
-        },
-    )
-    parser: Parser = attr.field(  # pyright: ignore
-        default="block",
-        metadata={
-            "description": (
-                "The format for the LLM to write code in. You probably don't want to"
-                " mess with this setting."
-            ),
-            "auto_completions": list(parser_map.keys()),
-        },
-        converter=parser_map.get,  # pyright: ignore
-        validator=validators.instance_of(Parser),  # pyright: ignore
-    )
-    no_parser_prompt: bool = attr.field(
-        default=False,
-        metadata={
-            "description": (
-                "Whether to include the parser prompt in the system message. This"
-                " should only be set to true for fine tuned models"
-            ),
-            "auto_completions": bool_autocomplete,
-        },
-        converter=converters.optional(converters.to_bool),
-    )
+    maximum_context: Optional[int] = None
+    token_buffer: int = 1000
+    no_parser_prompt: bool = False
 
-    # Context specific settings
-    file_exclude_glob_list: list[str] = attr.field(
-        factory=list,
-        metadata={"description": "List of glob patterns to exclude from context"},
-    )
-    auto_context: bool = attr.field(
-        default=False,
-        metadata={
-            "description": "Automatically select code files to include in context.",
-            "abbreviation": "a",
-            "auto_completions": bool_autocomplete,
-        },
-        converter=converters.optional(converters.to_bool),
-    )
-    auto_tokens: int = attr.field(
-        default=8000,
-        metadata={
-            "description": "The number of tokens auto-context will add.",
-        },
-        converter=int,
-    )
-
-    # Only settable by config file
-    input_style: list[tuple[str, str]] = attr.field(
-        factory=lambda: [
+@dataclass()
+class UISettings(DataClassJsonMixin):
+    input_style: List[Tuple[str, str]] = field(
+        default_factory=lambda: [
             ["", "#9835bd"],
             ["prompt", "#ffffff bold"],
             ["continuation", "#ffffff bold"],
-        ],
-        metadata={
-            "description": "Styling information for the terminal.",
-            "no_flag": True,
-            "no_midsession_change": True,
-        },
+        ]
     )
 
-    @classmethod
-    def get_fields(cls) -> list[str]:
-        return [
-            field.name for field in attr.fields(cls) if not field.name.startswith("_")
-        ]
+@dataclass()
+class ParserSettings:
+    # The type of parser that should be ued
+    parser: Parser = BlockParser(),
+    parser_type: str = "block"
 
-    @classmethod
-    def add_fields_to_argparse(cls, parser: ArgumentParser) -> None:
-        for field in attr.fields(cls):
-            if "no_flag" in field.metadata:
-                continue
-            name = [f"--{field.name.replace('_', '-')}"]
-            if "abbreviation" in field.metadata:
-                name.append(f"-{field.metadata['abbreviation'].replace('_', '-')}")
 
-            arguments = {
-                "help": field.metadata.get("description", ""),
-            }
+@dataclass()
+class MentatConfig:
+    # Directory where the mentat is running
+    root = APP_ROOT
 
-            if field.type == "bool":
-                if arguments.get("default", False):
-                    arguments["action"] = "store_false"
-                else:
-                    arguments["action"] = "store_true"
-            elif field.type == "int":
-                arguments["type"] = int
-            elif field.type == "float":
-                arguments["type"] = float
-            elif field.type == "list[str]":
-                arguments["nargs"] = "*"
+    run: RunSettings
+    ai: AIModelSettings
+    ui: UISettings
+    parser: ParserSettings
 
-            parser.add_argument(*name, **arguments)
+def load_yaml(path: str) -> dict:
+    """Load the data from the YAML file."""
+    with open(path, 'r') as file:
+        return yaml.safe_load(file)
 
-    @classmethod
-    def create(cls, cwd: Path, args: Namespace | None = None) -> Config:
-        config = Config()
+def merge_configs(original: dict[str, Any | None], new: dict[str, Any | None]) -> dict[str, Any | None]:
+    """Merge two dictionaries, with the second one overwriting the values in the first one."""
+    original.update(new)  # Update the original dict with the new one
+    return original  # Return the merged dict
 
-        # Each method overwrites the previous so they are in order of precedence
-        config.load_file(user_config_path)
-        git_root = get_git_root_for_path(cwd, raise_error=False)
-        if git_root is not None:
-            config.load_file(git_root / config_file_name)
-        config.load_file(cwd / config_file_name)
+def yaml_to_config(yaml_dict: dict):
+    """gets the allowed config settings from a YAML"""
 
-        if args is not None:
-            config.load_namespace(args)
+    return {
+        "model": yaml_dict.get("model"),
+        "maximum_context": yaml_dict.get("maximum_context"),
+        "file_exclude_glob_list": yaml_dict.get("file_exclude_glob_list", []),
+        "input_style": yaml_dict.get("input_style"),
+        "format": yaml_dict.get("format")
+    }
 
-        return config
+def init_config():
+    """Initialize the configuration file if it doesn't exist."""
+    default_conf_path = os.path.join(MENTAT_ROOT, 'resources', 'conf', '.mentatconf.yaml')
+    current_conf_path = os.path.join(APP_ROOT, '.mentatconf.yaml')
 
-    def load_namespace(self, args: Namespace) -> None:
-        for field in attr.fields(Config):
-            if field.name in args and field.name != "_errors":
-                value = getattr(args, field.name)
-                if value is not None and value != field.default:
-                    try:
-                        setattr(self, field.name, value)
-                    except (ValueError, TypeError) as e:
-                        self.error(f"Warning: Illegal value for {field}: {e}")
+    if not os.path.exists(current_conf_path):
+        shutil.copy(default_conf_path, current_conf_path)
 
-    def load_file(self, path: Path) -> None:
-        if path.exists():
-            with open(path) as config_file:
-                try:
-                    config = json.load(config_file)
-                except JSONDecodeError:
-                    self.error(
-                        f"Warning: Config {path} contains invalid json; ignoring user"
-                        " configuration file"
-                    )
-                    return
-            for field in config:
-                if hasattr(self, field):
-                    try:
-                        setattr(self, field, config[field])
-                    except (ValueError, TypeError) as e:
-                        self.error(
-                            f"Warning: Config {path} contains invalid value for"
-                            f" setting: {field}\n{e}"
-                        )
-                else:
-                    self.error(
-                        f"Warning: Config {path} contains unrecognized setting: {field}"
-                    )
 
-    def error(self, message: str) -> None:
-        self._errors.append(message)
-        try:
-            self.send_errors_to_stream()
-        except LookupError:
-            pass
+def load_settings():
+    """Load the configuration from the `.mentatconf.yaml` file."""
 
-    def send_errors_to_stream(self):
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-        for error in self._errors:
-            stream.send(error, color="light_yellow")
-        self._errors = []
+    current_conf_path = APP_ROOT / '.mentatconf.yaml'
+    user_conf_path = USER_MENTAT_ROOT / '.mentatconf.yaml'
+    git_root = get_git_root_for_path(APP_ROOT, raise_error=False)
+
+    yaml_config = {}
+
+    if user_conf_path.exists():
+        yaml_dict = load_yaml(str(user_conf_path))
+        user_config = yaml_to_config(yaml_dict)
+        yaml_config = merge_configs(yaml_config, user_config)
+
+    if git_root is not None:
+        git_conf_path = Path(git_root) / '.mentatconf.yaml'
+        if git_conf_path.exists():
+            yaml_dict = load_yaml(str(git_conf_path))
+            git_config = yaml_to_config(yaml_dict)
+            yaml_config = merge_configs(yaml_config, git_config)
+
+    if current_conf_path.exists():
+        yaml_dict = load_yaml(str(current_conf_path))
+        current_path_config = yaml_to_config(yaml_dict)
+        yaml_config = merge_configs(yaml_config, current_path_config)
+
+    run_settings = RunSettings(
+        file_exclude_glob_list=[Path(p) for p in yaml_config.get("file_exclude_glob_list", [])]
+    )
+
+    ui_settings = UISettings(
+        input_style=yaml_config.get("input_style", [])
+    )
+
+    ai_model_settings = AIModelSettings(
+        model=yaml_config.get("model", "gpt-4-1106-preview"),
+        feature_selection_model=yaml_config.get("model", "gpt-4-1106-preview"),
+        maximum_context=yaml_config.get("maximum_context", 16000)
+    )
+
+    parser_type = yaml_config.get("format", "block")
+    parser_settings = ParserSettings(
+        parser_type=parser_type,
+        parser=parser_map[parser_type]
+    )
+
+    return {
+            "run": run_settings,
+            "ai": ai_model_settings,
+            "ui": ui_settings,
+            "parser": parser_settings,
+        }
+
+
+def update_config(**kwargs):
+    """Reload the configuration using the provided keyword arguments."""
+    global config
+    if config is None:
+        return
+
+    # setting the values from kwargs to the global config
+    for key, value in kwargs.items():
+        setattr(config, key, value)
+
+def load_config() -> MentatConfig:
+    init_config()
+    settings = load_settings()
+    config = MentatConfig(**settings)
+
+    return config
+
+
+config = load_config()

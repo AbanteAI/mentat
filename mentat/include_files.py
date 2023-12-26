@@ -12,6 +12,7 @@ from mentat.git_handler import get_git_root_for_path, get_non_gitignored_files
 from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.session_context import SESSION_CONTEXT
 
+from rich import print
 
 # TODO: replace this with something that doesn't load the file into memory
 def is_file_text_encoded(abs_path: Path):
@@ -333,16 +334,18 @@ def print_path_tree(
 
     keys = list(tree.keys())
     for i, key in enumerate(sorted(keys)):
-        if i < len(keys) - 1:
-            new_prefix = prefix + "│   "
-            stream.send(f"{prefix}├── ", end="")
-        else:
-            new_prefix = prefix + "    "
-            stream.send(f"{prefix}└── ", end="")
-
         cur = cur_path / key
         star = "* " if cur in changed_files else ""
-        color = "green" if star else ("blue" if tree[key] else None)
-        stream.send(f"{star}{key}", color=color)
+        color = "green" if star else ("blue" if tree[key] else "default")
+
+        if i < len(keys) - 1:
+            new_prefix = prefix + "│   "
+            # stream.send(f"{prefix}├── ", end="")
+            print(f"{prefix}├── [{color}]{star}{key}:[/{color}]")
+        else:
+            new_prefix = prefix + "    "
+            # stream.send(f"{prefix}└── ", end="")
+            print(f"{prefix}└── [{color}]{star}{key}:[/{color}]")
+
         if tree[key]:
             print_path_tree(tree[key], changed_files, cur, new_prefix)
