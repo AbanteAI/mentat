@@ -240,13 +240,13 @@ def get_parser():
     parser.add_argument(
         "--cwd", default=Path.cwd(), help="The current working directory"
     )
+    Config.add_fields_to_argparse(parser)
     return parser
 
 
 def run_cli():
     parser = get_parser()
 
-    Config.add_fields_to_argparse(parser)
     args = parser.parse_args()
 
     cwd = Path(args.cwd).expanduser().resolve()
