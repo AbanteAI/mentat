@@ -1,11 +1,15 @@
+import hashlib
 import logging
 import os
 import subprocess
 from pathlib import Path
 from typing import Optional, Set
 
+from git import Repo  # type: ignore
+
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import is_file_text_encoded
 
 
 def get_non_gitignored_files(root: Path, visited: set[Path] = set()) -> Set[Path]:
@@ -137,6 +141,7 @@ def commit(message: str) -> None:
 
 def get_diff_for_file(target: str, path: Path) -> str:
     """Return commit data & diff for target versus active code"""
+    # TODO: Cache git diffs and check last modified time on file
     session_context = SESSION_CONTEXT.get()
 
     try:
@@ -218,3 +223,34 @@ def get_default_branch() -> str:
     except subprocess.CalledProcessError:
         # Handle error if needed or raise an exception
         raise Exception("Unable to determine the default branch.")
+
+
+def get_git_diff(*args: str, cwd: Optional[Path] = None) -> str:
+    """A wrapper on git diff that always includes new/untracked files."""
+    if cwd is None:
+        session_context = SESSION_CONTEXT.get()
+        cwd = session_context.cwd
+
+    repo = Repo(cwd)
+    # Stage untracked files so they are included in the diff
+    repo.git.add(all=True)
+    diff = repo.git.diff(*args, unified=1)
+    # Unstage changes again
+    repo.git.reset()
+    return diff + "\n" if diff else ""  # Required to form a valid .diff file
+
+
+def get_hexsha_active() -> str:
+    """Return the SHA-1 of the current commit."""
+    session_context = SESSION_CONTEXT.get()
+    cwd = session_context.cwd
+
+    hexsha = ""
+    all_files: set[Path] = get_non_gitignored_files(cwd)
+    if all_files:
+        hasher = hashlib.sha256()
+        for file_path in sorted(all_files):
+            if file_path.exists() and is_file_text_encoded(file_path):
+                hasher.update(file_path.read_bytes())
+        hexsha = hasher.hexdigest()
+    return hexsha

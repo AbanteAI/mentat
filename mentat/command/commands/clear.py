@@ -12,8 +12,10 @@ class ClearCommand(Command, command_name="clear"):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         conversation = session_context.conversation
+        code_context = session_context.code_context
 
         conversation.clear_messages()
+        code_context.clear_auto_context()
         message = "Message history cleared"
         stream.send(message, color="green")
 
@@ -32,4 +34,7 @@ class ClearCommand(Command, command_name="clear"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Clear the current message history."
+        return (
+            "Clear the current message history and auto included code features from"
+            " context."
+        )

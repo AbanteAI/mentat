@@ -1,22 +1,22 @@
 import asyncio
 import os
-import webbrowser
 from functools import partial
 from multiprocessing import Pool
+from pathlib import Path
 
 import pytest
 import tqdm
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 from openai import BadRequestError
 
 from mentat.config import Config
 from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import clone_repo
 from tests.benchmarks.benchmark_result import BenchmarkResult
+from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
 from tests.benchmarks.exercise_runners.exercise_runner_factory import (
     ExerciseRunnerFactory,
 )
-from tests.benchmarks.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 
@@ -100,10 +100,8 @@ async def failure_analysis(exercise_runner, language):
 
 async def run_exercise(problem_dir, language="python", max_iterations=2):
     exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
-    old_result = exercise_runner.get_result_from_txt()
-    if old_result:
-        return old_result
     client = PythonClient(
+        cwd=Path("."),
         paths=exercise_runner.include_files(),
         exclude_paths=exercise_runner.exclude_files(),
         config=Config(),
@@ -133,7 +131,6 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
             else exercise_runner.get_error_message() + prompt_2
         )
         await client.call_mentat_auto_accept(message)
-        await client.wait_for_edit_completion()
 
         exercise_runner.run_test()
         iterations += 1
@@ -163,6 +160,9 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
 
 def run_exercise_sync(problem_dir, language="python", max_iterations=2):
     exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
+    old_result = exercise_runner.get_result_from_txt()
+    if old_result:
+        return old_result
     try:
         result = asyncio.run(run_exercise(problem_dir, language, max_iterations))
     except Exception as e:
@@ -181,6 +181,9 @@ def run_exercise_sync(problem_dir, language="python", max_iterations=2):
     result.instructions = exercise_runner.read_instructions()
     result.code = exercise_runner.read_code(language)
     result.test_output = exercise_runner.read_test_results()
+    with open("results.txt", "a") as f:
+        f.write(result.to_json())
+        f.write("\n")
     return result
 
 
@@ -195,43 +198,6 @@ def tqdm_summary(results):
         else:
             failed += 1
     return "Passed: " + str(passed_in_n)[1:-1] + "| Failed: " + str(failed)
-
-
-def results_summary(results):
-    results_map = {}
-    passedIterations = {}
-    reasons = {}
-    passed = 0
-    failed = 0
-    tokens = 0
-    cost = 0
-    totalIterations = 0
-
-    for result in results:
-        name = result.name
-        cost += result.cost
-        results_map[name] = result
-        if result.passed:
-            passed += 1
-            iterations = result.iterations
-            passedIterations[iterations] = passedIterations.get(iterations, 0) + 1
-            tokens += result.tokens
-            totalIterations += iterations
-        else:
-            failed += 1
-            reason = result.reason
-            reasons[reason] = reasons.get(reason, 0) + 1
-
-    avgTokens = tokens // totalIterations if totalIterations > 0 else 0
-    return {
-        "cost": cost,
-        "results_map": results_map,
-        "passedIterations": passedIterations,
-        "reasons": reasons,
-        "passed": passed,
-        "failed": failed,
-        "avgTokens": avgTokens,
-    }
 
 
 def test_practice_directory_performance(
@@ -264,24 +230,10 @@ def test_practice_directory_performance(
         for result in result_map:
             pbar.update()
             results.append(result)
-            with open("results.txt", "a") as f:
-                f.write(result.to_json())
-                f.write("\n")
             pbar.set_description(tqdm_summary(results) + "| Last Ran: " + result.name)
         results.sort(key=lambda result: result.name)
 
-        env = Environment(
-            loader=FileSystemLoader(
-                os.path.join(
-                    os.path.dirname(__file__), "../../mentat/resources/templates"
-                )
-            ),
-            autoescape=select_autoescape(["html", "xml"]),
-        )
-        template = env.get_template("exercism_benchmark.jinja")
-        summary = results_summary(results)
-        rendered_html = template.render(summary=summary)
-
-        with open("results.html", "w") as f:
-            f.write(rendered_html)
-        webbrowser.open("file://" + os.path.realpath("results.html"))
+        summary = BenchmarkResultSummary(results)
+        with open("results.json", "w") as f:
+            f.write(summary.to_json())
+        summary.render_results()

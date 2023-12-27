@@ -66,6 +66,12 @@ You'll need to have API access to GPT-4 to run Mentat. There are a few options t
 2. Run `export OPENAI_API_KEY=<your key here>` prior to running Mentat
 3. Place the previous command in your `.bashrc` or `.zshrc` to export your key on every terminal startup
 
+### Azure OpenAI
+
+Mentat also works with the Azure OpenAI API. To use the Azure API, provide the `AZURE_OPENAI_ENDPOINT` (`https://<your-instance-name>.openai.azure.com/`) and `AZURE_OPENAI_KEY` environment variables instead of `OPENAI_API_KEY`.
+
+> **_Important:_** Due to changes in the OpenAI Python SDK, you can no longer use `OPENAI_API_BASE` to access the Azure API with Mentat.
+
 ## Configuration
 
 For custom configuration options see [configuration.md](docs/configuration.md)

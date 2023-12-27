@@ -12,6 +12,7 @@ from .help import HelpCommand
 from .include import IncludeCommand
 from .redo import RedoCommand
 from .run import RunCommand
+from .sample import SampleCommand
 from .screenshot import ScreenshotCommand
 from .search import SearchCommand
 from .talk import TalkCommand

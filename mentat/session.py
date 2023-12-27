@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Coroutine, List, Optional, Set
 from uuid import uuid4
 
-from rich import print
+import attr
 import sentry_sdk
 from openai import APITimeoutError, BadRequestError, RateLimitError
 
@@ -16,7 +16,7 @@ from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
-from mentat.config import config
+from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
@@ -39,8 +39,6 @@ class Session:
     A message will be sent on the client_exit channel when ready for client to quit.
     """
 
-    _errors = []
-
     def __init__(
         self,
         cwd: Path,
@@ -49,6 +47,7 @@ class Session:
         ignore_paths: List[Path] = [],
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
+        config: Config = Config(),
     ):
         # All errors thrown here need to be caught here
         self.stopped = False
@@ -102,7 +101,7 @@ class Session:
 
         # Functions that require session_context
         check_version()
-        self.send_errors_to_stream()
+        config.send_errors_to_stream()
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)
 
@@ -128,16 +127,17 @@ class Session:
 
         # check early for ctags so we can fail fast
         if config.run.auto_context:
+        if session_context.config.auto_context_tokens > 0:
             ensure_ctags_installed()
 
         session_context.llm_api_handler.initialize_client()
         code_context.display_context()
         await conversation.display_token_count()
 
-        try:
-            stream.send("Type 'q' or use Ctrl-C to quit at any time.")
-            need_user_request = True
-            while True:
+        stream.send("Type 'q' or use Ctrl-C to quit at any time.")
+        need_user_request = True
+        while True:
+            try:
                 if need_user_request:
                     # Normally, the code_file_manager pushes the edits; but when agent mode is on, we want all
                     # edits made between user input to be collected together.
@@ -168,6 +168,9 @@ class Session:
                     for file_edit in file_edits:
                         file_edit.resolve_conflicts()
 
+                    if session_context.sampler:
+                        session_context.sampler.set_active_diff()
+
                     applied_edits = await code_file_manager.write_changes_to_files(
                         file_edits
                     )
@@ -184,10 +187,14 @@ class Session:
                 else:
                     need_user_request = True
                 stream.send(bool(file_edits), channel="edits_complete")
-        except SessionExit:
-            pass
-        except (APITimeoutError, RateLimitError, BadRequestError) as e:
-            stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
+            except SessionExit:
+                break
+            except ContextSizeInsufficient:
+                need_user_request = True
+                continue
+            except (APITimeoutError, RateLimitError, BadRequestError) as e:
+                stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
+                break
 
     async def listen_for_session_exit(self):
         await self.stream.recv(channel="session_exit")
@@ -229,6 +236,7 @@ class Session:
                 # Helps us handle errors in tests
                 if is_test_environment():
                     print(error)
+                self.error = error
                 sentry_sdk.capture_exception(e)
                 print(f"[red]{str(e)}[/red]")
             finally:

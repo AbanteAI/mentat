@@ -144,7 +144,7 @@ class JsonParser(Parser):
 
         file_edits: Dict[Path, FileEdit] = {}
         for obj in response_json["content"]:
-            filename = session_context.cwd / obj.get("filename", "")
+            filename = (session_context.cwd / obj.get("filename", "")).resolve()
             if filename in rename_map:
                 filename = rename_map[filename]
             match obj["type"]:
