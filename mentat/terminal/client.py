@@ -56,8 +56,6 @@ class AsyncTyper(Typer):
 
 app = AsyncTyper()
 
-
-
 class TerminalClient:
     def __init__(
         self,
@@ -240,21 +238,15 @@ def start(paths: List[str] = typer.Argument(...),
           diff: str = typer.Option(None, "--diff", "-d", show_default='HEAD', help="A git tree-ish (e.g. commit, branch, tag) to diff against"),
           pr_diff: str = typer.Option(None, "--pr-diff", "-p", help="A git tree-ish to diff against the latest common ancestor of"),
           cwd: Path = typer.Option(Path.cwd(), "--cwd", help="The current working directory")) -> None:
+
+
     # Check if these variables are set and pass them to update_config function as kwargs
-    kwargs = {}
-    if paths:
-        kwargs["paths"] = paths
+    session_config = {'file_exclude_glob_list': []}
+
     if exclude_paths:
-        kwargs["exclude"] = exclude_paths
-    if ignore_paths:
-        kwargs["ignore"] = ignore_paths
-    if diff:
-        kwargs["diff"] = diff
-    if pr_diff:
-        kwargs["pr_diff"] = pr_diff
-    if cwd:
-        kwargs["cwd"] = cwd
-    update_config(**kwargs)
+        session_config["file_exclude_glob_list"] = exclude_paths
+
+    update_config(session_config)
 
     cwd = Path(cwd).expanduser().resolve()
 

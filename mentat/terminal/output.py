@@ -4,7 +4,7 @@ from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
 
 from mentat.session_stream import StreamMessage
-
+from rich import print
 
 def _print_stream_message_string(
     content: Any,

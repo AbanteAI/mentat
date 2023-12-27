@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Union
+from rich import print
 
 from mentat.code_feature import (
     CodeFeature,
@@ -31,6 +32,7 @@ from mentat.llm_api_handler import count_tokens, get_max_tokens, is_context_suff
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.config import config
+from mentat.utils import dd
 
 
 class CodeContext:
@@ -66,18 +68,17 @@ class CodeContext:
         prefix = "  "
         stream.send(f"{prefix}Directory: {session_context.cwd}")
         if self.diff_context and self.diff_context.name:
-            stream.send(f"{prefix}Diff:", end=" ")
-            stream.send(self.diff_context.get_display_context(), color="green")
+            print(f"{prefix}Diff:[green]{self.diff_context.get_display_context()}[/green]")
 
         if config.run.auto_context_tokens > 0:
-            stream.send(f"{prefix}Auto-Context: Enabled")
-            stream.send(f"{prefix}Auto-Context Tokens: {config.run.auto_context_tokens}")
+            print(f"{prefix}Auto-Context: [green]Enabled[/green]")
+            print(f"{prefix}Auto-Context Tokens: {config.run.auto_context_tokens}")
         else:
-            stream.send(f"{prefix}Auto-Context: Disabled")
+            print(f"{prefix}Auto-Context: [yellow]Disabled[/yellow]")
 
         if self.include_files:
-            stream.send(f"{prefix}Included files:")
-            stream.send(f"{prefix + prefix}{session_context.cwd.name}")
+            print(f"{prefix}Included files:")
+            print(f"{prefix + prefix}{session_context.cwd.name}")
             features = [
                 feature
                 for file_features in self.include_files.values()
@@ -91,11 +92,10 @@ class CodeContext:
                 prefix + prefix,
             )
         else:
-            stream.send(f"{prefix}Included files: ", end="")
-            stream.send("None", color="yellow")
+            print(f"{prefix}Included files: [yellow]None[/yellow]")
 
         if self.auto_features:
-            stream.send(f"{prefix}Auto-Included Features:")
+            print(f"{prefix}Auto-Included Features:")
             refs = get_consolidated_feature_refs(self.auto_features)
             print_path_tree(
                 build_path_tree([Path(r) for r in refs], session_context.cwd),
@@ -147,6 +147,8 @@ class CodeContext:
         include_files_tokens = count_tokens(
             "\n".join(include_files_message), model, full_message=False
         )
+
+
 
         tokens_used = (
             prompt_tokens + meta_tokens + include_files_tokens + config.ai.token_buffer
@@ -291,21 +293,19 @@ class CodeContext:
                 cwd=session_context.cwd,
                 exclude_patterns=abs_exclude_patterns,
             )
+
         except PathValidationError as e:
-            session_context.stream.send(str(e), color="light_red")
+            print(f"[red]Path Validation Error:{str(e)}[/red]")
             return set()
 
         return self.include_features(code_features)
 
     def _exclude_file(self, path: Path) -> Path | None:
-        session_context = SESSION_CONTEXT.get()
         if path in self.include_files:
             del self.include_files[path]
             return path
         else:
-            session_context.stream.send(
-                f"Path {path} not in context", color="light_red"
-            )
+            print(f"[red]Path {path} not in context[/red]")
 
     def _exclude_file_interval(self, path: Path) -> Set[Path]:
         session_context = SESSION_CONTEXT.get()
@@ -314,9 +314,7 @@ class CodeContext:
 
         interval_path, interval_str = split_intervals_from_path(path)
         if interval_path not in self.include_files:
-            session_context.stream.send(
-                f"Path {interval_path} not in context", color="light_red"
-            )
+            print(f"[red]Path {interval_path} not in context[/red]")
             return excluded_paths
 
         intervals = parse_intervals(interval_str)
@@ -399,7 +397,7 @@ class CodeContext:
                 case PathType.GLOB:
                     excluded_paths.update(self._exclude_glob(validated_path))
         except PathValidationError as e:
-            session_context.stream.send(str(e), color="light_red")
+            print(f"[red]Path Validation Error: {str(e)}[/red]")
 
         return excluded_paths
 

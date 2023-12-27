@@ -8,13 +8,15 @@ import shutil
 from mentat.git_handler import get_git_root_for_path
 from mentat.parsers.parser_map import parser_map
 from mentat.parsers.block_parser import BlockParser
-from mentat.utils import mentat_dir_path
+from mentat.utils import mentat_dir_path, dd
 from dataclasses import dataclass, field
 from dataclasses_json import DataClassJsonMixin
 from typing import Tuple
 from mentat.parsers.parser import Parser
 from typing import Any, Dict, List, Optional
+from rich.console import Console
 
+console = Console()
 
 config_file_name = Path(".mentat_config.yaml")
 user_config_path = mentat_dir_path / config_file_name
@@ -131,7 +133,7 @@ def load_prompts(prompt_type: str):
         "unified_diff_parser_prompt": Path("text/unified_diff_parser_prompt.txt"),
     }
 
-def load_settings():
+def load_settings(config_session_dict = None):
     """Load the configuration from the `.mentatconf.yaml` file."""
 
     current_conf_path = APP_ROOT / '.mentatconf.yaml'
@@ -156,6 +158,9 @@ def load_settings():
         yaml_dict = load_yaml(str(current_conf_path))
         current_path_config = yaml_to_config(yaml_dict)
         yaml_config = merge_configs(yaml_config, current_path_config)
+
+    if config_session_dict is not None and config_session_dict.get('file_exclude_glob_list') is not None:
+        yaml_config["file_exclude_glob_list"].extend(config_session_dict['file_exclude_glob_list'])
 
     file_exclude_glob_list = yaml_config.get("file_exclude_glob_list", [])
 
@@ -191,15 +196,15 @@ def load_settings():
         }
 
 
-def update_config(**kwargs):
+def update_config(session_config):
     """Reload the configuration using the provided keyword arguments."""
     global config
     if config is None:
         return
 
-    # setting the values from kwargs to the global config
-    for key, value in kwargs.items():
-        setattr(config, key, value)
+    settings = load_settings(session_config)
+    config = MentatConfig(**settings)
+
 
 def load_config() -> MentatConfig:
     init_config()

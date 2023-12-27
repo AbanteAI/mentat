@@ -1,12 +1,12 @@
 from typing import List, Set
 
-from termcolor import colored
 from typing_extensions import override
 
 from mentat.command.command import Command, CommandArgument
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
+from rich import print
 
 SEARCH_RESULT_BATCH_SIZE = 10
 
@@ -34,19 +34,19 @@ def _parse_include_input(user_input: str, max_num: int) -> Set[int] | None:
 class SearchCommand(Command, command_name="search"):
     @override
     async def apply(self, *args: str) -> None:
+        from mentat.config import config
         session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
+
         code_context = session_context.code_context
-        config = session_context.config
 
         if len(args) == 0:
-            stream.send("No search query specified", color="yellow")
+            print("[yellow]No search query specified[/]")
             return
         try:
             query = " ".join(args)
             results = await code_context.search(query=query)
         except UserError as e:
-            stream.send(str(e), color="red")
+            print(f"[red]{str(e)}[/]")
             return
 
         cumulative_tokens = 0
@@ -54,29 +54,28 @@ class SearchCommand(Command, command_name="search"):
             prefix = "\n   "
 
             file_name = feature.rel_path(session_context.cwd)
-            file_name = colored(file_name, "blue", attrs=["bold"])
-            file_name += colored(feature.interval_string(), "light_cyan")
+            file_name = f"[blue bold]{file_name}[/]"
 
-            tokens = feature.count_tokens(config.model)
+            tokens = feature.count_tokens(config.ai.model)
             cumulative_tokens += tokens
-            tokens_str = colored(f"  ({tokens} tokens)", "yellow")
+            tokens_str = f"[yellow]  ({tokens} tokens)[/]"
             file_name += tokens_str
 
             name = []
             if feature.name:
                 name = feature.name.split(",")
                 name = [
-                    f"{'└' if i == len(name) - 1 else '├'}─ {colored(n, 'cyan')}"
+                    f"{'└' if i == len(name) - 1 else '├'}─ [blue]{n}[/]"
                     for i, n in enumerate(name)
                 ]
 
             message = f"{str(i).ljust(3)}" + prefix.join([file_name] + name + [""])
-            stream.send(message)
+            print(message)
             if i > 1 and i % SEARCH_RESULT_BATCH_SIZE == 0:
                 # Required to avoid circular imports, but not ideal.
                 from mentat.session_input import collect_user_input
 
-                stream.send(
+                print(
                     "(Y/n) for more results or to exit search mode.\nResults to"
                     ' include in context: (eg: "1 3 4" or "1-4")'
                 )
@@ -90,14 +89,14 @@ class SearchCommand(Command, command_name="search"):
                             rel_path = get_relative_path(
                                 included_path, session_context.cwd
                             )
-                            stream.send(f"{rel_path} added to context", color="green")
+                            print(f"[green]{rel_path} added to context[/]")
                     else:
-                        stream.send("(Y/n)")
+                        print("(Y/n)")
                     user_input: str = (
                         await collect_user_input(plain=True)
                     ).data.strip()
                 if user_input.lower() == "n":
-                    stream.send("Exiting search mode...", color="light_blue")
+                    print("[bright_blue]Exiting search mode...[/]")
                     break
 
     @override

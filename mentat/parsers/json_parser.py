@@ -4,11 +4,11 @@ import logging
 from json import JSONDecodeError
 from pathlib import Path
 from typing import AsyncIterator, Dict
+from rich import print
 
 from jsonschema import ValidationError, validate
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.completion_create_params import ResponseFormat
-from termcolor import colored
 from typing_extensions import override
 
 from mentat.errors import ModelError
@@ -100,7 +100,7 @@ class JsonParser(Parser):
         self, response: AsyncIterator[ChatCompletionChunk]
     ) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
+
 
         printer = StreamingPrinter()
         printer_task = asyncio.create_task(printer.print_lines())
@@ -111,10 +111,7 @@ class JsonParser(Parser):
             if self.shutdown.is_set():
                 printer.shutdown_printer()
                 await printer_task
-                stream.send(
-                    colored("")  # Reset ANSI codes
-                    + "\n\nInterrupted by user. Using the response up to this point."
-                )
+                print("\n\nInterrupted by user. Using the response up to this point.")
                 break
 
             for content in chunk_to_lines(chunk):
@@ -134,12 +131,10 @@ class JsonParser(Parser):
             validate(instance=response_json, schema=output_schema)
         except JSONDecodeError:
             # Should never happen with OpenAI's response_format set to json
-            stream.send("Error processing model response: Invalid JSON", color="red")
+            print("[red]Error processing model response: Invalid JSON[/red]")
             return ParsedLLMResponse(message, "", [])
         except ValidationError:
-            stream.send(
-                "Error processing model response: Invalid format given", color="red"
-            )
+            print("[red]Error processing model response: Invalid format given[/red]")
             return ParsedLLMResponse(message, "", [])
 
         file_edits: Dict[Path, FileEdit] = {}

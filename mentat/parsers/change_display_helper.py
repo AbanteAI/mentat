@@ -7,7 +7,6 @@ from pygments.formatters import TerminalFormatter
 from pygments.lexer import Lexer
 from pygments.lexers import TextLexer, get_lexer_for_filename
 from pygments.util import ClassNotFound
-from termcolor import colored
 
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
@@ -111,7 +110,7 @@ def _get_code_block(
 ):
     lines = _prefixed_lines(line_number_buffer, code_lines, prefix)
     if lines:
-        return "\n".join(colored(line, color=color) for line in lines.split("\n"))
+        return "\n".join(f"[{color}]{line}[/{color}]" for line in lines.split("\n"))
     else:
         return ""
 
@@ -146,23 +145,14 @@ def get_file_name(
 ):
     match display_information.file_action_type:
         case FileActionType.CreateFile:
-            return "\n" + colored(
-                f"{display_information.file_name}*", color="light_green"
-            )
+            return f"\n[light_green]{display_information.file_name}*[/light_green]"
+
         case FileActionType.DeleteFile:
-            return "\n" + colored(
-                f"Deletion: {display_information.file_name}", color="light_red"
-            )
+            return f"\n[bright_red]Deletion: {display_information.file_name}[/bright_red]"
         case FileActionType.RenameFile:
-            return "\n" + colored(
-                f"Rename: {display_information.file_name} ->"
-                f" {display_information.new_name}",
-                color="yellow",
-            )
+            return f"\n[yellow]Rename: {display_information.file_name} -> {display_information.new_name}[/yellow]"
         case FileActionType.UpdateFile:
-            return "\n" + colored(
-                f"{display_information.file_name}", color="light_blue"
-            )
+            return f"\n[bright_blue]{display_information.file_name}[/bright_blue]"
 
 
 def get_added_lines(

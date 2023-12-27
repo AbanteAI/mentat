@@ -285,8 +285,8 @@ class LlmApiHandler:
         stream: bool,
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> ChatCompletion | AsyncIterator[ChatCompletionChunk]:
+        from mentat.config import config
         session_context = SESSION_CONTEXT.get()
-        config = session_context.config
         cost_tracker = session_context.cost_tracker
 
         # Confirm that model has enough tokens remaining.
@@ -304,7 +304,7 @@ class LlmApiHandler:
                 response = await self.async_client.chat.completions.create(
                     model=model,
                     messages=messages,
-                    temperature=config.temperature,
+                    temperature=config.ai.temperature,
                     stream=stream,
                     max_tokens=4096,
                 )
@@ -312,7 +312,7 @@ class LlmApiHandler:
                 response = await self.async_client.chat.completions.create(
                     model=model,
                     messages=messages,
-                    temperature=config.temperature,
+                    temperature=config.ai.temperature,
                     stream=stream,
                     response_format=response_format,
                 )

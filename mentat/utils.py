@@ -201,20 +201,23 @@ def dd(args):
     dd(args)
     """
     inspect(args, methods=True)
-    # try:
-    #     # Throw an exception if needed
-    #     if not args:
-    #         raise ValueError("No args provided")
-    #
-    #     # Pretty print the argument
-    #     pprint.pprint(args)
-    #
-    # except Exception as e:
-    #     print(f"Exception occurred: {e}")
-    #
-    # finally:
-    #     # Exit the program
-    #     sys.exit()
+    # Exit the program
+    sys.exit()
+
+def dump(args):
+    """
+    This method dd takes an argument args and performs the following operations:
+
+    1. Checks if any arguments are provided. If not, raises a ValueError with the message "No args provided".
+
+    Note: This method does not return any value.
+
+    Example usage:
+    args = [1, 2, 3]
+    dump(args)
+    """
+    inspect(args, methods=True)
+
 
 CLONE_TO_DIR = Path(__file__).parent.parent / "benchmark_repos"
 
