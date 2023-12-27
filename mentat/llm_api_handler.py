@@ -189,12 +189,12 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
 
 
 def get_max_tokens() -> int:
+    from mentat.config import config
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
-    config = session_context.config
 
-    context_size = model_context_size(config.model)
-    maximum_context = config.maximum_context
+    context_size = model_context_size(config.ai.model)
+    maximum_context = config.ai.maximum_context
 
     if context_size is not None and maximum_context is not None:
         return min(context_size, maximum_context)
@@ -204,7 +204,7 @@ def get_max_tokens() -> int:
         return maximum_context
     else:
         stream.send(
-            f"Context size for {config.model} is not known. Please set"
+            f"Context size for {config.ai.model} is not known. Please set"
             " maximum-context with `/config maximum_context <value>`.",
             color="light_red",
         )
@@ -212,10 +212,11 @@ def get_max_tokens() -> int:
 
 
 def is_context_sufficient(tokens: int) -> bool:
+    from mentat.config import config
     ctx = SESSION_CONTEXT.get()
 
     max_tokens = get_max_tokens()
-    if max_tokens - tokens < ctx.config.token_buffer:
+    if max_tokens - tokens < config.ai.token_buffer:
         ctx.stream.send(
             f"The context size is limited to {max_tokens} tokens and your current"
             f" request uses {tokens} tokens. Please use `/exclude` to remove"

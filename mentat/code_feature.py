@@ -16,6 +16,7 @@ from mentat.interval import INTERVAL_FILE_END, Interval
 from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
+from mentat.config import config
 
 MIN_INTERVAL_LINES = 10
 
@@ -130,7 +131,7 @@ class CodeFeature:
         """
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
-        parser = session_context.config.parser
+        parser = config.parser.parser
         code_context = session_context.code_context
 
         code_message: list[str] = []

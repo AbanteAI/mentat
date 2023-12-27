@@ -9,10 +9,8 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
 )
 
-from mentat.code_feature import CodeFeature, get_code_message_from_features
 from mentat.code_feature import (
     CodeFeature,
-    CodeMessageLevel,
     get_code_message_from_features,
 )
 from mentat.config import config

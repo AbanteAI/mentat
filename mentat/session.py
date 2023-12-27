@@ -6,6 +6,8 @@ from asyncio import CancelledError, Task
 from pathlib import Path
 from typing import Any, Coroutine, List, Optional, Set
 from uuid import uuid4
+from rich import print
+from rich.console import Console
 
 import attr
 import sentry_sdk
@@ -30,7 +32,9 @@ from mentat.session_input import collect_input_with_commands
 from mentat.session_stream import SessionStream
 from mentat.utils import check_version, mentat_dir_path
 from mentat.vision.vision_manager import VisionManager
+from mentat.sampler.sampler import Sampler
 
+console = Console()
 
 class Session:
     """
@@ -49,6 +53,7 @@ class Session:
         pr_diff: Optional[str] = None,
     ):
         # All errors thrown here need to be caught here
+        self._errors = []
         self.stopped = False
 
         if not mentat_dir_path.exists():
@@ -82,25 +87,27 @@ class Session:
 
         auto_completer = AutoCompleter()
 
+        sampler = Sampler()
+
         session_context = SessionContext(
-            cwd,
-            stream,
-            llm_api_handler,
-            cost_tracker,
-            config,
-            code_context,
-            code_file_manager,
-            conversation,
-            vision_manager,
-            agent_handler,
-            auto_completer,
+            cwd=cwd,
+            stream=stream,
+            llm_api_handler=llm_api_handler,
+            cost_tracker=cost_tracker,
+            code_context=code_context,
+            code_file_manager=code_file_manager,
+            conversation=conversation,
+            vision_manager=vision_manager,
+            agent_handler=agent_handler,
+            auto_completer=auto_completer,
+            sampler=sampler
         )
         self.ctx = session_context
         SESSION_CONTEXT.set(session_context)
 
         # Functions that require session_context
         check_version()
-        config.send_errors_to_stream()
+        self.send_errors_to_stream()
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)
 
@@ -225,16 +232,18 @@ class Session:
             except (SessionExit, CancelledError):
                 pass
             except (MentatError, UserError) as e:
-                print(f"[red]{str(e)}[/red]")
+                if is_test_environment():
+                    console.print_exception(show_locals=True)
+                print(f"[red]Unhandled Exception: {str(e)}[/red]")
             except Exception as e:
                 # All unhandled exceptions end up here
                 error = f"Unhandled Exception: {traceback.format_exc()}"
                 # Helps us handle errors in tests
                 if is_test_environment():
-                    print(error)
+                    console.print_exception(show_locals=True)
                 self.error = error
                 sentry_sdk.capture_exception(e)
-                print(f"[red]{str(e)}[/red]")
+                print(f"[red]{str(error)}[/red]")
             finally:
                 await self._stop()
                 sentry_sdk.flush()

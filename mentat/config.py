@@ -124,7 +124,7 @@ def load_prompts(prompt_type: str):
 
     return {
         "agent_file_selection_prompt": Path("text/agent_file_selection_prompt.txt"),
-        "agent_command_prompt": Path("text/agent_command_selection_prompt.txt"),
+        "agent_command_selection_prompt": Path("text/agent_command_selection_prompt.txt"),
         "block_parser_prompt": Path("text/block_parser_prompt.txt"),
         "feature_selection_prompt": Path("text/feature_selection_prompt.txt"),
         "replacement_parser_prompt": Path("text/replacement_parser_prompt.txt"),

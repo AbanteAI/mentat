@@ -17,9 +17,10 @@ from mentat.transcripts import ModelMessage
 from mentat.config import config
 from rich import print
 
+from mentat.utils import dd
+
 agent_file_selection_prompt_path = config.ai.prompts.get("agent_file_selection_prompt")
 agent_command_prompt_path = config.ai.prompts.get("agent_command_selection_prompt")
-
 
 class AgentHandler:
     def __init__(self):

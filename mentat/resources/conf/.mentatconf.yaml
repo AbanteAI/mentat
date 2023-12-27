@@ -5,6 +5,9 @@ model: gpt-4
 # In such cases, you need to specify the maximum context manually.
 maximum_context: 16000
 
+#the type of prompts that the agent should be using options are text and markdown
+prompt_type: markdown
+
 # This list contains glob patterns. Mentat uses these patterns to exclude certain files when provided with a directory argument.
 # Mentat considers all files that do not match your .gitignore file and these patterns.
 # Glob patterns are interpreted from the git root location, so if you want to exclude all .py files, use "**/*.py" instead of "*.py".
