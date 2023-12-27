@@ -15,6 +15,7 @@ from git import Repo  # type: ignore
 from jinja2 import Environment, PackageLoader, select_autoescape
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
+from rich import inspect
 
 from mentat import __version__
 from mentat.session_context import SESSION_CONTEXT
@@ -199,20 +200,21 @@ def dd(args):
     args = [1, 2, 3]
     dd(args)
     """
-    try:
-        # Throw an exception if needed
-        if not args:
-            raise ValueError("No args provided")
-
-        # Pretty print the argument
-        pprint.pprint(args)
-
-    except Exception as e:
-        print(f"Exception occurred: {e}")
-
-    finally:
-        # Exit the program
-        sys.exit()
+    inspect(args, methods=True)
+    # try:
+    #     # Throw an exception if needed
+    #     if not args:
+    #         raise ValueError("No args provided")
+    #
+    #     # Pretty print the argument
+    #     pprint.pprint(args)
+    #
+    # except Exception as e:
+    #     print(f"Exception occurred: {e}")
+    #
+    # finally:
+    #     # Exit the program
+    #     sys.exit()
 
 CLONE_TO_DIR = Path(__file__).parent.parent / "benchmark_repos"
 
