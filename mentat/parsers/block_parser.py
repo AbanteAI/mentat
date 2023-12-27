@@ -14,8 +14,6 @@ from mentat.parsers.parser import ParsedLLMResponse, Parser
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
-block_parser_prompt_filename = Path("markdown/block_parser_prompt.md")
-
 
 class _BlockParserAction(Enum):
     Insert = "insert"
@@ -71,6 +69,8 @@ class _BlockParserDeserializedJson:
 class BlockParser(Parser):
     @override
     def get_system_prompt(self) -> str:
+        from mentat.config import config
+        block_parser_prompt_filename = config.ai.prompts.get("block_parser_prompt")
         return read_prompt(block_parser_prompt_filename)
 
     @override

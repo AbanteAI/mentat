@@ -16,7 +16,6 @@ from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import Parser
 from mentat.prompts.prompts import read_prompt
 
-unified_diff_parser_prompt_filename = Path("markdown/unified_diff_parser_prompt.md")
 
 
 class UnifiedDiffDelimiter(Enum):
@@ -29,6 +28,8 @@ class UnifiedDiffDelimiter(Enum):
 class UnifiedDiffParser(Parser):
     @override
     def get_system_prompt(self) -> str:
+        from mentat.config import config
+        unified_diff_parser_prompt_filename = config.ai.prompts.get("unified_diff_parser_prompt")
         return read_prompt(unified_diff_parser_prompt_filename)
 
     @override

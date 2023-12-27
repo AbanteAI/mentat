@@ -5,17 +5,15 @@ from pathlib import Path
 import yaml
 import shutil
 
-from dataclasses import asdict
-
 from mentat.git_handler import get_git_root_for_path
 from mentat.parsers.parser_map import parser_map
 from mentat.parsers.block_parser import BlockParser
-from mentat.utils import mentat_dir_path, dd
+from mentat.utils import mentat_dir_path
 from dataclasses import dataclass, field
 from dataclasses_json import DataClassJsonMixin
-from typing import Optional, List, Tuple
+from typing import Tuple
 from mentat.parsers.parser import Parser
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 config_file_name = Path(".mentat_config.yaml")
@@ -45,6 +43,7 @@ class AIModelSettings(DataClassJsonMixin):
     model: str = "gpt-4-1106-preview"
     feature_selection_model: str = "gpt-4-1106-preview"
     embedding_model: str = "text-embedding-ada-002"
+    prompts: Dict[str, Path] = None
     temperature: float = 0.2
 
     maximum_context: Optional[int] = None
@@ -93,6 +92,7 @@ def yaml_to_config(yaml_dict: dict):
 
     return {
         "model": yaml_dict.get("model"),
+        "prompt_type": yaml_dict.get("prompt_type", "text"),
         "maximum_context": yaml_dict.get("maximum_context"),
         "file_exclude_glob_list": yaml_dict.get("file_exclude_glob_list", []),
         "input_style": yaml_dict.get("input_style"),
@@ -107,6 +107,27 @@ def init_config():
     if not os.path.exists(current_conf_path):
         shutil.copy(default_conf_path, current_conf_path)
 
+
+def load_prompts(prompt_type: str):
+
+    if prompt_type == "markdown":
+        return {
+            "agent_file_selection_prompt" : Path("markdown/agent_file_selection_prompt.md"),
+            "agent_command_selection_prompt" : Path("markdown/agent_command_selection_prompt.md"),
+            "block_parser_prompt" : Path("markdown/block_parser_prompt.md"),
+            "feature_selection_prompt" : Path("markdown/feature_selection_prompt.md"),
+            "replacement_parser_prompt" : Path("markdown/replacement_parser_prompt.md"),
+            "unified_diff_parser_prompt" : Path("markdown/unified_diff_parser_prompt.md"),
+        }
+
+    return {
+        "agent_file_selection_prompt": Path("text/agent_file_selection_prompt.txt"),
+        "agent_command_prompt": Path("text/agent_command_selection_prompt.txt"),
+        "block_parser_prompt": Path("text/block_parser_prompt.txt"),
+        "feature_selection_prompt": Path("text/feature_selection_prompt.txt"),
+        "replacement_parser_prompt": Path("text/replacement_parser_prompt.txt"),
+        "unified_diff_parser_prompt": Path("text/unified_diff_parser_prompt.txt"),
+    }
 
 def load_settings():
     """Load the configuration from the `.mentatconf.yaml` file."""
@@ -134,8 +155,13 @@ def load_settings():
         current_path_config = yaml_to_config(yaml_dict)
         yaml_config = merge_configs(yaml_config, current_path_config)
 
+    file_exclude_glob_list = yaml_config.get("file_exclude_glob_list", [])
+
+    #always ignore .mentatconf
+    file_exclude_glob_list.append(".mentatconf.yaml")
+
     run_settings = RunSettings(
-        file_exclude_glob_list=[Path(p) for p in yaml_config.get("file_exclude_glob_list", [])]
+        file_exclude_glob_list=[Path(p) for p in file_exclude_glob_list]
     )
 
     ui_settings = UISettings(
@@ -144,6 +170,7 @@ def load_settings():
 
     ai_model_settings = AIModelSettings(
         model=yaml_config.get("model", "gpt-4-1106-preview"),
+        prompts=load_prompts(yaml_config.get("prompt_type", "text")),
         feature_selection_model=yaml_config.get("model", "gpt-4-1106-preview"),
         maximum_context=yaml_config.get("maximum_context", 16000)
     )

@@ -10,12 +10,12 @@ from mentat.parsers.parser import ParsedLLMResponse, Parser
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
-replacement_parser_prompt_filename = Path("markdown/replacement_parser_prompt.md")
-
 
 class ReplacementParser(Parser):
     @override
     def get_system_prompt(self) -> str:
+        from mentat.config import config
+        replacement_parser_prompt_filename = config.ai.prompts.get("replacement_parser_prompt")
         return read_prompt(replacement_parser_prompt_filename)
 
     @override

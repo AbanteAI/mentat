@@ -15,9 +15,10 @@ from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no, collect_user_input
 from mentat.transcripts import ModelMessage
+from mentat.config import config
 
-agent_file_selection_prompt_path = Path("markdown/agent_file_selection_prompt.md")
-agent_command_prompt_path = Path("markdown/agent_command_selection_prompt.md")
+agent_file_selection_prompt_path = config.ai.prompts.get("agent_file_selection_prompt")
+agent_command_prompt_path = config.ai.prompts.get("agent_command_selection_prompt")
 
 
 class AgentHandler:

@@ -66,12 +66,11 @@ class CodeContext:
     def display_context(self):
         """Display the baseline context: included files and auto-context settings"""
         session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
 
 
         print("[blue]Code Context:[/blue]")
         prefix = "  "
-        stream.send(f"{prefix}Directory: {session_context.cwd}")
+        print(f"{prefix}Directory: {session_context.cwd}")
         if self.diff_context and self.diff_context.name:
             print(f"{prefix}Diff: [green]{self.diff_context.get_display_context()}[/green]")
 
@@ -83,11 +82,11 @@ class CodeContext:
 
         features = None
         if self.features:
-            stream.send(f"{prefix}Active Features:")
+            print(f"{prefix}Active Features:")
             features = self.features
         elif self.include_files:
-            stream.send(f"{prefix}Included files:")
-            stream.send(f"{prefix + prefix}{session_context.cwd.name}")
+            print(f"{prefix}Included files:")
+            print(f"{prefix + prefix}{session_context.cwd.name}")
             features = [
                 _feat for _file in self.include_files.values() for _feat in _file
             ]
@@ -354,7 +353,7 @@ class CodeContext:
                 exclude_patterns=abs_exclude_patterns,
             )
         except PathValidationError as e:
-            session_context.stream.send(str(e), color="light_red")
+            print(f"[red]{str(e)}[/red]")
             return included_paths
 
         for code_feature in code_features:
@@ -382,20 +381,15 @@ class CodeContext:
             del self.include_files[path]
             return path
         else:
-            session_context.stream.send(
-                f"Path {path} not in context", color="light_red"
-            )
+            print(f"[red]Path {path} not in context[/red]")
 
     def _exclude_file_interval(self, path: Path) -> Set[Path]:
-        session_context = SESSION_CONTEXT.get()
 
         excluded_paths: Set[Path] = set()
 
         interval_path, interval_str = split_intervals_from_path(path)
         if interval_path not in self.include_files:
-            session_context.stream.send(
-                f"Path {interval_path} not in context", color="light_red"
-            )
+            print(f"[red]Path {interval_path} not in context[/red]")
             return excluded_paths
 
         intervals = parse_intervals(interval_str)
@@ -478,7 +472,7 @@ class CodeContext:
                 case PathType.GLOB:
                     excluded_paths.update(self._exclude_glob(validated_path))
         except PathValidationError as e:
-            session_context.stream.send(str(e), color="light_red")
+            print(f"[red]Path {str(e)}[/red]")
 
         return excluded_paths
 

@@ -19,7 +19,6 @@ from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.streaming_printer import StreamingPrinter
 
-json_parser_prompt_filename = Path("markdown/json_parser_prompt.md")
 
 comment_schema = {
     "type": "object",
@@ -84,6 +83,8 @@ output_schema = {
 class JsonParser(Parser):
     @override
     def get_system_prompt(self) -> str:
+        from mentat.config import config
+        json_parser_prompt_filename = config.ai.prompts.get("json_parser_prompt")
         return read_prompt(json_parser_prompt_filename)
 
     @override

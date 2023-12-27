@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Coroutine, List, Optional, Set
 from uuid import uuid4
 
-import attr
+from rich import print
 import sentry_sdk
 from openai import APITimeoutError, BadRequestError, RateLimitError
 
@@ -222,7 +222,7 @@ class Session:
             except (SessionExit, CancelledError):
                 pass
             except (MentatError, UserError) as e:
-                self.stream.send(str(e), color="red")
+                print(f"[red]{str(e)}[/red]")
             except Exception as e:
                 # All unhandled exceptions end up here
                 error = f"Unhandled Exception: {traceback.format_exc()}"
@@ -230,7 +230,7 @@ class Session:
                 if is_test_environment():
                     print(error)
                 sentry_sdk.capture_exception(e)
-                self.stream.send(error, color="red")
+                print(f"[red]{str(e)}[/red]")
             finally:
                 await self._stop()
                 sentry_sdk.flush()
@@ -270,5 +270,5 @@ class Session:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         for error in self._errors:
-            stream.send(error, color="light_yellow")
+            print(f"[light_yellow3]{error}[/light_yellow3]")
         self._errors = []

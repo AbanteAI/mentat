@@ -13,6 +13,7 @@ from mentat.code_feature import (
     CodeMessageLevel,
     get_code_message_from_features,
 )
+from mentat.config import config
 from mentat.errors import ModelError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
@@ -23,7 +24,7 @@ from mentat.session_context import SESSION_CONTEXT
 
 
 class LLMFeatureFilter(FeatureFilter):
-    feature_selection_prompt_path = Path("markdown/feature_selection_prompt.md")
+    feature_selection_prompt_path = config.ai.prompts.get("feature_selection_prompt")
 
     def __init__(
         self,
