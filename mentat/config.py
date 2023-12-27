@@ -37,6 +37,8 @@ class RunSettings(DataClassJsonMixin):
     file_exclude_glob_list: List[Path] = field(default_factory=list)
     auto_context: bool = False
     auto_tokens: int = 8000
+    #Automatically selects code files for every request to include in context. Adds this many tokens to context each request.
+    auto_context_tokens: int = 0
 
 @dataclass()
 class AIModelSettings(DataClassJsonMixin):

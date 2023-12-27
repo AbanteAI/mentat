@@ -30,6 +30,7 @@ from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import count_tokens, get_max_tokens, is_context_sufficient
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
+from mentat.config import config
 
 
 class CodeContext:
@@ -60,7 +61,6 @@ class CodeContext:
         """Display the baseline context: included files and auto-context settings"""
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        config = session_context.config
 
         stream.send("Code Context:", color="blue")
         prefix = "  "
@@ -69,9 +69,9 @@ class CodeContext:
             stream.send(f"{prefix}Diff:", end=" ")
             stream.send(self.diff_context.get_display_context(), color="green")
 
-        if config.auto_context_tokens > 0:
+        if config.run.auto_context_tokens > 0:
             stream.send(f"{prefix}Auto-Context: Enabled")
-            stream.send(f"{prefix}Auto-Context Tokens: {config.auto_context_tokens}")
+            stream.send(f"{prefix}Auto-Context Tokens: {config.run.auto_context_tokens}")
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 
@@ -120,9 +120,7 @@ class CodeContext:
         'prompt_tokens' argument is the total number of tokens used by the prompt before the code message,
         used to ensure that the code message won't overflow the model's context size
         """
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        model = config.model
+        model = config.ai.model
 
         # Setup code message metadata
         code_message = list[str]()
@@ -151,14 +149,14 @@ class CodeContext:
         )
 
         tokens_used = (
-            prompt_tokens + meta_tokens + include_files_tokens + config.token_buffer
+            prompt_tokens + meta_tokens + include_files_tokens + config.ai.token_buffer
         )
         if not is_context_sufficient(tokens_used):
             raise ContextSizeInsufficient()
-        auto_tokens = min(get_max_tokens() - tokens_used, config.auto_context_tokens)
+        auto_tokens = min(get_max_tokens() - tokens_used, config.run.auto_context_tokens)
 
         # Get auto included features
-        if config.auto_context_tokens > 0 and prompt:
+        if config.run.auto_context_tokens > 0 and prompt:
             features = self.get_all_features()
             feature_filter = DefaultFilter(
                 auto_tokens,
@@ -190,7 +188,7 @@ class CodeContext:
 
         abs_exclude_patterns: Set[Path] = set()
         for pattern in self.ignore_patterns.union(
-            session_context.config.file_exclude_glob_list
+            config.run.file_exclude_glob_list
         ):
             if not Path(pattern).is_absolute():
                 abs_exclude_patterns.add(session_context.cwd / pattern)
@@ -278,7 +276,7 @@ class CodeContext:
             [
                 *exclude_patterns,
                 *self.ignore_patterns,
-                *session_context.config.file_exclude_glob_list,
+                *config.run.file_exclude_glob_list,
             ]
         )
         for pattern in all_exclude_patterns:

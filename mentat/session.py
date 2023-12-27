@@ -16,11 +16,11 @@ from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
-from mentat.config import Config
+from mentat.config import config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
-from mentat.errors import MentatError, SessionExit, UserError
+from mentat.errors import MentatError, SessionExit, UserError, ContextSizeInsufficient
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
@@ -47,7 +47,6 @@ class Session:
         ignore_paths: List[Path] = [],
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
-        config: Config = Config(),
     ):
         # All errors thrown here need to be caught here
         self.stopped = False
@@ -126,15 +125,14 @@ class Session:
         agent_handler = session_context.agent_handler
 
         # check early for ctags so we can fail fast
-        if config.run.auto_context:
-        if session_context.config.auto_context_tokens > 0:
+        if config.run.auto_context_tokens > 0:
             ensure_ctags_installed()
 
         session_context.llm_api_handler.initialize_client()
         code_context.display_context()
         await conversation.display_token_count()
 
-        stream.send("Type 'q' or use Ctrl-C to quit at any time.")
+        print(f"Type 'q' or use Ctrl-C to quit at any time.")
         need_user_request = True
         while True:
             try:
@@ -143,12 +141,9 @@ class Session:
                     # edits made between user input to be collected together.
                     if agent_handler.agent_enabled:
                         code_file_manager.history.push_edits()
-                        stream.send(
-                            "Use /undo to undo all changes from agent mode since last"
-                            " input.",
-                            color="green",
-                        )
-                    stream.send("\nWhat can I do for you?", color="light_blue")
+                        print(f"[green]Use /undo to undo all changes from agent mode since last input.[/green]")
+
+                    print(f"[blue]What can I do for you?[/blue]")
                     message = await collect_input_with_commands()
                     if message.data.strip() == "":
                         continue
@@ -174,10 +169,11 @@ class Session:
                     applied_edits = await code_file_manager.write_changes_to_files(
                         file_edits
                     )
-                    stream.send(
-                        "Changes applied." if applied_edits else "No changes applied.",
-                        color="light_blue",
-                    )
+
+                    if applied_edits:
+                        print(f"[blue]Changes applied.[/blue]")
+                    else:
+                        print(f"[blue]No Changes applied.[/blue]")
 
                     if agent_handler.agent_enabled:
                         if parsed_llm_response.interrupted:
@@ -193,7 +189,7 @@ class Session:
                 need_user_request = True
                 continue
             except (APITimeoutError, RateLimitError, BadRequestError) as e:
-                stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
+                print(f"[red]Error accessing OpenAI API: {e.message}[/red]")
                 break
 
     async def listen_for_session_exit(self):
