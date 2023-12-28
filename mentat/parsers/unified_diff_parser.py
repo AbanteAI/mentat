@@ -1,6 +1,7 @@
 from enum import Enum
 from pathlib import Path
 
+from termcolor import colored
 from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
@@ -52,9 +53,9 @@ class UnifiedDiffParser(Parser):
         if cur_line == UnifiedDiffDelimiter.MidChange.value:
             return change_delimiter + "\n"
         elif cur_line.startswith("+"):
-            return f"[green]{content}[/]"
+            return colored(content, "green")
         elif cur_line.startswith("-"):
-            return f"[red]{content}[/]"
+            return colored(content, "red")
         else:
             return highlight_text(display_information, content)
 
@@ -160,7 +161,9 @@ class UnifiedDiffParser(Parser):
                     and not line.startswith("-")
                     and not line.startswith(" ")
                 ):
-                    return "[red]Error: Invalid diff format given. Discarding this change.[/]"
+                    return colored(
+                        "Error: Invalid diff format given. Discarding this change."
+                    )
                 cur_lines.append(line)
         if cur_lines:
             changes.append(cur_lines)
@@ -183,7 +186,10 @@ class UnifiedDiffParser(Parser):
 
             start_index = matching_index(file_lines, search_lines)
             if start_index == -1:
-                return "[red]Error: Original lines not found. Discarding this change.[/]"
+                return colored(
+                    "Error: Original lines not found. Discarding this change.",
+                    color="red",
+                )
 
             # Matching lines checks for matches that are missing whitespace only lines;
             # this will cause errors with line numbering if we don't add those lines into the change lines

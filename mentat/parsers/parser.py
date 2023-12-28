@@ -7,11 +7,11 @@ from asyncio import Event
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
-from rich import print
 
 import attr
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.completion_create_params import ResponseFormat
+from termcolor import colored
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
@@ -85,6 +85,7 @@ class Parser(ABC):
         To make a parser that differs from these assumptions, override this method instead of the helper methods
         """
         session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
         code_file_manager = session_context.code_file_manager
 
         printer = StreamingPrinter()
@@ -114,7 +115,10 @@ class Parser(ABC):
                 printer.shutdown_printer()
                 if printer_task is not None:
                     await printer_task
-                print("\n\nInterrupted by user. Using the response up to this point.")
+                stream.send(
+                    colored("")  # Reset ANSI codes
+                    + "\n\nInterrupted by user. Using the response up to this point."
+                )
                 break
 
             for content in chunk_to_lines(chunk):
@@ -354,8 +358,8 @@ class Parser(ABC):
         """
         The beginning of a code line; normally this means printing the + prefix
         """
-        return (
-            "[green]+" + " " * (display_information.line_number_buffer - 1) + "[/green]"
+        return colored(
+            "+" + " " * (display_information.line_number_buffer - 1), color="green"
         )
 
     def _code_line_content(
@@ -368,7 +372,7 @@ class Parser(ABC):
         """
         Part of a code line; normally this means printing in green
         """
-        return f"[green]{content}[/green]"
+        return colored(content, color="green")
 
     # These methods must be overriden if using the default stream and parse function
     def _could_be_special(self, cur_line: str) -> bool:

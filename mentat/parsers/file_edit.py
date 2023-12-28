@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from rich import print
 import attr
 
 from mentat.errors import HistoryError, MentatError
@@ -42,7 +41,10 @@ class Replacement:
 async def _ask_user_change(
     text: str,
 ) -> bool:
-    print(f"[bright_blue]{text}[/]")
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+
+    stream.send(text, color="light_blue")
     return await ask_yes_no(default_yes=True)
 
 
@@ -149,11 +151,17 @@ class FileEdit:
 
         if self.is_creation:
             if self.file_path.exists():
-                print(f"[bright_yellow]File {display_path} already exists, canceling creation.[/]")
+                stream.send(
+                    f"File {display_path} already exists, canceling creation.",
+                    color="light_yellow",
+                )
                 return False
         else:
             if not self.file_path.exists():
-                print(f"[bright_yellow]File {display_path} does not exist, canceling all edits to file.[/]")
+                stream.send(
+                    f"File {display_path} does not exist, canceling all edits to file.",
+                    color="light_yellow",
+                )
                 return False
             file_features_in_context = [
                 f for f in code_context.auto_features if f.path == self.file_path
@@ -163,15 +171,21 @@ class FileEdit:
                 for r in self.replacements
                 for i in range(r.starting_line + 1, r.ending_line + 1)
             ):
-                print(f"[bright_yellow]File {display_path} not in context, canceling all edits to file.[/]")
+                stream.send(
+                    f"File {display_path} not in context, canceling all edits to file.",
+                    color="light_yellow",
+                )
                 return False
 
         if self.rename_file_path is not None and self.rename_file_path.exists():
             rel_rename_path = None
             if self.rename_file_path.is_relative_to(session_context.cwd):
                 rel_rename_path = self.rename_file_path.relative_to(session_context.cwd)
-            print(f"[bright_yellow]File {display_path} being renamed to existing file"
-                  f" {rel_rename_path or self.rename_file_path}, canceling rename.[/]")
+            stream.send(
+                f"File {display_path} being renamed to existing file"
+                f" {rel_rename_path or self.rename_file_path}, canceling rename.",
+                color="light_yellow",
+            )
             self.rename_file_path = None
         return True
 
@@ -215,12 +229,15 @@ class FileEdit:
         )
 
     def _print_resolution(self, first: Replacement, second: Replacement):
-        print("Change overlap detected, auto-merged back to back changes:\n")
-        print(self.file_path)
-        print(change_delimiter)
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+
+        stream.send("Change overlap detected, auto-merged back to back changes:\n")
+        stream.send(self.file_path)
+        stream.send(change_delimiter)
         for line in first.new_lines + second.new_lines:
-            print(f"[green]+ {line}[/green]")
-        print(change_delimiter)
+            stream.send("+ " + line, color="green")
+        stream.send(change_delimiter)
 
     def resolve_conflicts(self):
         self.replacements.sort(reverse=True)
@@ -273,8 +290,8 @@ class FileEdit:
             ctx.code_file_manager.delete_file(self.file_path)
 
             self._display_creation(prefix=prefix)
-            print(
-                f"[bright_blue]Creation of file {self.file_path} undone.[/bright_blue]"
+            ctx.stream.send(
+                f"Creation of file {self.file_path} undone", color="light_blue"
             )
             return
 
@@ -292,8 +309,9 @@ class FileEdit:
             ctx.code_file_manager.rename_file(self.rename_file_path, self.file_path)
 
             self._display_rename(prefix=prefix)
-            print(
-                f"[bright_blue]Rename of file {self.file_path} to {self.rename_file_path} undone.[/bright_blue]"
+            ctx.stream.send(
+                f"Rename of file {self.file_path} to {self.rename_file_path} undone",
+                color="light_blue",
             )
 
         if self.is_deletion:
@@ -311,8 +329,8 @@ class FileEdit:
             )
 
             self._display_deletion(self.previous_file_lines, prefix=prefix)
-            print(
-                f"[bright_blue]Deletion of file {self.file_path} undone.[/bright_blue]"
+            ctx.stream.send(
+                f"Deletion of file {self.file_path} undone", color="light_red"
             )
         elif self.replacements:
             if not self.file_path.exists():
@@ -327,6 +345,6 @@ class FileEdit:
                 f.write("\n".join(self.previous_file_lines))
 
             self._display_replacements(self.previous_file_lines, prefix=prefix)
-            print(
-                f"[bright_blue]Edits to file {self.file_path} undone.[/bright_blue]"
+            ctx.stream.send(
+                f"Edits to file {self.file_path} undone", color="light_blue"
             )

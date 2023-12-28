@@ -15,12 +15,10 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no, collect_user_input
 from mentat.transcripts import ModelMessage
 from mentat.config import config
-from rich import print
-
-from mentat.utils import dd
 
 agent_file_selection_prompt_path = config.ai.prompts.get("agent_file_selection_prompt")
 agent_command_prompt_path = config.ai.prompts.get("agent_command_selection_prompt")
+
 
 class AgentHandler:
     def __init__(self):
@@ -41,7 +39,9 @@ class AgentHandler:
     async def enable_agent_mode(self):
         ctx = SESSION_CONTEXT.get()
 
-        print(f"* [cyan]Finding files to determine how to test changes...[/cyan]")
+        ctx.stream.send(
+            "Finding files to determine how to test changes...", color="cyan"
+        )
         features = ctx.code_context.get_all_features(split_intervals=False)
         messages: List[ChatCompletionMessageParam] = [
             ChatCompletionSystemMessageParam(
@@ -54,7 +54,7 @@ class AgentHandler:
                 ),
             ),
         ]
-        model = ctx.config.model
+        model = config.ai.model
         response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
         content = response.choices[0].message.content or ""
 
@@ -66,8 +66,11 @@ class AgentHandler:
             file_contents = "\n\n".join(ctx.code_file_manager.read_file(path))
             self.agent_file_message += f"{path}\n\n{file_contents}"
 
-        print(f"[cyan]The model has chosen these files to help it determine how to test its changes:[/cyan]")
-
+        ctx.stream.send(
+            "The model has chosen these files to help it determine how to test its"
+            " changes:",
+            color="cyan",
+        )
         ctx.stream.send("\n".join(str(path) for path in paths))
         ctx.cost_tracker.display_last_api_call()
 
@@ -82,7 +85,7 @@ class AgentHandler:
     async def _determine_commands(self) -> List[str]:
         ctx = SESSION_CONTEXT.get()
 
-        model = ctx.config.model
+        model = config.ai.model
         messages = [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_command_prompt
@@ -104,7 +107,7 @@ class AgentHandler:
             response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
             ctx.cost_tracker.display_last_api_call()
         except BadRequestError as e:
-            print(f"[red]Error accessing OpenAI API: {e.message}[/red]")
+            ctx.stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
             return []
 
         content = response.choices[0].message.content or ""
@@ -126,15 +129,20 @@ class AgentHandler:
         commands = await self._determine_commands()
         if not commands:
             return True
-        print(f"[cyan]The model has chosen these commands to test its changes:[/cyan]")
-
+        ctx.stream.send(
+            "The model has chosen these commands to test its changes:", color="cyan"
+        )
         for command in commands:
-            print(f"* [yellow]{command}[/yellow]")
-
-        print(f"* [cyan]Run these commands?[/cyan]")
+            ctx.stream.send("* ", end="")
+            ctx.stream.send(command, color="light_yellow")
+        ctx.stream.send("Run these commands?", color="cyan")
         run_commands = await ask_yes_no(default_yes=True)
         if not run_commands:
-            print(f"* [cyan]Enter a new-line separated list of commands to run, or nothing to return control to the user:[/cyan]")
+            ctx.stream.send(
+                "Enter a new-line separated list of commands to run, or nothing to"
+                " return control to the user:",
+                color="cyan",
+            )
             commands: list[str] = (await collect_user_input()).data.strip().splitlines()
             if not commands:
                 return True

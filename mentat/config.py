@@ -14,9 +14,6 @@ from dataclasses_json import DataClassJsonMixin
 from typing import Tuple
 from mentat.parsers.parser import Parser
 from typing import Any, Dict, List, Optional
-from rich.console import Console
-
-console = Console()
 
 config_file_name = Path(".mentat_config.yaml")
 user_config_path = mentat_dir_path / config_file_name

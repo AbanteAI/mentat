@@ -2,7 +2,6 @@ import asyncio
 import logging
 import shlex
 from typing import Any, Coroutine
-from rich import print
 
 from mentat.command.command import Command
 from mentat.errors import RemoteKeyboardInterrupt, SessionExit
@@ -38,10 +37,12 @@ async def collect_user_input(plain: bool = False) -> StreamMessage:
 
 
 async def ask_yes_no(default_yes: bool) -> bool:
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
 
     while True:
         # TODO: combine this into a single message (include content)
-        print("(Y/n)" if default_yes else "(y/N)")
+        stream.send("(Y/n)" if default_yes else "(y/N)")
         response = await collect_user_input(plain=True)
         content = response.data
         if content in ["y", "n", ""]:
@@ -50,6 +51,8 @@ async def ask_yes_no(default_yes: bool) -> bool:
 
 
 async def collect_input_with_commands() -> StreamMessage:
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
 
     response = await collect_user_input()
     while isinstance(response.data, str) and response.data.startswith("/"):
@@ -59,7 +62,7 @@ async def collect_input_with_commands() -> StreamMessage:
             command = Command.create_command(response.data[1:].split(" ")[0])
             await command.apply(*arguments)
         except ValueError as e:
-            print(f"[bright_red]Error processing command arguments: {e}[/]")
+            stream.send(f"Error processing command arguments: {e}", color="light_red")
         response = await collect_user_input()
     return response
 
@@ -103,7 +106,7 @@ async def listen_for_interrupt(
             return wrapped_task.result()
         else:
             # Send a newline for terminal clients (remove later)
-            print("\n")
+            stream.send("\n")
 
             if raise_exception_on_interrupt:
                 raise RemoteKeyboardInterrupt

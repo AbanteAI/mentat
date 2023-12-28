@@ -1,5 +1,7 @@
 from typing import Optional
 
+from termcolor import colored
+
 from mentat.errors import HistoryError
 from mentat.parsers.file_edit import FileEdit
 from mentat.session_context import SESSION_CONTEXT
@@ -22,7 +24,7 @@ class EditHistory:
 
     def undo(self) -> str:
         if not self.edits:
-            return "[bright_red]No edits available to undo[/]"
+            return colored("No edits available to undo", color="light_red")
 
         # Make sure to go top down
         cur_edit = self.edits.pop()
@@ -34,14 +36,14 @@ class EditHistory:
                 cur_file_edit.undo()
                 undone_edit.append(cur_file_edit)
             except HistoryError as e:
-                errors.append(f"[bright_red]{str(e)}[/]")
+                errors.append(colored(str(e), color="light_red"))
         if undone_edit:
             self.undone_edits.append(undone_edit)
         return "\n".join(errors)
 
     async def redo(self) -> Optional[str]:
         if not self.undone_edits:
-            return "[bright_red]No edits available to redo[/]"
+            return colored("No edits available to redo", color="light_red")
 
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
@@ -54,7 +56,7 @@ class EditHistory:
 
     def undo_all(self) -> str:
         if not self.edits:
-            return "[bright_red]No edits available to undo[/]"
+            return colored("No edits available to undo", color="light_red")
 
         errors = list[str]()
         while self.edits:

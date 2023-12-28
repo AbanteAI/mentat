@@ -6,8 +6,6 @@ from asyncio import CancelledError, Task
 from pathlib import Path
 from typing import Any, Coroutine, List, Optional, Set
 from uuid import uuid4
-from rich import print
-from rich.console import Console
 
 import attr
 import sentry_sdk
@@ -22,19 +20,18 @@ from mentat.config import config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
-from mentat.errors import MentatError, SessionExit, UserError, ContextSizeInsufficient
+from mentat.errors import ContextSizeInsufficient, MentatError, SessionExit, UserError
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
+from mentat.sampler.sampler import Sampler
 from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_input import collect_input_with_commands
 from mentat.session_stream import SessionStream
 from mentat.utils import check_version, mentat_dir_path
 from mentat.vision.vision_manager import VisionManager
-from mentat.sampler.sampler import Sampler
 
-console = Console()
 
 class Session:
     """
@@ -53,7 +50,6 @@ class Session:
         pr_diff: Optional[str] = None,
     ):
         # All errors thrown here need to be caught here
-        self._errors = []
         self.stopped = False
 
         if not mentat_dir_path.exists():
@@ -62,6 +58,8 @@ class Session:
         sentry_init()
         self.id = uuid4()
         self._tasks: Set[asyncio.Task[None]] = set()
+
+        self._errors = []
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
@@ -90,26 +88,34 @@ class Session:
         sampler = Sampler()
 
         session_context = SessionContext(
-            cwd=cwd,
-            stream=stream,
-            llm_api_handler=llm_api_handler,
-            cost_tracker=cost_tracker,
-            code_context=code_context,
-            code_file_manager=code_file_manager,
-            conversation=conversation,
-            vision_manager=vision_manager,
-            agent_handler=agent_handler,
-            auto_completer=auto_completer,
-            sampler=sampler
+            cwd,
+            stream,
+            llm_api_handler,
+            cost_tracker,
+            code_context,
+            code_file_manager,
+            conversation,
+            vision_manager,
+            agent_handler,
+            auto_completer,
+            sampler,
         )
         self.ctx = session_context
         SESSION_CONTEXT.set(session_context)
+        self.error = None
 
         # Functions that require session_context
         check_version()
         self.send_errors_to_stream()
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)
+        if (
+            code_context.diff_context is not None
+            and len(code_context.include_files) == 0
+            and (diff or pr_diff)
+        ):
+            for file in code_context.diff_context.diff_files():
+                code_context.include(file)
 
     def _create_task(self, coro: Coroutine[None, None, Any]):
         """Utility method for running a Task in the background"""
@@ -139,7 +145,7 @@ class Session:
         code_context.display_context()
         await conversation.display_token_count()
 
-        print(f"Type 'q' or use Ctrl-C to quit at any time.")
+        stream.send("Type 'q' or use Ctrl-C to quit at any time.")
         need_user_request = True
         while True:
             try:
@@ -148,9 +154,12 @@ class Session:
                     # edits made between user input to be collected together.
                     if agent_handler.agent_enabled:
                         code_file_manager.history.push_edits()
-                        print(f"[green]Use /undo to undo all changes from agent mode since last input.[/green]")
-
-                    print(f"[blue]What can I do for you?[/blue]")
+                        stream.send(
+                            "Use /undo to undo all changes from agent mode since last"
+                            " input.",
+                            color="green",
+                        )
+                    stream.send("\nWhat can I do for you?", color="light_blue")
                     message = await collect_input_with_commands()
                     if message.data.strip() == "":
                         continue
@@ -176,11 +185,10 @@ class Session:
                     applied_edits = await code_file_manager.write_changes_to_files(
                         file_edits
                     )
-
-                    if applied_edits:
-                        print(f"[blue]Changes applied.[/blue]")
-                    else:
-                        print(f"[blue]No Changes applied.[/blue]")
+                    stream.send(
+                        "Changes applied." if applied_edits else "No changes applied.",
+                        color="light_blue",
+                    )
 
                     if agent_handler.agent_enabled:
                         if parsed_llm_response.interrupted:
@@ -196,7 +204,7 @@ class Session:
                 need_user_request = True
                 continue
             except (APITimeoutError, RateLimitError, BadRequestError) as e:
-                print(f"[red]Error accessing OpenAI API: {e.message}[/red]")
+                stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
                 break
 
     async def listen_for_session_exit(self):
@@ -226,24 +234,21 @@ class Session:
                 with sentry_sdk.start_transaction(
                     op="mentat_started", name="Mentat Started"
                 ) as transaction:
-                    #TODO: check if we need this as config should be gloabl now
                     #transaction.set_tag("config", attr.asdict(config))
                     await self._main()
             except (SessionExit, CancelledError):
                 pass
             except (MentatError, UserError) as e:
-                if is_test_environment():
-                    console.print_exception(show_locals=True)
-                print(f"[red]Unhandled Exception: {str(e)}[/red]")
+                self.stream.send(str(e), color="red")
             except Exception as e:
                 # All unhandled exceptions end up here
                 error = f"Unhandled Exception: {traceback.format_exc()}"
                 # Helps us handle errors in tests
                 if is_test_environment():
-                    console.print_exception(show_locals=True)
+                    print(error)
                 self.error = error
                 sentry_sdk.capture_exception(e)
-                print(f"[red]{str(error)}[/red]")
+                self.stream.send(error, color="red")
             finally:
                 await self._stop()
                 sentry_sdk.flush()

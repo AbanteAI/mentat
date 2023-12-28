@@ -49,7 +49,7 @@ class TerminalClient:
         exclude_paths: List[str] = [],
         ignore_paths: List[str] = [],
         diff: str | None = None,
-        pr_diff: str | None = None
+        pr_diff: str | None = None,
     ):
         self.cwd = cwd
         self.paths = [Path(path) for path in paths]
@@ -57,7 +57,6 @@ class TerminalClient:
         self.ignore_paths = [Path(path) for path in ignore_paths]
         self.diff = diff
         self.pr_diff = pr_diff
-        self.config = config
 
         self._tasks: Set[asyncio.Task[None]] = set()
         self._should_exit = Event()
@@ -117,7 +116,7 @@ class TerminalClient:
     async def _listen_for_client_exit(self):
         """When the Session shuts down, it will send the client_exit signal for the client to shutdown."""
         await self.session.stream.recv(channel="client_exit")
-        await asyncio.create_task(self._shutdown())
+        asyncio.create_task(self._shutdown())
 
     async def _listen_for_should_exit(self):
         """This listens for a user event signaling shutdown (like SigInt), and tells the session to shutdown."""
@@ -169,7 +168,7 @@ class TerminalClient:
         mentat_completer = MentatCompleter(self.session.stream)
         self._prompt_session = MentatPromptSession(
             completer=mentat_completer,
-            style=Style(self.config.ui.input_style),
+            style=Style(config.ui.input_style),
             enable_suspend=True,
         )
 
@@ -185,7 +184,7 @@ class TerminalClient:
 
         self._plain_session = PromptSession[str](
             message=[("class:prompt", ">>> ")],
-            style=Style(self.config.ui.input_style),
+            style=Style(config.ui.input_style),
             completer=None,
             key_bindings=plain_bindings,
             enable_suspend=True,
@@ -208,6 +207,9 @@ class TerminalClient:
         for task in self._tasks:
             task.cancel()
         self._stopped.set()
+
+    def run(self):
+        asyncio.run(self._run())
 
 
 # Event handlers for all the buttons.
@@ -240,7 +242,7 @@ def start(paths, exclude_paths, ignore_paths, diff, pr_diff, cwd) -> None:
         pr_diff
     )
 
-    asyncio.run(terminal_client._run())
+    terminal_client.run()
 
 
 if __name__ == "__main__":
