@@ -80,7 +80,9 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
 
 # Ensures that each chunk will have at most one newline character
 def chunk_to_lines(chunk: ChatCompletionChunk) -> list[str]:
-    content = chunk.choices[0].delta.content
+    content = None
+    if len(chunk.choices) > 0:
+        content = chunk.choices[0].delta.content
     return ("" if content is None else content).splitlines(keepends=True)
 
 

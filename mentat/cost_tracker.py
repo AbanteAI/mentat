@@ -77,6 +77,9 @@ class CostTracker:
         full_response = ""
         start_time = default_timer()
         async for chunk in response:
+            # On Azure OpenAI, the first chunk streamed may contain only metadata relating to content filtering.
+            if len(chunk.choices) == 0:
+                continue
             full_response += chunk.choices[0].delta.content or ""
             yield chunk
         time_elapsed = default_timer() - start_time
