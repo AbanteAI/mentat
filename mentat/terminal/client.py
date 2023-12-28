@@ -21,40 +21,25 @@ from mentat.terminal.prompt_session import MentatPromptSession
 
 from typing import List
 from pathlib import Path
+import click
 
 import anyio
 import inspect
-import typer
+
 from functools import partial, wraps
-from typer import Typer
 
 from mentat.utils import dd
 from asyncio import run as aiorun
 
-class AsyncTyper(Typer):
-    @staticmethod
-    def maybe_run_async(decorator, f):
-        if inspect.iscoroutinefunction(f):
+from prompt_toolkit.application import Application
+from prompt_toolkit.application import Application
+from prompt_toolkit.application.current import get_app
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.key_binding.bindings.focus import focus_next, focus_previous
+from prompt_toolkit.layout import HSplit, Layout, VSplit
+from prompt_toolkit.styles import Style
+from prompt_toolkit.widgets import Box, Button, Frame, Label, TextArea
 
-            @wraps(f)
-            def runner(*args, **kwargs):
-                return asyncio.run(f(*args, **kwargs))
-
-            decorator(runner)
-        else:
-            decorator(f)
-        return f
-
-    def callback(self, *args, **kwargs):
-        decorator = super().callback(*args, **kwargs)
-        return partial(self.maybe_run_async, decorator)
-
-    def command(self, *args, **kwargs):
-        decorator = super().command(*args, **kwargs)
-        return partial(self.maybe_run_async, decorator)
-
-
-app = AsyncTyper()
 
 class TerminalClient:
     def __init__(
@@ -132,7 +117,7 @@ class TerminalClient:
     async def _listen_for_client_exit(self):
         """When the Session shuts down, it will send the client_exit signal for the client to shutdown."""
         await self.session.stream.recv(channel="client_exit")
-        asyncio.create_task(self._shutdown())
+        await asyncio.create_task(self._shutdown())
 
     async def _listen_for_should_exit(self):
         """This listens for a user event signaling shutdown (like SigInt), and tells the session to shutdown."""
@@ -225,20 +210,16 @@ class TerminalClient:
         self._stopped.set()
 
 
-@app.command()
-async def async_hello(name: str, last_name: str = "") -> None:
-    await anyio.sleep(1)
-    typer.echo(f"Hello World {name} {last_name}")
+# Event handlers for all the buttons.
 
-
-@app.command()
-def start(paths: List[str] = typer.Argument(...),
-          exclude_paths: List[str] = typer.Option([], "--exclude-paths", "-e", help="List of file paths, directory paths, or glob patterns to exclude"),
-          ignore_paths: List[str] = typer.Option([], "--ignore-paths", "-g", help="List of file paths, directory paths, or glob patterns to ignore in auto-context"),
-          diff: str = typer.Option(None, "--diff", "-d", show_default='HEAD', help="A git tree-ish (e.g. commit, branch, tag) to diff against"),
-          pr_diff: str = typer.Option(None, "--pr-diff", "-p", help="A git tree-ish to diff against the latest common ancestor of"),
-          cwd: Path = typer.Option(Path.cwd(), "--cwd", help="The current working directory")) -> None:
-
+@click.command()
+@click.option('-e', '--exclude-paths', multiple=True, default=[], help='List of file paths, directory paths, or glob patterns to exclude.')
+@click.option('-g', '--ignore-paths', multiple=True, default=[], help='List of file paths, directory paths, or glob patterns to ignore in auto-context.')
+@click.option('-d', '--diff', default=None, show_default='HEAD', help='A git tree-ish (e.g. commit, branch, tag) to diff against.')
+@click.option('-p', '--pr-diff', default=None, help='A git tree-ish to diff against the latest common ancestor of.')
+@click.option('--cwd', default=str(Path.cwd()), help='The current working directory.')
+@click.argument('paths', nargs=-1, required=True)
+def start(paths, exclude_paths, ignore_paths, diff, pr_diff, cwd) -> None:
 
     # Check if these variables are set and pass them to update_config function as kwargs
     session_config = {'file_exclude_glob_list': []}
@@ -258,9 +239,9 @@ def start(paths: List[str] = typer.Argument(...),
         diff,
         pr_diff
     )
+
     asyncio.run(terminal_client._run())
 
 
-
 if __name__ == "__main__":
-    typer.run(start())
+    start()

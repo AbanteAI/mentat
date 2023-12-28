@@ -6,7 +6,7 @@ authors = ["bio_bootloader <bio_bootloader@example.com>"]
 readme = "README.md"
 
 [tool.poetry.scripts]
-mentat = 'mentat.terminal.client:app'
+mentat = 'mentat.terminal.client:start'
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -38,6 +38,7 @@ dataclasses-json = "^0.6.3"
 pyyaml = "^6.0.1"
 rich = "^13.7.0"
 typer = "^0.9.0"
+click = "^8.1.7"
 
 [tool.poetry.group.dev.dependencies]
 aiomultiprocess = "^0.9.0"
