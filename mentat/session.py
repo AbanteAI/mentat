@@ -7,16 +7,15 @@ from pathlib import Path
 from typing import Any, Coroutine, List, Optional, Set
 from uuid import uuid4
 
-import attr
 import sentry_sdk
 from openai import APITimeoutError, BadRequestError, RateLimitError
 
+import mentat
 from mentat.agent_handler import AgentHandler
 from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
-from mentat.config import config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
@@ -59,7 +58,7 @@ class Session:
         self.id = uuid4()
         self._tasks: Set[asyncio.Task[None]] = set()
 
-        self._errors = []
+        self._errors: List[Any] = []
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
@@ -136,6 +135,7 @@ class Session:
         conversation = session_context.conversation
         code_file_manager = session_context.code_file_manager
         agent_handler = session_context.agent_handler
+        config = mentat.user_session.get("config")
 
         # check early for ctags so we can fail fast
         if config.run.auto_context_tokens > 0:
@@ -229,12 +229,12 @@ class Session:
         """
 
         async def run_main():
-            ctx = SESSION_CONTEXT.get()
             try:
                 with sentry_sdk.start_transaction(
                     op="mentat_started", name="Mentat Started"
                 ) as transaction:
-                    #transaction.set_tag("config", attr.asdict(config))
+                    #TODO: Does this need to be here?
+                    transaction.set_tag("config", "config")
                     await self._main()
             except (SessionExit, CancelledError):
                 pass
@@ -288,5 +288,5 @@ class Session:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         for error in self._errors:
-            print(f"[light_yellow3]{error}[/light_yellow3]")
+            stream.send(error, color="yellow")
         self._errors = []

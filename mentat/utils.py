@@ -7,7 +7,7 @@ import time
 from importlib import resources
 from importlib.abc import Traversable
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, AsyncIterator, List, Literal, Optional, Union, Any
 
 import packaging.version
 import requests
@@ -15,7 +15,6 @@ from git import Repo  # type: ignore
 from jinja2 import Environment, PackageLoader, select_autoescape
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
-from rich import inspect
 
 from mentat import __version__
 from mentat.session_context import SESSION_CONTEXT
@@ -182,7 +181,7 @@ def get_relative_path(path: Path, target: Path) -> Path:
     return relative_path
 
 
-def dd(args):
+def dd(args: Any):
     """
     This method dd takes an argument args and performs the following operations:
 
@@ -200,11 +199,22 @@ def dd(args):
     args = [1, 2, 3]
     dd(args)
     """
-    inspect(args, methods=True)
-    # Exit the program
-    sys.exit()
+    try:
+        # Throw an exception if needed
+        if not args:
+            raise ValueError("No args provided")
 
-def dump(args):
+        # Pretty print the argument
+        pprint.pprint(args)
+
+    except Exception as e:
+        print(f"Exception occurred: {e}")
+
+    finally:
+        # Exit the program
+        sys.exit()
+
+def dump(args: Any):
     """
     This method dd takes an argument args and performs the following operations:
 
@@ -216,7 +226,7 @@ def dump(args):
     args = [1, 2, 3]
     dump(args)
     """
-    inspect(args, methods=True)
+    pprint.pprint(args)
 
 
 CLONE_TO_DIR = Path(__file__).parent.parent / "benchmark_repos"

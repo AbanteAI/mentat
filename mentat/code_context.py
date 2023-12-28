@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Union
 
+import mentat
 from mentat.code_feature import (
     CodeFeature,
     get_code_message_from_features,
@@ -30,7 +31,7 @@ from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import count_tokens, get_max_tokens, is_context_sufficient
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
-from mentat.config import config
+from mentat.utils import dd
 
 
 class CodeContext:
@@ -61,6 +62,7 @@ class CodeContext:
         """Display the baseline context: included files and auto-context settings"""
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
+        config = mentat.user_session.get("config")
 
         stream.send("Code Context:", color="blue")
         prefix = "  "
@@ -120,6 +122,7 @@ class CodeContext:
         'prompt_tokens' argument is the total number of tokens used by the prompt before the code message,
         used to ensure that the code message won't overflow the model's context size
         """
+        config = mentat.user_session.get("config")
         model = config.ai.model
 
         # Setup code message metadata
@@ -185,6 +188,7 @@ class CodeContext:
         Retrieves every CodeFeature under the cwd. If files_only is True the features won't be split into intervals
         """
         session_context = SESSION_CONTEXT.get()
+        config = mentat.user_session.get("config")
 
         abs_exclude_patterns: Set[Path] = set()
         for pattern in self.ignore_patterns.union(
@@ -268,6 +272,7 @@ class CodeContext:
             A set of paths that have been successfully included in the context
         """
         session_context = SESSION_CONTEXT.get()
+        config = mentat.user_session.get("config")
 
         path = Path(path)
 

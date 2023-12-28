@@ -4,7 +4,7 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.config import Config
+from mentat.config import ParserSettings
 from mentat.parsers.block_parser import BlockParser
 from mentat.session import Session
 from tests.parser_tests.inverse import verify_inverse
@@ -12,7 +12,7 @@ from tests.parser_tests.inverse import verify_inverse
 
 @pytest.fixture
 def block_parser(mocker):
-    mocker.patch.object(Config, "parser", new=BlockParser())
+    mocker.patch.object(ParserSettings, "parser", new=BlockParser())
 
 
 @pytest.mark.asyncio

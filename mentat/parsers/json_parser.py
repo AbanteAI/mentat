@@ -11,6 +11,7 @@ from openai.types.chat.completion_create_params import ResponseFormat
 from termcolor import colored
 from typing_extensions import override
 
+import mentat
 from mentat.errors import ModelError
 from mentat.llm_api_handler import chunk_to_lines
 from mentat.parsers.file_edit import FileEdit, Replacement
@@ -83,8 +84,8 @@ output_schema = {
 class JsonParser(Parser):
     @override
     def get_system_prompt(self) -> str:
-        from mentat.config import config
-        json_parser_prompt_filename = config.ai.prompts.get("json_parser_prompt")
+        config = mentat.user_session.get("config")
+        json_parser_prompt_filename = config.ai.prompts.get("json_parser_prompt", Path("text/json_parser_prompt.txt"))
         return read_prompt(json_parser_prompt_filename)
 
     @override

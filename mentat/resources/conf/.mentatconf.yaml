@@ -6,15 +6,15 @@ model: gpt-4-1106-preview
 # maximum_context: 16000
 
 #the type of prompts that the agent should be using options are text and markdown
-prompt_type: markdown
+prompt_type: text
 
 # This list contains glob patterns. Mentat uses these patterns to exclude certain files when provided with a directory argument.
 # Mentat considers all files that do not match your .gitignore file and these patterns.
 # Glob patterns are interpreted from the git root location, so if you want to exclude all .py files, use "**/*.py" instead of "*.py".
 # This example excludes all hidden files and directories:
 file_exclude_glob_list:
-  - "**/.*"
-  - "**/.*/**"
+#  - "**/.*"
+#  - "**/.*/**"
 
 # This section contains key-value pairs for defining a custom Pygment Style for the Mentat prompt.
 input_style:

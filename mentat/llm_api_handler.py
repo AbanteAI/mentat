@@ -38,9 +38,10 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
 
+import mentat
 from mentat.errors import ContextSizeInsufficient, MentatError, UserError
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import mentat_dir_path
+from mentat.utils import mentat_dir_path, dd
 
 TOKEN_COUNT_WARNING = 32000
 
@@ -189,15 +190,16 @@ def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
 
 
 def get_max_tokens() -> int:
-    from mentat.config import config
+    config = mentat.user_session.get("config")
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
     context_size = model_context_size(config.ai.model)
     maximum_context = config.ai.maximum_context
 
+
     if context_size is not None and maximum_context is not None:
-        return min(context_size, maximum_context)
+        return min(int(context_size), int(maximum_context))
     elif context_size is not None:
         return context_size
     elif maximum_context is not None:
@@ -212,7 +214,7 @@ def get_max_tokens() -> int:
 
 
 def is_context_sufficient(tokens: int) -> bool:
-    from mentat.config import config
+    config = mentat.user_session.get("config")
     ctx = SESSION_CONTEXT.get()
 
     max_tokens = get_max_tokens()
@@ -285,7 +287,7 @@ class LlmApiHandler:
         stream: bool,
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> ChatCompletion | AsyncIterator[ChatCompletionChunk]:
-        from mentat.config import config
+        config = mentat.user_session.get("config")
         session_context = SESSION_CONTEXT.get()
         cost_tracker = session_context.cost_tracker
 

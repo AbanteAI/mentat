@@ -6,14 +6,16 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+import mentat
 from mentat.code_context import CodeContext
-from mentat.config import Config
+from mentat.config import RunSettings, update_config, load_config
 from mentat.errors import ContextSizeInsufficient
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
 from mentat.interval import Interval
 from mentat.llm_api_handler import count_tokens
+from mentat.utils import dd
 from tests.conftest import run_git_command
 
 
@@ -76,9 +78,10 @@ async def test_bracket_file(temp_testbed, mock_code_context):
 @pytest.mark.asyncio
 async def test_config_glob_exclude(mocker, temp_testbed, mock_code_context):
     # Makes sure glob exclude config works
-    mocker.patch.object(
-        Config, "file_exclude_glob_list", new=[os.path.join("glob_test", "**", "*.py")]
-    )
+    config = mentat.user_session.get("config")
+    config.run.file_exclude_glob_list = [Path("glob_test") / "**" / "*.py"]
+    mentat.user_session.set("config", config)
+
 
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
@@ -110,6 +113,9 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_code_context):
 
 @pytest.mark.asyncio
 async def test_glob_include(temp_testbed, mock_code_context):
+    #reset the config context
+    load_config()
+
     # Make sure glob include works
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.py")
     glob_include_path2 = os.path.join("glob_test", "bagel", "apple", "include_me2.py")
@@ -188,6 +194,8 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
 @pytest.mark.asyncio
 @pytest.mark.clear_testbed
 async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
+    update_config({"maximum_context" : 8000})
+
     with open("file_1.py", "w") as f:
         f.write(dedent("""\
             def func_1(x, y):
@@ -214,7 +222,7 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     )
     code_context.include("file_1.py")
     code_context.use_llm = False
-    mock_session_context.config.auto_context_tokens = 8000
+
     filter_mock = AsyncMock(side_effect=lambda features: features)
     mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
 
@@ -222,7 +230,7 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
         code_message = await code_context.get_code_message(tokens_used, prompt="prompt")
         return count_tokens(code_message, "gpt-4", full_message=True)
 
-    assert await _count_max_tokens_where(0) == 89  # Code
+    assert await _count_max_tokens_where(0) == 46  # Code
     with pytest.raises(ContextSizeInsufficient):
         await _count_max_tokens_where(1e6)
 
@@ -258,8 +266,12 @@ def test_get_all_features(temp_testbed, mock_code_context):
 
 @pytest.mark.asyncio
 async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_context):
-    mock_session_context.config.auto_context_tokens = 8000
-    mocker.patch.object(Config, "maximum_context", new=7000)
+
+    config = mentat.user_session.get("config")
+    config.ai.maximum_context = 7000
+    config.run.auto_context_tokens = 8000
+    mentat.user_session.set("config", config)
+
     filter_mock = AsyncMock(side_effect=lambda features: features)
     mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
     code_context = CodeContext(

@@ -1,7 +1,7 @@
 from pathlib import Path
 from textwrap import dedent
 
-from mentat.config import Config
+from mentat.config import ParserSettings
 from mentat.parsers.unified_diff_parser import UnifiedDiffParser
 from mentat.session import Session
 from tests.conftest import pytest
@@ -9,7 +9,7 @@ from tests.conftest import pytest
 
 @pytest.fixture(autouse=True)
 def unified_diff_parser(mocker):
-    mocker.patch.object(Config, "parser", new=UnifiedDiffParser())
+    mocker.patch.object(ParserSettings, "parser", new=UnifiedDiffParser())
 
 
 @pytest.mark.asyncio

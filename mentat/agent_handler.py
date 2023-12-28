@@ -9,24 +9,26 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
 )
 
+import mentat
 from mentat.llm_api_handler import prompt_tokens
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no, collect_user_input
 from mentat.transcripts import ModelMessage
-from mentat.config import config
-
-agent_file_selection_prompt_path = config.ai.prompts.get("agent_file_selection_prompt")
-agent_command_prompt_path = config.ai.prompts.get("agent_command_selection_prompt")
 
 
 class AgentHandler:
+
+    config = mentat.user_session.get("config")
+    agent_file_selection_prompt_path = config.ai.prompts.get("agent_file_selection_prompt", Path("text/agent_file_selection_prompt.txt"))
+    agent_command_prompt_path = config.ai.prompts.get("agent_command_selection_prompt", Path("text/agent_command_selection_prompt.txt"))
+
     def __init__(self):
         self._agent_enabled = False
 
         self.agent_file_message = ""
-        self.agent_file_selection_prompt = read_prompt(agent_file_selection_prompt_path)
-        self.agent_command_prompt = read_prompt(agent_command_prompt_path)
+        self.agent_file_selection_prompt = read_prompt(self.agent_file_selection_prompt_path)
+        self.agent_command_prompt = read_prompt(self.agent_command_prompt_path)
 
     # Make this property readonly because we have to set things when we enable agent mode
     @property
@@ -54,6 +56,7 @@ class AgentHandler:
                 ),
             ),
         ]
+        config = mentat.user_session.get("config")
         model = config.ai.model
         response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
         content = response.choices[0].message.content or ""
@@ -85,6 +88,7 @@ class AgentHandler:
     async def _determine_commands(self) -> List[str]:
         ctx = SESSION_CONTEXT.get()
 
+        config = mentat.user_session.get("config")
         model = config.ai.model
         messages = [
             ChatCompletionSystemMessageParam(

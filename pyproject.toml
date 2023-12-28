@@ -36,9 +36,8 @@ tqdm = "4.66.1"
 webdriver_manager = "4.0.1"
 dataclasses-json = "^0.6.3"
 pyyaml = "^6.0.1"
-rich = "^13.7.0"
-typer = "^0.9.0"
 click = "^8.1.7"
+uuid = "^1.30"
 
 [tool.poetry.group.dev.dependencies]
 aiomultiprocess = "^0.9.0"

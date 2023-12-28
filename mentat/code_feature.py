@@ -8,6 +8,7 @@ from typing import Optional
 
 import attr
 
+import mentat
 from mentat.ctags import get_ctag_lines_and_names
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
@@ -16,7 +17,7 @@ from mentat.interval import INTERVAL_FILE_END, Interval
 from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
-from mentat.config import config
+
 
 MIN_INTERVAL_LINES = 10
 
@@ -131,6 +132,8 @@ class CodeFeature:
         """
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
+
+        config = mentat.user_session.get("config")
         parser = config.parser.parser
         code_context = session_context.code_context
 

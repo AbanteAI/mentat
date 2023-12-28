@@ -15,6 +15,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
+import mentat
 from mentat.errors import MentatError
 from mentat.llm_api_handler import (
     TOKEN_COUNT_WARNING,
@@ -27,7 +28,6 @@ from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
-from mentat.config import config
 
 
 class Conversation:
@@ -40,6 +40,7 @@ class Conversation:
     async def display_token_count(self):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
+        config = mentat.user_session.get("config")
 
         code_context = session_context.code_context
         llm_api_handler = session_context.llm_api_handler
@@ -152,6 +153,7 @@ class Conversation:
         """Returns the messages in the conversation. The system message may change throughout
         the conversation so it is important to access the messages through this method.
         """
+        config = mentat.user_session.get("config")
 
         if config.ai.no_parser_prompt or not include_system_prompt:
             return self._messages.copy()
@@ -177,6 +179,7 @@ class Conversation:
     ) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
+        config = mentat.user_session.get("config")
 
         parser = config.parser.parser
         llm_api_handler = session_context.llm_api_handler
@@ -242,6 +245,7 @@ class Conversation:
     async def get_model_response(self) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
+        config = mentat.user_session.get("config")
 
         code_context = session_context.code_context
 
@@ -249,7 +253,7 @@ class Conversation:
 
         # Get current code message
         loading_multiplier = 1.0 if config.run.auto_context_tokens > 0 else 0.0
-        prompt = messages_snapshot[-1]["content"]
+        prompt = messages_snapshot[-1]["content"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
         if isinstance(prompt, list):
             text_prompts = [
                 p.get("text", "") for p in prompt if p.get("type") == "text"
@@ -287,7 +291,7 @@ class Conversation:
         return response
 
     def remaining_context(self) -> int | None:
-        ctx = SESSION_CONTEXT.get()
+        config = mentat.user_session.get("config")
         return get_max_tokens() - prompt_tokens(self.get_messages(), config.ai.model)
 
     def can_add_to_context(self, message: str) -> bool:
@@ -295,7 +299,7 @@ class Conversation:
         Whether or not the model has enough context remaining to add this message.
         Will take token buffer into account and uses full_message=True.
         """
-        ctx = SESSION_CONTEXT.get()
+        config = mentat.user_session.get("config")
 
         remaining_context = self.remaining_context()
         return (

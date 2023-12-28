@@ -4,6 +4,7 @@ from pathlib import Path
 from termcolor import colored
 from typing_extensions import override
 
+import mentat
 from mentat.code_file_manager import CodeFileManager
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
@@ -28,8 +29,8 @@ class UnifiedDiffDelimiter(Enum):
 class UnifiedDiffParser(Parser):
     @override
     def get_system_prompt(self) -> str:
-        from mentat.config import config
-        unified_diff_parser_prompt_filename = config.ai.prompts.get("unified_diff_parser_prompt")
+        config = mentat.user_session.get("config")
+        unified_diff_parser_prompt_filename = config.ai.prompts.get("unified_diff_parser_prompt", Path("text/unified_diff_parser_prompt.txt"))
         return read_prompt(unified_diff_parser_prompt_filename)
 
     @override

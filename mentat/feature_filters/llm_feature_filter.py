@@ -9,11 +9,11 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
 )
 
+import mentat
 from mentat.code_feature import (
     CodeFeature,
     get_code_message_from_features,
 )
-from mentat.config import config
 from mentat.errors import ModelError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
@@ -24,7 +24,8 @@ from mentat.session_context import SESSION_CONTEXT
 
 
 class LLMFeatureFilter(FeatureFilter):
-    feature_selection_prompt_path = config.ai.prompts.get("feature_selection_prompt")
+    config = mentat.user_session.get("config")
+    feature_selection_prompt_path = config.ai.prompts.get("feature_selection_prompt", Path("text/feature_selection_prompt.txt"))
 
     def __init__(
         self,
@@ -44,21 +45,21 @@ class LLMFeatureFilter(FeatureFilter):
     ) -> list[CodeFeature]:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        config = session_context.config
+
         cost_tracker = session_context.cost_tracker
         llm_api_handler = session_context.llm_api_handler
 
         # Preselect as many features as fit in the context window
-        model = config.feature_selection_model
+        model = config.ai.feature_selection_model
         context_size = model_context_size(model)
         if context_size is None:
             raise UserError(
                 "Unknown context size for feature selection model: "
-                f"{config.feature_selection_model}"
+                f"{config.ai.feature_selection_model}"
             )
         system_prompt = read_prompt(self.feature_selection_prompt_path)
         system_prompt_tokens = count_tokens(
-            system_prompt, config.feature_selection_model, full_message=True
+            system_prompt, config.ai.feature_selection_model, full_message=True
         )
         user_prompt_tokens = count_tokens(self.user_prompt, model, full_message=True)
         expected_edits_tokens = (
@@ -71,7 +72,7 @@ class LLMFeatureFilter(FeatureFilter):
             - system_prompt_tokens
             - user_prompt_tokens
             - expected_edits_tokens
-            - config.token_buffer
+            - config.ai.token_buffer
         )
         truncate_filter = TruncateFilter(preselect_max_tokens, model)
         preselected_features = await truncate_filter.filter(features)
@@ -171,5 +172,5 @@ class LLMFeatureFilter(FeatureFilter):
                 named_features.add(parsed_feature)
 
         # Greedy again to enforce max_tokens
-        truncate_filter = TruncateFilter(self.max_tokens, config.model)
+        truncate_filter = TruncateFilter(self.max_tokens, config.ai.model)
         return await truncate_filter.filter(named_features)

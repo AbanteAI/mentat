@@ -1,17 +1,17 @@
-import argparse
 import asyncio
 import logging
 import signal
 from asyncio import Event
-from pathlib import Path
 from types import FrameType
-from typing import Any, Coroutine, List, Set
+from typing import Any, Coroutine, Set, Optional
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
-from prompt_toolkit.styles import Style
+from prompt_toolkit.key_binding import KeyPressEvent
 
-from mentat.config import config, update_config
+import mentat
+from mentat.config import update_config
+
+from mentat.sampler import sampler
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.loading import LoadingHandler
@@ -19,26 +19,12 @@ from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
 
-from typing import List
+from typing import List, Dict, Union
 from pathlib import Path
 import click
 
-import anyio
-import inspect
-
-from functools import partial, wraps
-
-from mentat.utils import dd
-from asyncio import run as aiorun
-
-from prompt_toolkit.application import Application
-from prompt_toolkit.application import Application
-from prompt_toolkit.application.current import get_app
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.key_binding.bindings.focus import focus_next, focus_previous
-from prompt_toolkit.layout import HSplit, Layout, VSplit
 from prompt_toolkit.styles import Style
-from prompt_toolkit.widgets import Box, Button, Frame, Label, TextArea
 
 
 class TerminalClient:
@@ -155,6 +141,7 @@ class TerminalClient:
 
     async def _run(self):
         self._init_signal_handlers()
+
         self.session = Session(
             self.cwd,
             self.paths,
@@ -165,10 +152,13 @@ class TerminalClient:
         )
         self.session.start()
 
+        config = mentat.user_session.get("config")
+        style = Style.from_dict(config.ui.input_style)
+
         mentat_completer = MentatCompleter(self.session.stream)
         self._prompt_session = MentatPromptSession(
             completer=mentat_completer,
-            style=Style(config.ui.input_style),
+            style=style,
             enable_suspend=True,
         )
 
@@ -184,7 +174,7 @@ class TerminalClient:
 
         self._plain_session = PromptSession[str](
             message=[("class:prompt", ">>> ")],
-            style=Style(config.ui.input_style),
+            style=style,
             completer=None,
             key_bindings=plain_bindings,
             enable_suspend=True,
@@ -220,21 +210,43 @@ class TerminalClient:
 @click.option('-d', '--diff', default=None, show_default='HEAD', help='A git tree-ish (e.g. commit, branch, tag) to diff against.')
 @click.option('-p', '--pr-diff', default=None, help='A git tree-ish to diff against the latest common ancestor of.')
 @click.option('--cwd', default=str(Path.cwd()), help='The current working directory.')
+@click.option('--model', default=None, help='The Model to use.')
+@click.option('--temperature', default=None, help='The Model Temperature to use.')
+@click.option('--maximum-context', default=None, help='The Maximum Context')
 @click.argument('paths', nargs=-1, required=True)
-def start(paths, exclude_paths, ignore_paths, diff, pr_diff, cwd) -> None:
+def start(paths: list[str], exclude_paths: list[str], ignore_paths: list[str], diff: Optional[str], pr_diff: Optional[str], cwd: Optional[str], model: Optional[str], temperature: Optional[float], maximum_context: Optional[int]) -> None:
 
     # Check if these variables are set and pass them to update_config function as kwargs
-    session_config = {'file_exclude_glob_list': []}
+    session_config: Dict[str, Union[List[str], None, str, int, float]] = {
+        'file_exclude_glob_list': [],
+        'model': None,
+        'temperature': None,
+        'maximum_context': None
+     }
 
     if exclude_paths:
         session_config["file_exclude_glob_list"] = exclude_paths
 
+    if model:
+        session_config["model"] = model
+
+    if temperature:
+        session_config["temperature"] = temperature
+
+    if maximum_context:
+        session_config["maximum_context"] = maximum_context
+
+
+    sampler.init_settings()
+
     update_config(session_config)
 
-    cwd = Path(cwd).expanduser().resolve()
+    current_working_directory = Path.cwd()
+    if cwd:
+        current_working_directory = Path(cwd).expanduser().resolve()
 
     terminal_client = TerminalClient(
-        cwd,
+        current_working_directory,
         paths,
         exclude_paths,
         ignore_paths,

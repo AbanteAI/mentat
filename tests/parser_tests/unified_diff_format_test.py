@@ -3,14 +3,16 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.config import Config
+import mentat
+from mentat.config import ParserSettings
 from mentat.parsers.unified_diff_parser import UnifiedDiffParser
 from mentat.session import Session
+from mentat.utils import dd
 
 
 @pytest.fixture(autouse=True)
 def unified_diff_parser(mocker):
-    mocker.patch.object(Config, "parser", new=UnifiedDiffParser())
+    mocker.patch.object(ParserSettings, "parser", new=UnifiedDiffParser())
 
 
 @pytest.mark.asyncio
@@ -18,6 +20,7 @@ async def test_replacement(
     mock_call_llm_api,
     mock_collect_user_input,
 ):
+
     temp_file_name = Path("temp.py").absolute()
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
@@ -55,6 +58,7 @@ async def test_replacement(
             # This is
             # your captain speaking
             # 4 lines""")
+
     assert content == expected_content
 
 

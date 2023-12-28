@@ -11,12 +11,13 @@ from mentat.vision.vision_manager import ScreenshotException
 class ScreenshotCommand(Command, command_name="screenshot"):
     @override
     async def apply(self, *args: str) -> None:
+        from mentat.config import config, update_config
+
         session_context = SESSION_CONTEXT.get()
         vision_manager = session_context.vision_manager
         stream = session_context.stream
-        config = session_context.config
         conversation = session_context.conversation
-        model = config.model
+        model = config.ai.model
 
         if "gpt" in model:
             if "vision" not in model:
@@ -25,7 +26,7 @@ class ScreenshotCommand(Command, command_name="screenshot"):
                     " gpt-4-vision-preview",
                     color="yellow",
                 )
-                config.model = "gpt-4-vision-preview"
+                update_config({"model" : "gpt-4-vision-preview"})
         else:
             stream.send(
                 "Can't determine if this model supports vision. Attempting anyway.",

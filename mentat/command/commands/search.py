@@ -34,10 +34,11 @@ def _parse_include_input(user_input: str, max_num: int) -> Set[int] | None:
 class SearchCommand(Command, command_name="search"):
     @override
     async def apply(self, *args: str) -> None:
+        from mentat.config import config
+
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
-        config = session_context.config
 
         if len(args) == 0:
             stream.send("No search query specified", color="yellow")
@@ -57,7 +58,7 @@ class SearchCommand(Command, command_name="search"):
             file_name = colored(file_name, "blue", attrs=["bold"])
             file_name += colored(feature.interval_string(), "light_cyan")
 
-            tokens = feature.count_tokens(config.model)
+            tokens = feature.count_tokens(config.ai.model)
             cumulative_tokens += tokens
             tokens_str = colored(f"  ({tokens} tokens)", "yellow")
             file_name += tokens_str

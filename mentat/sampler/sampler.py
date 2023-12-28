@@ -14,25 +14,31 @@ from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import collect_user_input
 from mentat.utils import get_relative_path
+import mentat
 
+def init_settings(repo:str | None = None, merge_base_target:str | None = None) -> None:
+    mentat.user_session.set("sampler_settings",{
+        "repo" : repo,
+        "merge_base_target" : merge_base_target,
+    })
 
 def parse_message(message: ChatCompletionMessageParam) -> dict[str, str]:
-    ctx = SESSION_CONTEXT.get()
     content = message.get("content")
     text, code = "", ""
+    config = mentat.user_session.get("config")
     if isinstance(content, str):
         if message.get("role") != "assistant":
             text = content
         output = list[str]()
         in_special = False
         for line in content.splitlines():
-            if ctx.config.parser._starts_special(line):  # type: ignore
+            if config.parser.parser._starts_special(line):  # type: ignore
                 in_special = True
             if not in_special:
                 output.append(line)
             else:
                 pass  # TODO: Convert to git diff format, replace 'code' above
-            if ctx.config.parser._ends_code(line):  # type: ignore
+            if config.parser.parser._ends_code(line):  # type: ignore
                 in_special = False
         while output[-1] == "":
             output.pop()
@@ -70,8 +76,9 @@ class Sampler:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         code_context = session_context.code_context
-        config = session_context.config
         conversation = session_context.conversation
+
+        sampler_config = mentat.user_session.get("sampler_settings")
 
         git_root = get_git_root_for_path(session_context.cwd, raise_error=False)
         if not git_root:
@@ -80,8 +87,8 @@ class Sampler:
         stream.send("Input sample data", color="light_blue")
         git_repo = Repo(git_root)
         merge_base = None
-        if config.sample_merge_base_target:
-            target = config.sample_merge_base_target
+        if sampler_config.get("merge_base_target"):
+            target = sampler_config.get("merge_base_target")
             stream.send(f"Use merge base target from config ({target})? (y/N)")
             response = (await collect_user_input()).data.strip()
             if response == "y":
@@ -108,7 +115,7 @@ class Sampler:
         except (AssertionError, GitCommandError) as e:
             raise SampleError(f"Error getting diff for merge base: {e}")
 
-        repo = config.sample_repo
+        repo = sampler_config.get("repo")
         if not repo:
             remote_url = ""
             try:
@@ -127,7 +134,11 @@ class Sampler:
                 repo = remote_url
             else:
                 repo = response
-            config.sample_repo = repo
+
+            mentat.user_session.set("sampler_settings", {
+                "repo" : repo,
+                "merge_base_target" : sampler_config.get("merge_base_target")
+            })
 
         stream.send("Sample Title:")
         title = (await collect_user_input()).data.strip() or ""

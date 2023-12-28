@@ -2,6 +2,7 @@ from pathlib import Path
 
 from typing_extensions import override
 
+import mentat
 from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
@@ -14,8 +15,8 @@ from mentat.session_context import SESSION_CONTEXT
 class ReplacementParser(Parser):
     @override
     def get_system_prompt(self) -> str:
-        from mentat.config import config
-        replacement_parser_prompt_filename = config.ai.prompts.get("replacement_parser_prompt")
+        config = mentat.user_session.get("config")
+        replacement_parser_prompt_filename = config.ai.prompts.get("replacement_parser_prompt", Path("text/replacement_parser_prompt.txt"))
         return read_prompt(replacement_parser_prompt_filename)
 
     @override

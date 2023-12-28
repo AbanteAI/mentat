@@ -16,12 +16,17 @@ from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import Choice as AsyncChoice
 from openai.types.chat.chat_completion_chunk import ChoiceDelta
 
-from mentat import config
+
+from mentat.config import load_config
+#first thing we do is  we init a default config
+load_config()
+
+import mentat
 from mentat.agent_handler import AgentHandler
 from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
-from mentat.config import Config, config_file_name
+from mentat.config import config_file_name, MentatConfig
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.git_handler import get_git_root_for_path
@@ -30,6 +35,7 @@ from mentat.sampler.sampler import Sampler
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
 from mentat.streaming_printer import StreamingPrinter
+from mentat.utils import dd
 from mentat.vision.vision_manager import VisionManager
 
 pytest_plugins = ("pytest_reportlog",)
@@ -260,13 +266,14 @@ def mock_session_context(temp_testbed):
     set by a Session if the test creates a Session.
     If you create a Session or Client in your test, do NOT use this SessionContext!
     """
+    #reset the config context
+    load_config()
+
     git_root = get_git_root_for_path(temp_testbed, raise_error=False)
 
     stream = SessionStream()
 
     cost_tracker = CostTracker()
-
-    config = Config()
 
     llm_api_handler = LlmApiHandler()
 
@@ -288,7 +295,6 @@ def mock_session_context(temp_testbed):
         stream,
         llm_api_handler,
         cost_tracker,
-        config,
         code_context,
         code_file_manager,
         conversation,
@@ -381,7 +387,9 @@ def temp_testbed(monkeypatch, get_marks):
 # it will be unset unless a specific test wants to make a config in the testbed
 @pytest.fixture(autouse=True)
 def mock_user_config(mocker):
+    config = mentat.user_session.get("config")
     config.user_config_path = Path(config_file_name)
+    mentat.user_session.set("config", config)
 
 
 @pytest.fixture(autouse=True)

@@ -6,6 +6,7 @@ from typing import Any
 
 from typing_extensions import override
 
+import mentat
 from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
@@ -69,8 +70,8 @@ class _BlockParserDeserializedJson:
 class BlockParser(Parser):
     @override
     def get_system_prompt(self) -> str:
-        from mentat.config import config
-        block_parser_prompt_filename = config.ai.prompts.get("block_parser_prompt")
+        config = mentat.user_session.get("config")
+        block_parser_prompt_filename = config.ai.prompts.get("block_parser_prompt", Path("text/block_parser_prompt.txt"))
         return read_prompt(block_parser_prompt_filename)
 
     @override
