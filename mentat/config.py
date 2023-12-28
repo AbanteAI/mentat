@@ -103,7 +103,8 @@ def yaml_to_config(yaml_dict: dict):
 def init_config():
     """Initialize the configuration file if it doesn't exist."""
     default_conf_path = os.path.join(MENTAT_ROOT, 'resources', 'conf', '.mentatconf.yaml')
-    current_conf_path = os.path.join(APP_ROOT, '.mentatconf.yaml')
+    git_root = get_git_root_for_path(APP_ROOT, raise_error=False)
+    current_conf_path = os.path.join(git_root, '.mentatconf.yaml')
 
     if not os.path.exists(current_conf_path):
         shutil.copy(default_conf_path, current_conf_path)
@@ -150,11 +151,6 @@ def load_settings(config_session_dict = None):
             yaml_dict = load_yaml(str(git_conf_path))
             git_config = yaml_to_config(yaml_dict)
             yaml_config = merge_configs(yaml_config, git_config)
-
-    if current_conf_path.exists():
-        yaml_dict = load_yaml(str(current_conf_path))
-        current_path_config = yaml_to_config(yaml_dict)
-        yaml_config = merge_configs(yaml_config, current_path_config)
 
     if config_session_dict is not None and config_session_dict.get('file_exclude_glob_list') is not None:
         yaml_config["file_exclude_glob_list"].extend(config_session_dict['file_exclude_glob_list'])
