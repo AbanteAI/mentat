@@ -71,7 +71,9 @@ class BlockParser(Parser):
     @override
     def get_system_prompt(self) -> str:
         config = mentat.user_session.get("config")
-        block_parser_prompt_filename = config.ai.prompts.get("block_parser_prompt", Path("text/block_parser_prompt.txt"))
+        block_parser_prompt_filename = config.ai.prompts.get(
+            "block_parser_prompt", Path("text/block_parser_prompt.txt")
+        )
         return read_prompt(block_parser_prompt_filename)
 
     @override

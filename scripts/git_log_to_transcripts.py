@@ -159,12 +159,10 @@ async def translate_commits_to_transcripts(repo, count=10):
                 "args": {},
                 "prompt": prompt,
                 "expected_edits": llmResponse,
-                "edited_features": list(
-                    {
-                        str(f.relative_to(git_root))
-                        for f in bound_files(parsedLLMResponse.file_edits, padding=0)
-                    }
-                ),
+                "edited_features": list({
+                    str(f.relative_to(git_root))
+                    for f in bound_files(parsedLLMResponse.file_edits, padding=0)
+                }),
                 "selected_features": [],
             }
             try:

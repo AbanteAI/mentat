@@ -8,7 +8,7 @@ import pytest
 
 import mentat
 from mentat.code_context import CodeContext
-from mentat.config import RunSettings, update_config, load_config
+from mentat.config import RunSettings, load_config, update_config
 from mentat.errors import ContextSizeInsufficient
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.git_handler import get_non_gitignored_files
@@ -82,7 +82,6 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_code_context):
     config.run.file_exclude_glob_list = [Path("glob_test") / "**" / "*.py"]
     mentat.user_session.set("config", config)
 
-
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
     directly_added_glob_excluded_path = Path(
@@ -113,7 +112,7 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_code_context):
 
 @pytest.mark.asyncio
 async def test_glob_include(temp_testbed, mock_code_context):
-    #reset the config context
+    # reset the config context
     load_config()
 
     # Make sure glob include works

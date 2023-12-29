@@ -35,7 +35,7 @@ def _parse_include_input(user_input: str, max_num: int) -> Set[int] | None:
 class SearchCommand(Command, command_name="search"):
     @override
     async def apply(self, *args: str) -> None:
-        config = mentat.user_session.get('config')
+        config = mentat.user_session.get("config")
 
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream

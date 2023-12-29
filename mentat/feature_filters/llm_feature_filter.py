@@ -10,10 +10,7 @@ from openai.types.chat import (
 )
 
 import mentat
-from mentat.code_feature import (
-    CodeFeature,
-    get_code_message_from_features,
-)
+from mentat.code_feature import CodeFeature, get_code_message_from_features
 from mentat.errors import ModelError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
@@ -25,7 +22,9 @@ from mentat.session_context import SESSION_CONTEXT
 
 class LLMFeatureFilter(FeatureFilter):
     config = mentat.user_session.get("config")
-    feature_selection_prompt_path = config.ai.prompts.get("feature_selection_prompt", Path("text/feature_selection_prompt.txt"))
+    feature_selection_prompt_path = config.ai.prompts.get(
+        "feature_selection_prompt", Path("text/feature_selection_prompt.txt")
+    )
 
     def __init__(
         self,

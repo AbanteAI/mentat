@@ -18,7 +18,6 @@ from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
 
-
 MIN_INTERVAL_LINES = 10
 
 

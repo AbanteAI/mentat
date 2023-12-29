@@ -20,25 +20,23 @@ async def test_invalid_line_numbers(
     mock_call_llm_api,
     mock_collect_user_input,
 ):
-    temp_file_name ="temp.py"
+    temp_file_name = "temp.py"
     temp_file_location = Path.cwd() / temp_file_name
 
     config = mentat.user_session.get("config")
     config.parser.parser = ReplacementParser()
-    mentat.user_session.set('config', config)
+    mentat.user_session.set("config", config)
 
     with open(temp_file_location, "w") as f:
         f.write(dedent("""\
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -72,7 +70,7 @@ async def test_invalid_special_line(
 ):
     config = mentat.user_session.get("config")
     config.parser.parser = ReplacementParser()
-    mentat.user_session.set('config', config)
+    mentat.user_session.set("config", config)
 
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
@@ -80,13 +78,11 @@ async def test_invalid_special_line(
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 

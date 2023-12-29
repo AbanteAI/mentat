@@ -5,6 +5,7 @@ from uuid import uuid4
 from git import GitCommandError, Repo  # type: ignore
 from openai.types.chat import ChatCompletionMessageParam
 
+import mentat
 from mentat.code_feature import get_consolidated_feature_refs
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff, get_git_root_for_path, get_hexsha_active
@@ -14,13 +15,19 @@ from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import collect_user_input
 from mentat.utils import get_relative_path
-import mentat
 
-def init_settings(repo:str | None = None, merge_base_target:str | None = None) -> None:
-    mentat.user_session.set("sampler_settings",{
-        "repo" : repo,
-        "merge_base_target" : merge_base_target,
-    })
+
+def init_settings(
+    repo: str | None = None, merge_base_target: str | None = None
+) -> None:
+    mentat.user_session.set(
+        "sampler_settings",
+        {
+            "repo": repo,
+            "merge_base_target": merge_base_target,
+        },
+    )
+
 
 def parse_message(message: ChatCompletionMessageParam) -> dict[str, str]:
     content = message.get("content")
@@ -135,10 +142,13 @@ class Sampler:
             else:
                 repo = response
 
-            mentat.user_session.set("sampler_settings", {
-                "repo" : repo,
-                "merge_base_target" : sampler_config.get("merge_base_target")
-            })
+            mentat.user_session.set(
+                "sampler_settings",
+                {
+                    "repo": repo,
+                    "merge_base_target": sampler_config.get("merge_base_target"),
+                },
+            )
 
         stream.send("Sample Title:")
         title = (await collect_user_input()).data.strip() or ""

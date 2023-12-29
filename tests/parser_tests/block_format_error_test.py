@@ -54,13 +54,11 @@ async def error_test_template(
     with open(temp_file_name, "w") as f:
         f.write("")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Go!",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Go!",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([changes])
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])

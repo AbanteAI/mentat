@@ -16,7 +16,9 @@ class ReplacementParser(Parser):
     @override
     def get_system_prompt(self) -> str:
         config = mentat.user_session.get("config")
-        replacement_parser_prompt_filename = config.ai.prompts.get("replacement_parser_prompt", Path("text/replacement_parser_prompt.txt"))
+        replacement_parser_prompt_filename = config.ai.prompts.get(
+            "replacement_parser_prompt", Path("text/replacement_parser_prompt.txt")
+        )
         return read_prompt(replacement_parser_prompt_filename)
 
     @override

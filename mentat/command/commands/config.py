@@ -9,10 +9,10 @@ from mentat.session_context import SESSION_CONTEXT
 class ConfigCommand(Command, command_name="config"):
     @override
     async def apply(self, *args: str) -> None:
-        from mentat.config import mid_session_config, update_config, get_config
+        from mentat.config import get_config, mid_session_config, update_config
+
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-
 
         if len(args) == 0:
             stream.send("No config option specified", color="yellow")
@@ -51,10 +51,10 @@ class ConfigCommand(Command, command_name="config"):
                 "prompt_type",
                 "format",
                 "maximum_context",
-                "auto_context_tokens"
+                "auto_context_tokens",
             ]
         elif argument_position == 1:
-            #TODO: Figure out a better way of doing this.
+            # TODO: Figure out a better way of doing this.
             return []
         else:
             return []

@@ -38,7 +38,9 @@ class Session:
     To stop, send a message on the session_exit channel.
     A message will be sent on the client_exit channel when ready for client to quit.
     """
-    _errors: List[str] = [] # pyright: ignore[reportGeneralTypeIssues]
+
+    _errors: List[str] = []  # pyright: ignore[reportGeneralTypeIssues]
+
     def __init__(
         self,
         cwd: Path,
@@ -236,7 +238,7 @@ class Session:
                 with sentry_sdk.start_transaction(
                     op="mentat_started", name="Mentat Started"
                 ) as transaction:
-                    #transaction.set_tag("config", attr.asdict(ctx.config))
+                    # transaction.set_tag("config", attr.asdict(ctx.config))
                     transaction.set_tag("config", "config")
                     await self._main()
             except (SessionExit, CancelledError):

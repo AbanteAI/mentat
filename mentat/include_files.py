@@ -11,7 +11,6 @@ from mentat.errors import PathValidationError
 from mentat.git_handler import get_git_root_for_path, get_non_gitignored_files
 from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.session_context import SESSION_CONTEXT
-
 from mentat.utils import is_file_text_encoded
 
 

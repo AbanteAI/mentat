@@ -14,8 +14,7 @@ from tests.parser_tests.inverse import verify_inverse
 def replacement_parser():
     config = mentat.user_session.get("config")
     config.parser.parser = ReplacementParser()
-    mentat.user_session.set('config', config)
-
+    mentat.user_session.set("config", config)
 
 
 @pytest.mark.asyncio
@@ -26,13 +25,11 @@ async def test_insert(mock_call_llm_api, mock_collect_user_input, replacement_pa
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -60,13 +57,11 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, replacement_pa
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -91,13 +86,11 @@ async def test_replace(mock_call_llm_api, mock_collect_user_input, replacement_p
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -121,13 +114,11 @@ async def test_create_file(
     mock_call_llm_api, mock_collect_user_input, replacement_parser
 ):
     temp_file_name = "temp.py"
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -156,14 +147,12 @@ async def test_delete_file(
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -186,13 +175,11 @@ async def test_rename_file(
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -221,13 +208,11 @@ async def test_change_then_rename_then_change(
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
         

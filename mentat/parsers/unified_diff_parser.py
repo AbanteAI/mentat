@@ -18,7 +18,6 @@ from mentat.parsers.parser import Parser
 from mentat.prompts.prompts import read_prompt
 
 
-
 class UnifiedDiffDelimiter(Enum):
     SpecialStart = "---"
     SpecialEnd = "+++"
@@ -30,7 +29,9 @@ class UnifiedDiffParser(Parser):
     @override
     def get_system_prompt(self) -> str:
         config = mentat.user_session.get("config")
-        unified_diff_parser_prompt_filename = config.ai.prompts.get("unified_diff_parser_prompt", Path("text/unified_diff_parser_prompt.txt"))
+        unified_diff_parser_prompt_filename = config.ai.prompts.get(
+            "unified_diff_parser_prompt", Path("text/unified_diff_parser_prompt.txt")
+        )
         return read_prompt(unified_diff_parser_prompt_filename)
 
     @override

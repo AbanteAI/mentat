@@ -16,11 +16,10 @@ from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import Choice as AsyncChoice
 from openai.types.chat.chat_completion_chunk import ChoiceDelta
 
-
 from mentat.config import load_config
 from mentat.parsers.block_parser import BlockParser
 
-#first thing we do is  we init a default config
+# first thing we do is  we init a default config
 load_config()
 
 import mentat
@@ -28,7 +27,7 @@ from mentat.agent_handler import AgentHandler
 from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
-from mentat.config import config_file_name, MentatConfig
+from mentat.config import MentatConfig, config_file_name
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.git_handler import get_git_root_for_path
@@ -268,19 +267,18 @@ def mock_session_context(temp_testbed):
     set by a Session if the test creates a Session.
     If you create a Session or Client in your test, do NOT use this SessionContext!
     """
-    #reset the config context
+    # reset the config context
     load_config()
 
-    #autoset some settings to conform to tests
+    # autoset some settings to conform to tests
     config = mentat.user_session.get("config")
     config.root = temp_testbed
     config.run.file_exclude_glob_list = []
     config.ai.maximum_context = 16000
-    config.ai.load_prompts('text')
+    config.ai.load_prompts("text")
     config.parser.parser_type = "block"
     config.parser.parser = BlockParser()
     mentat.user_session.set("config", config)
-
 
     git_root = get_git_root_for_path(temp_testbed, raise_error=False)
 

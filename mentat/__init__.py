@@ -8,5 +8,6 @@ __all__ = [
 def __dir__():
     return __all__
 
+
 # Make sure to bump this on Release x.y.z PR's!
 __version__ = "1.0.7"

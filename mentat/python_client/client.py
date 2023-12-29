@@ -77,7 +77,7 @@ class PythonClient:
             self.exclude_paths,
             self.ignore_paths,
             self.diff,
-            self.pr_diff
+            self.pr_diff,
         )
         self.session.start()
         self.acc_task = asyncio.create_task(self._accumulate_messages())

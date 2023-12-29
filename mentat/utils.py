@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+import pprint
+import sys
 import time
 from importlib import resources
 from importlib.abc import Traversable
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, List, Literal, Optional, Union, Any
+from typing import TYPE_CHECKING, Any, AsyncIterator, List, Literal, Optional, Union
 
 import packaging.version
 import requests
@@ -18,9 +20,6 @@ from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
 
 from mentat import __version__
 from mentat.session_context import SESSION_CONTEXT
-
-import pprint
-import sys
 
 if TYPE_CHECKING:
     from mentat.transcripts import Transcript
@@ -213,6 +212,7 @@ def dd(args: Any):
     finally:
         # Exit the program
         sys.exit()
+
 
 def dump(args: Any):
     """

@@ -24,13 +24,11 @@ async def test_insert(mock_call_llm_api, mock_collect_user_input, block_parser):
                         # This is a temporary file
                         # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
 
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment between both lines.
@@ -72,13 +70,11 @@ async def test_replace(mock_call_llm_api, mock_collect_user_input, block_parser)
                         # This is a temporary file
                         # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
 
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will replace both lines with one comment
@@ -120,13 +116,11 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, block_parser):
                         # with 4 
                         # lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
 
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will delete the middle two lines
@@ -160,13 +154,11 @@ async def test_delete(mock_call_llm_api, mock_collect_user_input, block_parser):
 async def test_create_file(mock_call_llm_api, mock_collect_user_input, block_parser):
     # Create a temporary file
     temp_file_name = "new_dir/temp.py"
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
 
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will create a new file called temp.py
@@ -201,14 +193,12 @@ async def test_delete_file(mock_call_llm_api, mock_collect_user_input, block_par
     with open(temp_file_name, "w") as f:
         f.write("# I am not long for this world")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "y",
+        "q",
+    ])
 
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will delete the file
@@ -239,13 +229,11 @@ async def test_rename_file(mock_call_llm_api, mock_collect_user_input, block_par
     with open(temp_file_name, "w") as f:
         f.write("# Move me!")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         I will rename the file
 
@@ -280,13 +268,11 @@ async def test_change_then_rename_file(
     with open(temp_file_name, "w") as f:
         f.write("# Move me!")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         I will insert a comment then rename the file
 
@@ -333,13 +319,11 @@ async def test_rename_file_then_change(
     with open(temp_file_name, "w") as f:
         f.write("# Move me!")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         I will rename the file then insert a comment
 
@@ -389,13 +373,11 @@ async def test_multiple_blocks(
                         # just for
                         # good measure"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
 
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment between the first two lines
@@ -455,13 +437,11 @@ async def test_json_strings(mock_call_llm_api, mock_collect_user_input, block_pa
         f.write(dedent("""\
             # This is a temporary file"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
 
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment at the start.

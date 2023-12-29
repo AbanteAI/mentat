@@ -20,7 +20,6 @@ from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.streaming_printer import StreamingPrinter
 
-
 comment_schema = {
     "type": "object",
     "properties": {"type": {"enum": ["comment"]}, "content": {"type": "string"}},
@@ -85,7 +84,9 @@ class JsonParser(Parser):
     @override
     def get_system_prompt(self) -> str:
         config = mentat.user_session.get("config")
-        json_parser_prompt_filename = config.ai.prompts.get("json_parser_prompt", Path("text/json_parser_prompt.txt"))
+        json_parser_prompt_filename = config.ai.prompts.get(
+            "json_parser_prompt", Path("text/json_parser_prompt.txt")
+        )
         return read_prompt(json_parser_prompt_filename)
 
     @override

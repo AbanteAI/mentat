@@ -72,7 +72,6 @@ def get_paths_with_git_diffs(git_root: Path) -> set[Path]:
 
 def get_git_root_for_path(path: Path, raise_error: bool = True) -> Optional[Path]:
 
-
     if os.path.isdir(path):
         dir_path = path
     else:

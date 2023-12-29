@@ -20,14 +20,21 @@ from mentat.transcripts import ModelMessage
 class AgentHandler:
 
     config = mentat.user_session.get("config")
-    agent_file_selection_prompt_path = config.ai.prompts.get("agent_file_selection_prompt", Path("text/agent_file_selection_prompt.txt"))
-    agent_command_prompt_path = config.ai.prompts.get("agent_command_selection_prompt", Path("text/agent_command_selection_prompt.txt"))
+    agent_file_selection_prompt_path = config.ai.prompts.get(
+        "agent_file_selection_prompt", Path("text/agent_file_selection_prompt.txt")
+    )
+    agent_command_prompt_path = config.ai.prompts.get(
+        "agent_command_selection_prompt",
+        Path("text/agent_command_selection_prompt.txt"),
+    )
 
     def __init__(self):
         self._agent_enabled = False
 
         self.agent_file_message = ""
-        self.agent_file_selection_prompt = read_prompt(self.agent_file_selection_prompt_path)
+        self.agent_file_selection_prompt = read_prompt(
+            self.agent_file_selection_prompt_path
+        )
         self.agent_command_prompt = read_prompt(self.agent_command_prompt_path)
 
     # Make this property readonly because we have to set things when we enable agent mode

@@ -72,7 +72,9 @@ class CodeContext:
 
         if config.run.auto_context_tokens > 0:
             stream.send(f"{prefix}Auto-Context: Enabled")
-            stream.send(f"{prefix}Auto-Context Tokens: {config.run.auto_context_tokens}")
+            stream.send(
+                f"{prefix}Auto-Context Tokens: {config.run.auto_context_tokens}"
+            )
         else:
             stream.send(f"{prefix}Auto-Context: Disabled")
 
@@ -156,7 +158,9 @@ class CodeContext:
 
         if not is_context_sufficient(tokens_used):
             raise ContextSizeInsufficient()
-        auto_tokens = min(get_max_tokens() - tokens_used, config.run.auto_context_tokens)
+        auto_tokens = min(
+            get_max_tokens() - tokens_used, config.run.auto_context_tokens
+        )
 
         # Get auto included features
         if config.run.auto_context_tokens > 0 and prompt:
@@ -191,9 +195,7 @@ class CodeContext:
         config = mentat.user_session.get("config")
 
         abs_exclude_patterns: Set[Path] = set()
-        for pattern in self.ignore_patterns.union(
-            config.run.file_exclude_glob_list
-        ):
+        for pattern in self.ignore_patterns.union(config.run.file_exclude_glob_list):
             if not Path(pattern).is_absolute():
                 abs_exclude_patterns.add(session_context.cwd / pattern)
             else:
@@ -277,13 +279,11 @@ class CodeContext:
         path = Path(path)
 
         abs_exclude_patterns: Set[Path] = set()
-        all_exclude_patterns: Set[Union[str, Path]] = set(
-            [
-                *exclude_patterns,
-                *self.ignore_patterns,
-                *config.run.file_exclude_glob_list,
-            ]
-        )
+        all_exclude_patterns: Set[Union[str, Path]] = set([
+            *exclude_patterns,
+            *self.ignore_patterns,
+            *config.run.file_exclude_glob_list,
+        ])
 
         for pattern in all_exclude_patterns:
             if not Path(pattern).is_absolute():

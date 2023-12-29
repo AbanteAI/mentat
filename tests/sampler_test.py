@@ -36,7 +36,7 @@ async def test_sample_from_context(
     mock_session_context,
     mock_collect_user_input,
 ):
-    init_settings(repo="test_sample_repo",merge_base_target="")
+    init_settings(repo="test_sample_repo", merge_base_target="")
 
     mocker.patch(
         "mentat.conversation.Conversation.get_messages",
@@ -63,14 +63,12 @@ async def test_sample_from_context(
     with open("test_file.py", "w") as f:
         f.write("test_file_content\n")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "",
-            "test_title",
-            "test_description",
-            "test_test_command",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "",
+        "test_title",
+        "test_description",
+        "test_test_command",
+    ])
     sampler = Sampler()
     sample = await sampler.create_sample()
     assert sample.title == "test_title"
@@ -102,19 +100,17 @@ def is_sha1(string: str) -> bool:
 async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
     init_settings(repo=None)
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Request",
-            "y",
-            f"/sample {temp_testbed.as_posix()}",
-            "",
-            "test_url",
-            "test_title",
-            "test_description",
-            "test_test_command",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Request",
+        "y",
+        f"/sample {temp_testbed.as_posix()}",
+        "",
+        "test_url",
+        "test_title",
+        "test_description",
+        "test_test_command",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment in both files.
 

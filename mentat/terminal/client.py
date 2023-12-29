@@ -2,15 +2,17 @@ import asyncio
 import logging
 import signal
 from asyncio import Event
+from pathlib import Path
 from types import FrameType
-from typing import Any, Coroutine, Set, Optional
+from typing import Any, Coroutine, List, Optional, Set
 
+import click
 from prompt_toolkit import PromptSession
-from prompt_toolkit.key_binding import KeyPressEvent
+from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
+from prompt_toolkit.styles import Style
 
 import mentat
 from mentat.config import update_config
-
 from mentat.sampler import sampler
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
@@ -18,13 +20,6 @@ from mentat.terminal.loading import LoadingHandler
 from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
-
-from typing import List
-from pathlib import Path
-import click
-
-from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.styles import Style
 
 
 class TerminalClient:
@@ -148,7 +143,7 @@ class TerminalClient:
             self.exclude_paths,
             self.ignore_paths,
             self.diff,
-            self.pr_diff
+            self.pr_diff,
         )
         self.session.start()
 
@@ -204,17 +199,54 @@ class TerminalClient:
 
 # Event handlers for all the buttons.
 
+
 @click.command()
-@click.option('-e', '--exclude-paths', multiple=True, default=[], help='List of file paths, directory paths, or glob patterns to exclude.')
-@click.option('-g', '--ignore-paths', multiple=True, default=[], help='List of file paths, directory paths, or glob patterns to ignore in auto-context.')
-@click.option('-d', '--diff', default=None, show_default='HEAD', help='A git tree-ish (e.g. commit, branch, tag) to diff against.')
-@click.option('-p', '--pr-diff', default=None, help='A git tree-ish to diff against the latest common ancestor of.')
-@click.option('--cwd', default=str(Path.cwd()), help='The current working directory.')
-@click.option('--model', default=None, help='The Model to use.')
-@click.option('--temperature', default=None, help='The Model Temperature to use.')
-@click.option('--maximum-context', default=None, help='The Maximum Context')
-@click.argument('paths', nargs=-1, required=True)
-def start(paths: list[str], exclude_paths: list[str], ignore_paths: list[str], diff: Optional[str], pr_diff: Optional[str], cwd: Optional[str], model: Optional[str], temperature: Optional[float], maximum_context: Optional[int]) -> None:
+@click.option(
+    "-e",
+    "--exclude-paths",
+    multiple=True,
+    default=[],
+    help="List of file paths, directory paths, or glob patterns to exclude.",
+)
+@click.option(
+    "-g",
+    "--ignore-paths",
+    multiple=True,
+    default=[],
+    help=(
+        "List of file paths, directory paths, or glob patterns to ignore in"
+        " auto-context."
+    ),
+)
+@click.option(
+    "-d",
+    "--diff",
+    default=None,
+    show_default="HEAD",
+    help="A git tree-ish (e.g. commit, branch, tag) to diff against.",
+)
+@click.option(
+    "-p",
+    "--pr-diff",
+    default=None,
+    help="A git tree-ish to diff against the latest common ancestor of.",
+)
+@click.option("--cwd", default=str(Path.cwd()), help="The current working directory.")
+@click.option("--model", default=None, help="The Model to use.")
+@click.option("--temperature", default=None, help="The Model Temperature to use.")
+@click.option("--maximum-context", default=None, help="The Maximum Context")
+@click.argument("paths", nargs=-1, required=True)
+def start(
+    paths: list[str],
+    exclude_paths: list[str],
+    ignore_paths: list[str],
+    diff: Optional[str],
+    pr_diff: Optional[str],
+    cwd: Optional[str],
+    model: Optional[str],
+    temperature: Optional[float],
+    maximum_context: Optional[int],
+) -> None:
 
     sampler.init_settings()
 
@@ -230,12 +262,7 @@ def start(paths: list[str], exclude_paths: list[str], ignore_paths: list[str], d
         current_working_directory = Path(cwd).expanduser().resolve()
 
     terminal_client = TerminalClient(
-        current_working_directory,
-        paths,
-        exclude_paths,
-        ignore_paths,
-        diff,
-        pr_diff
+        current_working_directory, paths, exclude_paths, ignore_paths, diff, pr_diff
     )
 
     terminal_client.run()

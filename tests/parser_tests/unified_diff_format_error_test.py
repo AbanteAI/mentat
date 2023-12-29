@@ -26,13 +26,11 @@ async def test_not_matching(
             # with
             # 4 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -72,13 +70,11 @@ async def test_no_prefix(
             # with
             # 4 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 

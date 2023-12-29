@@ -31,12 +31,10 @@ async def test_commit_command(temp_testbed, mock_collect_user_input):
     with open(file_name, "w") as f:
         f.write("# Commit me!")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "/commit",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "/commit",
+        "q",
+    ])
 
     session = Session(cwd=temp_testbed, paths=[])
     session.start()
@@ -48,12 +46,10 @@ async def test_commit_command(temp_testbed, mock_collect_user_input):
 # TODO: test without git
 @pytest.mark.asyncio
 async def test_include_command(temp_testbed, mock_collect_user_input):
-    mock_collect_user_input.set_stream_messages(
-        [
-            "/include scripts",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "/include scripts",
+        "q",
+    ])
 
     session = Session(cwd=temp_testbed)
     session.start()
@@ -68,12 +64,10 @@ async def test_include_command(temp_testbed, mock_collect_user_input):
 # TODO: test without git
 @pytest.mark.asyncio
 async def test_exclude_command(temp_testbed, mock_collect_user_input):
-    mock_collect_user_input.set_stream_messages(
-        [
-            "/exclude scripts",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "/exclude scripts",
+        "q",
+    ])
 
     session = Session(cwd=temp_testbed, paths=["scripts"])
     session.start()
@@ -91,14 +85,12 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Edit the file",
-            "y",
-            "/undo",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Edit the file",
+        "y",
+        "/undo",
+        "q",
+    ])
 
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
@@ -134,15 +126,13 @@ async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Edit the file",
-            "y",
-            "/undo",
-            "/redo",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Edit the file",
+        "y",
+        "/undo",
+        "/redo",
+        "q",
+    ])
 
     new_file_name = "new_temp.py"
     mock_call_llm_api.set_streamed_values([dedent(f"""\
@@ -197,14 +187,12 @@ async def test_undo_all_command(
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "",
-            "y",
-            "/undo-all",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "",
+        "y",
+        "/undo-all",
+        "q",
+    ])
 
     # TODO: Make a way to set multiple return values for call_llm_api and reset multiple edits at once
     mock_call_llm_api.set_streamed_values([dedent(f"""\
@@ -235,13 +223,11 @@ async def test_undo_all_command(
 
 @pytest.mark.asyncio
 async def test_clear_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Request",
-            "/clear",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Request",
+        "/clear",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values(["Answer"])
 
     session = Session(cwd=Path.cwd())
@@ -257,13 +243,11 @@ async def test_clear_command(temp_testbed, mock_collect_user_input, mock_call_ll
 async def test_search_command(
     mocker, temp_testbed, mock_call_llm_api, mock_collect_user_input
 ):
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Request",
-            "/search Query",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Request",
+        "/search Query",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values(["Answer"])
     mock_feature = CodeFeature(
         Path(temp_testbed) / "multifile_calculator" / "calculator.py"
