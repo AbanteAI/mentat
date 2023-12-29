@@ -12,6 +12,7 @@ from dataclasses_json import DataClassJsonMixin
 import mentat
 from mentat import user_session
 from mentat.git_handler import get_git_root_for_path
+from mentat.llm_api_handler import known_models
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.parsers.unified_diff_parser import UnifiedDiffParser
@@ -76,7 +77,7 @@ class AIModelSettings(DataClassJsonMixin):
         no_parser_prompt: Optional[bool] = False,
     ):
         if model is not None:
-            self.model = model
+            self.load_model(model)
         if feature_selection_model is not None:
             self.feature_selection_model = feature_selection_model
         if embedding_model is not None:
@@ -91,6 +92,13 @@ class AIModelSettings(DataClassJsonMixin):
             self.token_buffer = token_buffer
         if no_parser_prompt is not None:
             self.no_parser_prompt = no_parser_prompt
+
+    def load_model(self, model: str) -> None:
+        self.model = model
+        known_model = known_models.get(model)
+        if known_model is not None:
+            if hasattr(known_model, "context_size"):
+                self.maximum_context = int(known_model.context_size)
 
     def load_prompts(self, prompt_type: str) -> None:
         prompts_type = {
@@ -242,7 +250,7 @@ def load_settings(config_session: Optional[RunningSessionConfig] = None):
     if user_conf_path.exists():
         data = load_yaml(str(user_conf_path))
         # fmt: off
-        yaml_config = yaml_config.from_dict( # pyright: ignore[reportUnknownMemberType]
+        yaml_config = yaml_config.from_dict(  # pyright: ignore[reportUnknownMemberType]
             kvs=data, infer_missing=True
         )
         # fmt: on
@@ -252,7 +260,7 @@ def load_settings(config_session: Optional[RunningSessionConfig] = None):
         if git_conf_path.exists():
             data = load_yaml(str(git_conf_path))
             # fmt: off
-            yaml_config = yaml_config.from_dict( # pyright: ignore[reportUnknownMemberType]
+            yaml_config = yaml_config.from_dict(  # pyright: ignore[reportUnknownMemberType]
                 kvs=data, infer_missing=True
             )
             # fmt: on
@@ -333,7 +341,7 @@ def update_config(setting: str, value: str | float | int) -> None:
 
     try:
         if setting == "model":
-            config.ai.model = value
+            config.ai.load_model(value)
         elif setting == "temperature":
             config.ai.temperature = float(value)
         elif setting == "format":

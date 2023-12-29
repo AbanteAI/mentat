@@ -231,7 +231,19 @@ class Session:
         the main loop which runs until an Exception or session_exit signal is encountered.
         """
 
-        self.stream.send("ABC", color="red")
+        self.stream.send(
+            """
+███╗   ███╗███████╗███╗   ██╗████████╗ █████╗ ████████╗
+████╗ ████║██╔════╝████╗  ██║╚══██╔══╝██╔══██╗╚══██╔══╝
+██╔████╔██║█████╗  ██╔██╗ ██║   ██║   ███████║   ██║   
+██║╚██╔╝██║██╔══╝  ██║╚██╗██║   ██║   ██╔══██║   ██║   
+██║ ╚═╝ ██║███████╗██║ ╚████║   ██║   ██║  ██║   ██║   
+╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   
+-------------------------------------------------------
+   It is by will alone I set my mind in motion
+                                                       """,
+            color="purple",
+        )
 
         async def run_main():
             try:
