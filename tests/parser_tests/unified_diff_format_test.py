@@ -4,10 +4,8 @@ from textwrap import dedent
 import pytest
 
 import mentat
-from mentat.config import ParserSettings
 from mentat.parsers.unified_diff_parser import UnifiedDiffParser
 from mentat.session import Session
-from mentat.utils import dd
 
 
 @pytest.fixture(autouse=True)

@@ -4,7 +4,6 @@ from textwrap import dedent
 import pytest
 
 import mentat
-from mentat.config import ParserSettings
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session import Session
 from tests.parser_tests.inverse import verify_inverse

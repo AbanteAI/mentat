@@ -1,19 +1,11 @@
-import argparse
-import os
 from io import StringIO
-from pathlib import Path
-from textwrap import dedent
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
-from yaml import dump
 
 import mentat.config
 from mentat import config
-from mentat.config import update_config
-from mentat.parsers.replacement_parser import ReplacementParser
-from mentat.utils import dd
 
 
 @pytest.fixture
@@ -39,6 +31,6 @@ async def test_default_config():
     assert config.ai.maximum_context == 16000
 
     assert config.run.auto_tokens == 8000
-    assert config.run.auto_context == False
+    assert config.run.auto_context is False
 
     assert config.parser.parser_type == "block"

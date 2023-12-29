@@ -16,22 +16,17 @@ from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import Choice as AsyncChoice
 from openai.types.chat.chat_completion_chunk import ChoiceDelta
 
-from mentat.config import load_config
-from mentat.parsers.block_parser import BlockParser
-
-# first thing we do is  we init a default config
-load_config()
-
 import mentat
 from mentat.agent_handler import AgentHandler
 from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
-from mentat.config import MentatConfig, config_file_name
+from mentat.config import config_file_name, load_config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler
+from mentat.parsers.block_parser import BlockParser
 from mentat.sampler.sampler import Sampler
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource

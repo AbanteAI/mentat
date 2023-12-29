@@ -241,17 +241,21 @@ def load_settings(config_session: Optional[RunningSessionConfig] = None):
 
     if user_conf_path.exists():
         data = load_yaml(str(user_conf_path))
-        yaml_config = yaml_config.from_dict(
+        # fmt: off
+        yaml_config = yaml_config.from_dict( # pyright: ignore[reportUnknownMemberType]
             kvs=data, infer_missing=True
-        )  # pyright: ignore[reportUnknownMemberType]
+        )
+        # fmt: on
 
     if git_root is not None:
         git_conf_path = Path(git_root) / ".mentatconf.yaml"
         if git_conf_path.exists():
             data = load_yaml(str(git_conf_path))
-            yaml_config = yaml_config.from_dict(
+            # fmt: off
+            yaml_config = yaml_config.from_dict( # pyright: ignore[reportUnknownMemberType]
                 kvs=data, infer_missing=True
-            )  # pyright: ignore[reportUnknownMemberType]
+            )
+            # fmt: on
 
     # safety checks for missing values
     if yaml_config.file_exclude_glob_list is None:

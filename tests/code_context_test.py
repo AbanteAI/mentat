@@ -8,14 +8,13 @@ import pytest
 
 import mentat
 from mentat.code_context import CodeContext
-from mentat.config import RunSettings, load_config, update_config
+from mentat.config import load_config
 from mentat.errors import ContextSizeInsufficient
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
 from mentat.interval import Interval
 from mentat.llm_api_handler import count_tokens
-from mentat.utils import dd
 from tests.conftest import run_git_command
 
 

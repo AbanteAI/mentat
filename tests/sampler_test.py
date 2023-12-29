@@ -20,7 +20,6 @@ from mentat.sampler.sample import Sample
 from mentat.sampler.sampler import Sampler, init_settings
 from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session import Session
-from mentat.utils import dd
 from scripts.evaluate_samples import evaluate_sample
 
 

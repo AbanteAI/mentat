@@ -7,7 +7,6 @@ import mentat
 from mentat.config import ParserSettings
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session import Session
-from mentat.utils import dd
 
 
 @pytest.fixture(autouse=True)

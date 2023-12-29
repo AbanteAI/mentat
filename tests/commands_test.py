@@ -11,7 +11,6 @@ from mentat.command.commands.context import ContextCommand
 from mentat.command.commands.help import HelpCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import dd
 
 
 def test_invalid_command():
