@@ -60,7 +60,7 @@ jobs:
         # Ensure that python doesn't import local mentat folder and that 'mentat' command calls mentat instead of switching folders.
         working-directory: ./testbed
         run: |
-          poetry run mentat
+          poetry run mentat .
 
   license-check:
     runs-on: ubuntu-latest
