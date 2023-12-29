@@ -31,7 +31,6 @@ from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import count_tokens, get_max_tokens, is_context_sufficient
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
-from mentat.utils import dd
 
 
 class CodeContext:
@@ -154,6 +153,7 @@ class CodeContext:
         tokens_used = (
             prompt_tokens + meta_tokens + include_files_tokens + config.ai.token_buffer
         )
+
         if not is_context_sufficient(tokens_used):
             raise ContextSizeInsufficient()
         auto_tokens = min(get_max_tokens() - tokens_used, config.run.auto_context_tokens)
@@ -284,6 +284,7 @@ class CodeContext:
                 *config.run.file_exclude_glob_list,
             ]
         )
+
         for pattern in all_exclude_patterns:
             if not Path(pattern).is_absolute():
                 abs_exclude_patterns.add(session_context.cwd / pattern)
@@ -296,6 +297,7 @@ class CodeContext:
                 cwd=session_context.cwd,
                 exclude_patterns=abs_exclude_patterns,
             )
+
         except PathValidationError as e:
             session_context.stream.send(str(e), color="light_red")
             return set()

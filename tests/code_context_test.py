@@ -194,7 +194,9 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
 @pytest.mark.asyncio
 @pytest.mark.clear_testbed
 async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
-    update_config({"maximum_context" : 8000})
+    config = mentat.user_session.get("config")
+    config.ai.maximum_context = 8000
+    mentat.user_session.set("config", config)
 
     with open("file_1.py", "w") as f:
         f.write(dedent("""\

@@ -4,12 +4,14 @@ from textwrap import dedent
 
 import pytest
 
+import mentat
 from mentat.code_feature import CodeFeature
 from mentat.command.command import Command, InvalidCommand
 from mentat.command.commands.context import ContextCommand
 from mentat.command.commands.help import HelpCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import dd
 
 
 def test_invalid_command():
@@ -290,16 +292,16 @@ async def test_context_command(temp_testbed, mock_call_llm_api):
 @pytest.mark.asyncio
 async def test_config_command(mock_call_llm_api):
     session_context = SESSION_CONTEXT.get()
-    config = session_context.config
     stream = session_context.stream
     command = Command.create_command("config")
     await command.apply("test")
     assert stream.messages[-1].data == "Unrecognized config option: test"
     await command.apply("model")
     assert stream.messages[-1].data.startswith("model: ")
-    await command.apply("model", "test")
-    assert stream.messages[-1].data == "model set to test"
-    assert config.model == "test"
+    await command.apply("model", "gpt-4-32k")
+    assert stream.messages[-1].data == "model set to gpt-4-32k"
+    config = mentat.user_session.get("config")
+    assert config.ai.model == "gpt-4-32k"
     await command.apply("model", "test", "lol")
     assert stream.messages[-1].data == "Too many arguments"
 
@@ -310,11 +312,11 @@ async def test_screenshot_command(mocker):
     session_context = SESSION_CONTEXT.get()
     mock_vision_manager = mocker.MagicMock()
     session_context.vision_manager = mock_vision_manager
-    config = session_context.config
+    config = mentat.user_session.get("config")
     stream = session_context.stream
     conversation = session_context.conversation
 
-    assert config.model != "gpt-4-vision-preview"
+    assert config.ai.model != "gpt-4-vision-preview"
 
     mock_vision_manager.screenshot.return_value = "fake_image_data"
 
@@ -322,7 +324,7 @@ async def test_screenshot_command(mocker):
     await screenshot_command.apply("fake_path")
 
     mock_vision_manager.screenshot.assert_called_once_with("fake_path")
-    assert config.model == "gpt-4-vision-preview"
+    assert config.ai.model == "gpt-4-vision-preview"
     assert stream.messages[-1].data == "Screenshot taken for: fake_path."
     assert conversation._messages[-1] == {
         "role": "user",
@@ -333,11 +335,11 @@ async def test_screenshot_command(mocker):
     }
 
     # Test non-gpt models aren't changed
-    config.model = "test"
+    config.ai.model = "test"
     await screenshot_command.apply("fake_path")
-    assert config.model == "test"
+    assert config.ai.model == "test"
 
     # Test other models containing vision aren't changed
-    config.model = "gpt-vision"
+    config.ai.model = "gpt-vision"
     await screenshot_command.apply("fake_path")
-    assert config.model == "gpt-vision"
+    assert config.ai.model == "gpt-vision"

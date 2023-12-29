@@ -50,16 +50,16 @@ class LLMFeatureFilter(FeatureFilter):
         llm_api_handler = session_context.llm_api_handler
 
         # Preselect as many features as fit in the context window
-        model = config.ai.feature_selection_model
+        model = self.config.ai.feature_selection_model
         context_size = model_context_size(model)
         if context_size is None:
             raise UserError(
                 "Unknown context size for feature selection model: "
-                f"{config.ai.feature_selection_model}"
+                f"{self.config.ai.feature_selection_model}"
             )
         system_prompt = read_prompt(self.feature_selection_prompt_path)
         system_prompt_tokens = count_tokens(
-            system_prompt, config.ai.feature_selection_model, full_message=True
+            system_prompt, self.config.ai.feature_selection_model, full_message=True
         )
         user_prompt_tokens = count_tokens(self.user_prompt, model, full_message=True)
         expected_edits_tokens = (
@@ -72,7 +72,7 @@ class LLMFeatureFilter(FeatureFilter):
             - system_prompt_tokens
             - user_prompt_tokens
             - expected_edits_tokens
-            - config.ai.token_buffer
+            - self.config.ai.token_buffer
         )
         truncate_filter = TruncateFilter(preselect_max_tokens, model)
         preselected_features = await truncate_filter.filter(features)
@@ -172,5 +172,5 @@ class LLMFeatureFilter(FeatureFilter):
                 named_features.add(parsed_feature)
 
         # Greedy again to enforce max_tokens
-        truncate_filter = TruncateFilter(self.max_tokens, config.ai.model)
+        truncate_filter = TruncateFilter(self.max_tokens, self.config.ai.model)
         return await truncate_filter.filter(named_features)

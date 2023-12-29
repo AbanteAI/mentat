@@ -41,7 +41,7 @@ from PIL import Image
 import mentat
 from mentat.errors import ContextSizeInsufficient, MentatError, UserError
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import mentat_dir_path, dd
+from mentat.utils import mentat_dir_path
 
 TOKEN_COUNT_WARNING = 32000
 
@@ -197,7 +197,6 @@ def get_max_tokens() -> int:
     context_size = model_context_size(config.ai.model)
     maximum_context = config.ai.maximum_context
 
-
     if context_size is not None and maximum_context is not None:
         return min(int(context_size), int(maximum_context))
     elif context_size is not None:
@@ -218,6 +217,7 @@ def is_context_sufficient(tokens: int) -> bool:
     ctx = SESSION_CONTEXT.get()
 
     max_tokens = get_max_tokens()
+
     if max_tokens - tokens < config.ai.token_buffer:
         ctx.stream.send(
             f"The context size is limited to {max_tokens} tokens and your current"

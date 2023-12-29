@@ -1,7 +1,9 @@
 import pytest
 
+import mentat
 from mentat.code_feature import CodeFeature
 from mentat.feature_filters.llm_feature_filter import LLMFeatureFilter
+from mentat.utils import dd
 
 
 @pytest.mark.asyncio

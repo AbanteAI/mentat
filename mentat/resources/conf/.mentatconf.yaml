@@ -1,12 +1,17 @@
+#settings related to the AI are below
+
 # This field is for specifying the model name. You can find the list of valid options at https://platform.openai.com/docs/models/overview
 model: gpt-4-1106-preview
+temperature: 0.2
 
 # For models other than gpt-3.5 and gpt-4, the model's context size can't be inferred.
 # In such cases, you need to specify the maximum context manually.
-# maximum_context: 16000
+maximum_context:
 
 #the type of prompts that the agent should be using options are text and markdown
 prompt_type: text
+
+#settings related to each "run"
 
 # This list contains glob patterns. Mentat uses these patterns to exclude certain files when provided with a directory argument.
 # Mentat considers all files that do not match your .gitignore file and these patterns.
@@ -15,18 +20,20 @@ prompt_type: text
 file_exclude_glob_list:
 #  - "**/.*"
 #  - "**/.*/**"
+auto_context_tokens:
 
-# This section contains key-value pairs for defining a custom Pygment Style for the Mentat prompt.
-input_style:
-  - - ""
-    - "#9835bd"
-  - - "prompt"
-    - "#ffffff bold"
-  - - "continuation"
-    - "#ffffff bold"
+#settings related to the "parser"
 
 # Mentat parses files following a specific format, which you can set here.
 # Multiple formats are available, though the default one is expected to be the best fit for most cases.
 # You can experiment with different formats as per your need.
 # Available formats include:  block, replacement, unified-diff.
 format: block
+
+#settings related to each "UI"
+
+# This section contains key-value pairs for defining a custom Pygment Style for the Mentat prompt.
+input_style:
+  "" : "#9835bd"
+  "prompt" : "#ffffff bold"
+  "continuation" : "#ffffff bold"

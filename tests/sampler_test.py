@@ -17,9 +17,10 @@ from mentat.parsers.git_parser import GitParser
 from mentat.python_client.client import PythonClient
 from mentat.sampler import __version__
 from mentat.sampler.sample import Sample
-from mentat.sampler.sampler import Sampler
+from mentat.sampler.sampler import Sampler, init_settings
 from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session import Session
+from mentat.utils import dd
 from scripts.evaluate_samples import evaluate_sample
 
 
@@ -35,7 +36,7 @@ async def test_sample_from_context(
     mock_session_context,
     mock_collect_user_input,
 ):
-    mock_session_context.config.sample_repo = "test_sample_repo"
+    init_settings(repo="test_sample_repo",merge_base_target="")
 
     mocker.patch(
         "mentat.conversation.Conversation.get_messages",
@@ -99,6 +100,8 @@ def is_sha1(string: str) -> bool:
 
 @pytest.mark.asyncio
 async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
+    init_settings(repo=None)
+
     mock_collect_user_input.set_stream_messages(
         [
             "Request",
@@ -327,6 +330,7 @@ def get_updates_as_parsed_llm_message(cwd):
 async def test_sampler_integration(
     temp_testbed, mock_session_context, mock_call_llm_api
 ):
+    init_settings(repo=None)
     # Setup the environemnt
     repo = Repo(temp_testbed)
     (temp_testbed / "test_file.py").write_text("permanent commit")
@@ -403,6 +407,7 @@ async def test_sampler_integration(
     # Evaluate the sample using Mentat
     sample_files = list(temp_testbed.glob("sample_*.json"))
     assert len(sample_files) == 1
+
     sample = Sample.load(sample_files[0])
     assert sample.title == "test_title"
     assert sample.description == "test_description"

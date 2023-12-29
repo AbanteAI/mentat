@@ -36,7 +36,6 @@ def print_stream_message(message: StreamMessage):
             color = message.extra["color"]
         if isinstance(message.extra.get("flush"), bool):
             flush = message.extra["flush"]
-
     _print_stream_message_string(
         content=message.data,
         end=end,

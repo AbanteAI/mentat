@@ -38,7 +38,7 @@ class Session:
     To stop, send a message on the session_exit channel.
     A message will be sent on the client_exit channel when ready for client to quit.
     """
-
+    _errors: List[str] = [] # pyright: ignore[reportGeneralTypeIssues]
     def __init__(
         self,
         cwd: Path,
@@ -57,8 +57,6 @@ class Session:
         sentry_init()
         self.id = uuid4()
         self._tasks: Set[asyncio.Task[None]] = set()
-
-        self._errors: List[Any] = []
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
@@ -108,6 +106,7 @@ class Session:
         self.send_errors_to_stream()
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)
+
         if (
             code_context.diff_context is not None
             and len(code_context.include_files) == 0
@@ -166,11 +165,13 @@ class Session:
                     conversation.add_user_message(message.data)
 
                 parsed_llm_response = await conversation.get_model_response()
+
                 file_edits = [
                     file_edit
                     for file_edit in parsed_llm_response.file_edits
                     if file_edit.is_valid()
                 ]
+
                 if file_edits:
                     if not agent_handler.agent_enabled:
                         file_edits, need_user_request = (
@@ -228,12 +229,14 @@ class Session:
         the main loop which runs until an Exception or session_exit signal is encountered.
         """
 
+        self.stream.send("ABC", color="red")
+
         async def run_main():
             try:
                 with sentry_sdk.start_transaction(
                     op="mentat_started", name="Mentat Started"
                 ) as transaction:
-                    #TODO: Does this need to be here?
+                    #transaction.set_tag("config", attr.asdict(ctx.config))
                     transaction.set_tag("config", "config")
                     await self._main()
             except (SessionExit, CancelledError):
@@ -288,5 +291,5 @@ class Session:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         for error in self._errors:
-            stream.send(error, color="yellow")
+            stream.send(str(error), color="yellow")
         self._errors = []

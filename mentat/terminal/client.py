@@ -19,7 +19,7 @@ from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
 
-from typing import List, Dict, Union
+from typing import List
 from pathlib import Path
 import click
 
@@ -216,30 +216,14 @@ class TerminalClient:
 @click.argument('paths', nargs=-1, required=True)
 def start(paths: list[str], exclude_paths: list[str], ignore_paths: list[str], diff: Optional[str], pr_diff: Optional[str], cwd: Optional[str], model: Optional[str], temperature: Optional[float], maximum_context: Optional[int]) -> None:
 
-    # Check if these variables are set and pass them to update_config function as kwargs
-    session_config: Dict[str, Union[List[str], None, str, int, float]] = {
-        'file_exclude_glob_list': [],
-        'model': None,
-        'temperature': None,
-        'maximum_context': None
-     }
-
-    if exclude_paths:
-        session_config["file_exclude_glob_list"] = exclude_paths
-
-    if model:
-        session_config["model"] = model
-
-    if temperature:
-        session_config["temperature"] = temperature
-
-    if maximum_context:
-        session_config["maximum_context"] = maximum_context
-
-
     sampler.init_settings()
 
-    update_config(session_config)
+    if model is not None:
+        update_config("model", model)
+    if temperature is not None:
+        update_config("temperature", temperature)
+    if maximum_context is not None:
+        update_config("maximum_context", maximum_context)
 
     current_working_directory = Path.cwd()
     if cwd:

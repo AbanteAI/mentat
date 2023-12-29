@@ -11,8 +11,11 @@ from mentat.utils import dd
 
 
 @pytest.fixture(autouse=True)
-def unified_diff_parser(mocker):
-    mocker.patch.object(ParserSettings, "parser", new=UnifiedDiffParser())
+def unified_diff_parser():
+    config = mentat.user_session.get("config")
+    config.parser.parser = UnifiedDiffParser()
+    mentat.user_session.set('config', config)
+
 
 
 @pytest.mark.asyncio

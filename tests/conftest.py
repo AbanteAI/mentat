@@ -18,6 +18,8 @@ from openai.types.chat.chat_completion_chunk import ChoiceDelta
 
 
 from mentat.config import load_config
+from mentat.parsers.block_parser import BlockParser
+
 #first thing we do is  we init a default config
 load_config()
 
@@ -35,7 +37,6 @@ from mentat.sampler.sampler import Sampler
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
 from mentat.streaming_printer import StreamingPrinter
-from mentat.utils import dd
 from mentat.vision.vision_manager import VisionManager
 
 pytest_plugins = ("pytest_reportlog",)
@@ -211,6 +212,7 @@ def mock_call_llm_api(mocker):
                 Choice(
                     finish_reason="stop",
                     index=0,
+                    logprobs=None,
                     message=ChatCompletionMessage(
                         content=value,
                         role="assistant",
@@ -268,6 +270,17 @@ def mock_session_context(temp_testbed):
     """
     #reset the config context
     load_config()
+
+    #autoset some settings to conform to tests
+    config = mentat.user_session.get("config")
+    config.root = temp_testbed
+    config.run.file_exclude_glob_list = []
+    config.ai.maximum_context = 16000
+    config.ai.load_prompts('text')
+    config.parser.parser_type = "block"
+    config.parser.parser = BlockParser()
+    mentat.user_session.set("config", config)
+
 
     git_root = get_git_root_for_path(temp_testbed, raise_error=False)
 

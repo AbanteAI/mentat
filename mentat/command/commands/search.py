@@ -3,6 +3,7 @@ from typing import List, Set
 from termcolor import colored
 from typing_extensions import override
 
+import mentat
 from mentat.command.command import Command, CommandArgument
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
@@ -34,7 +35,7 @@ def _parse_include_input(user_input: str, max_num: int) -> Set[int] | None:
 class SearchCommand(Command, command_name="search"):
     @override
     async def apply(self, *args: str) -> None:
-        from mentat.config import config
+        config = mentat.user_session.get('config')
 
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
