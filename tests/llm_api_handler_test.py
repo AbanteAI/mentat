@@ -23,11 +23,9 @@ def test_prompt_tokens():
     img_base64 = base64.b64encode(buffer.getvalue()).decode()
     image_url = f"data:image/png;base64,{img_base64}"
 
-    messages.append(
-        {
-            "role": "user",
-            "content": [{"type": "image_url", "image_url": {"url": image_url}}],
-        }
-    )
+    messages.append({
+        "role": "user",
+        "content": [{"type": "image_url", "image_url": {"url": image_url}}],
+    })
 
     assert prompt_tokens(messages, model) == 24 + 6 * 170 + 85 + 5

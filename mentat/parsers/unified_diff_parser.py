@@ -4,6 +4,7 @@ from pathlib import Path
 from termcolor import colored
 from typing_extensions import override
 
+import mentat
 from mentat.code_file_manager import CodeFileManager
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
@@ -16,8 +17,6 @@ from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import Parser
 from mentat.prompts.prompts import read_prompt
 
-unified_diff_parser_prompt_filename = Path("unified_diff_parser_prompt.txt")
-
 
 class UnifiedDiffDelimiter(Enum):
     SpecialStart = "---"
@@ -29,6 +28,10 @@ class UnifiedDiffDelimiter(Enum):
 class UnifiedDiffParser(Parser):
     @override
     def get_system_prompt(self) -> str:
+        config = mentat.user_session.get("config")
+        unified_diff_parser_prompt_filename = config.ai.prompts.get(
+            "unified_diff_parser_prompt", Path("text/unified_diff_parser_prompt.txt")
+        )
         return read_prompt(unified_diff_parser_prompt_filename)
 
     @override

@@ -15,6 +15,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
+import mentat
 from mentat.errors import MentatError
 from mentat.llm_api_handler import (
     TOKEN_COUNT_WARNING,
@@ -39,23 +40,24 @@ class Conversation:
     async def display_token_count(self):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        config = session_context.config
+        config = mentat.user_session.get("config")
+
         code_context = session_context.code_context
         llm_api_handler = session_context.llm_api_handler
 
-        if not await llm_api_handler.is_model_available(config.model):
+        if not await llm_api_handler.is_model_available(config.ai.model):
             raise MentatError(
-                f"Model {config.model} is not available. Please try again with a"
+                f"Model {config.ai.model} is not available. Please try again with a"
                 " different model."
             )
-        if "gpt-4" not in config.model:
+        if "gpt-4" not in config.ai.model:
             stream.send(
                 "Warning: Mentat has only been tested on GPT-4. You may experience"
                 " issues with quality. This model may not be able to respond in"
                 " mentat's edit format.",
                 color="yellow",
             )
-            if "gpt-3.5" not in config.model:
+            if "gpt-3.5" not in config.ai.model:
                 stream.send(
                     "Warning: Mentat does not know how to calculate costs or context"
                     " size for this model.",
@@ -66,7 +68,7 @@ class Conversation:
         code_message = await code_context.get_code_message(
             prompt_tokens(
                 messages,
-                config.model,
+                config.ai.model,
             )
         )
         messages.append(
@@ -75,16 +77,16 @@ class Conversation:
                 content=code_message,
             )
         )
-        tokens = prompt_tokens(messages, config.model)
+        tokens = prompt_tokens(messages, config.ai.model)
 
         context_size = get_max_tokens()
         if not context_size:
             stream.send(
-                f"Context size for {config.model} is not known. Please set"
+                f"Context size for {config.ai.model} is not known. Please set"
                 " the maximum context with `/config maximum_context value`.",
                 color="light_red",
             )
-        elif tokens + config.token_buffer > context_size:
+        elif tokens + config.ai.token_buffer > context_size:
             _plural = len(code_context.include_files) > 1
             _exceed = tokens > context_size
             message: dict[tuple[bool, bool], str] = {
@@ -151,12 +153,12 @@ class Conversation:
         """Returns the messages in the conversation. The system message may change throughout
         the conversation so it is important to access the messages through this method.
         """
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
-        if config.no_parser_prompt or not include_system_prompt:
+        config = mentat.user_session.get("config")
+
+        if config.ai.no_parser_prompt or not include_system_prompt:
             return self._messages.copy()
         else:
-            parser = config.parser
+            parser = config.parser.parser
             prompt = parser.get_system_prompt()
             prompt_message: ChatCompletionMessageParam = (
                 ChatCompletionSystemMessageParam(
@@ -177,8 +179,9 @@ class Conversation:
     ) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        config = session_context.config
-        parser = config.parser
+        config = mentat.user_session.get("config")
+
+        parser = config.parser.parser
         llm_api_handler = session_context.llm_api_handler
         cost_tracker = session_context.cost_tracker
 
@@ -190,7 +193,7 @@ class Conversation:
             )
         response = await llm_api_handler.call_llm_api(
             messages,
-            config.model,
+            config.ai.model,
             stream=True,
             response_format=parser.response_format(),
         )
@@ -202,7 +205,7 @@ class Conversation:
                 terminate=True,
             )
 
-        num_prompt_tokens = prompt_tokens(messages, config.model)
+        num_prompt_tokens = prompt_tokens(messages, config.ai.model)
         stream.send(f"Total token count: {num_prompt_tokens}", color="cyan")
         if num_prompt_tokens > TOKEN_COUNT_WARNING:
             stream.send(
@@ -224,9 +227,11 @@ class Conversation:
             cost_tracker.log_api_call_stats(
                 num_prompt_tokens,
                 count_tokens(
-                    parsed_llm_response.full_response, config.model, full_message=False
+                    parsed_llm_response.full_response,
+                    config.ai.model,
+                    full_message=False,
                 ),
-                config.model,
+                config.ai.model,
                 display=True,
             )
 
@@ -242,21 +247,24 @@ class Conversation:
     async def get_model_response(self) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
-        config = session_context.config
+        config = mentat.user_session.get("config")
+
         code_context = session_context.code_context
 
         messages_snapshot = self.get_messages()
 
         # Get current code message
-        loading_multiplier = 1.0 if config.auto_context_tokens > 0 else 0.0
-        prompt = messages_snapshot[-1]["content"]
+        loading_multiplier = 1.0 if config.run.auto_context_tokens > 0 else 0.0
+        prompt = messages_snapshot[-1][
+            "content"
+        ]  # pyright: ignore[reportTypedDictNotRequiredAccess]
         if isinstance(prompt, list):
             text_prompts = [
                 p.get("text", "") for p in prompt if p.get("type") == "text"
             ]
             prompt = " ".join(text_prompts)
         code_message = await code_context.get_code_message(
-            prompt_tokens(messages_snapshot, config.model),
+            prompt_tokens(messages_snapshot, config.ai.model),
             prompt=(
                 prompt  # Prompt can be image as well as text
                 if isinstance(prompt, str)
@@ -276,7 +284,7 @@ class Conversation:
         except RateLimitError:
             stream.send(
                 "Rate limit error received from OpenAI's servers using model"
-                f' {config.model}.\nUse "/config model <model_name>" to switch to a'
+                f' {config.ai.model}.\nUse "/config model <model_name>" to switch to a'
                 " different model.",
                 color="light_red",
             )
@@ -287,22 +295,22 @@ class Conversation:
         return response
 
     def remaining_context(self) -> int | None:
-        ctx = SESSION_CONTEXT.get()
-        return get_max_tokens() - prompt_tokens(self.get_messages(), ctx.config.model)
+        config = mentat.user_session.get("config")
+        return get_max_tokens() - prompt_tokens(self.get_messages(), config.ai.model)
 
     def can_add_to_context(self, message: str) -> bool:
         """
         Whether or not the model has enough context remaining to add this message.
         Will take token buffer into account and uses full_message=True.
         """
-        ctx = SESSION_CONTEXT.get()
+        config = mentat.user_session.get("config")
 
         remaining_context = self.remaining_context()
         return (
             remaining_context is not None
             and remaining_context
-            - count_tokens(message, ctx.config.model, full_message=True)
-            - ctx.config.token_buffer
+            - count_tokens(message, config.ai.model, full_message=True)
+            - config.ai.token_buffer
             > 0
         )
 

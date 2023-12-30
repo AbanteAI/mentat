@@ -10,6 +10,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
+import mentat
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.block_parser import BlockParser
@@ -35,7 +36,13 @@ async def test_sample_from_context(
     mock_session_context,
     mock_collect_user_input,
 ):
-    mock_session_context.config.sample_repo = "test_sample_repo"
+    mentat.user_session.set(
+        "sampler_settings",
+        {
+            "repo": "test_sample_repo",
+            "merge_base_target": "",
+        },
+    )
 
     mocker.patch(
         "mentat.conversation.Conversation.get_messages",
@@ -62,14 +69,12 @@ async def test_sample_from_context(
     with open("test_file.py", "w") as f:
         f.write("test_file_content\n")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "",
-            "test_title",
-            "test_description",
-            "test_test_command",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "",
+        "test_title",
+        "test_description",
+        "test_test_command",
+    ])
     sampler = Sampler()
     sample = await sampler.create_sample()
     assert sample.title == "test_title"
@@ -99,19 +104,25 @@ def is_sha1(string: str) -> bool:
 
 @pytest.mark.asyncio
 async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Request",
-            "y",
-            f"/sample {temp_testbed.as_posix()}",
-            "",
-            "test_url",
-            "test_title",
-            "test_description",
-            "test_test_command",
-            "q",
-        ]
+    mentat.user_session.set(
+        "sampler_settings",
+        {
+            "repo": None,
+            "merge_base_target": None,
+        },
     )
+
+    mock_collect_user_input.set_stream_messages([
+        "Request",
+        "y",
+        f"/sample {temp_testbed.as_posix()}",
+        "",
+        "test_url",
+        "test_title",
+        "test_description",
+        "test_test_command",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment in both files.
 
@@ -327,7 +338,9 @@ def get_updates_as_parsed_llm_message(cwd):
 async def test_sampler_integration(
     temp_testbed, mock_session_context, mock_call_llm_api
 ):
-    # Setup the environemnt
+    mentat.user_session.set("sampler_settings", {"repo": None})
+
+    # Setup the environment
     repo = Repo(temp_testbed)
     (temp_testbed / "test_file.py").write_text("permanent commit")
     repo.git.add("test_file.py")
@@ -403,6 +416,7 @@ async def test_sampler_integration(
     # Evaluate the sample using Mentat
     sample_files = list(temp_testbed.glob("sample_*.json"))
     assert len(sample_files) == 1
+
     sample = Sample.load(sample_files[0])
     assert sample.title == "test_title"
     assert sample.description == "test_description"

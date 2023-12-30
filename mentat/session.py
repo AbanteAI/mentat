@@ -7,16 +7,15 @@ from pathlib import Path
 from typing import Any, Coroutine, List, Optional, Set
 from uuid import uuid4
 
-import attr
 import sentry_sdk
 from openai import APITimeoutError, BadRequestError, RateLimitError
 
+import mentat
 from mentat.agent_handler import AgentHandler
 from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
-from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
@@ -40,6 +39,8 @@ class Session:
     A message will be sent on the client_exit channel when ready for client to quit.
     """
 
+    _errors: List[str] = []  # pyright: ignore[reportGeneralTypeIssues]
+
     def __init__(
         self,
         cwd: Path,
@@ -48,7 +49,6 @@ class Session:
         ignore_paths: List[Path] = [],
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
-        config: Config = Config(),
     ):
         # All errors thrown here need to be caught here
         self.stopped = False
@@ -91,7 +91,6 @@ class Session:
             stream,
             llm_api_handler,
             cost_tracker,
-            config,
             code_context,
             code_file_manager,
             conversation,
@@ -106,9 +105,10 @@ class Session:
 
         # Functions that require session_context
         check_version()
-        config.send_errors_to_stream()
+        self.send_errors_to_stream()
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)
+
         if (
             code_context.diff_context is not None
             and len(code_context.include_files) == 0
@@ -136,9 +136,10 @@ class Session:
         conversation = session_context.conversation
         code_file_manager = session_context.code_file_manager
         agent_handler = session_context.agent_handler
+        config = mentat.user_session.get("config")
 
         # check early for ctags so we can fail fast
-        if session_context.config.auto_context_tokens > 0:
+        if config.run.auto_context_tokens > 0:
             ensure_ctags_installed()
 
         session_context.llm_api_handler.initialize_client()
@@ -166,11 +167,13 @@ class Session:
                     conversation.add_user_message(message.data)
 
                 parsed_llm_response = await conversation.get_model_response()
+
                 file_edits = [
                     file_edit
                     for file_edit in parsed_llm_response.file_edits
                     if file_edit.is_valid()
                 ]
+
                 if file_edits:
                     if not agent_handler.agent_enabled:
                         file_edits, need_user_request = (
@@ -179,7 +182,7 @@ class Session:
                     for file_edit in file_edits:
                         file_edit.resolve_conflicts()
 
-                    if session_context.sampler:
+                    if session_context.sampler and session_context.sampler.is_active:
                         session_context.sampler.set_active_diff()
 
                     applied_edits = await code_file_manager.write_changes_to_files(
@@ -228,13 +231,27 @@ class Session:
         the main loop which runs until an Exception or session_exit signal is encountered.
         """
 
+        self.stream.send(
+            """
+███╗   ███╗███████╗███╗   ██╗████████╗ █████╗ ████████╗
+████╗ ████║██╔════╝████╗  ██║╚══██╔══╝██╔══██╗╚══██╔══╝
+██╔████╔██║█████╗  ██╔██╗ ██║   ██║   ███████║   ██║   
+██║╚██╔╝██║██╔══╝  ██║╚██╗██║   ██║   ██╔══██║   ██║   
+██║ ╚═╝ ██║███████╗██║ ╚████║   ██║   ██║  ██║   ██║   
+╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   
+-------------------------------------------------------
+   It is by will alone I set my mind in motion
+                                                       """,
+            color="purple",
+        )
+
         async def run_main():
-            ctx = SESSION_CONTEXT.get()
             try:
                 with sentry_sdk.start_transaction(
                     op="mentat_started", name="Mentat Started"
                 ) as transaction:
-                    transaction.set_tag("config", attr.asdict(ctx.config))
+                    # transaction.set_tag("config", attr.asdict(ctx.config))
+                    transaction.set_tag("config", "config")
                     await self._main()
             except (SessionExit, CancelledError):
                 pass
@@ -283,3 +300,10 @@ class Session:
         self.stream.send(None, channel="client_exit")
         await self.stream.join()
         self.stream.stop()
+
+    def send_errors_to_stream(self):
+        session_context = SESSION_CONTEXT.get()
+        stream = session_context.stream
+        for error in self._errors:
+            stream.send(str(error), color="yellow")
+        self._errors = []

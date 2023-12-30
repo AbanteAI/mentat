@@ -1,3 +1,4 @@
+import mentat
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session_context import SESSION_CONTEXT
@@ -5,15 +6,22 @@ from mentat.session_context import SESSION_CONTEXT
 
 def test_midconveration_parser_change(mock_call_llm_api):
     session_context = SESSION_CONTEXT.get()
-    config = session_context.config
     conversation = session_context.conversation
 
-    config.parser = "block"
+    config = mentat.user_session.get("config")
+
+    config.parser.parser_type = "block"
+    config.parser.parser = BlockParser()
+    mentat.user_session.set("config", config)
+
     assert (
         conversation.get_messages()[0]["content"] == BlockParser().get_system_prompt()
     )
 
-    config.parser = "replacement"
+    config.parser.parser_type = "replacement"
+    config.parser.parser = ReplacementParser()
+    mentat.user_session.set("config", config)
+
     assert (
         conversation.get_messages()[0]["content"]
         == ReplacementParser().get_system_prompt()
@@ -22,11 +30,12 @@ def test_midconveration_parser_change(mock_call_llm_api):
 
 def test_no_parser_prompt(mock_call_llm_api):
     session_context = SESSION_CONTEXT.get()
-    config = session_context.config
+    config = mentat.user_session.get("config")
     conversation = session_context.conversation
 
     assert len(conversation.get_messages()) == 1
-    config.no_parser_prompt = True
+    config.ai.no_parser_prompt = True
+    mentat.user_session.set("config", config)
     assert len(conversation.get_messages()) == 0
 
 

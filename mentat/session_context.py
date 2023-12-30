@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from mentat.auto_completer import AutoCompleter
     from mentat.code_context import CodeContext
     from mentat.code_file_manager import CodeFileManager
-    from mentat.config import Config
     from mentat.conversation import Conversation
     from mentat.cost_tracker import CostTracker
     from mentat.llm_api_handler import LlmApiHandler
@@ -28,7 +27,6 @@ class SessionContext:
     stream: SessionStream = attr.field()
     llm_api_handler: LlmApiHandler = attr.field()
     cost_tracker: CostTracker = attr.field()
-    config: Config = attr.field()
     code_context: CodeContext = attr.field()
     code_file_manager: CodeFileManager = attr.field()
     conversation: Conversation = attr.field()

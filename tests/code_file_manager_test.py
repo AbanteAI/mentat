@@ -62,16 +62,14 @@ async def test_run_from_subdirectory(
     """Run mentat from a subdirectory of the git root"""
     # Change to the subdirectory
     os.chdir("multifile_calculator")
-    mock_collect_user_input.set_stream_messages(
-        [
-            (
-                "Insert the comment # Hello on the first line of"
-                " multifile_calculator/calculator.py and scripts/echo.py"
-            ),
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        (
+            "Insert the comment # Hello on the first line of"
+            " multifile_calculator/calculator.py and scripts/echo.py"
+        ),
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment in both files.
 
@@ -119,16 +117,14 @@ async def test_run_from_superdirectory(
 ):
     """Run mentat from outside the git root"""
     # Change to the subdirectory
-    mock_collect_user_input.set_stream_messages(
-        [
-            (
-                "Insert the comment # Hello on the first line of"
-                " multifile_calculator/calculator.py and scripts/echo.py"
-            ),
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        (
+            "Insert the comment # Hello on the first line of"
+            " multifile_calculator/calculator.py and scripts/echo.py"
+        ),
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will insert a comment in both files.
 
@@ -175,13 +171,11 @@ async def test_change_after_creation(
     mock_call_llm_api,
 ):
     file_name = Path("hello_world.py")
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Conversation",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Conversation",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 

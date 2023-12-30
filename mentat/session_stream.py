@@ -82,7 +82,6 @@ class SessionStream:
             created_at=datetime.utcnow(),
             extra=kwargs,
         )
-
         self.messages.append(message)
         self._broadcast.publish(channel=channel, message=message)
 

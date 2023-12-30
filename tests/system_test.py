@@ -15,14 +15,12 @@ async def test_system(mock_call_llm_api, mock_collect_user_input):
     with open(temp_file_name, "w") as f:
         f.write("# This is a temporary file.")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Add changes to the file",
-            "i",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Add changes to the file",
+        "i",
+        "y",
+        "q",
+    ])
 
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will add a print statement.
@@ -70,16 +68,14 @@ async def test_interactive_change_selection(mock_call_llm_api, mock_collect_user
     with open(temp_file_name, "w") as f:
         f.write("# This is a temporary file for interactive test.")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Add changes to the file",
-            "i",
-            "y",
-            "n",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Add changes to the file",
+        "i",
+        "y",
+        "n",
+        "y",
+        "q",
+    ])
 
     mock_call_llm_api.set_streamed_values([dedent("""\
         I will make three changes to the file.
@@ -179,13 +175,11 @@ async def test_sub_directory(
     with monkeypatch.context() as m:
         m.chdir("scripts")
         file_name = "calculator.py"
-        mock_collect_user_input.set_stream_messages(
-            [
-                "Add changes to the file",
-                "y",
-                "q",
-            ]
-        )
+        mock_collect_user_input.set_stream_messages([
+            "Add changes to the file",
+            "y",
+            "q",
+        ])
 
         mock_call_llm_api.set_streamed_values([dedent(f"""\
             Conversation
@@ -237,11 +231,9 @@ async def test_recursive_git_repositories(temp_testbed, mock_collect_user_input)
         f.write("")
     files.append(temp_testbed / file_path)
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "q",
+    ])
 
     session = Session(cwd=temp_testbed, paths=[Path(".")])
     session.start()

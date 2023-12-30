@@ -3,14 +3,16 @@ from textwrap import dedent
 
 import pytest
 
-from mentat.config import Config
+import mentat
 from mentat.parsers.unified_diff_parser import UnifiedDiffParser
 from mentat.session import Session
 
 
 @pytest.fixture(autouse=True)
-def unified_diff_parser(mocker):
-    mocker.patch.object(Config, "parser", new=UnifiedDiffParser())
+def unified_diff_parser():
+    config = mentat.user_session.get("config")
+    config.parser.parser = UnifiedDiffParser()
+    mentat.user_session.set("config", config)
 
 
 @pytest.mark.asyncio
@@ -18,6 +20,7 @@ async def test_replacement(
     mock_call_llm_api,
     mock_collect_user_input,
 ):
+
     temp_file_name = Path("temp.py").absolute()
     with open(temp_file_name, "w") as f:
         f.write(dedent("""\
@@ -26,13 +29,11 @@ async def test_replacement(
             # with
             # 4 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -55,6 +56,7 @@ async def test_replacement(
             # This is
             # your captain speaking
             # 4 lines""")
+
     assert content == expected_content
 
 
@@ -75,13 +77,11 @@ async def test_multiple_replacements(
             # 8
             # lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -135,13 +135,11 @@ async def test_multiple_replacement_spots(
             # 8
             # lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -190,13 +188,11 @@ async def test_little_context_addition(
             # 8
             # lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -238,13 +234,11 @@ async def test_empty_file(
     with open(temp_file_name, "w") as f:
         f.write("")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -274,13 +268,11 @@ async def test_creation(
 ):
     temp_file_name = Path("temp.py")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -318,14 +310,12 @@ async def test_deletion(
             # 8
             # lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 
@@ -352,13 +342,11 @@ async def test_no_ending_marker(
             # with
             # 4 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "test",
-            "y",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "test",
+        "y",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
 

@@ -6,6 +6,7 @@ from timeit import default_timer
 
 import numpy as np
 
+import mentat
 from mentat.code_feature import CodeFeature, count_feature_tokens
 from mentat.errors import MentatError
 from mentat.llm_api_handler import (
@@ -84,7 +85,8 @@ async def get_feature_similarity_scores(
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
     cost_tracker = session_context.cost_tracker
-    embedding_model = session_context.config.embedding_model
+    config = mentat.user_session.get("config")
+    embedding_model = config.ai.embedding_model
     llm_api_handler = session_context.llm_api_handler
 
     max_model_tokens = model_context_size(embedding_model)

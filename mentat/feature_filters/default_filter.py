@@ -1,5 +1,6 @@
 from typing import Optional
 
+import mentat
 from mentat.code_feature import CodeFeature
 from mentat.errors import ContextSizeInsufficient, ModelError
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
@@ -27,7 +28,8 @@ class DefaultFilter(FeatureFilter):
     async def filter(self, features: list[CodeFeature]) -> list[CodeFeature]:
         ctx = SESSION_CONTEXT.get()
 
-        if ctx.config.auto_context_tokens > 0 and self.user_prompt != "":
+        config = mentat.user_session.get("config")
+        if config.run.auto_context_tokens > 0 and self.user_prompt != "":
             features = await EmbeddingSimilarityFilter(
                 self.user_prompt, (0.5 if self.use_llm else 1) * self.loading_multiplier
             ).filter(features)
@@ -46,10 +48,10 @@ class DefaultFilter(FeatureFilter):
                     " instead."
                 )
                 features = await TruncateFilter(
-                    self.max_tokens, ctx.config.model
+                    self.max_tokens, config.ai.model
                 ).filter(features)
         else:
-            features = await TruncateFilter(self.max_tokens, ctx.config.model).filter(
+            features = await TruncateFilter(self.max_tokens, config.ai.model).filter(
                 features
             )
 

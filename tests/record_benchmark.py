@@ -26,14 +26,12 @@ def main(run=False, threshold=0.75, count=1):
     if run:
         for _ in range(count):
             os.environ["MENTAT_BENCHMARKS_RUNNING"] = "true"
-            pytest.main(
-                [
-                    benchmark_location,
-                    "--benchmark",
-                    "--report-log",
-                    benchmark_log_location,
-                ]
-            )
+            pytest.main([
+                benchmark_location,
+                "--benchmark",
+                "--report-log",
+                benchmark_log_location,
+            ])
             os.environ["MENTAT_BENCHMARKS_RUNNING"] = "false"
             print()
             nodes = []

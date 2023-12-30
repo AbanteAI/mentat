@@ -34,19 +34,17 @@ def verify():
         import benchmark_repos.mentat.tests.license_check as license_check
 
         importlib.reload(license_check)
-        return set(license_check.accepted_licenses) == set(
-            [
-                "BSD License",
-                "Apache Software License",
-                "MIT License",
-                "MIT",
-                "Mozilla Public License 2.0 (MPL 2.0)",
-                "Python Software Foundation License",
-                "Apache 2.0",
-                "BSD 3-Clause",
-                "ISC License (ISCL)",
-                "HPND",
-            ]
-        )
+        return set(license_check.accepted_licenses) == set([
+            "BSD License",
+            "Apache Software License",
+            "MIT License",
+            "MIT",
+            "Mozilla Public License 2.0 (MPL 2.0)",
+            "Python Software Foundation License",
+            "Apache 2.0",
+            "BSD 3-Clause",
+            "ISC License (ISCL)",
+            "HPND",
+        ])
     except IndentationError:
         return False

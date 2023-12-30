@@ -4,6 +4,7 @@ from textwrap import dedent
 
 import pytest
 
+import mentat
 from mentat.code_feature import CodeFeature
 from mentat.command.command import Command, InvalidCommand
 from mentat.command.commands.context import ContextCommand
@@ -29,12 +30,10 @@ async def test_commit_command(temp_testbed, mock_collect_user_input):
     with open(file_name, "w") as f:
         f.write("# Commit me!")
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "/commit",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "/commit",
+        "q",
+    ])
 
     session = Session(cwd=temp_testbed, paths=[])
     session.start()
@@ -46,12 +45,10 @@ async def test_commit_command(temp_testbed, mock_collect_user_input):
 # TODO: test without git
 @pytest.mark.asyncio
 async def test_include_command(temp_testbed, mock_collect_user_input):
-    mock_collect_user_input.set_stream_messages(
-        [
-            "/include scripts",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "/include scripts",
+        "q",
+    ])
 
     session = Session(cwd=temp_testbed)
     session.start()
@@ -66,12 +63,10 @@ async def test_include_command(temp_testbed, mock_collect_user_input):
 # TODO: test without git
 @pytest.mark.asyncio
 async def test_exclude_command(temp_testbed, mock_collect_user_input):
-    mock_collect_user_input.set_stream_messages(
-        [
-            "/exclude scripts",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "/exclude scripts",
+        "q",
+    ])
 
     session = Session(cwd=temp_testbed, paths=["scripts"])
     session.start()
@@ -89,14 +84,12 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Edit the file",
-            "y",
-            "/undo",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Edit the file",
+        "y",
+        "/undo",
+        "q",
+    ])
 
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
@@ -132,15 +125,13 @@ async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Edit the file",
-            "y",
-            "/undo",
-            "/redo",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Edit the file",
+        "y",
+        "/undo",
+        "/redo",
+        "q",
+    ])
 
     new_file_name = "new_temp.py"
     mock_call_llm_api.set_streamed_values([dedent(f"""\
@@ -195,14 +186,12 @@ async def test_undo_all_command(
             # This is a temporary file
             # with 2 lines"""))
 
-    mock_collect_user_input.set_stream_messages(
-        [
-            "",
-            "y",
-            "/undo-all",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "",
+        "y",
+        "/undo-all",
+        "q",
+    ])
 
     # TODO: Make a way to set multiple return values for call_llm_api and reset multiple edits at once
     mock_call_llm_api.set_streamed_values([dedent(f"""\
@@ -233,13 +222,11 @@ async def test_undo_all_command(
 
 @pytest.mark.asyncio
 async def test_clear_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Request",
-            "/clear",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Request",
+        "/clear",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values(["Answer"])
 
     session = Session(cwd=Path.cwd())
@@ -255,13 +242,11 @@ async def test_clear_command(temp_testbed, mock_collect_user_input, mock_call_ll
 async def test_search_command(
     mocker, temp_testbed, mock_call_llm_api, mock_collect_user_input
 ):
-    mock_collect_user_input.set_stream_messages(
-        [
-            "Request",
-            "/search Query",
-            "q",
-        ]
-    )
+    mock_collect_user_input.set_stream_messages([
+        "Request",
+        "/search Query",
+        "q",
+    ])
     mock_call_llm_api.set_streamed_values(["Answer"])
     mock_feature = CodeFeature(
         Path(temp_testbed) / "multifile_calculator" / "calculator.py"
@@ -290,16 +275,16 @@ async def test_context_command(temp_testbed, mock_call_llm_api):
 @pytest.mark.asyncio
 async def test_config_command(mock_call_llm_api):
     session_context = SESSION_CONTEXT.get()
-    config = session_context.config
     stream = session_context.stream
     command = Command.create_command("config")
     await command.apply("test")
     assert stream.messages[-1].data == "Unrecognized config option: test"
     await command.apply("model")
     assert stream.messages[-1].data.startswith("model: ")
-    await command.apply("model", "test")
-    assert stream.messages[-1].data == "model set to test"
-    assert config.model == "test"
+    await command.apply("model", "gpt-4-32k")
+    assert stream.messages[-1].data == "model set to gpt-4-32k"
+    config = mentat.user_session.get("config")
+    assert config.ai.model == "gpt-4-32k"
     await command.apply("model", "test", "lol")
     assert stream.messages[-1].data == "Too many arguments"
 
@@ -310,11 +295,11 @@ async def test_screenshot_command(mocker):
     session_context = SESSION_CONTEXT.get()
     mock_vision_manager = mocker.MagicMock()
     session_context.vision_manager = mock_vision_manager
-    config = session_context.config
+    config = mentat.user_session.get("config")
     stream = session_context.stream
     conversation = session_context.conversation
 
-    assert config.model != "gpt-4-vision-preview"
+    assert config.ai.model != "gpt-4-vision-preview"
 
     mock_vision_manager.screenshot.return_value = "fake_image_data"
 
@@ -322,7 +307,7 @@ async def test_screenshot_command(mocker):
     await screenshot_command.apply("fake_path")
 
     mock_vision_manager.screenshot.assert_called_once_with("fake_path")
-    assert config.model == "gpt-4-vision-preview"
+    assert config.ai.model == "gpt-4-vision-preview"
     assert stream.messages[-1].data == "Screenshot taken for: fake_path."
     assert conversation._messages[-1] == {
         "role": "user",
@@ -333,11 +318,11 @@ async def test_screenshot_command(mocker):
     }
 
     # Test non-gpt models aren't changed
-    config.model = "test"
+    config.ai.model = "test"
     await screenshot_command.apply("fake_path")
-    assert config.model == "test"
+    assert config.ai.model == "test"
 
     # Test other models containing vision aren't changed
-    config.model = "gpt-vision"
+    config.ai.model = "gpt-vision"
     await screenshot_command.apply("fake_path")
-    assert config.model == "gpt-vision"
+    assert config.ai.model == "gpt-vision"

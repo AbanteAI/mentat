@@ -8,6 +8,7 @@ from typing import Optional
 
 import attr
 
+import mentat
 from mentat.ctags import get_ctag_lines_and_names
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
@@ -130,7 +131,9 @@ class CodeFeature:
         """
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
-        parser = session_context.config.parser
+
+        config = mentat.user_session.get("config")
+        parser = config.parser.parser
         code_context = session_context.code_context
 
         code_message: list[str] = []
