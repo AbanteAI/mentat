@@ -112,9 +112,55 @@ async def evaluate_sample(sample, cwd: Path | str | None = None):
     return diff_eval
 
 
+async def validate_sample(sample, cwd: Path | str | None = None) -> tuple[bool, str]:
+    """Validate a sample by applying diffs and checking sample fields."""
+    try:
+        # Setup repo
+        if cwd is None:
+            cwd = clone_repo(
+                url=sample.repo,
+                local_dir_name=sample.repo.split("/")[-1],
+                refresh=False,
+            )
+            if cwd is None:
+                return False, f"Error cloning repo: {sample.repo}"
+        else:
+            cwd = Path(cwd)
+        os.chdir(cwd)
+        repo = Repo(".")
+        repo.head.reset(index=True, working_tree=True)  # reset tracked files
+        repo.git.execute(["git", "clean", "-fd"])  # remove untracked files/directories
+        repo.git.fetch("--all")
+        repo.git.checkout(sample.merge_base)
+        if sample.diff_merge_base:
+            errors = apply_diff_to_repo(sample.diff_merge_base, repo, commit=True)
+            if errors:
+                return False, f"Error applying diff_merge_base: {errors}"
+        if sample.diff_active:
+            errors = apply_diff_to_repo(sample.diff_active, repo)
+            if errors:
+                return False, f"Error applying diff_active: {errors}"
+        if sample.diff_edit:
+            errors = apply_diff_to_repo(sample.diff_edit, repo)
+            if errors:
+                return False, f"Error applying diff_edit: {errors}"
+        elif not sample.message_edit:
+            return False, "Samples must include either diff_edit or message_edit."
+
+        # Validate sample fields
+        required_fields = ["id", "repo", "merge_base", "message_prompt"]
+        for field in required_fields:
+            if not getattr(sample, field):
+                return False, f"Missing required field: {field}"
+        return True, ""
+    except Exception as e:
+        return False, f"Error validating sample: {e}"
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Evaluate code samples.")
     parser.add_argument("sample_ids", nargs="*", help="Optional sample IDs to evaluate")
+    parser.add_argument("--validate", action="store_true", help="Validate samples instead of evaluating")
     args = parser.parse_args()
     sample_files = []
     if args.sample_ids:
@@ -125,10 +171,19 @@ async def main():
     if not sample_files:
         print(f"No {'matching ' if args.sample_ids else ''}sample files found.")
         return
-
+    
+    logs = []
     for sample_file in sample_files:
-        if sample_file.exists():
-            sample = Sample.load(sample_file)
+        if not sample_file.exists():
+            warn(f"Sample file {sample_file} does not exist.")
+            continue
+        sample = Sample.load(sample_file)
+        if args.validate:
+            is_valid, reason = await validate_sample(sample)
+            status = "\033[92mPASSED\033[0m" if is_valid else f"\033[91mFAILED: {reason}\033[0m"
+            print(f"[{sample.id[:8]}] {sample.title}: {status}")
+            logs.append({"id": sample.id, "is_valid": is_valid, "reason": reason})
+        else:
             print(f"Evaluating sample {sample.id[:8]}")
             print(f"  Prompt: {sample.message_prompt}")
             diff_eval = await evaluate_sample(sample)
@@ -140,8 +195,17 @@ async def main():
             print(f"  Response Grade: {response_grade}")
             comparison_grade = await compare_diffs(sample.diff_edit, diff_eval)
             print(f"  Comparison Grade: {comparison_grade}")
-        else:
-            print(f"Sample file {sample_file} does not exist.")
+            logs.append({
+                "id": sample.id,
+                "title": sample.title,
+                "prompt": sample.message_prompt,
+                "diff_grade": diff_grade,
+                "response_grade": response_grade,
+                "comparison_grade": comparison_grade,
+            })
+    
+    if args.validate:
+        print(f"{sum([log['is_valid'] for log in logs])}/{len(logs)} samples passed validation.")
 
 
 if __name__ == "__main__":
