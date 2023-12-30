@@ -36,16 +36,20 @@ class RunSettings(DataClassJsonMixin):
     auto_context: bool = False
     auto_tokens: int = 8000
     auto_context_tokens: int = 0
+    active_plugins: List[str] = field(default_factory=list)
 
     def __init__(
         self,
         file_exclude_glob_list: Optional[List[Path]] = None,
+        active_plugins: Optional[List[str]] = None,
         auto_context: Optional[bool] = None,
         auto_tokens: Optional[int] = None,
         auto_context_tokens: Optional[int] = None,
     ) -> None:
         if file_exclude_glob_list is not None:
             self.file_exclude_glob_list = file_exclude_glob_list
+        if active_plugins is not None:
+            self.active_plugins = active_plugins
         if auto_context is not None:
             self.auto_context = auto_context
         if auto_tokens is not None:
@@ -200,6 +204,7 @@ class RunningSessionConfig(DataClassJsonMixin):
     )
     maximum_context: Optional[int] = None
     auto_context_tokens: Optional[int] = 0
+    active_plugins: Optional[List[str]] = None
 
     @classmethod
     def get_fields(cls) -> List[str]:
@@ -269,6 +274,9 @@ def load_settings(config_session: Optional[RunningSessionConfig] = None):
     if yaml_config.file_exclude_glob_list is None:
         yaml_config.file_exclude_glob_list = []
 
+    if yaml_config.active_plugins is None:
+        yaml_config.active_plugins = []
+
     if yaml_config.temperature is None:
         yaml_config.temperature = 0.2
 
@@ -296,6 +304,7 @@ def load_settings(config_session: Optional[RunningSessionConfig] = None):
         file_exclude_glob_list=[
             Path(p) for p in file_exclude_glob_list
         ],  # pyright: ignore[reportUnknownVariableType]
+        active_plugins=yaml_config.active_plugins,
         auto_context_tokens=yaml_config.auto_context_tokens,
     )
 
@@ -379,3 +388,17 @@ def get_config(setting: str) -> None:
 def load_config() -> None:
     init_config()
     load_settings()
+
+
+def is_active_plugin(plugin: str | None = None) -> bool:
+    config = mentat.user_session.get("config")
+    if (
+        plugin is not None
+        and config is not None
+        and config.run is not None
+        and config.run.active_plugins is not None
+        and plugin in config.run.active_plugins
+    ):
+        return True
+
+    return False

@@ -22,6 +22,10 @@ file_exclude_glob_list:
 #  - "**/.*/**"
 auto_context_tokens:
 
+# a list of plugins that should be active. Current options include sampler
+active_plugins:
+  - sampler
+
 #settings related to the "parser"
 
 # Mentat parses files following a specific format, which you can set here.

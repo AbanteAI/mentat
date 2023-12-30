@@ -7,6 +7,7 @@ from openai.types.chat import ChatCompletionMessageParam
 
 import mentat
 from mentat.code_feature import get_consolidated_feature_refs
+from mentat.config import is_active_plugin
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff, get_git_root_for_path, get_hexsha_active
 from mentat.parsers.git_parser import GitParser
@@ -15,18 +16,6 @@ from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import collect_user_input
 from mentat.utils import get_relative_path
-
-
-def init_settings(
-    repo: str | None = None, merge_base_target: str | None = None
-) -> None:
-    mentat.user_session.set(
-        "sampler_settings",
-        {
-            "repo": repo,
-            "merge_base_target": merge_base_target,
-        },
-    )
 
 
 def parse_message(message: ChatCompletionMessageParam) -> dict[str, str]:
@@ -58,15 +47,29 @@ def parse_message(message: ChatCompletionMessageParam) -> dict[str, str]:
 
 
 class Sampler:
+    is_active: bool = False
     diff_active: str | None = None
     commit_active: str | None = None
     last_sample_id: str | None = None
     last_sample_hexsha: str | None = None
 
+    # set up the base config settings that sampler will use.
+    def __init__(self):
+        self.is_active = is_active_plugin("sampler")
+        if not mentat.user_session.get("sampler_settings"):
+            mentat.user_session.set(
+                "sampler_settings",
+                {
+                    "repo": None,
+                    "merge_base_target": None,
+                },
+            )
+
     def set_active_diff(self):
         # Create a temporary commit with the active changes
         ctx = SESSION_CONTEXT.get()
         git_root = get_git_root_for_path(ctx.cwd, raise_error=False)
+
         if not git_root:
             return
         repo = Repo(git_root)

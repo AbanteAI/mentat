@@ -182,7 +182,7 @@ class Session:
                     for file_edit in file_edits:
                         file_edit.resolve_conflicts()
 
-                    if session_context.sampler:
+                    if session_context.sampler and session_context.sampler.is_active:
                         session_context.sampler.set_active_diff()
 
                     applied_edits = await code_file_manager.write_changes_to_files(
