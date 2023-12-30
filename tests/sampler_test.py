@@ -10,6 +10,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
+import mentat
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.block_parser import BlockParser
@@ -17,7 +18,7 @@ from mentat.parsers.git_parser import GitParser
 from mentat.python_client.client import PythonClient
 from mentat.sampler import __version__
 from mentat.sampler.sample import Sample
-from mentat.sampler.sampler import Sampler, init_settings
+from mentat.sampler.sampler import Sampler
 from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session import Session
 from scripts.evaluate_samples import evaluate_sample
@@ -35,7 +36,13 @@ async def test_sample_from_context(
     mock_session_context,
     mock_collect_user_input,
 ):
-    init_settings(repo="test_sample_repo", merge_base_target="")
+    mentat.user_session.set(
+        "sampler_settings",
+        {
+            "repo": "test_sample_repo",
+            "merge_base_target": "",
+        },
+    )
 
     mocker.patch(
         "mentat.conversation.Conversation.get_messages",
@@ -97,7 +104,13 @@ def is_sha1(string: str) -> bool:
 
 @pytest.mark.asyncio
 async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
-    init_settings(repo=None)
+    mentat.user_session.set(
+        "sampler_settings",
+        {
+            "repo": None,
+            "merge_base_target": None,
+        },
+    )
 
     mock_collect_user_input.set_stream_messages([
         "Request",
@@ -325,8 +338,9 @@ def get_updates_as_parsed_llm_message(cwd):
 async def test_sampler_integration(
     temp_testbed, mock_session_context, mock_call_llm_api
 ):
-    init_settings(repo=None)
-    # Setup the environemnt
+    mentat.user_session.set("sampler_settings", {"repo": None})
+
+    # Setup the environment
     repo = Repo(temp_testbed)
     (temp_testbed / "test_file.py").write_text("permanent commit")
     repo.git.add("test_file.py")

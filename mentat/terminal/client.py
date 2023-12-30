@@ -13,7 +13,6 @@ from prompt_toolkit.styles import Style
 
 import mentat
 from mentat.config import update_config
-from mentat.sampler import sampler
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.loading import LoadingHandler
@@ -247,8 +246,6 @@ def start(
     temperature: Optional[float],
     maximum_context: Optional[int],
 ) -> None:
-
-    sampler.init_settings()
 
     if model is not None:
         update_config("model", model)
