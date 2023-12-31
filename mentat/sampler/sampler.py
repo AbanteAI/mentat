@@ -169,21 +169,22 @@ class Sampler:
             )
             context.update(_rp(f) for f in feature_refs)
         # Undo adds/removes/renames to match pre-diff_edit state
-        file_edits = GitParser().parse_string(diff_edit).file_edits
-        for file_edit in file_edits:
-            file_path = _rp(file_edit.file_path)
-            rename_path = (
-                ""
-                if not file_edit.rename_file_path
-                else _rp(file_edit.rename_file_path)
-            )
-            if file_edit.is_deletion or rename_path or file_edit.replacements:
-                context.add(file_path)
-            if file_edit.is_creation and file_path in context:
-                context.remove(file_path)
-            if rename_path and rename_path in context:
-                context.remove(rename_path)
-        # TODO: Prompt User to modify/approve context
+        if diff_edit:
+            file_edits = GitParser().parse_string(diff_edit).file_edits
+            for file_edit in file_edits:
+                file_path = _rp(file_edit.file_path)
+                rename_path = (
+                    ""
+                    if not file_edit.rename_file_path
+                    else _rp(file_edit.rename_file_path)
+                )
+                if file_edit.is_deletion or rename_path or file_edit.replacements:
+                    context.add(file_path)
+                if file_edit.is_creation and file_path in context:
+                    context.remove(file_path)
+                if rename_path and rename_path in context:
+                    context.remove(rename_path)
+            # TODO: Prompt User to modify/approve context
 
         sample = Sample(
             title=title,
