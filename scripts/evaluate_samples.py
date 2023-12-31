@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 import json
+import os
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -38,7 +38,6 @@ SAMPLES_DIR = mentat_dir_path / "samples"
 os.makedirs(SAMPLES_DIR, exist_ok=True)
 FINETUNE_DIR = mentat_dir_path / "finetune"
 os.makedirs(FINETUNE_DIR, exist_ok=True)
-
 
 
 def apply_diff_to_repo(diff: str, repo: Repo, commit: bool = False) -> str | None:
@@ -125,9 +124,9 @@ async def validate_sample(sample, cwd: Path | str | None = None) -> tuple[bool, 
         for field in required_fields:
             if not getattr(sample, field):
                 return False, f"Missing required field: {field}"
-        if (not sample.message_edit and not sample.diff_edit):
+        if not sample.message_edit and not sample.diff_edit:
             return False, "Samples must include either diff_edit or message_edit."
-        
+
         # Setup repo
         if cwd is None:
             cwd = clone_repo(
@@ -158,15 +157,15 @@ async def validate_sample(sample, cwd: Path | str | None = None) -> tuple[bool, 
             errors = apply_diff_to_repo(sample.diff_edit, repo)
             if errors:
                 return False, f"Error applying diff_edit: {errors}"
-        
+
         return True, ""
     except Exception as e:
         return False, f"Error validating sample: {e}"
-    
+
 
 async def generate_finetune_gpt(sample, cwd: Path | str | None = None):
     """Generate a fine-tuning example from the sample for GPT-3.5
-    
+
     {"messages": [{"role": "user", "content": "Hello, world!"}, ...]}
     """
     # Setup repo, including diff_merge_base and diff_active
@@ -202,7 +201,7 @@ async def generate_finetune_gpt(sample, cwd: Path | str | None = None):
     python_client = PythonClient(cwd=cwd, paths=paths)
     await python_client.startup()
     ctx = SESSION_CONTEXT.get()
-    
+
     # Build the conversation
     conversation = list[dict[str, str]]()
     if paths:
@@ -214,9 +213,11 @@ async def generate_finetune_gpt(sample, cwd: Path | str | None = None):
     message_example = sample.message_edit or ""
     if sample.diff_edit:  # Convert any diff_edit to block format for answer
         parsed_llm_response = GitParser().parse_string(sample.diff_edit)
-        message_example += ctx.config.parser.file_edits_to_llm_message(parsed_llm_response)
+        message_example += ctx.config.parser.file_edits_to_llm_message(
+            parsed_llm_response
+        )
     conversation.append({"role": "system", "content": message_example})
-    
+
     await python_client.shutdown()
     return {"messages": conversation}
 
@@ -224,8 +225,12 @@ async def generate_finetune_gpt(sample, cwd: Path | str | None = None):
 async def main():
     parser = argparse.ArgumentParser(description="Evaluate code samples.")
     parser.add_argument("sample_ids", nargs="*", help="Optional sample IDs to evaluate")
-    parser.add_argument("--validate", action="store_true", help="Validate samples instead of evaluating")
-    parser.add_argument("--finetune", action="store_true", help="Generate fine-tuning examples")
+    parser.add_argument(
+        "--validate", action="store_true", help="Validate samples instead of evaluating"
+    )
+    parser.add_argument(
+        "--finetune", action="store_true", help="Generate fine-tuning examples"
+    )
     args = parser.parse_args()
     sample_files = []
     if args.sample_ids:
@@ -236,7 +241,7 @@ async def main():
     if not sample_files:
         print(f"No {'matching ' if args.sample_ids else ''}sample files found.")
         return
-    
+
     logs = []
     for sample_file in sample_files:
         if not sample_file.exists():
@@ -245,7 +250,11 @@ async def main():
         sample = Sample.load(sample_file)
         if args.validate:
             is_valid, reason = await validate_sample(sample)
-            status = "\033[92mPASSED\033[0m" if is_valid else f"\033[91mFAILED: {reason}\033[0m"
+            status = (
+                "\033[92mPASSED\033[0m"
+                if is_valid
+                else f"\033[91mFAILED: {reason}\033[0m"
+            )
             print(f"[{sample.id[:8]}] {sample.title}: {status}")
             logs.append({"id": sample.id, "is_valid": is_valid, "reason": reason})
         elif args.finetune:
@@ -257,7 +266,9 @@ async def main():
                     json.dump(example, f, indent=4)
                 logs.append({"id": sample.id, "example_file": example_file})
             except Exception as e:
-                warn(f"Error generating fine-tuning example for sample {sample.id}: {e}")
+                warn(
+                    f"Error generating fine-tuning example for sample {sample.id}: {e}"
+                )
         else:
             print(f"Evaluating sample {sample.id[:8]}")
             print(f"  Prompt: {sample.message_prompt}")
@@ -270,17 +281,22 @@ async def main():
             print(f"  Response Grade: {response_grade}")
             comparison_grade = await compare_diffs(sample.diff_edit, diff_eval)
             print(f"  Comparison Grade: {comparison_grade}")
-            logs.append({
-                "id": sample.id,
-                "title": sample.title,
-                "prompt": sample.message_prompt,
-                "diff_grade": diff_grade,
-                "response_grade": response_grade,
-                "comparison_grade": comparison_grade,
-            })
-    
+            logs.append(
+                {
+                    "id": sample.id,
+                    "title": sample.title,
+                    "prompt": sample.message_prompt,
+                    "diff_grade": diff_grade,
+                    "response_grade": response_grade,
+                    "comparison_grade": comparison_grade,
+                }
+            )
+
     if args.validate:
-        print(f"{sum([log['is_valid'] for log in logs])}/{len(logs)} samples passed validation.")
+        print(
+            f"{sum([log['is_valid'] for log in logs])}/{len(logs)} samples passed"
+            " validation."
+        )
     elif args.finetune:
         print(f"{len(logs)} fine-tuning examples generated.")
 
