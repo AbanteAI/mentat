@@ -30,7 +30,7 @@ async def collect_user_input(plain: bool = False) -> StreamMessage:
 
     response = await _get_input_request(plain=plain)
     # Quit on q
-    if isinstance(response.data, str) and response.data.strip() == "q":
+    if isinstance(response.data, str) and response.data.lstrip() == "q":
         raise SessionExit
 
     return response
@@ -55,11 +55,11 @@ async def collect_input_with_commands() -> StreamMessage:
     stream = session_context.stream
 
     response = await collect_user_input()
-    while isinstance(response.data, str) and response.data.startswith("/"):
+    while isinstance(response.data, str) and response.data.lstrip().startswith("/"):
         try:
             # We only use shlex to split the arguments, not the command itself
-            arguments = shlex.split(" ".join(response.data.split(" ")[1:]))
-            command = Command.create_command(response.data[1:].split(" ")[0])
+            arguments = shlex.split(" ".join(response.data.lstrip().split(" ")[1:]))
+            command = Command.create_command(response.data.lstrip()[1:].split(" ")[0])
             await command.apply(*arguments)
         except ValueError as e:
             stream.send(f"Error processing command arguments: {e}", color="light_red")
