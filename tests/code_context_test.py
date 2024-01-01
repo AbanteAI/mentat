@@ -213,7 +213,6 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
         mock_session_context.code_context.git_root,
     )
     code_context.include("file_1.py")
-    code_context.use_llm = False
     mock_session_context.config.auto_context_tokens = 8000
     filter_mock = AsyncMock(side_effect=lambda features: features)
     mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
@@ -267,7 +266,6 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
         temp_testbed,
         ignore_patterns=["scripts", "**/*.txt"],
     )
-    code_context.use_llm = False
     code_message = await code_context.get_code_message(0, prompt="prompt")
 
     # Iterate through all files in temp_testbed; if they're not in the ignore
