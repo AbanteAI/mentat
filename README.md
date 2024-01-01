@@ -70,6 +70,8 @@ You'll need to have API access to GPT-4 to run Mentat. There are a few options t
 
 Mentat also works with the Azure OpenAI API. To use the Azure API, provide the `AZURE_OPENAI_ENDPOINT` (`https://<your-instance-name>.openai.azure.com/`) and `AZURE_OPENAI_KEY` environment variables instead of `OPENAI_API_KEY`.
 
+In addition, Mentat uses the `gpt-4-1106-preview` by default. On Azure, this model is available under a different name: `gpt-4-1106-Preview` (with a capital P). To use it, override the default model as described in [configuration.md](docs/configuration.md).
+
 > **_Important:_** Due to changes in the OpenAI Python SDK, you can no longer use `OPENAI_API_BASE` to access the Azure API with Mentat.
 
 ## Configuration
