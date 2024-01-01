@@ -237,6 +237,7 @@ def get_parser():
         default=None,
         help="A git tree-ish to diff against the latest common ancestor of",
     )
+    # TODO Change the default to show "current working directpry" and fix when running - otherwise documentation is wrong.
     parser.add_argument(
         "--cwd", default=Path.cwd(), help="The current working directory"
     )
