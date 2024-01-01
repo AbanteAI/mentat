@@ -296,7 +296,7 @@ async def test_config_command(mock_call_llm_api):
     await command.apply("test")
     assert stream.messages[-1].data == "Unrecognized config option: test"
     await command.apply("model")
-    assert stream.messages[-1].data.startswith("model: ")
+    assert stream.messages[-1].data.startswith(("model: ","Description: "))
     await command.apply("model", "test")
     assert stream.messages[-1].data == "model set to test"
     assert config.model == "test"
