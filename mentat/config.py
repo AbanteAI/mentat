@@ -35,15 +35,22 @@ class Config:
     # Model specific settings
     model: str = attr.field(
         default="gpt-4-1106-preview",
-        metadata={"auto_completions": list(known_models.keys()),
-                  "description" : "Choose from one of the supported models: " + ",".join(list(known_models.keys()))
-                  },
+        metadata={
+            "auto_completions": list(known_models.keys()),
+            "description": "Choose from one of the supported models: " + ",".join(
+                list(known_models.keys())
+            ),
+        },
     )
     feature_selection_model: str = attr.field(
         default="gpt-4-1106-preview",
-        metadata={"auto_completions": list(known_models.keys()),
-                  "description" : "Choose from one of the supported feature selection models: " + ",".join(list(known_models.keys()))
-                  },
+        metadata={
+            "auto_completions": list(known_models.keys()),
+            "description": (
+                "Choose from one of the supported feature selection models: "
+                + ",".join(list(known_models.keys()))
+            ),
+        },
     )
     embedding_model: str = attr.field(
         default="text-embedding-ada-002",
@@ -51,14 +58,29 @@ class Config:
             "auto_completions": [
                 model.name for model in known_models.values() if model.embedding_model
             ],
-                  "description" : "Choose from one of the supported embedding models: " + ",".join([model.name for model in known_models.values() if model.embedding_model])
+            "description": (
+                "Choose from one of the supported embedding models: "
+                + ",".join(
+                    [
+                        model.name
+                        for model in known_models.values()
+                        if model.embedding_model
+                    ]
+                )
+            ),
         },
     )
     temperature: float = attr.field(
-        default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)],
+        default=0.2,
+        converter=float,
+        validator=[validators.le(1), validators.ge(0)],
         metadata={
-            "description": "Temprature controls the model variability from the context: higher value implies more variability. Teemprature is a floating point number between 0 and 1. "
-        }
+            "description": (
+                "Temprature controls the model variability from the context: higher"
+                " value implies more variability. Teemprature is a floating point"
+                " number between 0 and 1. "
+            )
+        },
     )
 
     maximum_context: int | None = attr.field(
