@@ -135,7 +135,10 @@ async def get_feature_similarity_scores(
                 return [0.0 for _ in checksums]
 
     # Fetch embeddings in batches
-    n_batches = len(embed_texts) // EMBEDDINGS_API_BATCH_SIZE + 1
+    if len(embed_texts) == 0:
+        n_batches = 0
+    else:
+        n_batches = len(embed_texts) // EMBEDDINGS_API_BATCH_SIZE + 1
     for batch in range(n_batches):
         if loading_multiplier:
             stream.send(
