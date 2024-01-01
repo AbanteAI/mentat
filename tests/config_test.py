@@ -38,7 +38,7 @@ async def test_config_creation():
     assert args.model == "model"
     assert args.temperature == 0.2
     assert args.maximum_context == "1"
-    assert args.parser is None
+    assert args.parser == "block"
     assert args.auto_context_tokens == 2000
 
     with open(config_file_name, "w") as project_config_file:
