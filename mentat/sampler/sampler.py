@@ -45,6 +45,7 @@ def parse_message(message: ChatCompletionMessageParam) -> dict[str, str]:
 
 
 class Sampler:
+    active: bool = True
     diff_active: str | None = None
     commit_active: str | None = None
     last_sample_id: str | None = None
