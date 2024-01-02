@@ -147,6 +147,8 @@ class AutoCompleter:
         return 0 if not remaining else -len(remaining[0])
 
     def _command_argument_completion(self, buffer: str) -> List[Completion]:
+        if any(buffer.startswith(space) for space in whitespace):
+            return []
         if not any(space in buffer for space in whitespace):
             return self._replace_last_word(
                 buffer, [(name, name) for name in Command.get_command_names()]
