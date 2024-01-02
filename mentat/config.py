@@ -78,9 +78,8 @@ class Config:
         validator=[validators.le(1), validators.ge(0)],
         metadata={
             "description": (
-                "The temperature setting used by model. Temprature is a floating point"
-                " number that controls the model variability from the context: higher"
-                " value implies more variability. number between 0 and 1. "
+                "The model's temperature. Temprature is a number between 0 to 1"
+                "  that controls the model variability."
             )
         },
     )
