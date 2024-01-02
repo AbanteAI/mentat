@@ -25,7 +25,6 @@ def ui_mock_collect_user_input(
 
     mocker.patch("mentat.code_edit_feedback.collect_user_input", side_effect=async_mock)
     mocker.patch("mentat.session_input.collect_user_input", side_effect=async_mock)
-    mocker.patch("mentat.session.collect_user_input", side_effect=async_mock)
 
     async_mock.side_effect = is_test_correct
     return async_mock
@@ -34,6 +33,6 @@ def ui_mock_collect_user_input(
 def test_start(mock_call_llm_api, ui_mock_collect_user_input):
     print()
     with pytest.raises(SystemExit) as e_info:
-        terminal_client = TerminalClient(["."])
+        terminal_client = TerminalClient()
         terminal_client.run()
     assert e_info.value.code == 0
