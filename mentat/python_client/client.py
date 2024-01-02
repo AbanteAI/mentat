@@ -40,7 +40,7 @@ class PythonClient:
             source=StreamMessageSource.CLIENT,
             channel=f"input_request:{input_request_message.id}",
         )
-        if message == "y":
+        if message.strip().lower() == "y":
             await self.wait_for_edit_completion()
 
         temp = self._accumulated_message

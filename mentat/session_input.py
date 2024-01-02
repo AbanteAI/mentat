@@ -44,7 +44,7 @@ async def ask_yes_no(default_yes: bool) -> bool:
         # TODO: combine this into a single message (include content)
         stream.send("(Y/n)" if default_yes else "(y/N)")
         response = await collect_user_input(plain=True)
-        content = response.data
+        content = response.data.strip().lower()
         if content in ["y", "n", ""]:
             break
     return content == "y" or (content != "n" and default_yes)
