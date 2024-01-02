@@ -61,7 +61,7 @@ class Config:
                 model.name for model in known_models.values() if model.embedding_model
             ],
             "description": (
-                "Choose from one of the supported embedding models: "
+                "The model used to create embeddings for auto context: "
                 + ", ".join(
                     [
                         model.name
@@ -78,7 +78,7 @@ class Config:
         validator=[validators.le(1), validators.ge(0)],
         metadata={
             "description": (
-                "The model's temperature. Temprature is a number between 0 to 1"
+                "The model's temperature. Temperature is a number between 0 to 1"
                 "  that controls the model variability."
             )
         },
