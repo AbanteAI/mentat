@@ -1,5 +1,5 @@
-Mentat Usage
-============
+Command Line Arguments
+======================
 
 .. argparse:: 
    :prog: mentat

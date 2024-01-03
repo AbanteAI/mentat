@@ -1,5 +1,5 @@
-mentat
-======
+Developer Guide
+===============
 
 .. toctree::
    :maxdepth: 4
