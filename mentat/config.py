@@ -146,14 +146,14 @@ class Config:
         },
     )
 
-    theme: str | None = attr.field( # pyright: ignore
+    theme: str | None = attr.field(  # pyright: ignore
         default="light",
         metadata={
             "description": (
                 "Theme for interaction possible choices are light, dark or none."
             )
         },
-        validator=validators.in_(["light", "dark", None]), # pyright: ignore
+        validator=validators.in_(["light", "dark", None]),  # pyright: ignore
     )
 
     # Only settable by config file
