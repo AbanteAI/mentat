@@ -32,7 +32,7 @@ def print_stream_message(message: StreamMessage):
     color = None
     flush = False
     session_context = SESSION_CONTEXT.get()
-    if session_context.config.theme != None:
+    if session_context.config.theme is not None:
         theme = Themes.get(session_context.config.theme)
     else:
         theme = None
@@ -45,7 +45,7 @@ def print_stream_message(message: StreamMessage):
             flush = message.extra["flush"]
         if isinstance(message.extra.get("style"), str):
             style = message.extra["style"]
-            if theme != None:
+            if theme is not None:
                 color = theme[style]
 
     _print_stream_message_string(

@@ -21,13 +21,13 @@ class StreamingPrinter:
         color: str | None = None,
         style: str | None = None,
     ):
-        if style != None:
+        if style is not None:
             session_context = SESSION_CONTEXT.get()
-            if session_context.config.theme != None:
+            if session_context.config.theme is not None:
                 theme = Themes.get(session_context.config.theme)
             else:
                 theme = None
-            if theme != None:
+            if theme is not None:
                 color = theme[style]
 
         if self.finishing:
