@@ -9,7 +9,7 @@ import attr
 from attr import converters, validators
 
 from mentat.git_handler import get_git_root_for_path
-from mentat.llm_api_handler import known_models
+from mentat.llm_api_handler import available_embedding_models, available_models
 from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
@@ -35,19 +35,15 @@ class Config:
     # Model specific settings
     model: str = attr.field(
         default="gpt-4-1106-preview",
-        metadata={"auto_completions": list(known_models.keys())},
+        metadata={"auto_completions": available_models()},
     )
     feature_selection_model: str = attr.field(
         default="gpt-4-1106-preview",
-        metadata={"auto_completions": list(known_models.keys())},
+        metadata={"auto_completions": available_models()},
     )
     embedding_model: str = attr.field(
         default="text-embedding-ada-002",
-        metadata={
-            "auto_completions": [
-                model.name for model in known_models.values() if model.embedding_model
-            ]
-        },
+        metadata={"auto_completions": available_embedding_models()},
     )
     temperature: float = attr.field(
         default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)]

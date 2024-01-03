@@ -242,9 +242,9 @@ def mock_model_available(mocker):
 
 
 @pytest.fixture(autouse=True, scope="function")
-def mock_initialize_client(mocker, request):
+def mock_load_env(mocker, request):
     if not request.config.getoption("--benchmark"):
-        mocker.patch.object(LlmApiHandler, "initialize_client")
+        mocker.patch.object(LlmApiHandler, "load_env")
 
 
 # ContextVars need to be set in a synchronous fixture due to pytest not propagating

@@ -20,13 +20,7 @@ from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
-from mentat.errors import (
-    ContextSizeInsufficient,
-    MentatError,
-    SampleError,
-    SessionExit,
-    UserError,
-)
+from mentat.errors import MentatError, ReturnToUser, SampleError, SessionExit, UserError
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
@@ -147,7 +141,7 @@ class Session:
         if session_context.config.auto_context_tokens > 0:
             ensure_ctags_installed()
 
-        session_context.llm_api_handler.initialize_client()
+        session_context.llm_api_handler.load_env()
         code_context.display_context()
         await conversation.display_token_count()
 
@@ -214,7 +208,7 @@ class Session:
                 stream.send(bool(file_edits), channel="edits_complete")
             except SessionExit:
                 break
-            except ContextSizeInsufficient:
+            except ReturnToUser:
                 need_user_request = True
                 continue
             except (APITimeoutError, RateLimitError, BadRequestError) as e:

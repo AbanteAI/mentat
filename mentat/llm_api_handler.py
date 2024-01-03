@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import base64
-import io
 import os
 import sys
 from pathlib import Path
@@ -10,17 +8,16 @@ from typing import (
     Any,
     AsyncIterator,
     Callable,
-    Dict,
     List,
     Literal,
     Optional,
+    TypedDict,
     cast,
     overload,
 )
 
-import attr
+import litellm
 import sentry_sdk
-import tiktoken
 from dotenv import load_dotenv
 from openai import (
     APIConnectionError,
@@ -29,16 +26,16 @@ from openai import (
     AsyncStream,
     AuthenticationError,
 )
+from openai.types import CreateEmbeddingResponse
+from openai.types.audio import Transcription
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
-    ChatCompletionContentPartParam,
     ChatCompletionMessageParam,
 )
 from openai.types.chat.completion_create_params import ResponseFormat
-from PIL import Image
 
-from mentat.errors import ContextSizeInsufficient, MentatError, UserError
+from mentat.errors import MentatError, ReturnToUser
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -56,7 +53,7 @@ def is_test_environment():
 
 
 def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
-    """Decorator that should be used on any function that calls the OpenAI API
+    """Decorator that should be used on any function that calls an LLM API
 
     It does two things:
     1. Raises if the function is called in tests (that aren't benchmarks)
@@ -93,6 +90,9 @@ def count_tokens(message: str, model: str, full_message: bool) -> int:
     If full_message is true, will include the extra 4 tokens used in a chat completion by this message
     if this message is part of a prompt. You do NOT want full_message to be true for a response.
     """
+    return litellm.token_counter(model, text=message)  # pyright: ignore
+
+    """
     try:
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
@@ -100,12 +100,16 @@ def count_tokens(message: str, model: str, full_message: bool) -> int:
     return len(encoding.encode(message, disallowed_special=())) + (
         4 if full_message else 0
     )
+    """
 
 
-def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str):
+def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str) -> int:
     """
     Returns the number of tokens used by a prompt if it was sent to OpenAI for a chat completion.
     Adapted from https://platform.openai.com/docs/guides/text-generation/managing-tokens
+    """
+
+    return litellm.token_counter(model, messages=messages)  # pyright: ignore
     """
     try:
         encoding = tiktoken.encoding_for_model(model)
@@ -142,52 +146,44 @@ def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str):
                 num_tokens -= 1  # role is always required and always 1 token
     num_tokens += 2  # every reply is primed with <|start|>assistant
     return num_tokens
+    """
 
 
-@attr.define
-class Model:
-    name: str = attr.field()
-    context_size: int = attr.field()
-    input_cost: float = attr.field()
-    output_cost: float = attr.field()
-    embedding_model: bool = attr.field(default=False)
+class Model(TypedDict):
+    max_tokens: int
+    input_cost_per_token: float
+    output_cost_per_token: float
+    litellm_provider: str
+    mode: str
 
 
-known_models: Dict[str, Model] = {
-    "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
-    # model name on Azure
-    "gpt-4-1106-Preview": Model("gpt-4-1106-Preview", 128000, 0.01, 0.03),
-    "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
-    "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
-    "gpt-4-32k": Model("gpt-4-32k", 32768, 0.06, 0.12),
-    "gpt-4-0613": Model("gpt-4-0613", 8192, 0.03, 0.06),
-    "gpt-4-32k-0613": Model("gpt-4-32k-0613", 32768, 0.06, 0.12),
-    "gpt-4-0314": Model("gpt-4-0314", 8192, 0.03, 0.06),
-    "gpt-4-32k-0314": Model("gpt-4-32k-0314", 32768, 0.06, 0.12),
-    "gpt-3.5-turbo-1106": Model("gpt-3.5-turbo-1106", 16385, 0.001, 0.002),
-    "gpt-3.5-turbo": Model("gpt-3.5-turbo", 16385, 0.001, 0.002),
-    "gpt-3.5-turbo-0613": Model("gpt-3.5-turbo-0613", 4096, 0.0015, 0.002),
-    "gpt-3.5-turbo-16k-0613": Model("gpt-3.5-turbo-16k-0613", 16385, 0.003, 0.004),
-    "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
-    "text-embedding-ada-002": Model(
-        "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
-    ),
-}
+def _get_model_info(model: str) -> Optional[Model]:
+    try:
+        return litellm.get_model_info(model)  # pyright: ignore
+    except Exception:
+        return None
+
+
+def available_models() -> List[str]:
+    return litellm.model_list  # pyright: ignore
+
+
+def available_embedding_models() -> List[str]:
+    return litellm.all_embedding_models  # pyright: ignore
 
 
 def model_context_size(model: str) -> Optional[int]:
-    if model not in known_models:
-        return None
-    else:
-        return known_models[model].context_size
+    model_info = _get_model_info(model)
+    return model_info["max_tokens"] if model_info is not None else None
 
 
 def model_price_per_1000_tokens(model: str) -> Optional[tuple[float, float]]:
-    """Returns (input, output) cost per 1000 tokens in USD"""
-    if model not in known_models:
-        return None
-    else:
-        return known_models[model].input_cost, known_models[model].output_cost
+    model_info = _get_model_info(model)
+    return (
+        (model_info["input_cost_per_token"], model_info["output_cost_per_token"])
+        if model_info is not None
+        else None
+    )
 
 
 def get_max_tokens() -> int:
@@ -205,12 +201,16 @@ def get_max_tokens() -> int:
     elif maximum_context is not None:
         return maximum_context
     else:
+        maximum_context = 4096
+        # This attr has a converter from str to int
+        config.maximum_context = str(maximum_context)
         stream.send(
-            f"Context size for {config.model} is not known. Please set"
-            " maximum-context with `/config maximum_context <value>`.",
-            color="light_red",
+            f"Context size for {config.model} is not known. Set maximum-context"
+            " with `/config maximum_context <value>`. Using a default value of"
+            f" {maximum_context}.",
+            color="yellow",
         )
-        raise ContextSizeInsufficient()
+        return maximum_context
 
 
 def is_context_sufficient(tokens: int) -> bool:
@@ -232,33 +232,35 @@ def is_context_sufficient(tokens: int) -> bool:
 class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
-    def initialize_client(self):
+    def load_env(self):
+        ctx = SESSION_CONTEXT.get()
+
         if not load_dotenv(mentat_dir_path / ".env"):
             load_dotenv()
+
         key = os.getenv("OPENAI_API_KEY")
         base_url = os.getenv("OPENAI_API_BASE")
         azure_key = os.getenv("AZURE_OPENAI_KEY")
         azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 
-        if not key and not azure_key:
-            raise UserError(
-                "No OpenAI api key detected.\nEither place your key into a .env"
-                " file or export it as an environment variable."
-            )
-
         # We don't have any use for a synchronous client, but if we ever do we can easily make it here
-        if azure_endpoint:
+        if azure_endpoint and azure_key:
             self.async_client = AsyncAzureOpenAI(
                 api_key=azure_key,
                 api_version="2023-12-01-preview",
                 azure_endpoint=azure_endpoint,
             )
-        else:
+        elif key:
             self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
-        try:
-            self.async_client.models.list()  # Test the key
-        except AuthenticationError as e:
-            raise UserError(f"API gave an Authentication Error:\n{e}")
+        else:
+            self.async_client = None
+
+        if self.async_client is not None:
+            try:
+                self.async_client.models.list()  # Test the key
+            except AuthenticationError as e:
+                ctx.stream.send(f"OpenAI API gave Authentication Error:\n{e}")
+                self.async_client = None
 
     @overload
     async def call_llm_api(
@@ -293,30 +295,21 @@ class LlmApiHandler:
         # Confirm that model has enough tokens remaining.
         tokens = prompt_tokens(messages, model)
         if not is_context_sufficient(tokens):
-            raise ContextSizeInsufficient()
+            raise ReturnToUser()
 
         start_time = default_timer()
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
-            # OpenAI's API is bugged; when gpt-4-vision-preview is used, including the response format
-            # at all returns a 400 error. Additionally, gpt-4-vision-preview has a max response of 30 tokens by default.
-            # Until this is fixed, we have to use this workaround.
-            if model == "gpt-4-vision-preview":
-                response = await self.async_client.chat.completions.create(
+            response = cast(
+                ChatCompletion | AsyncIterator[ChatCompletionChunk],
+                await litellm.acompletion(  # pyright: ignore
                     model=model,
                     messages=messages,
                     temperature=config.temperature,
                     stream=stream,
-                    max_tokens=4096,
-                )
-            else:
-                response = await self.async_client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=config.temperature,
-                    stream=stream,
-                    response_format=response_format,
-                )
+                    response_format=response_format,  # pyright: ignore
+                ),
+            )
 
         # We have to cast response since pyright isn't smart enough to connect
         # the dots between stream and the overloaded create function
@@ -342,22 +335,23 @@ class LlmApiHandler:
     async def call_embedding_api(
         self, input_texts: list[str], model: str = "text-embedding-ada-002"
     ) -> list[list[float]]:
-        response = await self.async_client.embeddings.create(
-            input=input_texts, model=model
+        response = cast(
+            CreateEmbeddingResponse,
+            await litellm.aembedding(input=input_texts, model=model),  # pyright: ignore
         )
         return [embedding.embedding for embedding in response.data]
 
     @api_guard
-    async def is_model_available(self, model: str) -> bool:
-        available_models: list[str] = [
-            model.id async for model in self.async_client.models.list()
-        ]
-        return model in available_models
-
-    @api_guard
     async def call_whisper_api(self, audio_path: Path) -> str:
+        ctx = SESSION_CONTEXT.get()
+
+        if self.async_client is None:
+            ctx.stream.send(
+                "You must provide a valid OpenAI API key to use the Whisper API."
+            )
+            raise ReturnToUser()
         audio_file = open(audio_path, "rb")
-        transcript = await self.async_client.audio.transcriptions.create(
+        transcript: Transcription = await self.async_client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file,
         )

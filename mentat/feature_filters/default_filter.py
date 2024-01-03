@@ -1,7 +1,7 @@
 from typing import Optional
 
 from mentat.code_feature import CodeFeature
-from mentat.errors import ContextSizeInsufficient, ModelError
+from mentat.errors import ModelError, ReturnToUser
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.llm_feature_filter import LLMFeatureFilter
@@ -39,7 +39,7 @@ class DefaultFilter(FeatureFilter):
                     self.expected_edits,
                     (0.5 if self.user_prompt != "" else 1) * self.loading_multiplier,
                 ).filter(features)
-            except (ModelError, ContextSizeInsufficient):
+            except (ModelError, ReturnToUser):
                 ctx.stream.send(
                     "Feature-selection LLM response invalid. Using TruncateFilter"
                     " instead."

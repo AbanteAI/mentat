@@ -15,7 +15,6 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-from mentat.errors import MentatError
 from mentat.llm_api_handler import (
     TOKEN_COUNT_WARNING,
     count_tokens,
@@ -41,13 +40,7 @@ class Conversation:
         stream = session_context.stream
         config = session_context.config
         code_context = session_context.code_context
-        llm_api_handler = session_context.llm_api_handler
 
-        if not await llm_api_handler.is_model_available(config.model):
-            raise MentatError(
-                f"Model {config.model} is not available. Please try again with a"
-                " different model."
-            )
         if "gpt-4" not in config.model:
             stream.send(
                 "Warning: Mentat has only been tested on GPT-4. You may experience"

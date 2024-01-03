@@ -11,7 +11,7 @@ from mentat.code_feature import (
     split_file_into_intervals,
 )
 from mentat.diff_context import DiffContext
-from mentat.errors import ContextSizeInsufficient, PathValidationError
+from mentat.errors import PathValidationError, ReturnToUser
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
 from mentat.git_handler import get_paths_with_git_diffs
@@ -152,7 +152,7 @@ class CodeContext:
             prompt_tokens + meta_tokens + include_files_tokens + config.token_buffer
         )
         if not is_context_sufficient(tokens_used):
-            raise ContextSizeInsufficient()
+            raise ReturnToUser()
         auto_tokens = min(get_max_tokens() - tokens_used, config.auto_context_tokens)
 
         # Get auto included features
