@@ -104,8 +104,6 @@ class CodeContext:
                 prefix + prefix,
             )
 
-    use_llm: bool = False
-
     async def get_code_message(
         self,
         prompt_tokens: int,
@@ -162,7 +160,6 @@ class CodeContext:
             features = self.get_all_features()
             feature_filter = DefaultFilter(
                 auto_tokens,
-                self.use_llm,
                 prompt,
                 expected_edits,
                 loading_multiplier=loading_multiplier,
