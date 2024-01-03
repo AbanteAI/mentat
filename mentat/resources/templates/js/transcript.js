@@ -54,40 +54,61 @@ document.addEventListener('DOMContentLoaded', (event) => {
     const feedbackButtons = document.getElementsByClassName("feedback_button");
     for (const feedbackButton of feedbackButtons) {
         feedbackButton.onclick = (event) => {
-            const feedback = prompt("Please enter your feedback: (Optional)");
-            if (!feedback) {
-                feedback = "";
-            }
-            const link = event.currentTarget;
-            const html = containerWithoutButtons(link);
-            const key = Date.now().toString(36) + Math.random().toString(36).substr(2) + '.html';
-            data = {
-                "html": html.outerHTML,
-                "feedback": feedback,
-                "key": key
+            const modal = document.getElementById('feedback-modal');
+            modal.style.display = 'block';
+            const closeButton = modal.querySelector('.close-button');
+            const form = document.getElementById('feedback-form');
+            const current_button = event.currentTarget;
+
+            closeButton.onclick = () => {
+                modal.style.display = 'none';
             };
-            const endpoint = "https://29g74gpmwk.execute-api.us-east-2.amazonaws.com/default/store-usage-example";
-            fetch(endpoint, {
-                method: "POST",
-                mode: "no-cors",
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            }).then(response => {
-                alert("Thank you for your feedback!");
-                const s3Url = `https://abante-shared-usage-examples.s3.us-east-2.amazonaws.com/${key}`;
-                navigator.clipboard.writeText(s3Url).then(() => {
-                    alert("Thank you for your feedback. The link has been copied to your clipboard.");
-                }, (err) => {
-                    console.error('Could not copy text: ', err);
-                    alert("Thank you for your feedback. The link is: " + s3Url);
+
+            form.onsubmit = (event) => {
+                event.preventDefault();
+                const feedback = document.getElementById('feedback-input').value;
+                const html = containerWithoutButtons(current_button);
+                const key = Date.now().toString(36) + Math.random().toString(36).substr(2) + '.html';
+                data = {
+                    "html": html.outerHTML,
+                    "feedback": feedback,
+                    "key": key
+                };
+                const endpoint = "https://29g74gpmwk.execute-api.us-east-2.amazonaws.com/default/store-usage-example";
+                fetch(endpoint, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                }).then(response => {
+                    alert("Thank you for your feedback!");
+                    const s3Url = `https://abante-shared-usage-examples.s3.us-east-2.amazonaws.com/${key}`;
+                    navigator.clipboard.writeText(s3Url).then(() => {
+                        alert("Thank you for your feedback. The link has been copied to your clipboard.");
+                        document.getElementById('feedback-message').textContent = "Thank you for your feedback. The link has been copied to your clipboard.";
+                    }, (err) => {
+                        console.error('Could not copy text: ', err);
+                        document.getElementById('feedback-message').textContent = "Thank you for your feedback. The link is: " + s3Url;
+                    });
+                }).catch(error => {
+                    console.error("Error submitting feedback:", error);
+                    alert("There was an error submitting your feedback.");
                 });
-            }).catch(error => {
-                console.error("Error submitting feedback:", error);
-                alert("There was an error submitting your feedback.");
-            });
+            };
         };
     }
+
+    document.querySelector('.modal-content').onclick = (event) => {
+        event.stopPropagation();
+    };
+    window.onclick = (event) => {
+        const modal = document.getElementById('feedback-modal');
+        if (event.target == modal) {
+            modal.style.display = 'none';
+            document.getElementById('feedback-message').textContent = '';
+        }
+    };
 })
 

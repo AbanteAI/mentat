@@ -35,4 +35,15 @@
         <h1 class="viewpoint-title">Model's Viewpoint {{ transcript["id"] }}</h1>
     </div>
 </div>
+<div id="feedback-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <form id="feedback-form">
+            <label for="feedback-input">Please enter your feedback:</label>
+            <textarea id="feedback-input" name="feedback" rows="4"></textarea>
+            <p id="feedback-message"></p>
+            <input type="submit" value="Submit Feedback">
+        </form>
+    </div>
+</div>
 {% endmacro %}
