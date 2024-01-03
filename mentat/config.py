@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import array
 import json
 from argparse import ArgumentParser, Namespace
 from json import JSONDecodeError
 from pathlib import Path
-
-import array
 
 import attr
 from attr import converters, validators
