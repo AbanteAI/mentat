@@ -2,7 +2,7 @@
 function containerWithoutButtons(element) {
     const container = element.closest('.container');
     const clone = container.cloneNode(true);
-    const buttonsToRemove = clone.querySelectorAll('.download_parent, .feedback_button');
+    const buttonsToRemove = clone.querySelectorAll('.download-parent, .feedback-button');
     buttonsToRemove.forEach(button => button.remove());
     const head = document.getElementsByTagName("head")[0].cloneNode(true);
 
@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
             }
         }
     }
-    const downloadLinks = document.getElementsByClassName("download_parent");
+    const downloadLinks = document.getElementsByClassName("download-parent");
     for (downloadLink of downloadLinks) {
         downloadLink.onclick = (event) => {
             const link = event.currentTarget;
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
             link.download = `transcript.html`;
         };
     }
-    const feedbackButtons = document.getElementsByClassName("feedback_button");
+    const feedbackButtons = document.getElementsByClassName("feedback-button");
     for (const feedbackButton of feedbackButtons) {
         feedbackButton.onclick = (event) => {
             const modal = document.getElementById('feedback-modal');

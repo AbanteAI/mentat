@@ -86,31 +86,16 @@ pre {
     background-color: rgb(255, 197, 197);
 }
 
-.download_parent {
+.download-parent {
+    display: inline-block;
+    cursor: pointer;
+    margin-right: 10px; /* Space between buttons */
+}
+
+.button-group {
     position: absolute;
     top: 20px;
     right: 20px;
-    cursor: pointer;
-}
-
-.feedback_button {
-    position: absolute;
-    bottom: 20px;
-    right: 70px;
-    cursor: pointer;
-    padding: 15px 30px;
-    background-color: #ffcc00;
-    border: none;
-    border-radius: 90px;
-    font-size: 20px;
-    color: #333;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    transition: background-color 0.3s ease, transform 0.3s ease;
-}
-
-.feedback_button:hover {
-    background-color: #ffdd55;
-    transform: scale(1.05);
 }
 .modal {
     display: none;
@@ -172,20 +157,42 @@ pre {
     background-color: #45a049;
 }
 
-.download_icon {
+.button-group > a {
     display: inline-block;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg>');
-    background-size: contain;
-    background-repeat: no-repeat;
-    width: 36px;
-    height: 36px;
-    border: 2px solid black; /* Darker border color */
+    cursor: pointer;
+    padding: 8px 16px;
+    background-color: #ffcc00;
+    border: none;
     border-radius: 18px;
-    padding: 4px;
-    transition: transform 0.3s ease, border-color 0.3s ease;
+    font-size: 16px;
+    color: #333;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s ease, transform 0.3s ease;
 }
 
-.download_icon:hover {
-    transform: scale(1.1);
-    border-color: black; /* Darker border color on hover */
+.button-group > a:hover {
+    background-color: #ffdd55;
+    transform: scale(1.11);
+}
+
+a .tooltip{
+  visibility: hidden;
+  width: 150px;
+  background-color: #555;
+  color: #fff;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+  position: absolute;
+  z-index: 1;
+  bottom: -150%; 
+  left: -50%;
+  margin-left: -75px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+a:hover .tooltip {
+  visibility: visible;
+  opacity: 1;
 }
