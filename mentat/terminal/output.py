@@ -4,6 +4,9 @@ from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
 
 from mentat.session_stream import StreamMessage
+from mentat.session_context import SESSION_CONTEXT
+
+from mentat.terminal.themes import Themes
 
 
 def _print_stream_message_string(
@@ -29,6 +32,11 @@ def print_stream_message(message: StreamMessage):
     end = "\n"
     color = None
     flush = False
+    session_context = SESSION_CONTEXT.get()
+    if session_context.config.theme != None:
+        theme = Themes.get(session_context.config.theme)
+    else:
+        theme = None
     if message.extra:
         if isinstance(message.extra.get("end"), str):
             end = message.extra["end"]
@@ -36,6 +44,10 @@ def print_stream_message(message: StreamMessage):
             color = message.extra["color"]
         if isinstance(message.extra.get("flush"), bool):
             flush = message.extra["flush"]
+        if isinstance(message.extra.get("style"), str):
+            style = message.extra["style"]
+            if theme != None:
+                color = theme[style]
 
     _print_stream_message_string(
         content=message.data,

@@ -131,6 +131,13 @@ class Config:
         },
     )
 
+    theme: str | None = attr.field(
+        default="light",
+        metadata={
+            "description": "Theme for interaction possible choices are light, dark or none."
+        },
+    )
+
     # Only settable by config file
     input_style: list[tuple[str, str]] = attr.field(
         factory=lambda: [
