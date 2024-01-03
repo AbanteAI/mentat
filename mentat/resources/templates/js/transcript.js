@@ -2,17 +2,46 @@
 function containerWithoutButtons(element) {
     const container = element.closest('.container');
     const clone = container.cloneNode(true);
-    const buttonsToRemove = clone.querySelectorAll('.download-parent, .feedback-button');
-    buttonsToRemove.forEach(button => button.remove());
+    clone.querySelectorAll('.button-group').remove();
     const head = document.getElementsByTagName("head")[0].cloneNode(true);
-
     const html = document.createElement("html");
     const body = document.createElement("body");
     body.appendChild(clone);
     html.appendChild(head);
     html.appendChild(body);
-
     return html;
+}
+
+async function uploadTranscript(page, feedback) {
+    const key = Date.now().toString(36) + Math.random().toString(36).substr(2) + '.html';
+    let data = {
+        "html": page,
+        "key": key
+    }
+    if (feedback) {
+        data["feedback"] = feedback
+    }
+    const endpoint = "https://29g74gpmwk.execute-api.us-east-2.amazonaws.com/default/store-usage-example";
+    return fetch(endpoint, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    }).then(response => {
+        return `https://abante-shared-usage-examples.s3.us-east-2.amazonaws.com/${key}`;
+    })
+}
+
+function makeToast(message) {
+    const toast = document.createElement("div");
+    toast.classList.add("toast");
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
 }
 
 document.addEventListener('DOMContentLoaded', (event) => {
@@ -68,35 +97,32 @@ document.addEventListener('DOMContentLoaded', (event) => {
                 event.preventDefault();
                 const feedback = document.getElementById('feedback-input').value;
                 const html = containerWithoutButtons(current_button);
-                const key = Date.now().toString(36) + Math.random().toString(36).substr(2) + '.html';
-                data = {
-                    "html": html.outerHTML,
-                    "feedback": feedback,
-                    "key": key
-                };
-                const endpoint = "https://29g74gpmwk.execute-api.us-east-2.amazonaws.com/default/store-usage-example";
-                fetch(endpoint, {
-                    method: "POST",
-                    mode: "no-cors",
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                }).then(response => {
-                    alert("Thank you for your feedback!");
-                    const s3Url = `https://abante-shared-usage-examples.s3.us-east-2.amazonaws.com/${key}`;
-                    navigator.clipboard.writeText(s3Url).then(() => {
-                        alert("Thank you for your feedback. The link has been copied to your clipboard.");
-                        document.getElementById('feedback-message').textContent = "Thank you for your feedback. The link has been copied to your clipboard.";
-                    }, (err) => {
-                        console.error('Could not copy text: ', err);
-                        document.getElementById('feedback-message').textContent = "Thank you for your feedback. The link is: " + s3Url;
-                    });
+                uploadTranscript(html.outerHTML, feedback).then(s3Url => {
+                    makeToast("Thank you for your feedback!");
+                    modal.style.display = 'none';
                 }).catch(error => {
                     console.error("Error submitting feedback:", error);
                     alert("There was an error submitting your feedback.");
                 });
             };
+        };
+    }
+
+    const shareButtons = document.getElementsByClassName("share-button");
+    for (const shareButton of shareButtons) {
+        shareButton.onclick = (event) => {
+            const current_button = event.currentTarget;
+            const html = containerWithoutButtons(current_button);
+            uploadTranscript(html.outerHTML, null).then(s3Url => {
+                navigator.clipboard.writeText(s3Url).then(() => {
+                    makeToast("The link has been copied to your clipboard.");
+                }, (err) => {
+                    alert("Couldn't access clipboard. The link is: " + s3Url);
+                });
+            }).catch(error => {
+                console.error("Error submitting feedback:", error);
+                alert("There was an error uploading the transcript.");
+            });
         };
     }
 
