@@ -11,7 +11,7 @@ Welcome to Mentat's documentation!
    :caption: Contents:
 
    user/guides
-   internal/modules
+   developer/modules
 
 
 Indices and tables

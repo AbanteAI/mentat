@@ -4,4 +4,8 @@ User Guide
 .. toctree::
    :maxdepth: 4
 
-   usage
+   getting_started
+   context
+   commands
+   configuration
+   cli_arguments

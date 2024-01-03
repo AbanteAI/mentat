@@ -10,9 +10,9 @@ import sys
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "Mentat"
-copyright = "2023, Abante AI"
+copyright = "2024, Abante AI"
 author = "Multiple Authors"
-release = "1.0.6"
+release = "1.0.7"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -23,6 +23,8 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinxarg.ext",
+    "sphinx_copybutton",
+    "sphinx.ext.autosectionlabel",
 ]
 
 templates_path = ["_templates"]
