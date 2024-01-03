@@ -14,7 +14,13 @@ class StreamingPrinter:
         self.finishing = False
         self.shutdown = False
 
-    def add_string(self, string: str, end: str = "\n", color: str | None = None, style: str | None = None):
+    def add_string(
+        self,
+        string: str,
+        end: str = "\n",
+        color: str | None = None,
+        style: str | None = None,
+    ):
         if style != None:
             session_context = SESSION_CONTEXT.get()
             if session_context.config.theme != None:
