@@ -4,6 +4,7 @@ from collections import deque
 from termcolor import colored
 
 from mentat.session_context import SESSION_CONTEXT
+from mentat.terminal.themes import Themes
 
 
 class StreamingPrinter:
@@ -13,7 +14,16 @@ class StreamingPrinter:
         self.finishing = False
         self.shutdown = False
 
-    def add_string(self, string: str, end: str = "\n", color: str | None = None):
+    def add_string(self, string: str, end: str = "\n", color: str | None = None, style: str | None = None):
+        if style != None:
+            session_context = SESSION_CONTEXT.get()
+            if session_context.config.theme != None:
+                theme = Themes.get(session_context.config.theme)
+            else:
+                theme = None
+            if theme != None:
+                color = theme[style]
+
         if self.finishing:
             return
 
