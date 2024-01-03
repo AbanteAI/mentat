@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import io
 import os
 import sys
 from pathlib import Path
@@ -18,6 +20,7 @@ from typing import (
 
 import litellm
 import sentry_sdk
+import tiktoken
 from dotenv import load_dotenv
 from openai import (
     APIConnectionError,
@@ -31,9 +34,11 @@ from openai.types.audio import Transcription
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
+    ChatCompletionContentPartParam,
     ChatCompletionMessageParam,
 )
 from openai.types.chat.completion_create_params import ResponseFormat
+from PIL import Image
 
 from mentat.errors import MentatError, ReturnToUser
 from mentat.session_context import SESSION_CONTEXT
@@ -81,72 +86,6 @@ def chunk_to_lines(chunk: ChatCompletionChunk) -> list[str]:
     if len(chunk.choices) > 0:
         content = chunk.choices[0].delta.content
     return ("" if content is None else content).splitlines(keepends=True)
-
-
-def count_tokens(message: str, model: str, full_message: bool) -> int:
-    """
-    Calculates the tokens in this message. Will NOT be accurate for a full prompt!
-    Use prompt_tokens to get the exact amount of tokens for a prompt.
-    If full_message is true, will include the extra 4 tokens used in a chat completion by this message
-    if this message is part of a prompt. You do NOT want full_message to be true for a response.
-    """
-    return litellm.token_counter(model, text=message)  # pyright: ignore
-
-    """
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        encoding = tiktoken.get_encoding("cl100k_base")
-    return len(encoding.encode(message, disallowed_special=())) + (
-        4 if full_message else 0
-    )
-    """
-
-
-def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str) -> int:
-    """
-    Returns the number of tokens used by a prompt if it was sent to OpenAI for a chat completion.
-    Adapted from https://platform.openai.com/docs/guides/text-generation/managing-tokens
-    """
-
-    return litellm.token_counter(model, messages=messages)  # pyright: ignore
-    """
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        encoding = tiktoken.get_encoding("cl100k_base")
-
-    num_tokens = 0
-    for message in messages:
-        # every message follows <|start|>{role/name}\n{content}<|end|>\n
-        # this has 5 tokens (start token, role, \n, end token, \n), but we count the role token later
-        num_tokens += 4
-        for key, value in message.items():
-            if isinstance(value, list) and key == "content":
-                value = cast(List[ChatCompletionContentPartParam], value)
-                for entry in value:
-                    if entry["type"] == "text":
-                        num_tokens += len(encoding.encode(entry["text"]))
-                    if entry["type"] == "image_url":
-                        image_base64: str = entry["image_url"]["url"].split(",")[1]
-                        image_bytes: bytes = base64.b64decode(image_base64)
-                        image = Image.open(io.BytesIO(image_bytes))
-                        size = image.size
-                        # As described here: https://platform.openai.com/docs/guides/vision/calculating-costs
-                        scale = min(1, 2048 / max(size))
-                        size = (int(size[0] * scale), int(size[1] * scale))
-                        scale = min(1, 768 / min(size))
-                        size = (int(size[0] * scale), int(size[1] * scale))
-                        num_tokens += 85 + 170 * ((size[0] + 511) // 512) * (
-                            (size[1] + 511) // 512
-                        )
-            elif isinstance(value, str):
-                num_tokens += len(encoding.encode(value))
-            if key == "name":  # if there's a name, the role is omitted
-                num_tokens -= 1  # role is always required and always 1 token
-    num_tokens += 2  # every reply is primed with <|start|>assistant
-    return num_tokens
-    """
 
 
 class Model(TypedDict):
@@ -229,6 +168,84 @@ def is_context_sufficient(tokens: int) -> bool:
     return True
 
 
+# litellm's token counting functions are inaccurate and don't count picture tokens;
+# if we are using OpenAI, use our functions instead.
+def _open_ai_count_tokens(message: str, model: str, full_message: bool) -> int:
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        encoding = tiktoken.get_encoding("cl100k_base")
+    return len(encoding.encode(message, disallowed_special=())) + (
+        4 if full_message else 0
+    )
+
+
+def _open_ai_prompt_tokens(
+    messages: List[ChatCompletionMessageParam], model: str
+) -> int:
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        encoding = tiktoken.get_encoding("cl100k_base")
+
+    num_tokens = 0
+    for message in messages:
+        # every message follows <|start|>{role/name}\n{content}<|end|>\n
+        # this has 5 tokens (start token, role, \n, end token, \n), but we count the role token later
+        num_tokens += 4
+        for key, value in message.items():
+            if isinstance(value, list) and key == "content":
+                value = cast(List[ChatCompletionContentPartParam], value)
+                for entry in value:
+                    if entry["type"] == "text":
+                        num_tokens += len(encoding.encode(entry["text"]))
+                    if entry["type"] == "image_url":
+                        image_base64: str = entry["image_url"]["url"].split(",")[1]
+                        image_bytes: bytes = base64.b64decode(image_base64)
+                        image = Image.open(io.BytesIO(image_bytes))
+                        size = image.size
+                        # As described here: https://platform.openai.com/docs/guides/vision/calculating-costs
+                        scale = min(1, 2048 / max(size))
+                        size = (int(size[0] * scale), int(size[1] * scale))
+                        scale = min(1, 768 / min(size))
+                        size = (int(size[0] * scale), int(size[1] * scale))
+                        num_tokens += 85 + 170 * ((size[0] + 511) // 512) * (
+                            (size[1] + 511) // 512
+                        )
+            elif isinstance(value, str):
+                num_tokens += len(encoding.encode(value))
+            if key == "name":  # if there's a name, the role is omitted
+                num_tokens -= 1  # role is always required and always 1 token
+    num_tokens += 2  # every reply is primed with <|start|>assistant
+    return num_tokens
+
+
+def count_tokens(message: str, model: str, full_message: bool) -> int:
+    """
+    Calculates the tokens in this message. Will NOT be accurate for a full prompt!
+    Use prompt_tokens to get the exact amount of tokens for a prompt.
+    If full_message is true, will include the extra 4 tokens used in a chat completion by this message
+    if this message is part of a prompt. You do NOT want full_message to be true for a response.
+    """
+    model_info = _get_model_info(model)
+    if model_info is not None and model_info["litellm_provider"] == "openai":
+        return _open_ai_count_tokens(message, model, full_message)
+    else:
+        return litellm.token_counter(model, text=message)  # pyright: ignore
+
+
+def prompt_tokens(messages: List[ChatCompletionMessageParam], model: str) -> int:
+    """
+    Returns the number of tokens used by a prompt if it was sent to OpenAI for a chat completion.
+    Adapted from https://platform.openai.com/docs/guides/text-generation/managing-tokens
+    """
+    model_info = _get_model_info(model)
+    if model_info is not None and model_info["litellm_provider"] == "openai":
+        return _open_ai_prompt_tokens(messages, model)
+    else:
+        return litellm.token_counter(model, messages=messages)  # pyright: ignore
+
+
 class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
@@ -300,16 +317,31 @@ class LlmApiHandler:
         start_time = default_timer()
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
-            response = cast(
-                ChatCompletion | AsyncIterator[ChatCompletionChunk],
-                await litellm.acompletion(  # pyright: ignore
-                    model=model,
-                    messages=messages,
-                    temperature=config.temperature,
-                    stream=stream,
-                    response_format=response_format,  # pyright: ignore
-                ),
-            )
+            # OpenAI's API is bugged; when gpt-4-vision-preview is used, including the response format
+            # at all returns a 400 error. Additionally, gpt-4-vision-preview has a max response of 30 tokens by default.
+            # Until this is fixed, we have to use this workaround.
+            if model == "gpt-4-vision-preview":
+                response = cast(
+                    ChatCompletion | AsyncIterator[ChatCompletionChunk],
+                    await litellm.acompletion(  # pyright: ignore
+                        model=model,
+                        messages=messages,
+                        temperature=config.temperature,
+                        stream=stream,
+                        max_tokens=4096,
+                    ),
+                )
+            else:
+                response = cast(
+                    ChatCompletion | AsyncIterator[ChatCompletionChunk],
+                    await litellm.acompletion(  # pyright: ignore
+                        model=model,
+                        messages=messages,
+                        temperature=config.temperature,
+                        stream=stream,
+                        response_format=response_format,  # pyright: ignore
+                    ),
+                )
 
         # We have to cast response since pyright isn't smart enough to connect
         # the dots between stream and the overloaded create function
