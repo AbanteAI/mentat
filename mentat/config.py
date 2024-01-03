@@ -13,6 +13,7 @@ from mentat.llm_api_handler import known_models
 from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
+from mentat.terminal.themes import Themes
 from mentat.utils import mentat_dir_path
 
 config_file_name = Path(".mentat_config.json")
@@ -153,7 +154,7 @@ class Config:
                 "Theme for interaction possible choices are light, dark or none."
             )
         },
-        validator=validators.in_(["light", "dark", None]),  # pyright: ignore
+        validator=validators.in_(Themes.keys.append(None)),  # pyright: ignore
     )
 
     # Only settable by config file
