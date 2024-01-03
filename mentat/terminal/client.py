@@ -18,6 +18,7 @@ from mentat.terminal.loading import LoadingHandler
 from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
+from mentat.terminal.themes import Themes
 
 
 class TerminalClient:
@@ -57,7 +58,7 @@ class TerminalClient:
 
     async def _cprint_session_stream(self):
         async for message in self.session.stream.listen():
-            print_stream_message(message)
+            print_stream_message(message, Themes[self.config.theme])
 
     async def _default_prompt_stream(self):
         self._default_prompt = ""

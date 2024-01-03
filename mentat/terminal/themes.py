@@ -1,4 +1,4 @@
-Themes = {
+Themes: dict[str | None, dict[str, str]] = {
     "light": {
         "code": "blue",
         "info": "cyan",
@@ -18,19 +18,3 @@ Themes = {
         "warning": "yellow",
     },
 }
-
-# Notes:
-#        "code": "blue",
-#        "info": "cyan",
-#        "failure": "dark_red",
-#        "success": "green",
-#        "input": "light_blue",
-#        "success": "light_green",
-#        "error": "light_red",
-#        "warning": "light_yellow",
-#        "error": "red",
-#        "warning": "yellow",
-
-CurrentTheme = "dark"
-
-Theme = Themes[CurrentTheme]

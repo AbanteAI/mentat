@@ -3,9 +3,7 @@ from typing import Any
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
 
-from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import StreamMessage
-from mentat.terminal.themes import Themes
 
 
 def _print_stream_message_string(
@@ -27,15 +25,10 @@ def _print_stream_message_string(
         print(content, end=end, flush=True)
 
 
-def print_stream_message(message: StreamMessage):
+def print_stream_message(message: StreamMessage, theme: dict[str, str] | None):
     end = "\n"
     color = None
     flush = False
-    session_context = SESSION_CONTEXT.get()
-    if session_context.config.theme is not None:
-        theme = Themes.get(session_context.config.theme)
-    else:
-        theme = None
     if message.extra:
         if isinstance(message.extra.get("end"), str):
             end = message.extra["end"]
