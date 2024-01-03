@@ -2,7 +2,7 @@
 function containerWithoutButtons(element) {
     const container = element.closest('.container');
     const clone = container.cloneNode(true);
-    clone.querySelectorAll('.button-group').remove();
+    clone.querySelectorAll('.button-group')[0].remove();
     const head = document.getElementsByTagName("head")[0].cloneNode(true);
     const html = document.createElement("html");
     const body = document.createElement("body");
@@ -46,6 +46,7 @@ function makeToast(message) {
 
 document.addEventListener('DOMContentLoaded', (event) => {
 
+    // Initialize model messages
     for (element of document.getElementsByClassName('clickable')) {
         element.onclick = (event) => {
             const e = event.currentTarget
@@ -68,6 +69,8 @@ document.addEventListener('DOMContentLoaded', (event) => {
             }
         }
     }
+
+    // Initialize download buttons
     const downloadLinks = document.getElementsByClassName("download-parent");
     for (downloadLink of downloadLinks) {
         downloadLink.onclick = (event) => {
@@ -80,34 +83,8 @@ document.addEventListener('DOMContentLoaded', (event) => {
             link.download = `transcript.html`;
         };
     }
-    const feedbackButtons = document.getElementsByClassName("feedback-button");
-    for (const feedbackButton of feedbackButtons) {
-        feedbackButton.onclick = (event) => {
-            const modal = document.getElementById('feedback-modal');
-            modal.style.display = 'block';
-            const closeButton = modal.querySelector('.close-button');
-            const form = document.getElementById('feedback-form');
-            const current_button = event.currentTarget;
 
-            closeButton.onclick = () => {
-                modal.style.display = 'none';
-            };
-
-            form.onsubmit = (event) => {
-                event.preventDefault();
-                const feedback = document.getElementById('feedback-input').value;
-                const html = containerWithoutButtons(current_button);
-                uploadTranscript(html.outerHTML, feedback).then(s3Url => {
-                    makeToast("Thank you for your feedback!");
-                    modal.style.display = 'none';
-                }).catch(error => {
-                    console.error("Error submitting feedback:", error);
-                    alert("There was an error submitting your feedback.");
-                });
-            };
-        };
-    }
-
+    // Initialize share buttons
     const shareButtons = document.getElementsByClassName("share-button");
     for (const shareButton of shareButtons) {
         shareButton.onclick = (event) => {
@@ -126,15 +103,48 @@ document.addEventListener('DOMContentLoaded', (event) => {
         };
     }
 
-    document.querySelector('.modal-content').onclick = (event) => {
-        event.stopPropagation();
-    };
-    window.onclick = (event) => {
-        const modal = document.getElementById('feedback-modal');
-        if (event.target == modal) {
+    // There's a singleton model. Each transcript uses it.
+    const modal = document.getElementById('feedback-modal');
+    if (modal) {
+        // The model is in the transcript viewer but not the 
+        const closeButton = modal.querySelector('.close-button');
+        closeButton.onclick = () => {
             modal.style.display = 'none';
-            document.getElementById('feedback-message').textContent = '';
+        };
+        const form = document.getElementById('feedback-form');
+        document.querySelector('.modal-content').onclick = (event) => {
+            event.stopPropagation();
+        };
+        window.onclick = (event) => {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+                document.getElementById('feedback-message').textContent = '';
+            }
+        };
+    }
+
+    // Initialize feedback buttons
+    const feedbackButtons = document.getElementsByClassName("feedback-button");
+    for (const feedbackButton of feedbackButtons) {
+        if (!modal) {
+            feedbackButton.style.display = 'none';
         }
-    };
+        feedbackButton.onclick = (event) => {
+            modal.style.display = 'block';
+            const current_button = event.currentTarget;
+            form.onsubmit = (event) => {
+                event.preventDefault();
+                const feedback = document.getElementById('feedback-input').value;
+                const html = containerWithoutButtons(current_button);
+                uploadTranscript(html.outerHTML, feedback).then(s3Url => {
+                    makeToast("Thank you for your feedback!");
+                    modal.style.display = 'none';
+                }).catch(error => {
+                    console.error("Error submitting feedback:", error);
+                    alert("There was an error submitting your feedback.");
+                });
+            };
+        };
+    }
 })
 

@@ -86,12 +86,6 @@ pre {
     background-color: rgb(255, 197, 197);
 }
 
-.download-parent {
-    display: inline-block;
-    cursor: pointer;
-    margin-right: 10px; /* Space between buttons */
-}
-
 .button-group {
     position: absolute;
     top: 20px;
@@ -115,6 +109,7 @@ pre {
     padding: 20px;
     border: 1px solid #888;
     width: 80%;
+    max-width: 500px;
 }
 
 .close-button {
@@ -211,4 +206,3 @@ a:hover .tooltip {
     top: 30px;
     font-size: 17px;
 }
-
