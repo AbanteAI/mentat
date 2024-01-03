@@ -3,9 +3,8 @@ from typing import Any
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
 
-from mentat.session_stream import StreamMessage
 from mentat.session_context import SESSION_CONTEXT
-
+from mentat.session_stream import StreamMessage
 from mentat.terminal.themes import Themes
 
 
