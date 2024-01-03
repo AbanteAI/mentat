@@ -1,4 +1,4 @@
-Themes: dict[str | None, dict[str, str]] = {
+themes: dict[str | None, dict[str, str]] = {
     "light": {
         "code": "blue",
         "info": "cyan",

@@ -4,7 +4,7 @@ from collections import deque
 from termcolor import colored
 
 from mentat.session_context import SESSION_CONTEXT
-from mentat.terminal.themes import Themes
+from mentat.terminal.themes import themes
 
 
 class StreamingPrinter:
@@ -24,7 +24,7 @@ class StreamingPrinter:
         if style is not None:
             session_context = SESSION_CONTEXT.get()
             if session_context.config.theme is not None:
-                theme = Themes.get(session_context.config.theme)
+                theme = themes.get(session_context.config.theme)
             else:
                 theme = None
             if theme is not None:
