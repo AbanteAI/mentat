@@ -5,6 +5,8 @@ from argparse import ArgumentParser, Namespace
 from json import JSONDecodeError
 from pathlib import Path
 
+import array
+
 import attr
 from attr import converters, validators
 
@@ -154,7 +156,7 @@ class Config:
                 "Theme for interaction possible choices are light, dark or none."
             )
         },
-        validator=validators.in_(Themes.keys.append(None)),  # pyright: ignore
+        validator=validators.in_(Themes.keys()),  # pyright: ignore
     )
 
     # Only settable by config file
