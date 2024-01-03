@@ -90,7 +90,7 @@ class TalkCommand(Command, command_name="talk"):
             ctx.stream.send(
                 "Audio is not available on this system. You probably need to install"
                 " PortAudio. For example `sudo apt install libportaudio2` on Ubuntu.",
-                color="light_red",
+                style="error",
             )
         else:
             ctx.stream.send(

@@ -16,7 +16,7 @@ Themes = {
         "input": "light_blue",
         "error": "red",
         "warning": "yellow",
-    }
+    },
 }
 
 # Notes:

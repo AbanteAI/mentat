@@ -14,7 +14,7 @@ class RunCommand(Command, command_name="run"):
         stream = session_context.stream
         conversation = session_context.conversation
         if not args:
-            stream.send("No command given", color="dark_red")
+            stream.send("No command given", style="failure")
             return
         await conversation.run_command(list(args))
 

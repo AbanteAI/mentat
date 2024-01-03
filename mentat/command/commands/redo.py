@@ -16,7 +16,7 @@ class RedoCommand(Command, command_name="redo"):
         errors = await code_file_manager.history.redo()
         if errors:
             stream.send(errors)
-        stream.send("Redo complete", color="green")
+        stream.send("Redo complete", style="success")
 
     @override
     @classmethod

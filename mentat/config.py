@@ -134,7 +134,9 @@ class Config:
     theme: str | None = attr.field(
         default="light",
         metadata={
-            "description": "Theme for interaction possible choices are light, dark or none."
+            "description": (
+                "Theme for interaction possible choices are light, dark or none."
+            )
         },
     )
 
@@ -250,5 +252,5 @@ class Config:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         for error in self._errors:
-            stream.send(error, color="light_yellow")
+            stream.send(error, style="warning")
         self._errors = []

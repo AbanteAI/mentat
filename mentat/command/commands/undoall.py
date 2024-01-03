@@ -16,7 +16,7 @@ class UndoAllCommand(Command, command_name="undo-all"):
         errors = code_file_manager.history.undo_all()
         if errors:
             stream.send(errors)
-        stream.send("Undos complete", color="green")
+        stream.send("Undos complete", style="success")
 
     @override
     @classmethod

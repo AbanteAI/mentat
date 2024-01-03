@@ -62,7 +62,7 @@ async def collect_input_with_commands() -> StreamMessage:
             command = Command.create_command(response.data.lstrip()[1:].split(" ")[0])
             await command.apply(*arguments)
         except ValueError as e:
-            stream.send(f"Error processing command arguments: {e}", color="light_red")
+            stream.send(f"Error processing command arguments: {e}", style="error")
         response = await collect_user_input()
     return response
 

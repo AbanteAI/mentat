@@ -15,10 +15,10 @@ class AgentCommand(Command, command_name="agent"):
 
         if agent_handler.agent_enabled:
             agent_handler.disable_agent_mode()
-            stream.send("Agent mode disabled", color="green")
+            stream.send("Agent mode disabled", style="success")
         else:
             await agent_handler.enable_agent_mode()
-            stream.send("Agent mode enabled", color="green")
+            stream.send("Agent mode enabled", style="success")
 
     @override
     @classmethod

@@ -121,7 +121,7 @@ async def get_feature_similarity_scores(
     if cost is None:
         stream.send(
             "Warning: Could not determine cost of embeddings. Continuing anyway.",
-            color="light_yellow",
+            style="warning",
         )
     else:
         expected_cost = (sum(embed_tokens) / 1000) * cost[0]

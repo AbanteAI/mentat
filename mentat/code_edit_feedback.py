@@ -14,7 +14,7 @@ async def get_user_feedback_on_edits(
 
     stream.send(
         "Apply these changes? 'Y/n/i' or provide feedback.",
-        color="light_blue",
+        style="input",
     )
     user_response_message = await collect_user_input()
     user_response = user_response_message.data

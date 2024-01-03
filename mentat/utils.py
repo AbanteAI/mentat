@@ -112,11 +112,11 @@ def check_version():
             ctx.stream.send(
                 f"Version v{latest_version} of Mentat is available. If pip was used to"
                 " install Mentat, upgrade with:",
-                color="light_red",
+                style="error",
             )
-            ctx.stream.send("pip install --upgrade mentat", color="yellow")
+            ctx.stream.send("pip install --upgrade mentat", style="warning")
     except Exception as err:
-        ctx.stream.send(f"Error checking for most recent version: {err}", color="red")
+        ctx.stream.send(f"Error checking for most recent version: {err}", style="error")
 
 
 async def add_newline(

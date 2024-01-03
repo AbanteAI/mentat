@@ -78,7 +78,7 @@ class Sampler:
         if not git_root:
             raise SampleError("No git repo found")
 
-        stream.send("Input sample data", color="light_blue")
+        stream.send("Input sample data", style="input")
         git_repo = Repo(git_root)
         merge_base = None
         if config.sample_merge_base_target:
@@ -92,7 +92,7 @@ class Sampler:
                     merge_base = mb.hexsha
                 except Exception as e:
                     stream.send(
-                        f"Error getting merge base from tar: {e}", color="light_red"
+                        f"Error getting merge base from tar: {e}", style="error"
                     )
         if not merge_base:
             merge_base = git_repo.head.commit.hexsha
