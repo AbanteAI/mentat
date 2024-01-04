@@ -76,7 +76,8 @@ Mentat also works with the Azure OpenAI API. To use the Azure API, provide the `
 
 In addition, Mentat uses the `gpt-4-1106-preview` model by default. When using Azure, you will have to set the model as described in [configuration.md](docs/configuration.md) to the name you gave your Azure model.
 
-> [!IMPORTANT] Due to changes in the OpenAI Python SDK, you can no longer use `OPENAI_API_BASE` to access the Azure API with Mentat.
+> [!IMPORTANT]
+> Due to changes in the OpenAI Python SDK, you can no longer use `OPENAI_API_BASE` to access the Azure API with Mentat.
 
 ### Alternative Models
 
@@ -97,9 +98,11 @@ litellm --model ollama/llama2 --api_base http://localhost:11434 --drop_params
 # In .env
 OPENAI_API_BASE=http://localhost:8000
 ```
-> [!NOTE] When using a litellm proxy, the model set in Mentat's config will not effect the model being run. To change the model, rerun the litellm proxy with a different model.
+> [!NOTE]
+> When using a litellm proxy, the model set in Mentat's config will not effect the model being run. To change the model, rerun the litellm proxy with a different model.
 
-> [!IMPORTANT] Be sure to include the --drop_params argument when running the litellm proxy! Mentat uses some arguments (such as response_format) that may not be available in alternative models.
+> [!IMPORTANT]
+> Be sure to include the --drop_params argument when running the litellm proxy! Mentat uses some arguments (such as response_format) that may not be available in alternative models.
 
 ## Configuration
 
