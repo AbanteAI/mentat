@@ -58,9 +58,13 @@ cd mentat
 pip install -e .
 ```
 
-## Add your OpenAI API Key
+## Selecting which LLM Model to use
 
-You'll need to have API access to GPT-4 to run Mentat. There are a few options to provide Mentat with your OpenAI API key:
+We highly recommend using the default model, `gpt-4-1106-preview`, as it performs vastly better than any other model benchmarked so far. However, if you wish to use a different model, jump [here](#alternative-models).
+
+### Add your OpenAI API Key
+
+There are a few options to provide Mentat with your OpenAI API key:
 
 1. Create a `.env` file with the line `OPENAI_API_KEY=<your-api-key>` in the directory you plan to run mentat in or in `~/.mentat/.env`
 2. Run `export OPENAI_API_KEY=<your key here>` prior to running Mentat
@@ -68,11 +72,11 @@ You'll need to have API access to GPT-4 to run Mentat. There are a few options t
 
 ### Azure OpenAI
 
-Mentat also works with the Azure OpenAI API. To use the Azure API, provide the `AZURE_OPENAI_ENDPOINT` (`https://<your-instance-name>.openai.azure.com/`) and `AZURE_OPENAI_KEY` environment variables instead of `OPENAI_API_KEY`.
+Mentat also works with the Azure OpenAI API. To use the Azure API, provide the `AZURE_API_BASE` (`https://<your-instance-name>.openai.azure.com/`), `AZURE_API_KEY`, and `AZURE_API_VERSION` environment variables instead of `OPENAI_API_KEY`. Then, set the model as described in [configuration.md](docs/configuration.md) to your Azure model.
 
-In addition, Mentat uses the `gpt-4-1106-preview` by default. On Azure, this model is available under a different name: `gpt-4-1106-Preview` (with a capital P). To use it, override the default model as described in [configuration.md](docs/configuration.md).
+### Alternative Models
 
-> **_Important:_** Due to changes in the OpenAI Python SDK, you can no longer use `OPENAI_API_BASE` to access the Azure API with Mentat.
+Mentat uses [litellm](https://github.com/BerriAI/litellm) to retrieve chat completions from models. To use a model other than openai, simply set the model (and possibly the llm_provider) as described in [configuration.md](docs/configuration.md). Additionally, check litellm documentation for the provider that your model is under and supply any needed environment variables.
 
 ## Configuration
 

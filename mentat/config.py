@@ -6,6 +6,7 @@ from json import JSONDecodeError
 from pathlib import Path
 
 import attr
+import litellm
 from attr import converters, validators
 
 from mentat.git_handler import get_git_root_for_path
@@ -36,6 +37,16 @@ class Config:
     model: str = attr.field(
         default="gpt-4-1106-preview",
         metadata={"auto_completions": available_models()},
+    )
+    llm_provider: str | None = attr.field(
+        default=None,
+        metadata={
+            "description": (
+                "The llm provider to use. See https://github.com/BerriAI/litellm for a"
+                " list of all providers and supported models."
+            ),
+            "auto_completions": litellm.provider_list,  # pyright: ignore
+        },
     )
     feature_selection_model: str = attr.field(
         default="gpt-4-1106-preview",

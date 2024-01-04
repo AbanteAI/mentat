@@ -41,30 +41,25 @@ A list of key-value pairs defining a custom [Pygment Style](https://pygments.org
 }
 ```
 
+## 🦙 Alternative Models
+
+Mentat uses [litellm](https://github.com/BerriAI/litellm), so you can direct it to use any local or hosted model. See their documentation to assist setting up any required environment variables, and set the model (and possibly llm_provider, if litellm doesn't automatically recognize the model) in `~/.mentat/.mentat_config.json`:
+```json
+{
+    "model": "<model_name>",
+    "llm-provider": "<litellm_llm_provider>"
+}
+```
+
 ### Maximum Context
 
-If you're using a model other than gpt-3.5 or gpt-4 we won't be able to infer the model's context size so you need to manually set the maximum context like so. 
+If you use a model unknown to litellm, you can manually set the maximum context of the model like so:
 ```json
 {
     "maximum-context": 16000
 }
 ```
-This can also be used to save costs for instance if you want to use a maximum of 16k tokens when using gpt-4-32k.
-
-## 🦙 Alternative Models
-
-Mentat is powered with openai's sdk so you can direct it to use a local model, or any hosted model which conforms to OpenAi's API spec. For example if you host a Llama instance following the directions [here](https://github.com/abetlen/llama-cpp-python#web-server) then you use that model with Mentat by exporting its path e.g.
-```bash
-export OPENAI_API_BASE="http://localhost:8000/v1
-```
-and then setting your model in `~/.mentat/.mentat_config.json`:
-```json
-{
-    "model": "/absolute/path/to/7B/llama-model.gguf"
-    "maximum-context": 2048
-}
-```
-For models other than gpt-3.5 and gpt-4 we may not be able to infer a maximum context size so you'll also have to set the maximum-context.
+This can also be used to save costs by setting a more conservative limit on models with larger context sizes.
 
 ### Alternative Formats
 

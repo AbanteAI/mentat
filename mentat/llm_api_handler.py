@@ -317,31 +317,48 @@ class LlmApiHandler:
         start_time = default_timer()
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
-            # OpenAI's API is bugged; when gpt-4-vision-preview is used, including the response format
-            # at all returns a 400 error. Additionally, gpt-4-vision-preview has a max response of 30 tokens by default.
-            # Until this is fixed, we have to use this workaround.
-            if model == "gpt-4-vision-preview":
-                response = cast(
-                    ChatCompletion | AsyncIterator[ChatCompletionChunk],
-                    await litellm.acompletion(  # pyright: ignore
-                        model=model,
-                        messages=messages,
-                        temperature=config.temperature,
-                        stream=stream,
-                        max_tokens=4096,
-                    ),
+
+            try:
+                # OpenAI's API is bugged; when gpt-4-vision-preview is used, including the response format
+                # at all returns a 400 error.
+                # Additionally, gpt-4-vision-preview has a max response of 30 tokens by default.
+                # Until this is fixed, we have to use this workaround.
+                if model == "gpt-4-vision-preview":
+                    response = cast(
+                        ChatCompletion | AsyncIterator[ChatCompletionChunk],
+                        await litellm.acompletion(  # pyright: ignore
+                            model=model,
+                            messages=messages,
+                            temperature=config.temperature,
+                            stream=stream,
+                            custom_llm_provider=config.llm_provider,
+                            max_tokens=4096,
+                        ),
+                    )
+                else:
+                    response = cast(
+                        ChatCompletion | AsyncIterator[ChatCompletionChunk],
+                        await litellm.acompletion(  # pyright: ignore
+                            model=model,
+                            messages=messages,
+                            temperature=config.temperature,
+                            stream=stream,
+                            custom_llm_provider=config.llm_provider,
+                            response_format=response_format,  # pyright: ignore
+                        ),
+                    )
+            except litellm.APIError as e:
+                session_context.stream.send(f"Error accessing LLM: {e}", color="red")
+                raise ReturnToUser()
+            except litellm.NotFoundError:
+                llm_provider_error_message = f" for llm_provider {config.llm_provider}"
+                session_context.stream.send(
+                    "Unknown model"
+                    f" {model}{llm_provider_error_message if config.llm_provider is not None else ''}."
+                    " Please use `/context model <model>` to switch models.",
+                    color="red",
                 )
-            else:
-                response = cast(
-                    ChatCompletion | AsyncIterator[ChatCompletionChunk],
-                    await litellm.acompletion(  # pyright: ignore
-                        model=model,
-                        messages=messages,
-                        temperature=config.temperature,
-                        stream=stream,
-                        response_format=response_format,  # pyright: ignore
-                    ),
-                )
+                raise ReturnToUser()
 
         # We have to cast response since pyright isn't smart enough to connect
         # the dots between stream and the overloaded create function
