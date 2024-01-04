@@ -235,13 +235,6 @@ def mock_call_embedding_api(mocker):
 
 
 @pytest.fixture(autouse=True, scope="function")
-def mock_model_available(mocker):
-    model_available_mock = mocker.patch.object(LlmApiHandler, "is_model_available")
-    model_available_mock.return_value = True
-    return model_available_mock
-
-
-@pytest.fixture(autouse=True, scope="function")
 def mock_initialize_client(mocker, request):
     if not request.config.getoption("--benchmark"):
         mocker.patch.object(LlmApiHandler, "initialize_client")
