@@ -38,7 +38,7 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
 
-from mentat.errors import ContextSizeInsufficient, MentatError, UserError
+from mentat.errors import MentatError, ReturnToUser, UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -155,8 +155,6 @@ class Model:
 
 known_models: Dict[str, Model] = {
     "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
-    # model name on Azure
-    "gpt-4-1106-Preview": Model("gpt-4-1106-Preview", 128000, 0.01, 0.03),
     "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
     "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
     "gpt-4-32k": Model("gpt-4-32k", 32768, 0.06, 0.12),
@@ -205,12 +203,16 @@ def get_max_tokens() -> int:
     elif maximum_context is not None:
         return maximum_context
     else:
+        maximum_context = 4096
+        # This attr has a converter from str to int
+        config.maximum_context = str(maximum_context)
         stream.send(
-            f"Context size for {config.model} is not known. Please set"
-            " maximum-context with `/config maximum_context <value>`.",
+            f"Context size for {config.model} is not known. Set maximum-context"
+            " with `/config maximum_context <value>`. Using a default value of"
+            f" {maximum_context}.",
             style="error",
         )
-        raise ContextSizeInsufficient()
+        return maximum_context
 
 
 def is_context_sufficient(tokens: int) -> bool:
@@ -233,6 +235,8 @@ class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
     def initialize_client(self):
+        ctx = SESSION_CONTEXT.get()
+
         if not load_dotenv(mentat_dir_path / ".env"):
             load_dotenv()
         key = os.getenv("OPENAI_API_KEY")
@@ -240,21 +244,25 @@ class LlmApiHandler:
         azure_key = os.getenv("AZURE_OPENAI_KEY")
         azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 
-        if not key and not azure_key:
-            raise UserError(
-                "No OpenAI api key detected.\nEither place your key into a .env"
-                " file or export it as an environment variable."
-            )
-
         # We don't have any use for a synchronous client, but if we ever do we can easily make it here
-        if azure_endpoint:
+        if azure_endpoint and azure_key:
+            ctx.stream.send("Using Azure OpenAI client.", color="cyan")
             self.async_client = AsyncAzureOpenAI(
                 api_key=azure_key,
                 api_version="2023-12-01-preview",
                 azure_endpoint=azure_endpoint,
             )
         else:
+            if not key:
+                if not base_url:
+                    raise UserError(
+                        "No OpenAI api key detected.\nEither place your key into a .env"
+                        " file or export it as an environment variable."
+                    )
+                # If they set the base_url but not the key, they probably don't need a key, but the client requires one
+                key = "fake_key"
             self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
+
         try:
             self.async_client.models.list()  # Test the key
         except AuthenticationError as e:
@@ -293,7 +301,7 @@ class LlmApiHandler:
         # Confirm that model has enough tokens remaining.
         tokens = prompt_tokens(messages, model)
         if not is_context_sufficient(tokens):
-            raise ContextSizeInsufficient()
+            raise ReturnToUser()
 
         start_time = default_timer()
         with sentry_sdk.start_span(description="LLM Call") as span:
@@ -310,13 +318,22 @@ class LlmApiHandler:
                     max_tokens=4096,
                 )
             else:
-                response = await self.async_client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=config.temperature,
-                    stream=stream,
-                    response_format=response_format,
-                )
+                # This makes it slightly easier when using the litellm proxy or models outside of OpenAI
+                if response_format["type"] == "text":
+                    response = await self.async_client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                        temperature=config.temperature,
+                        stream=stream,
+                    )
+                else:
+                    response = await self.async_client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                        temperature=config.temperature,
+                        stream=stream,
+                        response_format=response_format,
+                    )
 
         # We have to cast response since pyright isn't smart enough to connect
         # the dots between stream and the overloaded create function
@@ -346,13 +363,6 @@ class LlmApiHandler:
             input=input_texts, model=model
         )
         return [embedding.embedding for embedding in response.data]
-
-    @api_guard
-    async def is_model_available(self, model: str) -> bool:
-        available_models: list[str] = [
-            model.id async for model in self.async_client.models.list()
-        ]
-        return model in available_models
 
     @api_guard
     async def call_whisper_api(self, audio_path: Path) -> str:

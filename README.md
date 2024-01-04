@@ -34,7 +34,7 @@ See more videos on [Twitter](https://twitter.com/bio_bootloader/status/168390673
 
 ## Install
 
-Before installing, it's suggested that you create a virtual environment to install it in:
+It is recommended you install this package in a virtualenv:
 
 ```
 # Python 3.10 or higher is required
@@ -58,7 +58,11 @@ cd mentat
 pip install -e .
 ```
 
-## Add your OpenAI API Key
+## Selecting which LLM Model to use
+
+We highly recommend using the default model, `gpt-4-1106-preview`, as it performs vastly better than any other model benchmarked so far. However, if you wish to use a different model, jump [here](#alternative-models).
+
+### Add your OpenAI API Key
 
 You'll need to have API access to GPT-4 to run Mentat. There are a few options to provide Mentat with your OpenAI API key:
 
@@ -70,9 +74,35 @@ You'll need to have API access to GPT-4 to run Mentat. There are a few options t
 
 Mentat also works with the Azure OpenAI API. To use the Azure API, provide the `AZURE_OPENAI_ENDPOINT` (`https://<your-instance-name>.openai.azure.com/`) and `AZURE_OPENAI_KEY` environment variables instead of `OPENAI_API_KEY`.
 
-In addition, Mentat uses the `gpt-4-1106-preview` by default. On Azure, this model is available under a different name: `gpt-4-1106-Preview` (with a capital P). To use it, override the default model as described in [configuration.md](docs/configuration.md).
+In addition, Mentat uses the `gpt-4-1106-preview` model by default. When using Azure, you will have to set the model as described in [configuration.md](docs/configuration.md) to the name you gave your Azure model.
 
-> **_Important:_** Due to changes in the OpenAI Python SDK, you can no longer use `OPENAI_API_BASE` to access the Azure API with Mentat.
+> [!IMPORTANT]
+> Due to changes in the OpenAI Python SDK, you can no longer use `OPENAI_API_BASE` to access the Azure API with Mentat.
+
+### Alternative Models
+
+Mentat uses the OpenAI SDK to retrieve chat completions. This means that setting the `OPENAI_API_BASE` environment variable is enough to use any model that has the same response schema as OpenAI. To use models with different response schemas, we recommend setting up a litellm proxy as described [here](https://docs.litellm.ai/docs/proxy/quick_start) and pointing `OPENAI_API_BASE` to the proxy. ollama example:
+```
+# Ensure model is downloaded and ollama is being served
+ollama pull llama2
+ollama serve
+
+- Listening on 127.0.0.1:11434
+
+# In another terminal
+pip install 'litellm[proxy]'
+litellm --model ollama/llama2 --api_base http://localhost:11434 --drop_params
+
+- Uvicorn running on http://0.0.0.0:8000
+
+# In .env
+OPENAI_API_BASE=http://localhost:8000
+```
+> [!NOTE]
+> When using a litellm proxy, the model set in Mentat's config will not effect the model being run. To change the model, rerun the litellm proxy with a different model.
+
+> [!IMPORTANT]
+> Be sure to include the --drop_params argument when running the litellm proxy! Mentat uses some arguments (such as response_format) that may not be available in alternative models.
 
 ## Configuration
 

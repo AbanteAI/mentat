@@ -86,47 +86,123 @@ pre {
     background-color: rgb(255, 197, 197);
 }
 
-.download_parent {
+.button-group {
     position: absolute;
     top: 20px;
     right: 20px;
+}
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgb(0, 0, 0, 0.4);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+}
+
+.close-button {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: black;
+    text-decoration: none;
     cursor: pointer;
 }
 
-.feedback_button {
-    position: absolute;
-    bottom: 20px;
-    right: 70px;
+#feedback-form {
+    display: flex;
+    flex-direction: column;
+}
+
+#feedback-form label {
+    margin-bottom: 10px;
+}
+
+#feedback-form textarea {
+    margin-bottom: 10px;
+}
+
+#feedback-form input[type="submit"] {
     cursor: pointer;
-    padding: 15px 30px;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
+
+#feedback-form input[type="submit"]:hover {
+    background-color: #45a049;
+}
+
+.button-group > a {
+    display: inline-block;
+    cursor: pointer;
+    padding: 8px 16px;
     background-color: #ffcc00;
     border: none;
-    border-radius: 90px;
-    font-size: 20px;
+    border-radius: 18px;
+    font-size: 16px;
     color: #333;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     transition: background-color 0.3s ease, transform 0.3s ease;
 }
 
-.feedback_button:hover {
+.button-group > a:hover {
     background-color: #ffdd55;
-    transform: scale(1.05);
+    transform: scale(1.11);
 }
 
-.download_icon {
-    display: inline-block;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg>');
-    background-size: contain;
-    background-repeat: no-repeat;
-    width: 36px;
-    height: 36px;
-    border: 2px solid black; /* Darker border color */
-    border-radius: 18px;
-    padding: 4px;
-    transition: transform 0.3s ease, border-color 0.3s ease;
+a .tooltip{
+  visibility: hidden;
+  width: 150px;
+  background-color: #555;
+  color: #fff;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+  position: absolute;
+  z-index: 1;
+  bottom: -150%; 
+  left: -50%;
+  margin-left: -75px;
+  opacity: 0;
+  transition: opacity 0.3s;
 }
 
-.download_icon:hover {
-    transform: scale(1.1);
-    border-color: black; /* Darker border color on hover */
+a:hover .tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+.toast {
+    min-width: 250px;
+    margin-left: -125px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 2px;
+    padding: 16px;
+    position: fixed;
+    z-index: 1;
+    left: 50%;
+    top: 30px;
+    font-size: 17px;
 }
