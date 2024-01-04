@@ -105,13 +105,13 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
     // There's a singleton model. Each transcript uses it.
     const modal = document.getElementById('feedback-modal');
+    const form = document.getElementById('feedback-form');
     if (modal) {
         // The model is in the transcript viewer but not the 
         const closeButton = modal.querySelector('.close-button');
         closeButton.onclick = () => {
             modal.style.display = 'none';
         };
-        const form = document.getElementById('feedback-form');
         document.querySelector('.modal-content').onclick = (event) => {
             event.stopPropagation();
         };
