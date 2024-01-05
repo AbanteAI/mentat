@@ -44,12 +44,12 @@ The evaluation procedure, in abstract, is:
    a. Add code from files/lines in `paths` as a System message
    b. Add messages from `message_history` as User or Assistant messages
    c. Add `message_prompt` as a User message
-3. Generate an LLM Completion for the conversation. 
+3. Generate an LLM Completion for the conversation.
 4. If using a Coding Assistant tool, process the response to apply edits to codebase.
 5. Return the text portion of the conversation and the git diff, corresponding to `message_edit` and `diff_edit`
 
 We provide two implementations of this:
-- Run `scripts/evaluate_samples.py [<id>...]` from the command line, in the mentat repo. Prints to terminal.
+- Run `python scripts/samples [<id>...]` from the command line, in the mentat repo. Prints to terminal.
 - Import `Sample` and call `Sample.evalute()` in Python. Returns a dict wtih `response` and `diff_edit`
 
 ## Use Cases
