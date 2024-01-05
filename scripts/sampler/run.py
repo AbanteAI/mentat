@@ -12,7 +12,7 @@ from mentat.sampler.utils import get_active_snapshot_commit, setup_repo
 from mentat.session_context import SESSION_CONTEXT
 
 
-async def evaluate_sample(sample, cwd: Path | str | None = None):
+async def run_sample(sample, cwd: Path | str | None = None):
     """Run a sample using Mentat and return the resulting diff"""
 
     repo = setup_repo(

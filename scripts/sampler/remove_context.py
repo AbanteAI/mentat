@@ -108,6 +108,7 @@ async def remove_context(sample) -> Sample:
         stream=False,
     )
     message = (llm_response.choices[0].message.content) or ""
+    await python_client.shutdown()
 
     # Ask user to review and accept/reject
     print("Generated reason:", message)

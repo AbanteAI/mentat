@@ -49,7 +49,7 @@ The evaluation procedure, in abstract, is:
 5. Return the text portion of the conversation and the git diff, corresponding to `message_edit` and `diff_edit`
 
 We provide two implementations of this:
-- Run `python scripts/samples [<id>...]` from the command line, in the mentat repo. Prints to terminal.
+- Run `python scripts/sampler [<id>...]` from the command line, in the mentat repo. Prints to terminal.
 - Import `Sample` and call `Sample.evalute()` in Python. Returns a dict wtih `response` and `diff_edit`
 
 ## Use Cases

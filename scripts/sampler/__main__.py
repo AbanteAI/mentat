@@ -8,9 +8,9 @@ import random
 from typing import Any
 
 from add_context import add_context
-from evaluate import evaluate_sample
 from finetune_gpt import generate_finetune_gpt
 from remove_context import remove_context
+from run import run_sample
 from validate import validate_sample
 
 from mentat.sampler.sample import Sample
@@ -39,13 +39,10 @@ async def main():
         "--number", "-n", type=int, default=None, help="Maximum number of times to run"
     )
     parser.add_argument(
-        "--evaluate", "-e", action="store_true", help="Evaluate samples (default)"
-    )
-    parser.add_argument(
         "--validate",
         "-v",
         action="store_true",
-        help="Validate samples instead of evaluating",
+        help="Validate samples conform to spec",
     )
     parser.add_argument(
         "--finetune", "-f", action="store_true", help="Generate fine-tuning examples"
@@ -78,7 +75,11 @@ async def main():
         if not sample_file.exists():
             warn(f"Sample file {sample_file} does not exist.")
             continue
-        sample = Sample.load(sample_file)
+        try:
+            sample = Sample.load(sample_file)
+        except Exception as e:
+            warn(f"Error loading sample {sample_file}: {e}")
+            continue
         if (args.add_context or args.remove_context) and (
             "[ADDED CONTEXT]" in sample.title or "[REMOVED CONTEXT]" in sample.title
         ):
@@ -94,22 +95,23 @@ async def main():
             print(f"[{sample.id[:8]}] {sample.title}: {status}")
             logs.append({"id": sample.id, "is_valid": is_valid, "reason": reason})
         elif args.finetune:
-            print(f"Generating fine-tuning example for sample {sample.id[:8]}")
             try:
                 example = await generate_finetune_gpt(sample)
                 example_file = FINETUNE_DIR / f"finetune_{sample.id}.json"
                 with open(example_file, "w") as f:
                     json.dump(example, f, indent=4)
+                print(f"Generated fine-tuning example {example_file}")
                 logs.append({"id": sample.id, "example_file": example_file})
             except Exception as e:
                 warn(
                     f"Error generating fine-tuning example for sample {sample.id}: {e}"
                 )
         elif args.add_context:
-            print(f"Adding extra context to sample {sample.id[:8]}")
             try:
                 new_sample = await add_context(sample)
-                new_sample.save(SAMPLES_DIR / f"sample_{new_sample.id}.json")
+                sample_file = SAMPLES_DIR / f"sample_{new_sample.id}.json"
+                new_sample.save(sample_file)
+                print(f"Generated new sample with extra context: {sample_file}")
                 logs.append({"id": new_sample.id, "prototype_id": sample.id})
             except Exception as e:
                 warn(f"Error adding extra context to sample {sample.id}: {e}")
@@ -120,14 +122,15 @@ async def main():
             try:
                 new_sample = await remove_context(sample)
                 new_sample.save(SAMPLES_DIR / f"sample_{new_sample.id}.json")
+                print(f"Generated new sample with context removed: {sample_file}")
                 logs.append({"id": new_sample.id, "prototype_id": sample.id})
             except Exception as e:
                 warn(f"Error removing context from sample {sample.id}: {e}")
         else:
-            print(f"Evaluating sample {sample.id[:8]}")
+            print(f"Running sample {sample.id[:8]}")
             print(f"  Prompt: {sample.message_prompt}")
-            diff_eval = await evaluate_sample(sample)
-            message_eval = ""  # TODO: return from evaluate_sample
+            diff_eval = await run_sample(sample)
+            message_eval = ""  # TODO: return from run_sample
 
             diff_grade = await grade_diff_syntax(diff_eval)
             print(f"  Diff Grade: {diff_grade}")
