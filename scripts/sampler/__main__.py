@@ -6,11 +6,11 @@ import json
 import os
 from typing import Any
 
-from sampler.add_context import add_context
-from sampler.evaluate import evaluate_sample
-from sampler.finetune_gpt import generate_finetune_gpt
-from sampler.remove_context import remove_context
-from sampler.validate import validate_sample
+from add_context import add_context
+from evaluate import evaluate_sample
+from finetune_gpt import generate_finetune_gpt
+from remove_context import remove_context
+from validate import validate_sample
 
 from mentat.sampler.sample import Sample
 from mentat.utils import mentat_dir_path
@@ -35,16 +35,16 @@ async def main():
     parser = argparse.ArgumentParser(description="Evaluate code samples.")
     parser.add_argument("sample_ids", nargs="*", help="Optional sample IDs to evaluate")
     parser.add_argument(
-        "--validate", action="store_true", help="Validate samples instead of evaluating"
+        "--validate", "-v", action="store_true", help="Validate samples instead of evaluating"
     )
     parser.add_argument(
-        "--finetune", action="store_true", help="Generate fine-tuning examples"
+        "--finetune", "-f", action="store_true", help="Generate fine-tuning examples"
     )
     parser.add_argument(
-        "--extra-context", action="store_true", help="Add extra context to samples"
+        "--add-context", "-a", action="store_true", help="Add extra context to samples"
     )
     parser.add_argument(
-        "--remove-context", action="store_true", help="Remove context from samples"
+        "--remove-context", "-r", action="store_true", help="Remove context from samples"
     )
     args = parser.parse_args()
     sample_files = []
@@ -84,7 +84,7 @@ async def main():
                 warn(
                     f"Error generating fine-tuning example for sample {sample.id}: {e}"
                 )
-        elif args.extra_context:
+        elif args.add_context:
             print(f"Adding extra context to sample {sample.id[:8]}")
             try:
                 new_sample = await add_context(sample)
@@ -130,7 +130,7 @@ async def main():
         )
     elif args.finetune:
         print(f"{len(logs)} fine-tuning examples generated.")
-    elif args.extra_context:
+    elif args.add_context:
         print(f"{len(logs)} samples with extra context generated.")
     elif args.remove_context:
         print(f"{len(logs)} samples with context removed generated.")
