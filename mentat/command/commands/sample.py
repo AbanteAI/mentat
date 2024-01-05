@@ -19,7 +19,7 @@ class SampleCommand(Command, command_name="sample"):
         try:
             sample = await sampler.create_sample()
         except SampleError as e:
-            stream.send(f"Failed to generate sample: {e}", color="light_red")
+            stream.send(f"Failed to generate sample: {e}", style="error")
             return
         fname = f"sample_{sample.id}.json"
         if len(args) > 0:
@@ -29,7 +29,7 @@ class SampleCommand(Command, command_name="sample"):
             samples_dir.mkdir(exist_ok=True)
             fpath = samples_dir / fname
         sample.save(fpath)
-        SESSION_CONTEXT.get().stream.send(f"Sample saved to {fpath}.", color="green")
+        SESSION_CONTEXT.get().stream.send(f"Sample saved to {fpath}.", style="success")
 
     @override
     @classmethod

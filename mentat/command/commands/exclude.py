@@ -17,13 +17,13 @@ class ExcludeCommand(Command, command_name="exclude"):
         code_context = session_context.code_context
 
         if len(args) == 0:
-            stream.send("No files specified", color="yellow")
+            stream.send("No files specified", style="warning")
             return
         for file_path in args:
             excluded_paths = code_context.exclude(file_path)
             for excluded_path in excluded_paths:
                 rel_path = get_relative_path(excluded_path, session_context.cwd)
-                stream.send(f"{rel_path} removed from context", color="red")
+                stream.send(f"{rel_path} removed from context", style="error")
 
     @override
     @classmethod

@@ -210,7 +210,7 @@ def get_max_tokens() -> int:
             f"Context size for {config.model} is not known. Set maximum-context"
             " with `/config maximum_context <value>`. Using a default value of"
             f" {maximum_context}.",
-            color="red",
+            style="error",
         )
         return maximum_context
 
@@ -224,7 +224,7 @@ def is_context_sufficient(tokens: int) -> bool:
             f"The context size is limited to {max_tokens} tokens and your current"
             f" request uses {tokens} tokens. Please use `/exclude` to remove"
             " some files from context or `/clear` to reset the conversation",
-            color="light_red",
+            style="error",
         )
         return False
 

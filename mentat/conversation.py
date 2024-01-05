@@ -46,13 +46,13 @@ class Conversation:
                 "Warning: Mentat has only been tested on GPT-4. You may experience"
                 " issues with quality. This model may not be able to respond in"
                 " mentat's edit format.",
-                color="yellow",
+                style="warning",
             )
             if "gpt-3.5" not in config.model:
                 stream.send(
                     "Warning: Mentat does not know how to calculate costs or context"
                     " size for this model.",
-                    color="yellow",
+                    style="warning",
                 )
 
         messages = self.get_messages()
@@ -83,12 +83,12 @@ class Conversation:
             stream.send(
                 f"Included file{message[(_plural, _exceed)]} token limit"
                 f" ({tokens} / {context_size}). Truncating based on task similarity.",
-                color="yellow",
+                style="warning",
             )
         else:
             stream.send(
                 f"Prompt and included files token count: {tokens} / {context_size}",
-                color="cyan",
+                style="info",
             )
 
     # The transcript logger logs tuples containing the actual message sent by the user or LLM
@@ -190,13 +190,13 @@ class Conversation:
             )
 
         num_prompt_tokens = prompt_tokens(messages, config.model)
-        stream.send(f"Total token count: {num_prompt_tokens}", color="cyan")
+        stream.send(f"Total token count: {num_prompt_tokens}", style="info")
         if num_prompt_tokens > TOKEN_COUNT_WARNING:
             stream.send(
                 "Warning: LLM performance drops off rapidly at large context sizes. Use"
                 " /clear to clear context or use /exclude to exclude any uneccessary"
                 " files.",
-                color="light_yellow",
+                style="warning",
             )
 
         stream.send("Streaming... use control-c to interrupt the model at any point\n")
@@ -265,7 +265,7 @@ class Conversation:
                 "Rate limit error received from OpenAI's servers using model"
                 f' {config.model}.\nUse "/config model <model_name>" to switch to a'
                 " different model.",
-                color="light_red",
+                style="error",
             )
             return ParsedLLMResponse("", "", list[FileEdit]())
         finally:
@@ -299,9 +299,9 @@ class Conversation:
         """
         ctx = SESSION_CONTEXT.get()
 
-        ctx.stream.send("Running command: ", end="", color="cyan")
-        ctx.stream.send(" ".join(command), color="yellow")
-        ctx.stream.send("Command output:", color="cyan")
+        ctx.stream.send("Running command: ", end="", style="info")
+        ctx.stream.send(" ".join(command), style="warning")
+        ctx.stream.send("Command output:", style="info")
 
         try:
             process = subprocess.Popen(
@@ -335,13 +335,13 @@ class Conversation:
                 ChatCompletionSystemMessageParam(role="system", content=message)
             )
             ctx.stream.send(
-                "Successfully added command output to model context.", color="green"
+                "Successfully added command output to model context.", style="success"
             )
             return True
         else:
             ctx.stream.send(
                 "Not enough tokens remaining in model's context to add command output"
                 " to model context.",
-                color="light_red",
+                style="error",
             )
             return False

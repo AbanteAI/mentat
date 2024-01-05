@@ -41,7 +41,7 @@ class HelpCommand(Command, command_name="help"):
         for command_name in commands:
             if command_name not in Command._registered_commands:
                 stream.send(
-                    f"Error: Command {command_name} does not exist.", color="red"
+                    f"Error: Command {command_name} does not exist.", style="error"
                 )
             else:
                 command_cls = Command._registered_commands[command_name]

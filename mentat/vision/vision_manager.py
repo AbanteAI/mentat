@@ -51,12 +51,12 @@ class VisionManager:
                                 ctx.stream.send(
                                     "No suitable browser found. To use Safari, enable"
                                     " remote automation.",
-                                    color="light_red",
+                                    style="error",
                                 )
                             else:
                                 ctx.stream.send(
                                     "No suitable browser found.",
-                                    color="light_red",
+                                    style="error",
                                 )
 
                             raise ScreenshotException()
@@ -88,14 +88,14 @@ class VisionManager:
             except WebDriverException:
                 ctx.stream.send(
                     f"Error taking screenshot. Is {path} a valid url or local file?",
-                    color="light_red",
+                    style="error",
                 )
                 raise ScreenshotException()
         else:
             if self.driver is None:
                 ctx.stream.send(
                     'No browser open. Run "/screenshot path" with a url or local file',
-                    color="light_red",
+                    style="error",
                 )
                 raise ScreenshotException()
 

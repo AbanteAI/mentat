@@ -13,6 +13,7 @@ from mentat.llm_api_handler import known_models
 from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
+from mentat.terminal.themes import themes
 from mentat.utils import mentat_dir_path
 
 config_file_name = Path(".mentat_config.json")
@@ -146,6 +147,16 @@ class Config:
         },
     )
 
+    theme: str | None = attr.field(  # pyright: ignore
+        default="light",
+        metadata={
+            "description": (
+                "Theme for interaction possible choices are light, dark or none."
+            )
+        },
+        validator=validators.in_(themes.keys()),  # pyright: ignore
+    )
+
     # Only settable by config file
     input_style: list[tuple[str, str]] = attr.field(
         factory=lambda: [
@@ -258,5 +269,5 @@ class Config:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         for error in self._errors:
-            stream.send(error, color="light_yellow")
+            stream.send(error, style="warning")
         self._errors = []

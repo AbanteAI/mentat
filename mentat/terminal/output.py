@@ -25,7 +25,7 @@ def _print_stream_message_string(
         print(content, end=end, flush=True)
 
 
-def print_stream_message(message: StreamMessage):
+def print_stream_message(message: StreamMessage, theme: dict[str, str] | None):
     end = "\n"
     color = None
     flush = False
@@ -36,6 +36,10 @@ def print_stream_message(message: StreamMessage):
             color = message.extra["color"]
         if isinstance(message.extra.get("flush"), bool):
             flush = message.extra["flush"]
+        if isinstance(message.extra.get("style"), str):
+            style = message.extra["style"]
+            if theme is not None:
+                color = theme[style]
 
     _print_stream_message_string(
         content=message.data,
