@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 from prompt_toolkit import PromptSession
 
+from mentat.config import Config
 from mentat.terminal.client import TerminalClient
 
 
@@ -31,7 +32,9 @@ def test_empty_prompt(
     mock_prompt_session_prompt,
 ):
     mock_prompt_session_prompt.side_effect = ["", "q"]
-    terminal_client = TerminalClient(cwd=temp_testbed, paths=["."])
+    terminal_client = TerminalClient(
+        cwd=temp_testbed, paths=["."], config=Config(parser="block")
+    )
     terminal_client.run()
 
 
@@ -63,7 +66,9 @@ def test_editing_file(
         # Line 2
         @@end""")])
 
-    terminal_client = TerminalClient(cwd=temp_testbed, paths=["."])
+    terminal_client = TerminalClient(
+        cwd=temp_testbed, paths=["."], config=Config(parser="block")
+    )
     terminal_client.run()
     with open(file_name, "r") as f:
         content = f.read()
@@ -98,7 +103,9 @@ def test_request_and_command(
         # I created this file
         @@end""")])
 
-    terminal_client = TerminalClient(cwd=temp_testbed, paths=["."])
+    terminal_client = TerminalClient(
+        cwd=temp_testbed, paths=["."], config=Config(parser="block")
+    )
     terminal_client.run()
 
     with open(file_name, "r") as f:
