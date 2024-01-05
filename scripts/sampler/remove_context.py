@@ -33,11 +33,16 @@ async def remove_context(sample) -> Sample:
     context = [CodeFeature(cwd / p) for p in sample.context]
     i_target = random.randint(0, len(context) - 1)
     target = context[i_target]
+    print("-" * 80)
+    print("Prompt\n", sample.message_prompt)
+    print("Context\n", sample.context)
+    print("Removed:", target)
+    print("")
+
+    # Build conversation: [rejection_prompt, message_prompt, keep_context, remove_context]
     target_context = target.get_code_message(standalone=False)
     background_features = context[:i_target] + context[i_target + 1 :]
     background_context = "\n".join(get_code_message_from_features(background_features))
-
-    # Build conversation: [rejection_prompt, message_prompt, keep_context, remove_context]
     messages = [
         ChatCompletionSystemMessageParam(
             role="system",
@@ -66,8 +71,19 @@ async def remove_context(sample) -> Sample:
                 REMEMBER:
                 * Don't reference TARGET CONTEXT specifically. Answer as if you've never
                   seen it, you just know you're missing something essential.
-                * Return #5 (your response to the user) as a single paragraph, without
+                * Return #5 (your response to the user) as a single sentence, without
                   preamble, notes, extra spacing or additional commentary.
+                
+                EXAMPLE
+                =============
+                USER QUERY: "Can you make it so that I can write questions/answers in a 
+                  list at the top of the file, and then use that list to populate the 
+                  component."
+                BACKGROUND_CONTEXT: ""
+                TARGET_CONTEXT: <contents of files which were removed>
+                RESPONSE: "No code files have been included. In order to make the 
+                  requested changes, I need to see the context related to \"writing 
+                  questions/answers\" and \"populating the component\"."
             """),
         ),
         ChatCompletionUserMessageParam(
@@ -94,12 +110,15 @@ async def remove_context(sample) -> Sample:
     message = (llm_response.choices[0].message.content) or ""
 
     # Ask user to review and accept/reject
-    print("Sample Prompt:", sample.message_prompt)
-    print("Removed context:", target)
     print("Generated reason:", message)
-    print("Press ENTER to accept, or type a new reason to reject.")
+    print(
+        "Press ENTER to accept, 's' to skip this sample, or type a new reason to"
+        " reject."
+    )
     response = input()
     if response:
+        if response.lower() == "s":
+            raise SampleError("Skipping sample.")
         message = response
     if not message:
         raise SampleError("No rejection reason provided. Aborting.")
@@ -108,7 +127,7 @@ async def remove_context(sample) -> Sample:
     new_sample = Sample(**attr.asdict(sample))
     new_sample.context = [str(f) for f in background_features]
     new_sample.id = uuid4().hex
-    new_sample.title = f"{sample.title} [REMOVE {target.path.name}]"
+    new_sample.title = f"{sample.title} [REMOVED CONTEXT]"
     new_sample.message_edit = message
     new_sample.diff_edit = ""
 

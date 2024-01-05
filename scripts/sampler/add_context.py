@@ -42,5 +42,5 @@ async def add_context(sample, extra_tokens: int = 5000) -> Sample:
     new_sample = Sample(**attr.asdict(sample))
     new_sample.context = [str(f) for f in all_features]
     new_sample.id = uuid4().hex
-    new_sample.title = f"{sample.title} [ADD {extra_tokens} CONTEXT]"
+    new_sample.title = f"{sample.title} [ADDED CONTEXT]"
     return new_sample

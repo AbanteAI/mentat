@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import os
+import random
 from typing import Any
 
 from add_context import add_context
@@ -33,9 +34,18 @@ os.makedirs(FINETUNE_DIR, exist_ok=True)
 
 async def main():
     parser = argparse.ArgumentParser(description="Evaluate code samples.")
-    parser.add_argument("sample_ids", nargs="*", help="Optional sample IDs to evaluate")
+    parser.add_argument("sample_ids", nargs="*", help="Optional sample IDs to run")
     parser.add_argument(
-        "--validate", "-v", action="store_true", help="Validate samples instead of evaluating"
+        "--number", "-n", type=int, default=None, help="Maximum number of times to run"
+    )
+    parser.add_argument(
+        "--evaluate", "-e", action="store_true", help="Evaluate samples (default)"
+    )
+    parser.add_argument(
+        "--validate",
+        "-v",
+        action="store_true",
+        help="Validate samples instead of evaluating",
     )
     parser.add_argument(
         "--finetune", "-f", action="store_true", help="Generate fine-tuning examples"
@@ -44,7 +54,10 @@ async def main():
         "--add-context", "-a", action="store_true", help="Add extra context to samples"
     )
     parser.add_argument(
-        "--remove-context", "-r", action="store_true", help="Remove context from samples"
+        "--remove-context",
+        "-r",
+        action="store_true",
+        help="Remove context from samples",
     )
     args = parser.parse_args()
     sample_files = []
@@ -52,17 +65,25 @@ async def main():
         for sample_id in args.sample_ids:
             sample_files.extend(list(SAMPLES_DIR.glob(f"*{sample_id}*.json")))
     else:
-        sample_files = SAMPLES_DIR.glob("*.json")
+        sample_files = list(SAMPLES_DIR.glob("*.json"))
     if not sample_files:
         print(f"No {'matching ' if args.sample_ids else ''}sample files found.")
         return
 
+    random.shuffle(sample_files)
     logs = []
     for sample_file in sample_files:
+        if args.number and len(logs) >= args.number:
+            break
         if not sample_file.exists():
             warn(f"Sample file {sample_file} does not exist.")
             continue
         sample = Sample.load(sample_file)
+        if (args.add_context or args.remove_context) and (
+            "[ADDED CONTEXT]" in sample.title or "[REMOVED CONTEXT]" in sample.title
+        ):
+            warn(f"Skipping {sample.id}: has already been modified.")
+            continue
         if args.validate:
             is_valid, reason = await validate_sample(sample)
             status = (
@@ -93,7 +114,9 @@ async def main():
             except Exception as e:
                 warn(f"Error adding extra context to sample {sample.id}: {e}")
         elif args.remove_context:
-            print(f"Removing context from sample {sample.id[:8]}")
+            if not sample.context or len(sample.context) == 1:
+                warn(f"Skipping {sample.id}: no context to remove.")
+                continue
             try:
                 new_sample = await remove_context(sample)
                 new_sample.save(SAMPLES_DIR / f"sample_{new_sample.id}.json")
