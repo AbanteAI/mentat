@@ -10,7 +10,7 @@ from git import Repo
 from openai import OpenAI
 
 from mentat.python_client.client import PythonClient
-from mentat.utils import clone_repo
+from mentat.sampler.utils import clone_repo
 
 pytestmark = pytest.mark.benchmark
 

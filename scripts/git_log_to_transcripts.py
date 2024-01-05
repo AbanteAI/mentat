@@ -16,8 +16,8 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.llm_api import CostTracker, count_tokens
 from mentat.parsers.git_parser import GitParser
+from mentat.sampler.utils import clone_repo
 from mentat.session_context import SESSION_CONTEXT, SessionContext
-from mentat.utils import clone_repo
 from tests.benchmarks.context_benchmark import MockStream, select_features_for_benchmark
 
 system_prompt = dedent("""\

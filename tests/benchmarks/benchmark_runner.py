@@ -9,8 +9,8 @@ from openai.types.chat.completion_create_params import ResponseFormat
 
 from mentat.llm_api_handler import model_context_size, prompt_tokens
 from mentat.python_client.client import PythonClient
+from mentat.sampler.utils import clone_repo
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import clone_repo
 from tests.benchmarks.benchmark_result import BenchmarkResult
 from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
 
@@ -148,7 +148,7 @@ async def test_benchmark(retries, benchmarks):
         codebase = clone_repo(
             url=benchmark.repo,
             local_dir_name=benchmark.repo.split("/")[-1],
-            refresh=False,
+            refresh=True,
         )
 
         os.chdir(codebase)

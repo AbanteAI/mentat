@@ -6,10 +6,8 @@ import json
 import os
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from git import Repo  # type: ignore
-from git.exc import GitCommandError
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionUserMessageParam,
@@ -20,9 +18,13 @@ from mentat.git_handler import get_git_diff
 from mentat.parsers.git_parser import GitParser
 from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
-from mentat.sampler.utils import get_active_snapshot_commit
+from mentat.sampler.utils import (
+    apply_diff_to_repo,
+    clone_repo,
+    get_active_snapshot_commit,
+)
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import clone_repo, mentat_dir_path
+from mentat.utils import mentat_dir_path
 from tests.benchmarks.benchmark_runner import (
     compare_diffs,
     grade_diff_syntax,
@@ -38,26 +40,6 @@ SAMPLES_DIR = mentat_dir_path / "samples"
 os.makedirs(SAMPLES_DIR, exist_ok=True)
 FINETUNE_DIR = mentat_dir_path / "finetune"
 os.makedirs(FINETUNE_DIR, exist_ok=True)
-
-
-def apply_diff_to_repo(diff: str, repo: Repo, commit: bool = False) -> str | None:
-    """Apply a git diff to a repo. If commit is True, commit the changes."""
-    temp_id = uuid4().hex
-    try:
-        # Save self.diff_merge_base to a temporary .diff file
-        with open(f".sample_{temp_id}.diff", "w") as f:
-            f.write(diff)
-        repo.git.execute(["git", "apply", f".sample_{temp_id}.diff"])
-        os.remove(f".sample_{temp_id}.diff")
-        if commit:
-            repo.git.add(".")
-            repo.git.commit("-m", f"sample_{temp_id}")
-    except GitCommandError as e:
-        try:
-            os.remove(f".sample_{temp_id}.diff")
-        except FileNotFoundError:
-            pass
-        return str(e)
 
 
 async def evaluate_sample(sample, cwd: Path | str | None = None):

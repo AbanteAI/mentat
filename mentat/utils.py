@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import os
 import time
 from importlib import resources
 from importlib.abc import Traversable
@@ -11,7 +10,6 @@ from typing import TYPE_CHECKING, AsyncIterator, List, Literal, Optional, Union
 
 import packaging.version
 import requests
-from git import Repo  # type: ignore
 from jinja2 import Environment, PackageLoader, select_autoescape
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
@@ -176,27 +174,6 @@ def get_relative_path(path: Path, target: Path) -> Path:
         relative_path = Path(*relative_parts)
 
     return relative_path
-
-
-CLONE_TO_DIR = Path(__file__).parent.parent / "benchmark_repos"
-
-
-def clone_repo(
-    url: str, local_dir_name: str, refresh: bool = False, depth: int = 0
-) -> Path | None:
-    local_dir = CLONE_TO_DIR / local_dir_name
-    if os.path.exists(local_dir):
-        if refresh:
-            repo = Repo(local_dir)
-            repo.git.reset("--hard")
-            repo.git.clean("-fd")
-            repo.remotes.origin.pull()
-    else:
-        if depth > 0:
-            repo = Repo.clone_from(url, local_dir, depth=depth)
-        else:
-            repo = Repo.clone_from(url, local_dir)
-    return local_dir
 
 
 # TODO: replace this with something that doesn't load the file into memory
