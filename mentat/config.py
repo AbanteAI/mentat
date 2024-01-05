@@ -75,7 +75,7 @@ class Config:
         },
     )
     parser: Parser = attr.field(  # pyright: ignore
-        default="block",
+        default="replacement",
         metadata={
             "description": (
                 "The format for the LLM to write code in. You probably don't want to"
