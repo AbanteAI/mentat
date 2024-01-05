@@ -10,6 +10,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
+from mentat.config import Config
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.block_parser import BlockParser
@@ -135,7 +136,9 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
         @@end""")])
 
     session = Session(
-        cwd=Path.cwd(), paths=[Path("multifile_calculator/calculator.py")]
+        cwd=Path.cwd(),
+        paths=[Path("multifile_calculator/calculator.py")],
+        config=Config(parser="block"),
     )
     session.start()
     await session.stream.recv(channel="client_exit")
@@ -376,7 +379,10 @@ async def test_sampler_integration(
     )
 
     # Generate a sample using Mentat
-    python_client = PythonClient(cwd=temp_testbed, paths=["."])
+    python_client = PythonClient(
+        cwd=temp_testbed, paths=["."], config=Config(parser="block")
+    )
+
     await python_client.startup()
     await python_client.call_mentat_auto_accept(dedent("""\
         Make the following changes to "multifile_calculator/operations.py":

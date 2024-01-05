@@ -15,6 +15,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
+from mentat.config import Config
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.git_parser import GitParser
@@ -96,7 +97,7 @@ async def evaluate_sample(sample, cwd: Path | str | None = None):
     paths = list[Path]()
     for a in sample.context:
         paths.append(Path(a))
-    python_client = PythonClient(cwd=cwd, paths=paths)
+    python_client = PythonClient(cwd=cwd, paths=paths, config=Config(parser="block"))
     await python_client.startup()
     session_context = SESSION_CONTEXT.get()
     conversation = session_context.conversation

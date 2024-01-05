@@ -4,6 +4,7 @@ from textwrap import dedent
 
 import pytest
 
+from mentat.config import Config
 from mentat.session import Session
 from tests.conftest import run_git_command
 
@@ -41,7 +42,9 @@ async def test_system(mock_call_llm_api, mock_collect_user_input):
         print("Hello, world!")
         @@end""".format(file_name=temp_file_name))])
 
-    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
+    session = Session(
+        cwd=Path.cwd(), paths=[temp_file_name], config=Config(parser="block")
+    )
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -58,7 +61,7 @@ async def test_system_exits_on_exception(mock_collect_user_input):
     # with "Task was destroyed but it is pending!"
     mock_collect_user_input.side_effect = [Exception("Something went wrong")]
 
-    session = Session(cwd=Path.cwd())
+    session = Session(cwd=Path.cwd(), config=Config(parser="block"))
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -120,7 +123,9 @@ async def test_interactive_change_selection(mock_call_llm_api, mock_collect_user
         print("Change 3")
         @@end""".format(file_name=temp_file_name))])
 
-    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
+    session = Session(
+        cwd=Path.cwd(), paths=[temp_file_name], config=Config(parser="block")
+    )
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -162,7 +167,9 @@ async def test_without_os_join(mock_call_llm_api, mock_collect_user_input):
         @@code
         print("Hello, world!")
         @@end""".format(file_name=fake_file_path))])
-    session = Session(cwd=Path.cwd(), paths=[temp_file_path])
+    session = Session(
+        cwd=Path.cwd(), paths=[temp_file_path], config=Config(parser="block")
+    )
     session.start()
     await session.stream.recv(channel="client_exit")
     mock_collect_user_input.reset_mock()
@@ -201,7 +208,11 @@ async def test_sub_directory(
             print("Hello, world!")
             @@end""")])
 
-        session = Session(cwd=temp_testbed, paths=[Path("scripts", file_name)])
+        session = Session(
+            cwd=temp_testbed,
+            paths=[Path("scripts", file_name)],
+            config=Config(parser="block"),
+        )
         session.start()
         await session.stream.recv(channel="client_exit")
 
@@ -243,7 +254,9 @@ async def test_recursive_git_repositories(temp_testbed, mock_collect_user_input)
         ]
     )
 
-    session = Session(cwd=temp_testbed, paths=[Path(".")])
+    session = Session(
+        cwd=temp_testbed, paths=[Path(".")], config=Config(parser="block")
+    )
     session.start()
     await session.stream.recv(channel="client_exit")
 

@@ -8,6 +8,7 @@ from mentat.code_feature import CodeFeature
 from mentat.command.command import Command, InvalidCommand
 from mentat.command.commands.context import ContextCommand
 from mentat.command.commands.help import HelpCommand
+from mentat.config import Config
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
 
@@ -166,7 +167,9 @@ async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         @@end
         """)])
 
-    session = Session(cwd=Path.cwd(), paths=[temp_file_name])
+    session = Session(
+        cwd=Path.cwd(), paths=[temp_file_name], config=Config(parser="block")
+    )
     session.start()
     await session.stream.recv(channel="client_exit")
 

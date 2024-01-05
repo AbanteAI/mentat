@@ -4,6 +4,7 @@ from textwrap import dedent
 
 import pytest
 
+from mentat.config import Config
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.session import Session
 
@@ -97,7 +98,9 @@ async def test_run_from_subdirectory(
         @@end""")])
 
     session = Session(
-        cwd=temp_testbed, paths=["multifile_calculator/calculator.py", "scripts"]
+        cwd=temp_testbed,
+        paths=["multifile_calculator/calculator.py", "scripts"],
+        config=Config(parser="block"),
     )
     session.start()
     await session.stream.recv(channel="client_exit")
@@ -156,6 +159,7 @@ async def test_run_from_superdirectory(
     session = Session(
         cwd=Path(temp_testbed) / "format_examples",
         paths=["../multifile_calculator/calculator.py", "../scripts"],
+        config=Config(parser="block"),
     )
     session.start()
     await session.stream.recv(channel="client_exit")
@@ -203,7 +207,7 @@ async def test_change_after_creation(
         print("Hello, World!")
         @@end""")])
 
-    session = Session(cwd=Path.cwd())
+    session = Session(cwd=Path.cwd(), config=Config(parser="block"))
     session.start()
     await session.stream.recv(channel="client_exit")
 

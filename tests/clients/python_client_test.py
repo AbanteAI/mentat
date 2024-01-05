@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from mentat.config import Config
 from mentat.python_client.client import PythonClient
 
 
@@ -26,7 +27,9 @@ async def test_editing_file_auto_accept(temp_testbed, mock_call_llm_api):
         # Line 2
         @@end""")])
 
-    python_client = PythonClient(cwd=temp_testbed, paths=["."])
+    python_client = PythonClient(
+        cwd=temp_testbed, paths=["."], config=Config(parser="block")
+    )
     await python_client.startup()
     await python_client.call_mentat_auto_accept("Conversation")
     with open(file_name, "r") as f:
@@ -56,7 +59,9 @@ async def test_collects_mentat_response(temp_testbed, mock_call_llm_api):
         # Line 2
         @@end""")])
 
-    python_client = PythonClient(cwd=temp_testbed, paths=["."])
+    python_client = PythonClient(
+        cwd=temp_testbed, paths=["."], config=Config(parser="block")
+    )
     await python_client.startup()
     response = await python_client.call_mentat("Conversation")
     response += await python_client.call_mentat("y")
