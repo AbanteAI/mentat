@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-from git import Repo  # type: ignore
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionUserMessageParam,
@@ -20,8 +19,8 @@ from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import (
     apply_diff_to_repo,
-    clone_repo,
     get_active_snapshot_commit,
+    setup_repo,
 )
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
@@ -45,31 +44,14 @@ os.makedirs(FINETUNE_DIR, exist_ok=True)
 async def evaluate_sample(sample, cwd: Path | str | None = None):
     """Run a sample using Mentat and return the resulting diff"""
 
-    # Setup repo
-    if cwd is None:
-        cwd = clone_repo(
-            url=sample.repo,
-            local_dir_name=sample.repo.split("/")[-1],
-            refresh=False,
-        )
-        if cwd is None:
-            raise SampleError(f"Error cloning {sample.repo}")
-    else:
-        cwd = Path(cwd)
-    os.chdir(cwd)
-    repo = Repo(".")
-    repo.head.reset(index=True, working_tree=True)  # reset tracked files
-    repo.git.execute(["git", "clean", "-fd"])  # remove untracked files/directories
-    repo.git.fetch("--all")
-    repo.git.checkout(sample.merge_base)
-    if sample.diff_merge_base:
-        errors = apply_diff_to_repo(sample.diff_merge_base, repo, commit=True)
-        if errors:
-            raise SampleError(f"Error applying diff_merge_base: {errors}")
-    if sample.diff_active:
-        errors = apply_diff_to_repo(sample.diff_active, repo)
-        if errors:
-            raise SampleError(f"Error applying diff_active: {errors}")
+    repo = setup_repo(
+        url=sample.repo,
+        cwd=cwd,
+        commit=sample.merge_base,
+        diff_merge_base=sample.diff_merge_base,
+        diff_active=sample.diff_active,
+    )
+    cwd = Path(repo.working_dir)
 
     # Make a commit from the pre-edited state (should match diff_active)
     commit_active = get_active_snapshot_commit(repo)
@@ -109,31 +91,16 @@ async def validate_sample(sample, cwd: Path | str | None = None) -> tuple[bool, 
         if not sample.message_edit and not sample.diff_edit:
             return False, "Samples must include either diff_edit or message_edit."
 
-        # Setup repo
-        if cwd is None:
-            cwd = clone_repo(
+        try:
+            repo = setup_repo(
                 url=sample.repo,
-                local_dir_name=sample.repo.split("/")[-1],
-                refresh=False,
+                cwd=cwd,
+                commit=sample.merge_base,
+                diff_merge_base=sample.diff_merge_base,
+                diff_active=sample.diff_active,
             )
-            if cwd is None:
-                return False, f"Error cloning repo: {sample.repo}"
-        else:
-            cwd = Path(cwd)
-        os.chdir(cwd)
-        repo = Repo(".")
-        repo.head.reset(index=True, working_tree=True)  # reset tracked files
-        repo.git.execute(["git", "clean", "-fd"])  # remove untracked files/directories
-        repo.git.fetch("--all")
-        repo.git.checkout(sample.merge_base)
-        if sample.diff_merge_base:
-            errors = apply_diff_to_repo(sample.diff_merge_base, repo, commit=True)
-            if errors:
-                return False, f"Error applying diff_merge_base: {errors}"
-        if sample.diff_active:
-            errors = apply_diff_to_repo(sample.diff_active, repo)
-            if errors:
-                return False, f"Error applying diff_active: {errors}"
+        except SampleError as e:
+            return False, str(e)
         # TODO: Validate context (paths)
         if sample.diff_edit:
             errors = apply_diff_to_repo(sample.diff_edit, repo)
@@ -150,31 +117,14 @@ async def generate_finetune_gpt(sample, cwd: Path | str | None = None):
 
     {"messages": [{"role": "user", "content": "Hello, world!"}, ...]}
     """
-    # Setup repo, including diff_merge_base and diff_active
-    if cwd is None:
-        cwd = clone_repo(
-            url=sample.repo,
-            local_dir_name=sample.repo.split("/")[-1],
-            refresh=False,
-        )
-        if cwd is None:
-            raise SampleError(f"Error cloning {sample.repo}")
-    else:
-        cwd = Path(cwd)
-    os.chdir(cwd)
-    repo = Repo(".")
-    repo.head.reset(index=True, working_tree=True)  # reset tracked files
-    repo.git.execute(["git", "clean", "-fd"])  # remove untracked files/directories
-    repo.git.fetch("--all")
-    repo.git.checkout(sample.merge_base)
-    if sample.diff_merge_base:
-        errors = apply_diff_to_repo(sample.diff_merge_base, repo, commit=True)
-        if errors:
-            raise SampleError(f"Error applying diff_merge_base: {errors}")
-    if sample.diff_active:
-        errors = apply_diff_to_repo(sample.diff_active, repo)
-        if errors:
-            raise SampleError(f"Error applying diff_active: {errors}")
+    repo = setup_repo(
+        url=sample.repo,
+        cwd=cwd,
+        commit=sample.merge_base,
+        diff_merge_base=sample.diff_merge_base,
+        diff_active=sample.diff_active,
+    )
+    cwd = Path(repo.working_dir)
 
     # Run sample in PythonClient
     paths = list[Path]()

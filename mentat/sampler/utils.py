@@ -50,6 +50,50 @@ def apply_diff_to_repo(diff: str, repo: Repo, commit: bool = False) -> str | Non
         return str(e)
 
 
+def setup_repo(
+    url: str,
+    cwd: Path | str | None = None,
+    depth: int = 0,
+    commit: Optional[str] = None,
+    diff_merge_base: Optional[str] = None,
+    diff_active: Optional[str] = None,
+) -> Repo:
+    # Locate or clone repo
+    repo_name = url.split("/")[-1]
+    if cwd is None:
+        cwd = clone_repo(
+            url=url,
+            local_dir_name=repo_name,
+            refresh=False,  # Do it below
+            depth=depth,
+        )
+        if cwd is None:
+            raise SampleError(f"Error cloning {url}")
+    else:
+        cwd = Path(cwd)
+        if not cwd.exists():
+            raise SampleError(f"Error: {cwd} does not exist")
+    os.chdir(cwd)
+
+    # Setup git history
+    repo = Repo(".")
+    repo.git.reset("--hard")
+    repo.git.clean("-fd")
+    repo.git.fetch("--all")
+    if commit is not None:
+        repo.git.checkout(commit)
+    if diff_merge_base:
+        errors = apply_diff_to_repo(diff_merge_base, repo, commit=True)
+        if errors:
+            raise SampleError(f"Error applying diff_merge_base: {errors}")
+    if diff_active:
+        errors = apply_diff_to_repo(diff_active, repo)
+        if errors:
+            raise SampleError(f"Error applying diff_active: {errors}")
+
+    return repo
+
+
 def get_active_snapshot_commit(repo: Repo) -> str | None:
     """Returns the commit hash of the current active snapshot, or None if there are no active changes."""
     if not repo.is_dirty():
