@@ -96,7 +96,7 @@ class CodeFileManager:
                 )
 
             if file_edit.is_deletion:
-                stream.send(f"Deleting {display_path}...", color="red")
+                stream.send(f"Deleting {display_path}...", style="error")
                 # We use the current lines rather than the stored lines for undo
                 file_edit.previous_file_lines = self.read_file(file_edit.file_path)
                 self.delete_file(file_edit.file_path)
@@ -114,7 +114,7 @@ class CodeFileManager:
                     stream.send(
                         f"File '{display_path}' changed while"
                         " generating; current file changes will be erased. Continue?",
-                        color="light_yellow",
+                        style="warning",
                     )
                     if not await ask_yes_no(default_yes=False):
                         stream.send(f"Not applying changes to file {display_path}")

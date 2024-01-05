@@ -40,13 +40,13 @@ class SearchCommand(Command, command_name="search"):
         config = session_context.config
 
         if len(args) == 0:
-            stream.send("No search query specified", color="yellow")
+            stream.send("No search query specified", style="warning")
             return
         try:
             query = " ".join(args)
             results = await code_context.search(query=query)
         except UserError as e:
-            stream.send(str(e), color="red")
+            stream.send(str(e), style="error")
             return
 
         cumulative_tokens = 0
@@ -90,14 +90,14 @@ class SearchCommand(Command, command_name="search"):
                             rel_path = get_relative_path(
                                 included_path, session_context.cwd
                             )
-                            stream.send(f"{rel_path} added to context", color="green")
+                            stream.send(f"{rel_path} added to context", style="success")
                     else:
                         stream.send("(Y/n)")
                     user_input: str = (
                         await collect_user_input(plain=True)
                     ).data.strip()
                 if user_input.lower() == "n":
-                    stream.send("Exiting search mode...", color="light_blue")
+                    stream.send("Exiting search mode...", style="input")
                     break
 
     @override

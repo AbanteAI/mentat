@@ -157,9 +157,9 @@ class Session:
                         stream.send(
                             "Use /undo to undo all changes from agent mode since last"
                             " input.",
-                            color="green",
+                            style="success",
                         )
-                    stream.send("\nWhat can I do for you?", color="light_blue")
+                    stream.send("\nWhat can I do for you?", style="input")
                     message = await collect_input_with_commands()
                     if message.data.strip() == "":
                         continue
@@ -186,7 +186,7 @@ class Session:
                             stream.send(
                                 f"Sampler error setting active diff: {e}. Disabling"
                                 " sampler.",
-                                color="red",
+                                style="error",
                             )
                             session_context.sampler.active = False
 
@@ -195,7 +195,7 @@ class Session:
                     )
                     stream.send(
                         "Changes applied." if applied_edits else "No changes applied.",
-                        color="light_blue",
+                        style="input",
                     )
 
                     if agent_handler.agent_enabled:
@@ -212,7 +212,7 @@ class Session:
                 need_user_request = True
                 continue
             except (APITimeoutError, RateLimitError, BadRequestError) as e:
-                stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
+                stream.send(f"Error accessing OpenAI API: {e.message}", style="error")
                 break
 
     async def listen_for_session_exit(self):
@@ -247,7 +247,7 @@ class Session:
             except (SessionExit, CancelledError):
                 pass
             except (MentatError, UserError) as e:
-                self.stream.send(str(e), color="red")
+                self.stream.send(str(e), style="error")
             except Exception as e:
                 # All unhandled exceptions end up here
                 error = f"Unhandled Exception: {traceback.format_exc()}"
@@ -256,7 +256,7 @@ class Session:
                     print(error)
                 self.error = error
                 sentry_sdk.capture_exception(e)
-                self.stream.send(error, color="red")
+                self.stream.send(error, style="error")
             finally:
                 await self._stop()
                 sentry_sdk.flush()

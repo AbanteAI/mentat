@@ -23,13 +23,13 @@ class ScreenshotCommand(Command, command_name="screenshot"):
                 stream.send(
                     "Using a version of gpt that doesn't support images. Changing to"
                     " gpt-4-vision-preview",
-                    color="yellow",
+                    style="warning",
                 )
                 config.model = "gpt-4-vision-preview"
         else:
             stream.send(
                 "Can't determine if this model supports vision. Attempting anyway.",
-                color="yellow",
+                style="warning",
             )
 
         try:
@@ -42,7 +42,7 @@ class ScreenshotCommand(Command, command_name="screenshot"):
             conversation.add_user_message(f"A screenshot of {path}", image=image)
             stream.send(
                 f"Screenshot taken for: {path}.",
-                color="green",
+                style="success",
             )
         except ScreenshotException:
             return  # Screenshot manager will print the error to stream.

@@ -14,7 +14,7 @@ class ConfigCommand(Command, command_name="config"):
         stream = session_context.stream
         config = session_context.config
         if len(args) == 0:
-            stream.send("No config option specified", color="yellow")
+            stream.send("No config option specified", style="warning")
         else:
             setting = args[0]
             if hasattr(config, setting):
@@ -34,20 +34,20 @@ class ConfigCommand(Command, command_name="config"):
                         stream.send(
                             f"Cannot change {setting} mid-session. Please restart"
                             " Mentat to change this setting.",
-                            color="yellow",
+                            style="warning",
                         )
                         return
                     try:
                         setattr(config, setting, value)
-                        stream.send(f"{setting} set to {value}", color="green")
+                        stream.send(f"{setting} set to {value}", style="success")
                     except (TypeError, ValueError):
                         stream.send(
-                            f"Illegal value for {setting}: {value}", color="red"
+                            f"Illegal value for {setting}: {value}", style="error"
                         )
                 else:
-                    stream.send("Too many arguments", color="yellow")
+                    stream.send("Too many arguments", style="warning")
             else:
-                stream.send(f"Unrecognized config option: {setting}", color="red")
+                stream.send(f"Unrecognized config option: {setting}", style="error")
 
     @override
     @classmethod

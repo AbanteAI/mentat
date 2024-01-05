@@ -105,7 +105,7 @@ class DiffContext:
             stream.send(
                 "Cannot specify more than one type of diff. Disabling diff and"
                 " pr-diff.",
-                color="light_yellow",
+                style="warning",
             )
             diff = None
             pr_diff = None
@@ -119,8 +119,8 @@ class DiffContext:
         name = ""
         treeish_type = _get_treeish_type(git_root, target)
         if treeish_type is None:
-            stream.send(f"Invalid treeish: {target}", color="dark_red")
-            stream.send("Disabling diff and pr-diff.", color="light_yellow")
+            stream.send(f"Invalid treeish: {target}", style="failure")
+            stream.send("Disabling diff and pr-diff.", style="warning")
             self.target = "HEAD"
             self.name = "HEAD (last commit)"
             return
@@ -138,7 +138,7 @@ class DiffContext:
                 stream.send(
                     f"Cannot identify merge base between HEAD and {pr_diff}. Disabling"
                     " pr-diff.",
-                    color="light_yellow",
+                    style="warning",
                 )
                 self.target = "HEAD"
                 self.name = "HEAD (last commit)"

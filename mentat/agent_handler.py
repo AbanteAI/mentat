@@ -39,7 +39,7 @@ class AgentHandler:
         ctx = SESSION_CONTEXT.get()
 
         ctx.stream.send(
-            "Finding files to determine how to test changes...", color="cyan"
+            "Finding files to determine how to test changes...", style="info"
         )
         features = ctx.code_context.get_all_features(split_intervals=False)
         messages: List[ChatCompletionMessageParam] = [
@@ -68,7 +68,7 @@ class AgentHandler:
         ctx.stream.send(
             "The model has chosen these files to help it determine how to test its"
             " changes:",
-            color="cyan",
+            style="info",
         )
         ctx.stream.send("\n".join(str(path) for path in paths))
         ctx.cost_tracker.display_last_api_call()
@@ -106,7 +106,7 @@ class AgentHandler:
             response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
             ctx.cost_tracker.display_last_api_call()
         except BadRequestError as e:
-            ctx.stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
+            ctx.stream.send(f"Error accessing OpenAI API: {e.message}", style="error")
             return []
 
         content = response.choices[0].message.content or ""
@@ -129,18 +129,18 @@ class AgentHandler:
         if not commands:
             return True
         ctx.stream.send(
-            "The model has chosen these commands to test its changes:", color="cyan"
+            "The model has chosen these commands to test its changes:", style="info"
         )
         for command in commands:
             ctx.stream.send("* ", end="")
-            ctx.stream.send(command, color="light_yellow")
-        ctx.stream.send("Run these commands?", color="cyan")
+            ctx.stream.send(command, style="warning")
+        ctx.stream.send("Run these commands?", style="info")
         run_commands = await ask_yes_no(default_yes=True)
         if not run_commands:
             ctx.stream.send(
                 "Enter a new-line separated list of commands to run, or nothing to"
                 " return control to the user:",
-                color="cyan",
+                style="info",
             )
             commands: list[str] = (await collect_user_input()).data.strip().splitlines()
             if not commands:

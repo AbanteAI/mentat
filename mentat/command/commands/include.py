@@ -16,13 +16,13 @@ class IncludeCommand(Command, command_name="include"):
         code_context = session_context.code_context
 
         if len(args) == 0:
-            stream.send("No files specified", color="yellow")
+            stream.send("No files specified", style="warning")
             return
         for file_path in args:
             included_paths = code_context.include(file_path)
             for included_path in included_paths:
                 rel_path = get_relative_path(included_path, session_context.cwd)
-                stream.send(f"{rel_path} added to context", color="green")
+                stream.send(f"{rel_path} added to context", style="success")
 
     @override
     @classmethod
