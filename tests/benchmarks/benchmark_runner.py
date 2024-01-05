@@ -2,15 +2,15 @@ import importlib.util
 import json
 import os
 import re
+from pathlib import Path
 
 import pytest
-from git import Repo
 from openai.types.chat.completion_create_params import ResponseFormat
 
 from mentat.llm_api_handler import model_context_size, prompt_tokens
 from mentat.python_client.client import PythonClient
+from mentat.sampler.utils import setup_repo
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import clone_repo
 from tests.benchmarks.benchmark_result import BenchmarkResult
 from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
 
@@ -144,17 +144,11 @@ async def test_benchmark(retries, benchmarks):
             continue
 
         print("Benchmark:", title)
-
-        codebase = clone_repo(
+        repo = setup_repo(
             url=benchmark.repo,
-            local_dir_name=benchmark.repo.split("/")[-1],
-            refresh=False,
+            commit=benchmark.commit,
         )
-
-        os.chdir(codebase)
-        repo = Repo(".")
-        start_commit = repo.commit()
-        repo.git.checkout(benchmark.commit)
+        cwd = Path(repo.working_dir)
 
         for i, prompt in enumerate(benchmark.prompts):
             print("  Prompt:", prompt)
@@ -164,7 +158,7 @@ async def test_benchmark(retries, benchmarks):
                     name=f"{formatted_title}-{i}-{j}",
                     family=formatted_title,
                 )
-                client = PythonClient(cwd=codebase, config=benchmark.config)
+                client = PythonClient(cwd=cwd, config=benchmark.config)
                 await client.startup()
                 response = await client.call_mentat_auto_accept(prompt)
                 await client.shutdown()
@@ -212,7 +206,6 @@ async def test_benchmark(retries, benchmarks):
                     result.missing_functionality = comparison_grade.get(
                         "missing_functionality"
                     )
-        repo.git.checkout(start_commit)
 
     summary = BenchmarkResultSummary(results)
     os.chdir("../..")

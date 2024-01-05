@@ -15,7 +15,7 @@ setup(
     name="mentat",
     version=__version__,
     python_requires=">=3.10",
-    packages=find_packages(include=["mentat", "mentat.*"]),
+    packages=find_packages(include=["mentat", "mentat.*", "tests"]),
     install_requires=[
         str(r)
         for r in pkg_resources.parse_requirements(

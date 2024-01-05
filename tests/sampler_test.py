@@ -20,7 +20,7 @@ from mentat.sampler.sample import Sample
 from mentat.sampler.sampler import Sampler
 from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session import Session
-from scripts.evaluate_samples import evaluate_sample
+from scripts.sampler.run import run_sample
 
 
 def remove_checksums(text):
@@ -205,7 +205,7 @@ async def test_sample_eval(mock_call_llm_api):
         1. Add the `sha1` function to `mentat/utils.py`.{edit_message}""")])
 
     sample = Sample(**test_sample)
-    diff_eval = await evaluate_sample(sample)
+    diff_eval = await run_sample(sample)
     assert remove_checksums(diff_eval) == remove_checksums(sample.diff_edit)
 
 
@@ -422,5 +422,5 @@ async def test_sampler_integration(
     mock_call_llm_api.set_streamed_values(
         [f"I will make the following edits. {llm_response}"]
     )
-    diff_eval = await evaluate_sample(sample, temp_testbed)
+    diff_eval = await run_sample(sample, temp_testbed)
     assert diff_eval == sample.diff_edit
