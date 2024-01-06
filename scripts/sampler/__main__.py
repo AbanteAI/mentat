@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import datetime
 import json
 import os
 import random
@@ -28,8 +29,6 @@ def warn(msg: Any):
 
 SAMPLES_DIR = mentat_dir_path / "samples"
 os.makedirs(SAMPLES_DIR, exist_ok=True)
-FINETUNE_DIR = mentat_dir_path / "finetune"
-os.makedirs(FINETUNE_DIR, exist_ok=True)
 
 
 async def main():
@@ -97,11 +96,8 @@ async def main():
         elif args.finetune:
             try:
                 example = await generate_finetune_gpt(sample)
-                example_file = FINETUNE_DIR / f"finetune_{sample.id}.json"
-                with open(example_file, "w") as f:
-                    json.dump(example, f, indent=4)
-                print(f"Generated fine-tuning example {example_file}")
-                logs.append({"id": sample.id, "example_file": example_file})
+                print(f"Generated fine-tuning example {sample.id}")
+                logs.append(example)
             except Exception as e:
                 warn(
                     f"Error generating fine-tuning example for sample {sample.id}: {e}"
@@ -155,7 +151,13 @@ async def main():
             " validation."
         )
     elif args.finetune:
-        print(f"{len(logs)} fine-tuning examples generated.")
+        # Dump all logs into a .jsonl file
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        fname = mentat_dir_path / f"finetune_examples_{timestamp}.jsonl"
+        with open(fname, "w") as f:
+            for log in logs:
+                f.write(json.dumps(log) + "\n")
+        print(f"{len(logs)} fine-tuning examples saved to {fname}.")
     elif args.add_context:
         print(f"{len(logs)} samples with extra context generated.")
     elif args.remove_context:

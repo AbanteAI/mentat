@@ -42,7 +42,7 @@ async def generate_finetune_gpt(sample, cwd: Path | str | None = None):
         message_example += ctx.config.parser.file_edits_to_llm_message(
             parsed_llm_response
         )
-    conversation.append({"role": "system", "content": message_example})
+    conversation.append({"role": "assistant", "content": message_example})
 
     await python_client.shutdown()
     return {"messages": conversation}
