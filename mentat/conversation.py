@@ -20,6 +20,7 @@ from mentat.llm_api_handler import (
     count_tokens,
     get_max_tokens,
     prompt_tokens,
+    requires_system_prompt,
 )
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import ParsedLLMResponse
@@ -232,7 +233,9 @@ class Conversation:
         config = session_context.config
         code_context = session_context.code_context
 
-        messages_snapshot = self.get_messages()
+        
+        include_system_prompt = requires_system_prompt(config.model)
+        messages_snapshot = self.get_messages(include_system_prompt)
 
         # Get current code message
         loading_multiplier = 1.0 if config.auto_context_tokens > 0 else 0.0
@@ -252,7 +255,8 @@ class Conversation:
             loading_multiplier=0.5 * loading_multiplier,
         )
         messages_snapshot.insert(
-            1, ChatCompletionSystemMessageParam(role="system", content=code_message)
+            1 if include_system_prompt else 0, 
+            ChatCompletionSystemMessageParam(role="system", content=code_message)
         )
 
         try:

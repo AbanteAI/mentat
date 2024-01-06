@@ -86,6 +86,17 @@ def chunk_to_lines(chunk: ChatCompletionChunk) -> list[str]:
     return ("" if content is None else content).splitlines(keepends=True)
 
 
+def get_encoding_for_model(model: str) -> tiktoken.Encoding:
+    if model.startswith("ft:"):
+        # OpenAI fine-tuned models are named `ft:<base model>:<name>:<id>`. If tiktoken
+        # can't match the full string, it tries to match on startswith, e.g. 'gpt-4'
+        model = model.split(":")[1]
+    try:
+        return tiktoken.encoding_for_model(model)
+    except KeyError:
+        return tiktoken.get_encoding("cl100k_base")
+
+
 def count_tokens(message: str, model: str, full_message: bool) -> int:
     """
     Calculates the tokens in this message. Will NOT be accurate for a full prompt!
@@ -93,10 +104,7 @@ def count_tokens(message: str, model: str, full_message: bool) -> int:
     If full_message is true, will include the extra 4 tokens used in a chat completion by this message
     if this message is part of a prompt. You do NOT want full_message to be true for a response.
     """
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = get_encoding_for_model(model)
     return len(encoding.encode(message, disallowed_special=())) + (
         4 if full_message else 0
     )
@@ -107,10 +115,7 @@ def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str):
     Returns the number of tokens used by a prompt if it was sent to OpenAI for a chat completion.
     Adapted from https://platform.openai.com/docs/guides/text-generation/managing-tokens
     """
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = get_encoding_for_model(model)
 
     num_tokens = 0
     for message in messages:
@@ -151,6 +156,7 @@ class Model:
     input_cost: float = attr.field()
     output_cost: float = attr.field()
     embedding_model: bool = attr.field(default=False)
+    use_system_prompt: bool = attr.field(default=True)
 
 
 known_models: Dict[str, Model] = {
@@ -169,6 +175,13 @@ known_models: Dict[str, Model] = {
     "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
     "text-embedding-ada-002": Model(
         "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
+    ),
+    # Fine-tuned models
+    "ft:gpt-3.5-turbo-0613:abante::8dpiT7o2": Model(
+        "ft:gpt-3.5-turbo-0613:abante::8dpiT7o2", 4096, 0.0015, 0.002, False, False
+    ),   
+    "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F": Model(
+        "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F", 16385, 0.001, 0.002, False, False
     ),
 }
 
@@ -229,6 +242,13 @@ def is_context_sufficient(tokens: int) -> bool:
         return False
 
     return True
+
+
+def requires_system_prompt(model: str) -> bool:
+    if model not in known_models:
+        return True
+    else:
+        return known_models[model].use_system_prompt
 
 
 class LlmApiHandler:
