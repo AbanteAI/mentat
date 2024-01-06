@@ -154,7 +154,7 @@ async def run_client(client, prompt, result, messages=None):
     await client.startup()
     conversation = client.get_conversation()
     if messages is not None:
-        for msg in messages:
+        for msg in messages[::-1]:
             msg_cls = {
                 "user": ChatCompletionUserMessageParam,
                 "assistant": ChatCompletionAssistantMessageParam,
