@@ -35,7 +35,7 @@ class Config:
 
     # Model specific settings
     model: str = attr.field(
-        default="gpt-4-1106-preview",
+        default="ft:gpt-3.5-turbo-1106:abante::8dsQMc4F",
         metadata={"auto_completions": list(known_models.keys())},
     )
     feature_selection_model: str = attr.field(
