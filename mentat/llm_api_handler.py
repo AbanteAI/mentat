@@ -177,9 +177,6 @@ known_models: Dict[str, Model] = {
         "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
     ),
     # Fine-tuned models
-    "ft:gpt-3.5-turbo-0613:abante::8dpiT7o2": Model(
-        "ft:gpt-3.5-turbo-0613:abante::8dpiT7o2", 4096, 0.0015, 0.002, False, False
-    ),   
     "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F": Model(
         "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F", 16385, 0.001, 0.002, False, False
     ),

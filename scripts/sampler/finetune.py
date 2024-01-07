@@ -1,16 +1,20 @@
 from pathlib import Path
 
+from mentat.errors import SampleError
 from mentat.parsers.git_parser import GitParser
 from mentat.python_client.client import PythonClient
+from mentat.sampler.sample import Sample
 from mentat.sampler.utils import setup_repo
 from mentat.session_context import SESSION_CONTEXT
 
 
-async def generate_finetune_gpt(sample, cwd: Path | str | None = None):
-    """Generate a fine-tuning example from the sample for GPT-3.5
-
-    {"messages": [{"role": "user", "content": "Hello, world!"}, ...]}
-    """
+async def generate_finetune(
+    sample: Sample,
+    cwd: Path | str | None = None,
+    format: str = "gpt",
+    include_system_prompt: bool = False,
+):
+    """Generate a fine-tuning example from the sample using the given format"""
     repo = setup_repo(
         url=sample.repo,
         cwd=cwd,
@@ -30,6 +34,9 @@ async def generate_finetune_gpt(sample, cwd: Path | str | None = None):
 
     # Build the conversation
     conversation = list[dict[str, str]]()
+    if include_system_prompt:
+        system_prompt = ctx.config.parser.get_system_prompt()
+        conversation.append({"role": "system", "content": system_prompt})
     if paths:
         code_message = await ctx.code_context.get_code_message(0)
         conversation.append({"role": "system", "content": code_message})
@@ -45,4 +52,20 @@ async def generate_finetune_gpt(sample, cwd: Path | str | None = None):
     conversation.append({"role": "assistant", "content": message_example})
 
     await python_client.shutdown()
-    return {"messages": conversation}
+
+    # schema based on OpenAI fine-tuning spec
+    if format == "gpt":
+        return {"messages": conversation}
+    # llama and mistral schemas based on TogetherAI fine-tuning spec.
+    elif format == "llama":
+        from litellm.llms.prompt_templates.factory import llama_2_chat_pt
+
+        text = llama_2_chat_pt(conversation)
+        return {"text": text}
+    elif format == "mistral":
+        from litellm.llms.prompt_templates.factory import mistral_instruct_pt
+
+        text = mistral_instruct_pt(conversation)
+        return {"text": text}
+    else:
+        raise SampleError(f"Unrecognized finetune format: {format}")
