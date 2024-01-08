@@ -26,6 +26,7 @@ accepted_licenses = [
     "GNU General Public License (GPL)",
     "Public Domain",
     "The Unlicense (Unlicense)",
+    "UNKNOWN",
 ]
 
 
