@@ -67,10 +67,10 @@ class Collection:
         batches and saved to a db. We're currently using the same embeddings (ada-2) with
         ChromaDB, so we might as well save the effort of re-fetching them. One drawback
         is that ChromaDB saves the actual text, while our old schema did not, so migrated
-        records will not include a text field. This shouldn't be a problem. If it is, can
-        just update the 'exists' method to require a non-empty "document" field.
+        records will have an empty documents field. This shouldn't be a problem. If it is, 
+        we can just update the 'exists' method to require a non-empty "document" field.
 
-        TODO: erase this after a few months
+        TODO: erase this method/call after a few months
         """
         path = mentat_dir_path / "embeddings.sqlite3"
         if not path.exists():
@@ -118,7 +118,7 @@ async def get_feature_similarity_scores(
     # Initialize DB
     collection = Collection(embedding_model)
 
-    # Find the items that need embeddings
+    # Identify which items need embeddings.
     checksums: list[str] = [f.get_checksum() for f in features]
     tokens: list[int] = await count_feature_tokens(features, embedding_model)
     embed_texts = list[str]()
