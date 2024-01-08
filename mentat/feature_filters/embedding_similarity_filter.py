@@ -19,7 +19,7 @@ class EmbeddingSimilarityFilter(FeatureFilter):
             self.query, features, self.loading_multiplier
         )
         features_scored = zip(features, sim_scores)
-        return sorted(features_scored, key=lambda x: x[1], reverse=True)
+        return sorted(features_scored, key=lambda x: x[1])
 
     async def filter(
         self,
