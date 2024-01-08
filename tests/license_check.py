@@ -9,6 +9,8 @@ library_exceptions = [
     "tiktoken",
     # openai as Apache 2.0; for some reason, after updating to 1.0, pip-licenses thinks it's UNKNOWN
     "openai",
+    # comes up as 'UNKNOWN', but parent (chromadb) is Apache
+    "chroma-hnswlib",
 ]
 accepted_licenses = [
     "BSD License",
@@ -26,7 +28,7 @@ accepted_licenses = [
     "GNU General Public License (GPL)",
     "Public Domain",
     "The Unlicense (Unlicense)",
-    "UNKNOWN",
+    "Apache License, Version 2.0",
 ]
 
 
