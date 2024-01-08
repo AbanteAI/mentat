@@ -67,7 +67,7 @@ class Collection:
         batches and saved to a db. We're currently using the same embeddings (ada-2) with
         ChromaDB, so we might as well save the effort of re-fetching them. One drawback
         is that ChromaDB saves the actual text, while our old schema did not, so migrated
-        records will have an empty documents field. This shouldn't be a problem. If it is, 
+        records will have an empty documents field. This shouldn't be a problem. If it is,
         we can just update the 'exists' method to require a non-empty "document" field.
 
         TODO: erase this method/call after a few months
