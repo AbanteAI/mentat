@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, AsyncGenerator, Dict, List, cast
 from uuid import UUID, uuid4
+
+from pydantic import BaseModel
 
 from mentat.broadcast import Broadcast
 
@@ -15,8 +16,7 @@ class StreamMessageSource(Enum):
     CLIENT = "client"
 
 
-@dataclass(slots=True)
-class StreamMessage:
+class StreamMessage(BaseModel):
     id: UUID
     channel: str
     source: StreamMessageSource
@@ -96,9 +96,7 @@ class SessionStream:
                 return stream_message
             raise Exception("recv should not complete without receiving an Event")
 
-    async def listen(
-        self, channel: str = "default"
-    ) -> AsyncGenerator[StreamMessage, None]:
+    async def listen(self, channel: str = "default") -> AsyncGenerator[StreamMessage, None]:
         """Listen to all messages on a channel indefinitely"""
         with self._broadcast.subscribe(channel) as subscriber:
             async for event in subscriber:

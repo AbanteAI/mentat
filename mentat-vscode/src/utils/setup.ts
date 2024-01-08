@@ -16,7 +16,9 @@ const aexec = util.promisify(exec)
 async function installMentat(
   progress: vscode.Progress<{ message?: string; increment?: number }>
 ) {
-  console.log("Executing: const mentatDir = path.join(os.homedir(), '.mentat');")
+  console.log(
+    "Executing: const mentatDir = path.join(os.homedir(), '.mentat');"
+  )
   const mentatDir = path.join(os.homedir(), ".mentat")
   console.log("Executing: if (!fs.existsSync(mentatDir))...")
   if (!fs.existsSync(mentatDir)) {
@@ -128,15 +130,20 @@ async function getLanguageServerOptions(): Promise<ServerOptions> {
   const languageServerPort: number = workspaceConfig.get("languageServerPort")!
 
   if (!workspaceConfig.get("useExternalLanguageServer")) {
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification },
+      async (progress) => {
+        await installMentat(progress)
+      }
+    )
     await createMentatProcess(languageServerPort)
     await waitForPortToBeInUse({ port: languageServerPort, timeout: 5000 })
   }
-  console.log("Getting Mentat Socket")
+
   const serverOptions = await createMentatSocket({
     host: languageServerHost,
     port: languageServerPort,
   })
-  console.log("Got Mentat Socket")
 
   return serverOptions
 }

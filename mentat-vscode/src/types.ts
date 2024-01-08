@@ -1,19 +1,27 @@
-enum ChatMessageSender {
-  Client,
-  Server,
+import { ReactNode } from "react"
+
+type StreamMessage = {
+  id: string
+  channel: string
+  source: "server" | "client"
+  data: any
+  extra: { [key: string]: any }
+  created_at: string
 }
 
 type ChatMessage = {
-  id: string
-  orderId: number
+  id: number
   content: string
-  createdBy: ChatMessageSender
+  source: "client" | "server"
 }
 
 type LanguageServerMessage = {
   type: "notification" | "request" | "command"
-  method: "mentat/echoInput"
+  method:
+    | "mentat/serverMessage"
+    | "mentat/clientMessage"
+    | "mentat/inputRequest"
   data: any
 }
 
-export { ChatMessage, ChatMessageSender, LanguageServerMessage }
+export { ChatMessage, StreamMessage, LanguageServerMessage }

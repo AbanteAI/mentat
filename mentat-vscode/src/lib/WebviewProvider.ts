@@ -15,7 +15,8 @@ import { LanguageClient } from "vscode-languageclient/node"
  */
 function getNonce() {
   let text = ""
-  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+  const possible =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
   for (let i = 0; i < 32; i++) {
     text += possible.charAt(Math.floor(Math.random() * possible.length))
   }
@@ -98,39 +99,40 @@ class WebviewProvider implements vscode.WebviewViewProvider {
     }
     this.setHtmlForWebview()
 
-    this.view.webview.onDidReceiveMessage(async (message: LanguageServerMessage) => {
-      console.log(`WebviewProvider received message from Webview: ${message}`)
-      switch (message.type) {
-        case "request": {
-          const response: string = await this.languageClient.sendRequest(
-            message.method,
-            message
-          )
-          console.log(`WebviewProvider got response from LanguageServer: ${response}`)
-          const responseMessage: LanguageServerMessage = {
-            type: "request",
-            method: message.method,
-            data: response,
+    this.view.webview.onDidReceiveMessage(
+      async (message: LanguageServerMessage) => {
+        console.log(`WebviewProvider received message from Webview: ${message}`)
+        switch (message.type) {
+          case "request": {
+            const response: string = await this.languageClient.sendRequest(
+              message.method,
+              message
+            )
+            console.log(
+              `WebviewProvider got response from LanguageServer: ${response}`
+            )
+            const responseMessage: LanguageServerMessage = {
+              type: "request",
+              method: message.method,
+              data: response,
+            }
+            this.postMessage(responseMessage)
+            break
           }
-          this.postMessage(responseMessage)
-          break
-        }
-        default: {
-          throw Error(`Unhandled message type: ${message.type}`)
+          default: {
+            throw Error(`Unhandled message type: ${message.type}`)
+          }
         }
       }
-    })
+    )
 
-    // // Handle messages from the LanguageServer and send to Webview
-    // emitter.on(LanguageServerMethod.GetInput, (message: LanguageServerRequest) => {
-    //   this.postMessage(LanguageServerMethod.GetInput, message)
-    // })
-    // emitter.on(LanguageServerMethod.StreamSession, (message: LanguageServerRequest) => {
-    //   this.postMessage(LanguageServerMethod.StreamSession, message)
-    // })
-    // emitter.on(LanguageServerMethod.EchoInput, (message: LanguageServerRequest) => {
-    //   this.postMessage(LanguageServerMethod.EchoInput, message)
-    // })
+    // Handle messages from the LanguageServer and send to Webview
+    emitter.on("mentat/serverMessage", (message: LanguageServerMessage) => {
+      this.postMessage(message)
+    })
+    emitter.on("mentat/inputRequest", (message: LanguageServerMessage) => {
+      this.postMessage(message)
+    })
   }
 }
 

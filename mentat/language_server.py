@@ -1,20 +1,33 @@
 from __future__ import annotations
 
+import argparse
 import asyncio
 import logging
 import threading
-from typing import Any, NamedTuple
+from pathlib import Path
+from typing import Any, Literal, NamedTuple
+from uuid import UUID
 
 import pygls.protocol
 import pygls.server
+from lsprotocol import types as lsp
+from pydantic import BaseModel
 from typing_extensions import override
 
 from mentat import __version__
 from mentat.logging_config import setup_logging
+from mentat.session import Session
+from mentat.session_stream import StreamMessageSource
 
 setup_logging()
 
-logger = logging.getLogger("mentat:server")
+logger = logging.getLogger("mentat:language-server")
+
+
+class LanguageServerMessage(BaseModel):
+    type: Literal["notification", "request", "command"]
+    method: Literal["mentat/serverMessage", "mentat/clientMessage", "mentat/inputRequest"]
+    data: Any
 
 
 class LanguageServerProtocol(pygls.protocol.LanguageServerProtocol):
@@ -48,6 +61,12 @@ class LanguageServer(pygls.server.LanguageServer):
         self._server: asyncio.Server | None = None
         self._server_task: asyncio.Task[None] | None = None
         self._stop_task: asyncio.Task[None] | None = None
+
+        self.session: Session | None = None
+        self.handle_session_stream_task: asyncio.Task[None] | None = None
+        self.handle_input_requests_task: asyncio.Task[None] | None = None
+
+        self.session_input_request_id: UUID | None = None
 
     @property
     def is_serving(self):
@@ -122,22 +141,99 @@ class LanguageServer(pygls.server.LanguageServer):
 server = LanguageServer(host="127.0.0.1", port=7798, exit_on_lost_connection=False)
 
 
-# @server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
-# async def handle_text_document_did_open(params: lsp.DidOpenTextDocumentParams):
-#     print("Got params:", params)
+@server.feature(lsp.INITIALIZE)
+async def initialize(ls: LanguageServer, params: lsp.InitializeParams):
+    if params.root_path is None:
+        print("No root path provided")
+        return
+
+    print("Starting Session")
+
+    ls.session = Session(cwd=Path(params.root_path))
+    ls.session.start()
+
+    async def handle_session_stream():
+        if ls.session is None:
+            return
+        async for message in ls.session.stream.listen():
+            print("Got message:", message)
+            ls_message = LanguageServerMessage(type="notification", method="mentat/serverMessage", data=message)
+            ls.send_notification("mentat/serverMessage", ls_message.model_dump(mode="json"))
+
+    async def handle_input_requests():
+        if ls.session is None:
+            return
+        while True:
+            input_request_message = await ls.session.stream.recv("input_request")
+            print("Got input request:", input_request_message)
+            ls.session_input_request_id = input_request_message.id
+            ls_message = LanguageServerMessage(
+                type="notification", method="mentat/inputRequest", data=input_request_message
+            )
+            ls.send_notification("mentat/inputRequest", ls_message.model_dump(mode="json"))
+
+    ls.handle_session_stream_task = asyncio.create_task(handle_session_stream())
+    ls.handle_input_requests_task = asyncio.create_task(handle_input_requests())
+
+    print("Waiting for input request")
+    input_request_message = await ls.session.stream.recv("input_request")
+    ls.session_input_request_id = input_request_message.id
+
+    print("Got input request:", input_request_message)
+
+
+@server.feature(lsp.SHUTDOWN)
+async def shutdown(ls: LanguageServer):
+    if ls.session is None:
+        return
+    ls.session.stream.send(None, channel="session_exit")
+
+
+@server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
+async def handle_text_document_did_open(ls: LanguageServer, params: lsp.DidOpenTextDocumentParams):
+    if ls.session is None:
+        return
+    print("Got params:", params)
 
 
 class Message(NamedTuple):
     data: Any
 
 
-@server.feature("mentat/echoInput")
-async def handle_echo_input(message: Any):
+@server.feature("mentat/clientMessage")
+async def handle_client_message(ls: LanguageServer, message: Any):
+    if ls.session is None:
+        return
+    if ls.session_input_request_id is None:
+        print("No input request id")
+
     print("Got:", message)
-    return f"Server says '{message.data}'"
+
+    ls.session.stream.send(
+        message.data, source=StreamMessageSource.CLIENT, channel=f"input_request:{ls.session_input_request_id}"
+    )
+
+
+@server.feature("mentat/sendChat")
+async def send_chat(ls: LanguageServer, chat: Message):
+    if ls.session is None:
+        return
+    ls.session.stream.send(chat.data, channel="chat")
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", action="store_true", help="Wait for debugger attach")
+    args = parser.parse_args()
+
+    if args.debug:
+        import debugpy
+
+        print("Waiting for debugger attach")
+        debugpy.listen(("localhost", 5678))
+        debugpy.wait_for_client()
+        print("Debugger attached!")
+
     server.loop.run_until_complete(server.start())
 
 

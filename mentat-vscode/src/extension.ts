@@ -6,10 +6,12 @@ import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
-  State,
 } from "vscode-languageclient/node"
+import emitter from "utils/emitter"
 
-async function createLanguageClient(args: { languageServerOptions: ServerOptions }) {
+async function createLanguageClient(args: {
+  languageServerOptions: ServerOptions
+}) {
   const languageClientOptions: LanguageClientOptions = {
     documentSelector: [{ scheme: "file" }],
   }
@@ -20,11 +22,16 @@ async function createLanguageClient(args: { languageServerOptions: ServerOptions
     languageClientOptions
   )
 
-  languageClient.onRequest(
-    "mentat/echoInput",
+  languageClient.onNotification(
+    "mentat/serverMessage",
     async (message: LanguageServerMessage) => {
-      console.log(`LanguageClient received message: ${message}`)
-      return message
+      emitter.emit("mentat/serverMessage", message)
+    }
+  )
+  languageClient.onNotification(
+    "mentat/inputRequest",
+    async (message: LanguageServerMessage) => {
+      emitter.emit("mentat/inputRequest", message)
     }
   )
 
@@ -41,17 +48,7 @@ async function createLanguageClient(args: { languageServerOptions: ServerOptions
 
 async function startLanguageServer(context: vscode.ExtensionContext) {
   try {
-    // Install mentat
-    await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification },
-      async (progress) => {
-        await installMentat(progress)
-      }
-    )
-
-    console.log("Getting Language Server Options")
     const languageServerOptions = await getLanguageServerOptions()
-
     const languageClient = await createLanguageClient({ languageServerOptions })
 
     const chatWebviewProvider = new WebviewProvider(
@@ -59,9 +56,13 @@ async function startLanguageServer(context: vscode.ExtensionContext) {
       languageClient
     )
     context.subscriptions.push(
-      vscode.window.registerWebviewViewProvider("MentatChat", chatWebviewProvider, {
-        webviewOptions: { retainContextWhenHidden: true },
-      })
+      vscode.window.registerWebviewViewProvider(
+        "MentatChat",
+        chatWebviewProvider,
+        {
+          webviewOptions: { retainContextWhenHidden: true },
+        }
+      )
     )
   } catch (e) {
     vscode.window.showErrorMessage(
