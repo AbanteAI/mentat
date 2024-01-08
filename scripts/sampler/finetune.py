@@ -53,15 +53,13 @@ async def generate_finetune(
 
     await python_client.shutdown()
 
-    # schema based on OpenAI fine-tuning spec
     if format == "gpt":
-        return {"messages": conversation}
-    # llama and mistral schemas based on TogetherAI fine-tuning spec.
+        return {"messages": conversation}  # per openai fine-tuning instx
     elif format == "llama":
         from litellm.llms.prompt_templates.factory import llama_2_chat_pt
 
         text = llama_2_chat_pt(conversation)
-        return {"text": text}
+        return {"text": text}  # per togetherai fine-tuning instx
     elif format == "mistral":
         from litellm.llms.prompt_templates.factory import mistral_instruct_pt
 

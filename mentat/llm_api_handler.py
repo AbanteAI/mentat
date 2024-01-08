@@ -87,12 +87,11 @@ def chunk_to_lines(chunk: ChatCompletionChunk) -> list[str]:
 
 
 def get_encoding_for_model(model: str) -> tiktoken.Encoding:
-    if model.startswith("ft:"):
+    try:
         # OpenAI fine-tuned models are named `ft:<base model>:<name>:<id>`. If tiktoken
         # can't match the full string, it tries to match on startswith, e.g. 'gpt-4'
-        model = model.split(":")[1]
-    try:
-        return tiktoken.encoding_for_model(model)
+        _model = model.split(":")[1] if model.startswith("ft:") else model
+        return tiktoken.encoding_for_model(_model)
     except KeyError:
         return tiktoken.get_encoding("cl100k_base")
 
@@ -176,7 +175,7 @@ known_models: Dict[str, Model] = {
     "text-embedding-ada-002": Model(
         "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
     ),
-    # Fine-tuned models
+    # Fine-tuned on Jan-6 2024 with `sampler-one-hundred-v1.jsonl` data
     "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F": Model(
         "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F", 16385, 0.001, 0.002, False, False
     ),
