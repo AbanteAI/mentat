@@ -46,7 +46,7 @@ Add files to context.
 /redo
 -----
 
-Redo the last change made by Mentat.
+Redo a change that was previously undone with /undo.
 
 /run <command> [args] ...
 -------------------------
