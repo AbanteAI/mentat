@@ -51,7 +51,9 @@ Redo a change that was previously undone with /undo.
 /run <command> [args] ...
 -------------------------
 
-Run a shell command and put its output in context.
+Run a shell command and put its output in context. For example, run a python script with arguments:
+
+:code:`\run python my_script.py arg1 arg2`
 
 /screenshot [path|url]
 ----------------------
