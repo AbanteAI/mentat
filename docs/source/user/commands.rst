@@ -55,6 +55,8 @@ Run a shell command and put its output in context. For example, run a python scr
 
 :code:`\run python my_script.py arg1 arg2`
 
+This command is very useful to avoid copy pasting. Instead of pasting the test output into mentat and asking mentat to fix it, simply run the test in mentat.
+
 /screenshot [path|url]
 ----------------------
 
