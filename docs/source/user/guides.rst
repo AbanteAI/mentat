@@ -8,4 +8,5 @@ User Guide
    context
    commands
    configuration
+   alternative_models
    cli_arguments
