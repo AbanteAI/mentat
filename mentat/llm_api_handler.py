@@ -155,7 +155,6 @@ class Model:
     input_cost: float = attr.field()
     output_cost: float = attr.field()
     embedding_model: bool = attr.field(default=False)
-    use_system_prompt: bool = attr.field(default=True)
 
 
 class ModelsIndex(Dict[str, Model]):
@@ -269,13 +268,6 @@ def is_context_sufficient(tokens: int) -> bool:
         return False
 
     return True
-
-
-def requires_system_prompt(model: str) -> bool:
-    if model not in known_models:
-        return True
-    else:
-        return known_models[model].use_system_prompt
 
 
 class LlmApiHandler:
