@@ -1,31 +1,48 @@
 import logging
-import os
 from timeit import default_timer
 
 import chromadb
-from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
+from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
 
 from mentat.code_feature import CodeFeature, count_feature_tokens
-from mentat.llm_api_handler import model_price_per_1000_tokens
+from mentat.errors import MentatError
+from mentat.llm_api_handler import model_context_size, model_price_per_1000_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
 from mentat.utils import mentat_dir_path
 
+EMBEDDINGS_API_BATCH_SIZE = 1000
+
 client = chromadb.PersistentClient(path=str(mentat_dir_path / "chroma"))
+
+
+class MentatEmbeddingFunction(EmbeddingFunction[Documents]):
+    def __call__(self, input: Documents) -> Embeddings:
+        session_context = SESSION_CONTEXT.get()
+        config = session_context.config
+        llm_api_handler = session_context.llm_api_handler
+
+        n_batches = 0 if len(input) == 0 else len(input) // 1000 + 1
+        output: Embeddings = []
+        for batch in range(n_batches):
+            i_start, i_end = (
+                batch * EMBEDDINGS_API_BATCH_SIZE,
+                (batch + 1) * EMBEDDINGS_API_BATCH_SIZE,
+            )
+            response = llm_api_handler.call_embedding_api(
+                input[i_start:i_end], config.embedding_model
+            )
+            output += response
+        return output
 
 
 class Collection:
     _collection = None
 
     def __init__(self, embedding_model: str):
-        api_key = os.getenv("OPENAI_API_KEY")
-        # src: https://cookbook.openai.com/examples/vector_databases/chroma/using_chroma_for_embeddings_search
-        embedding_function = OpenAIEmbeddingFunction(
-            api_key=api_key, model_name=embedding_model
-        )
         self._collection = client.get_or_create_collection(
             name=f"mentat-{embedding_model}",
-            embedding_function=embedding_function,  # type: ignore
+            embedding_function=MentatEmbeddingFunction(),  # type: ignore
         )
         self.migrate_old_db()
 
@@ -112,8 +129,13 @@ async def get_feature_similarity_scores(
     """Return the similarity scores for a given prompt and list of features."""
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
+    config = session_context.config
     cost_tracker = session_context.cost_tracker
     embedding_model = session_context.config.embedding_model
+
+    max_model_tokens = model_context_size(config.embedding_model)
+    if max_model_tokens is None:
+        raise MentatError(f"Missing model context size for {embedding_model}.")
 
     # Initialize DB
     collection = Collection(embedding_model)
@@ -125,6 +147,13 @@ async def get_feature_similarity_scores(
     embed_checksums = list[str]()
     embed_tokens = list[int]()
     for feature, checksum, token in zip(features, checksums, tokens):
+        if token > max_model_tokens:
+            stream.send(
+                f"Warning: Feature {str(feature)} has {token} tokens, which exceeds the"
+                f" maximum of {max_model_tokens} for model {config.embedding_model}."
+                " Skipping."
+            )
+            continue
         if not collection.exists(checksum) and checksum not in embed_checksums:
             embed_texts.append("\n".join(feature.get_code_message()))
             embed_checksums.append(checksum)
@@ -174,4 +203,4 @@ async def get_feature_similarity_scores(
         )
     _checksums = list(set(checksums))
     scores = collection.query(prompt, _checksums)
-    return [scores[f.get_checksum()] for f in features]
+    return [scores.get(f.get_checksum(), 0) for f in features]
