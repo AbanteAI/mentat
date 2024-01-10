@@ -38,7 +38,7 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
 
-from mentat.errors import MentatError, ReturnToUser, UserError
+from mentat.errors import MentatError, ModelError, ReturnToUser, UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -158,28 +158,59 @@ class Model:
     use_system_prompt: bool = attr.field(default=True)
 
 
-known_models: Dict[str, Model] = {
-    "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
-    "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
-    "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
-    "gpt-4-32k": Model("gpt-4-32k", 32768, 0.06, 0.12),
-    "gpt-4-0613": Model("gpt-4-0613", 8192, 0.03, 0.06),
-    "gpt-4-32k-0613": Model("gpt-4-32k-0613", 32768, 0.06, 0.12),
-    "gpt-4-0314": Model("gpt-4-0314", 8192, 0.03, 0.06),
-    "gpt-4-32k-0314": Model("gpt-4-32k-0314", 32768, 0.06, 0.12),
-    "gpt-3.5-turbo-1106": Model("gpt-3.5-turbo-1106", 16385, 0.001, 0.002),
-    "gpt-3.5-turbo": Model("gpt-3.5-turbo", 16385, 0.001, 0.002),
-    "gpt-3.5-turbo-0613": Model("gpt-3.5-turbo-0613", 4096, 0.0015, 0.002),
-    "gpt-3.5-turbo-16k-0613": Model("gpt-3.5-turbo-16k-0613", 16385, 0.003, 0.004),
-    "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
-    "text-embedding-ada-002": Model(
-        "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
-    ),
-    # Fine-tuned on Jan-6 2024 with `sampler-one-hundred-v1.jsonl` data
-    "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F": Model(
-        "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F", 16385, 0.001, 0.002, False, False
-    ),
-}
+class ModelsIndex(Dict[str, Model]):
+    def __init__(self, models: Dict[str, Model]):
+        self.models: Dict[str, Model] = models
+
+    def _validate_key(self, key: str) -> str:
+        """Try to match fine-tuned models to their base models."""
+        if key in self.models:
+            return key
+        if key.startswith("ft:"):
+            base_model = key.split(":")[
+                1
+            ]  # e.g. "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F"
+            if base_model in self.models:
+                ctx = SESSION_CONTEXT.get()
+                ctx.stream.send(
+                    f"Using base model {base_model} for size and cost estimates.",
+                    style="info",
+                )
+                self.models[key] = attr.evolve(self.models[base_model], name=key)
+                return key
+            raise ModelError(f"Could not identify base model for {key}")
+        raise ModelError(f"Unrecognized model: {key}")
+
+    def __getitem__(self, key: str) -> Model:
+        return self.models[self._validate_key(key)]
+
+    def __contains__(self, key: object) -> bool:
+        return self._validate_key(str(key)) in self.models
+
+    def asdict(self) -> Dict[str, Model]:
+        return self.models
+
+
+known_models = ModelsIndex(
+    {
+        "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
+        "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
+        "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
+        "gpt-4-32k": Model("gpt-4-32k", 32768, 0.06, 0.12),
+        "gpt-4-0613": Model("gpt-4-0613", 8192, 0.03, 0.06),
+        "gpt-4-32k-0613": Model("gpt-4-32k-0613", 32768, 0.06, 0.12),
+        "gpt-4-0314": Model("gpt-4-0314", 8192, 0.03, 0.06),
+        "gpt-4-32k-0314": Model("gpt-4-32k-0314", 32768, 0.06, 0.12),
+        "gpt-3.5-turbo-1106": Model("gpt-3.5-turbo-1106", 16385, 0.001, 0.002),
+        "gpt-3.5-turbo": Model("gpt-3.5-turbo", 16385, 0.001, 0.002),
+        "gpt-3.5-turbo-0613": Model("gpt-3.5-turbo-0613", 4096, 0.0015, 0.002),
+        "gpt-3.5-turbo-16k-0613": Model("gpt-3.5-turbo-16k-0613", 16385, 0.003, 0.004),
+        "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
+        "text-embedding-ada-002": Model(
+            "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
+        ),
+    }
+)
 
 
 def model_context_size(model: str) -> Optional[int]:
