@@ -60,7 +60,8 @@ class Conversation:
             prompt_tokens(
                 messages,
                 config.model,
-            )
+            ),
+            context_guard=False,
         )
         messages.append(
             ChatCompletionSystemMessageParam(
@@ -82,7 +83,7 @@ class Conversation:
             }
             stream.send(
                 f"Included file{message[(_plural, _exceed)]} token limit"
-                f" ({tokens} / {context_size}). Truncating based on task similarity.",
+                f" ({tokens} / {context_size}).",
                 style="warning",
             )
         else:

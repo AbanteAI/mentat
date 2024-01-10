@@ -110,6 +110,7 @@ class CodeContext:
         prompt: Optional[str] = None,
         expected_edits: Optional[list[str]] = None,  # for training/benchmarking
         loading_multiplier: float = 0.0,
+        context_guard: bool = True,
     ) -> str:
         """
         Retrieves the current code message.
@@ -149,7 +150,7 @@ class CodeContext:
         )
 
         tokens_used = prompt_tokens + meta_tokens + include_files_tokens
-        if not is_context_sufficient(tokens_used):
+        if context_guard and not is_context_sufficient(tokens_used):
             raise ReturnToUser()
         auto_tokens = min(
             get_max_tokens() - tokens_used - config.token_buffer,
