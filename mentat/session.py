@@ -223,7 +223,10 @@ class Session:
         ctx = SESSION_CONTEXT.get()
 
         async for message in self.stream.listen(channel="completion_request"):
-            completions = ctx.auto_completer.get_completions(message.data)
+            completions = ctx.auto_completer.get_completions(
+                message.data,
+                command_autocomplete=message.extra.get("command_autocomplete", False),
+            )
             # Will intermediary client for vscode serialize/deserialize all messages automatically?
             self.stream.send(completions, channel=f"completion_request:{message.id}")
 

@@ -3,6 +3,7 @@
 
 # Import all of the commands so that they are initialized
 from .agent import AgentCommand
+from .amend import AmendCommand
 from .clear import ClearCommand
 from .commit import CommitCommand
 from .config import ConfigCommand

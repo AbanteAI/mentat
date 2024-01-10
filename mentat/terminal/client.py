@@ -78,6 +78,9 @@ class TerminalClient:
                 prompt_session = self._plain_session
             else:
                 prompt_session = self._prompt_session
+            self.mentat_completer.command_autocomplete = (
+                input_request_message.extra.get("command_autocomplete", False)
+            )
 
             default_prompt = self._default_prompt.strip()
             self._default_prompt = ""
@@ -148,9 +151,9 @@ class TerminalClient:
         )
         self.session.start()
 
-        mentat_completer = MentatCompleter(self.session.stream)
+        self.mentat_completer = MentatCompleter(self.session.stream)
         self._prompt_session = MentatPromptSession(
-            completer=mentat_completer,
+            completer=self.mentat_completer,
             style=Style(self.config.input_style),
             enable_suspend=True,
         )
