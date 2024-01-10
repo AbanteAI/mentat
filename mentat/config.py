@@ -60,7 +60,7 @@ class Config:
             "description": (
                 "The maximum number of lines of context to include in the prompt. It is"
                 " inferred automatically for openai models but you can still set it to"
-                " save costs. It must be set for other models."
+                " save costs. If not set for non-openai models, it defaults to 4096."
             ),
         },
         converter=int_or_none,

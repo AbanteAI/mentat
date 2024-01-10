@@ -9,6 +9,8 @@ You can specify line ranges to add only a subset of a file to context by adding 
 
 You can see the conversation exactly as the LLM sees it by running :code:`/viewer`. This command opens the transcript in a web browser. If you click a message from the LLM you will see the conversation as the LLM sees it. You can see past conversations by using the arrow keys.
 
+.. _autocontext:
+
 Auto Context
 ------------
 

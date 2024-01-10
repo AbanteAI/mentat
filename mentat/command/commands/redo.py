@@ -33,4 +33,4 @@ class RedoCommand(Command, command_name="redo"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Redo the last change made by Mentat."
+        return "Redo a change that was previously undone with /undo."
