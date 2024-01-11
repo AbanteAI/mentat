@@ -71,23 +71,24 @@ async def test_sample_from_context(
         ]
     )
     sampler = Sampler()
+    sampler.set_active_diff()
     sample = await sampler.create_sample()
     assert sample.title == "test_title"
     assert sample.description == "test_description"
     assert sample.repo == "test_sample_repo"
     assert is_sha1(sample.merge_base)
     assert sample.diff_merge_base == ""
-    assert sample.diff_active == ""
-    assert sample.message_history == []
-    assert sample.message_prompt == "test_user_content"
-    assert sample.message_edit == "test_assistant_content"
-    assert sample.context == ["multifile_calculator/operations.py"]
     expected_diff = (
         "diff --git a/test_file.py b/test_file.py\nnew file mode 100644\nindex"
         " 0000000..fffffff\n--- /dev/null\n+++ b/test_file.py\n@@ -0,0 +1"
         " @@\n+test_file_content\n"
     )
-    assert remove_checksums(sample.diff_edit) == remove_checksums(expected_diff)
+    assert remove_checksums(sample.diff_active) == remove_checksums(expected_diff)
+    assert sample.message_history == []
+    assert sample.message_prompt == "test_user_content"
+    assert sample.message_edit == "test_assistant_content"
+    assert sample.context == ["multifile_calculator/operations.py"]
+    assert sample.diff_edit == ""
     assert sample.id != ""
     assert sample.test_command == "test_test_command"
     assert sample.version == __version__
@@ -411,7 +412,7 @@ async def test_sampler_integration(
     assert sample.diff_merge_base != ""
     assert sample.diff_active != ""
     assert sample.message_history == []
-    assert sample.message_edit == "I will make the following edits. "
+    assert sample.message_edit == "I will make the following edits."
     assert set(sample.context) == {
         "scripts/echo1.py",
         "multifile_calculator/operations.py",
