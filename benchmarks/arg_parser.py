@@ -19,7 +19,7 @@ def common_benchmark_parser():
         "--benchmarks",
         action="append",
         nargs="*",
-        default=[],
+        default=[[]],
         help=(
             "Which benchmarks to run. max_benchmarks ignored when set. Exact meaning"
             " depends on benchmark."

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import argparse
 import asyncio
 import json
@@ -8,9 +9,9 @@ from typing import Any
 
 from openai import AsyncOpenAI
 
+from benchmarks.context_benchmark import test_code_context_performance
 from mentat.errors import ModelError
 from mentat.prompts.prompts import read_prompt
-from benchmarks.context_benchmark import test_code_context_performance
 
 prompts_dir = Path(__file__).parent.parent / "mentat/resources/prompts"
 
@@ -59,7 +60,7 @@ async def generate_variations(
           3. To also identify relevant context to the query, such as the type-definitions of variables which will be edited, or functions which would be directly affected by the edits. \
           4. To NOT select irrelevant files or lines of code. \
           5. It's critical respond to this with a JSON-parsable list of strings (one for each prompt). \
-    """).format(population=population)  # ruff: noqa: E501
+    """).format(population=population)
     scores = [(prompt, recall_weighted_mean(scores[prompt])) for prompt in scores]
     top_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:population]
     messages = [
