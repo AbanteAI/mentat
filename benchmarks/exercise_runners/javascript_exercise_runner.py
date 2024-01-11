@@ -1,9 +1,7 @@
 import os
 import subprocess
 
-from tests.benchmarks.exercise_runners.abstract_exercise_runner import (
-    AbstractExerciseRunner,
-)
+from benchmarks.exercise_runners.abstract_exercise_runner import AbstractExerciseRunner
 
 
 class JavascriptExerciseRunner(AbstractExerciseRunner):
