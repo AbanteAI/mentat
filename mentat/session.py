@@ -130,9 +130,6 @@ class Session:
 
         return task
 
-    # TODO: Temporary variable to control using the revisor
-    auto_revisor = True
-
     async def _main(self):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
@@ -178,7 +175,7 @@ class Session:
                 for file_edit in file_edits:
                     file_edit.resolve_conflicts()
                 if file_edits:
-                    if self.auto_revisor:
+                    if session_context.config.revisor:
                         await revise_edits(file_edits)
 
                     if not agent_handler.agent_enabled:

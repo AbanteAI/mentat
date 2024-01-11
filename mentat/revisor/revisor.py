@@ -11,7 +11,11 @@ from openai.types.chat import (
 from termcolor import colored
 
 from mentat.errors import MentatError
-from mentat.parsers.change_display_helper import get_lexer, highlight_text
+from mentat.parsers.change_display_helper import (
+    change_delimiter,
+    get_lexer,
+    highlight_text,
+)
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.git_parser import GitParser
 from mentat.prompts.prompts import read_prompt
@@ -43,6 +47,7 @@ async def revise_edit(file_edit: FileEdit):
         ChatCompletionSystemMessageParam(content=revisor_prompt, role="system"),
         ChatCompletionUserMessageParam(content=diff, role="user"),
     ]
+    ctx.stream.send(f"\nRevising edit for file {file_edit.file_path}...", style="info")
     response = await ctx.llm_api_handler.call_llm_api(
         messages, model=ctx.config.model, stream=False
     )
@@ -102,8 +107,10 @@ async def revise_edit(file_edit: FileEdit):
             else:
                 raise MentatError("Invalid Diff")
         if diff_diff:
-            ctx.stream.send("Revised changes diff:", style="info")
+            ctx.stream.send("Revision diff:", style="info")
+            ctx.stream.send(change_delimiter)
             ctx.stream.send("\n".join(diff_diff))
+            ctx.stream.send(change_delimiter)
         ctx.cost_tracker.display_last_api_call()
 
 
