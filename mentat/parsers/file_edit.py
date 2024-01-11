@@ -215,7 +215,7 @@ class FileEdit:
 
         if not self.is_creation:
             new_replacements = list[Replacement]()
-            for replacement in self.replacements:
+            for replacement in sorted(self.replacements):
                 self._display_replacement(replacement, file_lines)
                 if await _ask_user_change("Keep this change?"):
                     new_replacements.append(replacement)
