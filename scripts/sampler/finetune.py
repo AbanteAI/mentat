@@ -41,7 +41,7 @@ async def generate_finetune(
         code_message = await ctx.code_context.get_code_message(0)
         conversation.append({"role": "system", "content": code_message})
     # TODO: Ignore conversation_history for now because file_edits are not yet included
-    # conversation += sample.message_history[::-1]
+    # conversation += sample.message_history
     conversation.append({"role": "user", "content": sample.message_prompt})
     message_example = sample.message_edit or ""
     if sample.diff_edit:  # Convert any diff_edit to block format for answer

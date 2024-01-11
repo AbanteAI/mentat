@@ -133,7 +133,7 @@ class Sampler:
                 if not message_prompt:
                     message_prompt = text
                 else:
-                    message_history.append({"role": role, "content": text})
+                    message_history.insert(0, {"role": role, "content": text})
 
             elif role == "assistant":
                 if not isinstance(content, str):
