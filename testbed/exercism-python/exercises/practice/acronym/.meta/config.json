@@ -1,0 +1,33 @@
+{
+  "authors": [
+    "rootulp"
+  ],
+  "contributors": [
+    "AnAccountForReportingBugs",
+    "behrtam",
+    "cmccandless",
+    "Dog",
+    "GascaK",
+    "ikhadykin",
+    "N-Parsons",
+    "omer-g",
+    "pheanex",
+    "sjwarner-bp",
+    "thomasjpfan",
+    "tqa236"
+  ],
+  "files": {
+    "solution": [
+      "acronym.py"
+    ],
+    "test": [
+      "acronym_test.py"
+    ],
+    "example": [
+      ".meta/example.py"
+    ]
+  },
+  "blurb": "Convert a long phrase to its acronym.",
+  "source": "Julien Vanier",
+  "source_url": "https://github.com/monkbroc"
+}

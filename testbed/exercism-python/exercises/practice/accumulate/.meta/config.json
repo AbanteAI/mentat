@@ -1,0 +1,30 @@
+{
+  "blurb": "Implement the `accumulate` operation, which, given a collection and an operation to perform on each element of the collection, returns a new collection containing the result of applying that operation to each element of the input collection.",
+  "authors": [
+    "betegelse"
+  ],
+  "contributors": [
+    "behrtam",
+    "cmccandless",
+    "Dog",
+    "iandexter",
+    "ikhadykin",
+    "N-Parsons",
+    "pheanex",
+    "sjakobi",
+    "tqa236"
+  ],
+  "files": {
+    "solution": [
+      "accumulate.py"
+    ],
+    "test": [
+      "accumulate_test.py"
+    ],
+    "example": [
+      ".meta/example.py"
+    ]
+  },
+  "source": "Conversation with James Edward Gray II",
+  "source_url": "https://twitter.com/jeg2"
+}

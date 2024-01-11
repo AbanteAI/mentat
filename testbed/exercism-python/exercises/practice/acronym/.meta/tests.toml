@@ -1,0 +1,30 @@
+# This is an auto-generated file. Regular comments will be removed when this
+# file is regenerated. Regenerating will not touch any manually added keys,
+# so comments can be added in a "comment" key.
+
+[1e22cceb-c5e4-4562-9afe-aef07ad1eaf4]
+description = "basic"
+
+[79ae3889-a5c0-4b01-baf0-232d31180c08]
+description = "lowercase words"
+
+[ec7000a7-3931-4a17-890e-33ca2073a548]
+description = "punctuation"
+
+[32dd261c-0c92-469a-9c5c-b192e94a63b0]
+description = "all caps word"
+
+[ae2ac9fa-a606-4d05-8244-3bcc4659c1d4]
+description = "punctuation without whitespace"
+
+[0e4b1e7c-1a6d-48fb-81a7-bf65eb9e69f9]
+description = "very long abbreviation"
+
+[6a078f49-c68d-4b7b-89af-33a1a98c28cc]
+description = "consecutive delimiters"
+
+[5118b4b1-4572-434c-8d57-5b762e57973e]
+description = "apostrophes"
+
+[adc12eab-ec2d-414f-b48c-66a4fc06cdef]
+description = "underscore emphasis"

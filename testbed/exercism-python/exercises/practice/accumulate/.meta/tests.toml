@@ -1,0 +1,35 @@
+# This is an auto-generated file.
+#
+# Regenerating this file via `configlet sync` will:
+# - Recreate every `description` key/value pair
+# - Recreate every `reimplements` key/value pair, where they exist in problem-specifications
+# - Remove any `include = true` key/value pair (an omitted `include` key implies inclusion)
+# - Preserve any other key/value pair
+#
+# As user-added comments (using the # character) will be removed when this file
+# is regenerated, comments can be added via a `comment` key.
+
+[64d97c14-36dd-44a8-9621-2cecebd6ed23]
+description = "accumulate empty"
+include = false
+
+[00008ed2-4651-4929-8c08-8b4dbd70872e]
+description = "accumulate squares"
+include = false
+
+[551016da-4396-4cae-b0ec-4c3a1a264125]
+description = "accumulate upcases"
+include = false
+
+[cdf95597-b6ec-4eac-a838-3480d13d0d05]
+description = "accumulate reversed strings"
+include = false
+
+[bee8e9b6-b16f-4cd2-be3b-ccf7457e50bb]
+description = "accumulate recursively"
+include = false
+
+[0b357334-4cad-49e1-a741-425202edfc7c]
+description = "accumulate recursively"
+include = false
+reimplements = "bee8e9b6-b16f-4cd2-be3b-ccf7457e50bb"
