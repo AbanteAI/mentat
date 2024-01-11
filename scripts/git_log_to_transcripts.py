@@ -18,7 +18,7 @@ from mentat.llm_api import CostTracker, count_tokens
 from mentat.parsers.git_parser import GitParser
 from mentat.sampler.utils import clone_repo
 from mentat.session_context import SESSION_CONTEXT, SessionContext
-from tests.benchmarks.context_benchmark import MockStream, select_features_for_benchmark
+from benchmarks.context_benchmark import MockStream, select_features_for_benchmark
 
 system_prompt = dedent("""\
         You are part of an automated system for making synthetic data. You will be given the \

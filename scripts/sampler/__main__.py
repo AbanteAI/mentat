@@ -15,7 +15,7 @@ from validate import validate_sample
 
 from mentat.sampler.sample import Sample
 from mentat.utils import mentat_dir_path
-from tests.benchmarks.benchmark_runner import (
+from benchmarks.benchmark_runner import (
     compare_diffs,
     grade_diff_syntax,
     grade_model_response,

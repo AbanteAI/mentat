@@ -1,26 +1,26 @@
+#!/usr/bin/env python
+import asyncio
 import importlib.util
 import json
 import os
 import re
 from pathlib import Path
 
-import pytest
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionUserMessageParam,
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 
+from benchmarks.arg_parser import common_benchmark_parser
+from benchmarks.benchmark_result import BenchmarkResult
+from benchmarks.benchmark_result_summary import BenchmarkResultSummary
 from mentat.errors import SampleError
 from mentat.llm_api_handler import model_context_size, prompt_tokens
 from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import setup_repo
 from mentat.session_context import SESSION_CONTEXT
-from tests.benchmarks.benchmark_result import BenchmarkResult
-from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
-
-pytestmark = pytest.mark.benchmark
 
 
 def dynamic_import(path_to_module, module_name):
@@ -28,11 +28,6 @@ def dynamic_import(path_to_module, module_name):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-@pytest.fixture
-def retries(request):
-    return int(request.config.getoption("--retries"))
 
 
 async def grade(to_grade, prompt, model="gpt-4-1106-preview"):
@@ -257,8 +252,7 @@ def benchmark_listed(title, benchmarks):
     return False
 
 
-@pytest.mark.asyncio
-async def test_benchmark(retries, benchmarks):
+async def run_benchmarks(retries, benchmarks):
     print("Running benchmarks")
     benchmarks_dir = f"{os.path.dirname(__file__)}/benchmarks"
 
@@ -296,3 +290,14 @@ async def test_benchmark(retries, benchmarks):
     with open("results.json", "w") as f:
         f.write(summary.to_json())
     summary.render_results()
+
+
+if __name__ == "__main__":
+    parser = common_benchmark_parser()
+    args = parser.parse_args()
+    asyncio.run(
+        run_benchmarks(
+            args.retries,
+            args.benchmarks[0],
+        )
+    )

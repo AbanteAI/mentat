@@ -5,7 +5,7 @@ TIMESTAMP=$(date +%Y%m%d%H%M%S)
 #####################
 # JAVASCRIPT EXERCISM
 #####################
-pytest -s tests/benchmarks/exercism_practice.py \
+./benchmarks/exercism_practice.py \
     --max_iterations 2 \
     --max_workers 1 \
     --max_benchmarks 200 \
@@ -26,7 +26,7 @@ curl -X POST -H "Content-Type: application/json" -d "{\"benchmark_report\": \"${
 #################
 # PYTHON EXERCISM
 #################
-pytest -s tests/benchmarks/exercism_practice.py \
+./benchmarks/exercism_practice.py \
     --max_iterations 2 \
     --max_workers 1 \
     --max_benchmarks 200 \
@@ -47,7 +47,7 @@ curl -X POST -H "Content-Type: application/json" -d "{\"benchmark_report\": \"${
 #######################
 # REAL WORLD BENCHMARKS
 #######################
-pytest tests/benchmarks/benchmark_runner.py --benchmark -s --retries 2
+./benchmarks/benchmark_runner.py --benchmark -s --retries 2
 SUMMARY=$(jq '.summary_string' results.json)
 
 # Upload results to S3
