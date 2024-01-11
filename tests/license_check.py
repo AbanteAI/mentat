@@ -9,12 +9,8 @@ library_exceptions = [
     "tiktoken",
     # openai as Apache 2.0; for some reason, after updating to 1.0, pip-licenses thinks it's UNKNOWN
     "openai",
-    # UNKNOWN
+    # is UNKOWN
     "chroma-hnswlib",
-    "pyinstaller-hooks-contrib",
-    # "Other/Proprietary License"
-    "pinecone-client",  # part of chromadb - we don't use directly, but potentially problematic
-    "pygls",
 ]
 accepted_licenses = [
     "BSD License",
@@ -34,17 +30,6 @@ accepted_licenses = [
     "The Unlicense (Unlicense)",
     "Apache License, Version 2.0",
     "Apache License v2.0",
-    "Apache License 2.0",
-    "GNU Lesser General Public License v2 or later (LGPLv2+)",
-    "ISC",
-    "LGPL-2.1-only",
-    "GNU General Public License v3 (GPLv3)",
-    "Apache-2.0",
-    "GNU Library or Lesser General Public License (LGPL)",
-    "GNU General Public License v2 (GPLv2)",
-    "Apache Software License v2",
-    "Artistic License",
-    "GNU General Public License v2 or later (GPLv2+)",
 ]
 
 
