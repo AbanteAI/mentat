@@ -9,7 +9,7 @@ from mentat.revisor.revisor import revise_edit
 
 @pytest.mark.asyncio
 async def test_revision(mock_session_context, mock_call_llm_api):
-    file_name = Path("/file")
+    file_name = Path("file").resolve()
     mock_session_context.code_file_manager.file_lines[file_name] = dedent("""\
         def hello_world():
             pass
@@ -46,7 +46,7 @@ async def test_revision(mock_session_context, mock_call_llm_api):
 
 @pytest.mark.asyncio
 async def test_skip_deletion(mock_session_context, mock_call_llm_api):
-    file_name = Path("/file")
+    file_name = Path("file").resolve()
     mock_session_context.code_file_manager.file_lines[file_name] = []
 
     # This will error if not deletion
