@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 import asyncio
+import multiprocessing
 import os
 from functools import partial
-import multiprocessing
 from pathlib import Path
 
 import tqdm
