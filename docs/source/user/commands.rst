@@ -87,3 +87,7 @@ Undo all changes made by Mentat.
 
 Open a webpage showing the conversation so far. Model messages can be clicked to show the conversation from the model's perspective. There are buttons to share the conversation or give feedback.
 
+/amend
+-------
+
+Used to amend a previous user request. Works by resetting context to the state it was at the last request and prefills user input with the last request. Does not undo any edits.

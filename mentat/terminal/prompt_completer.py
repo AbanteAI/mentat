@@ -11,6 +11,7 @@ from mentat.session_stream import SessionStream, StreamMessageSource
 class MentatCompleter(Completer):
     def __init__(self, stream: SessionStream):
         self.stream = stream
+        self.command_autocomplete = False
 
     def get_completions(
         self, document: Document, complete_event: CompleteEvent
@@ -22,7 +23,10 @@ class MentatCompleter(Completer):
     ):
         text = document.text_before_cursor
         message = self.stream.send(
-            text, source=StreamMessageSource.CLIENT, channel="completion_request"
+            text,
+            source=StreamMessageSource.CLIENT,
+            channel="completion_request",
+            command_autocomplete=self.command_autocomplete,
         )
 
         response = await self.stream.recv(channel=f"completion_request:{message.id}")

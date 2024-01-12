@@ -347,3 +347,21 @@ class Conversation:
                 style="error",
             )
             return False
+
+    def _get_user_message(self, message: ChatCompletionUserMessageParam) -> str:
+        if not message["content"]:
+            return ""
+        elif isinstance(message["content"], str):
+            return message["content"]
+        else:
+            full = ""
+            for part in message["content"]:
+                if part["type"] == "text":
+                    full += part["text"]
+            return full
+
+    def amend(self) -> Optional[str]:
+        for i, message in reversed(list(enumerate(self._messages))):
+            if message["role"] == "user" and self._get_user_message(message):
+                self._messages = self._messages[:i]
+                return self._get_user_message(message)

@@ -270,14 +270,16 @@ class AutoCompleter:
         ]
         return self._replace_last_word(last_word, completions, position)
 
-    def get_completions(self, buffer: str) -> List[Completion]:
+    def get_completions(
+        self, buffer: str, command_autocomplete: bool = False
+    ) -> List[Completion]:
         """
         Get the auto-completion suggestions for the current user buffer.
         """
         if not buffer.strip():
             return []
 
-        if buffer.startswith("/"):
+        if buffer.startswith("/") and command_autocomplete:
             return self._command_argument_completion(buffer[1:])
         else:
             return self.get_file_completions(buffer)

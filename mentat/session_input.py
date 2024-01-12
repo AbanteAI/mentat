@@ -19,7 +19,9 @@ async def _get_input_request(**kwargs: Any) -> StreamMessage:
     return response
 
 
-async def collect_user_input(plain: bool = False) -> StreamMessage:
+async def collect_user_input(
+    plain: bool = False, command_autocomplete: bool = False
+) -> StreamMessage:
     """
     Listens for user input on a new channel
 
@@ -28,7 +30,9 @@ async def collect_user_input(plain: bool = False) -> StreamMessage:
     close the channel after receiving the input
     """
 
-    response = await _get_input_request(plain=plain)
+    response = await _get_input_request(
+        plain=plain, command_autocomplete=command_autocomplete
+    )
     # Quit on q
     if isinstance(response.data, str) and response.data.strip() == "q":
         raise SessionExit
@@ -54,7 +58,7 @@ async def collect_input_with_commands() -> StreamMessage:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
-    response = await collect_user_input()
+    response = await collect_user_input(command_autocomplete=True)
     while isinstance(response.data, str) and response.data.startswith("/"):
         try:
             # We only use shlex to split the arguments, not the command itself
@@ -63,7 +67,7 @@ async def collect_input_with_commands() -> StreamMessage:
             await command.apply(*arguments)
         except ValueError as e:
             stream.send(f"Error processing command arguments: {e}", style="error")
-        response = await collect_user_input()
+        response = await collect_user_input(command_autocomplete=True)
     return response
 
 
