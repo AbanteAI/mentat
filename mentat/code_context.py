@@ -11,7 +11,7 @@ from mentat.code_feature import (
     split_file_into_intervals,
 )
 from mentat.diff_context import DiffContext
-from mentat.errors import PathValidationError, ReturnToUser
+from mentat.errors import PathValidationError
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
 from mentat.git_handler import get_paths_with_git_diffs
@@ -27,7 +27,11 @@ from mentat.include_files import (
     validate_and_format_path,
 )
 from mentat.interval import parse_intervals, split_intervals_from_path
-from mentat.llm_api_handler import count_tokens, get_max_tokens, is_context_sufficient
+from mentat.llm_api_handler import (
+    count_tokens,
+    get_max_tokens,
+    raise_if_context_exceeds_max,
+)
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
@@ -110,6 +114,7 @@ class CodeContext:
         prompt: Optional[str] = None,
         expected_edits: Optional[list[str]] = None,  # for training/benchmarking
         loading_multiplier: float = 0.0,
+        suppress_context_check: bool = False,
     ) -> str:
         """
         Retrieves the current code message.
@@ -149,8 +154,8 @@ class CodeContext:
         )
 
         tokens_used = prompt_tokens + meta_tokens + include_files_tokens
-        if not is_context_sufficient(tokens_used):
-            raise ReturnToUser()
+        if not suppress_context_check:
+            raise_if_context_exceeds_max(tokens_used)
         auto_tokens = min(
             get_max_tokens() - tokens_used - config.token_buffer,
             config.auto_context_tokens,

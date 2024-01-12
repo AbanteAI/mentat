@@ -253,7 +253,7 @@ def get_max_tokens() -> int:
         return maximum_context
 
 
-def is_context_sufficient(tokens: int) -> bool:
+def raise_if_context_exceeds_max(tokens: int):
     ctx = SESSION_CONTEXT.get()
 
     max_tokens = get_max_tokens()
@@ -264,9 +264,7 @@ def is_context_sufficient(tokens: int) -> bool:
             " some files from context or `/clear` to reset the conversation",
             style="error",
         )
-        return False
-
-    return True
+        raise ReturnToUser()
 
 
 class LlmApiHandler:
@@ -338,8 +336,7 @@ class LlmApiHandler:
 
         # Confirm that model has enough tokens remaining.
         tokens = prompt_tokens(messages, model)
-        if not is_context_sufficient(tokens):
-            raise ReturnToUser()
+        raise_if_context_exceeds_max(tokens)
 
         start_time = default_timer()
         with sentry_sdk.start_span(description="LLM Call") as span:
