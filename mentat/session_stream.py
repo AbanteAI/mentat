@@ -31,19 +31,19 @@ class SessionStream:
 
     Channels and their expected behavior (starred channels are sent by the client):
 
-    default: Any data sent to the client over this channel should be displayed. Valid kwargs: color, style]
+    default: Any data sent to the client over this channel should be displayed. Valid kwargs: color, style
 
     *session_exit: Sent by the client, suggesting that the session should exit whenever possible.
     client_exit: Sent by the server directly before shutting down. Client should shut down when received.
 
     loading: Used to tell the client to display a loading bar. Valid kwargs: progress, terminate
 
-    input_request: Used to request input from the client (data unused). Valid kwargs: plain
+    input_request: Used to request input from the client (data unused). Valid kwargs: plain, command_autocomplete
     *input_request:<message_id>: Sent by the client. The channel the response to an input_request is sent over.
 
     edits_complete: A boolean sent when edits have been completed. True if any edits were accepted.
 
-    *completion_request: Sent by the client, asking for autocompletions for the given string.
+    *completion_request: Sent by the client, retrieves completions for given data. Valid kwargs: command_autocomplete
     completion_request:<message_id>: The response to the given completion request.
 
     default_prompt: The prefilled prompt to show on next user input request. Should be additive and reset
