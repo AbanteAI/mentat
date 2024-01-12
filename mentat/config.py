@@ -36,19 +36,17 @@ class Config:
     # Model specific settings
     model: str = attr.field(
         default="gpt-4-1106-preview",
-        metadata={"auto_completions": list(known_models.asdict().keys())},
+        metadata={"auto_completions": list(known_models.keys())},
     )
     feature_selection_model: str = attr.field(
         default="gpt-4-1106-preview",
-        metadata={"auto_completions": list(known_models.asdict().keys())},
+        metadata={"auto_completions": list(known_models.keys())},
     )
     embedding_model: str = attr.field(
         default="text-embedding-ada-002",
         metadata={
             "auto_completions": [
-                model.name
-                for model in known_models.asdict().values()
-                if model.embedding_model
+                model.name for model in known_models.values() if model.embedding_model
             ]
         },
     )

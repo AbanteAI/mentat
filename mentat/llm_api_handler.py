@@ -159,35 +159,34 @@ class Model:
 
 class ModelsIndex(Dict[str, Model]):
     def __init__(self, models: Dict[str, Model]):
-        self.models: Dict[str, Model] = models
+        super().update(models)
 
     def _validate_key(self, key: str) -> str:
         """Try to match fine-tuned models to their base models."""
-        if key in self.models:
+        if super().__contains__(key):
             return key
         if key.startswith("ft:"):
             base_model = key.split(":")[
                 1
             ]  # e.g. "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F"
-            if base_model in self.models:
+            if super().__contains__(base_model):
                 ctx = SESSION_CONTEXT.get()
                 ctx.stream.send(
                     f"Using base model {base_model} for size and cost estimates.",
                     style="info",
                 )
-                self.models[key] = attr.evolve(self.models[base_model], name=key)
+                super().__setitem__(
+                    base_model, attr.evolve(super().__getitem__(base_model), name=key)
+                )
                 return key
             raise ModelError(f"Could not identify base model for {key}")
         raise ModelError(f"Unrecognized model: {key}")
 
     def __getitem__(self, key: str) -> Model:
-        return self.models[self._validate_key(key)]
+        return super().__getitem__(self._validate_key(key))
 
     def __contains__(self, key: object) -> bool:
-        return self._validate_key(str(key)) in self.models
-
-    def asdict(self) -> Dict[str, Model]:
-        return self.models
+        return super().__contains__(self._validate_key(str(key)))
 
 
 known_models = ModelsIndex(
