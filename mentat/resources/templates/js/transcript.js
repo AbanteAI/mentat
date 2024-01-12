@@ -30,7 +30,7 @@ async function uploadTranscript(page, feedback) {
         },
         body: JSON.stringify(data)
     }).then(response => {
-        return `https://abante-shared-usage-examples.s3.us-east-2.amazonaws.com/${key}`;
+        return `http://transcripts.mentat.ai/${key}`;
     })
 }
 

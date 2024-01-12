@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+import asyncio
 import json
 import os
 import subprocess
@@ -5,24 +7,12 @@ from itertools import islice
 from pathlib import Path
 from textwrap import dedent
 
-import pytest
 from git import Repo
 from openai import OpenAI
 
+from benchmarks.arg_parser import common_benchmark_parser
 from mentat.python_client.client import PythonClient
 from mentat.sampler.utils import clone_repo
-
-pytestmark = pytest.mark.benchmark
-
-
-@pytest.fixture
-def evaluate_baseline(request):
-    return bool(request.config.getoption("--evaluate_baseline"))
-
-
-@pytest.fixture
-def repo(request):
-    return request.config.getoption("--repo")
 
 
 def load_tests(benchmarks_dir):
@@ -78,7 +68,6 @@ def evaluate_diff(diff: str) -> dict[str, int]:
     return json.loads(message)
 
 
-@pytest.mark.asyncio
 async def test_edit_quality(
     benchmarks, max_benchmarks, evaluate_baseline, repo, refresh_repo
 ):
@@ -152,3 +141,17 @@ async def test_edit_quality(
         repo.git.clean("-fd")
         repo.git.checkout(start_commit)
         await client.shutdown()
+
+
+if __name__ == "__main__":
+    parser = common_benchmark_parser()
+    args = parser.parse_args()
+    asyncio.run(
+        test_edit_quality(
+            args.benchmarks,
+            args.max_benchmarks,
+            args.evaluate_baseline,
+            args.repo,
+            args.refresh_repo,
+        )
+    )

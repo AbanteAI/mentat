@@ -2,7 +2,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from tests.benchmarks.benchmark_result import BenchmarkResult
+from benchmarks.benchmark_result import BenchmarkResult
 
 
 class AbstractExerciseRunner:

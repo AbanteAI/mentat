@@ -1,46 +1,27 @@
+#!/usr/bin/env python
 import asyncio
 import os
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
 
-import pytest
 import tqdm
 from openai import BadRequestError
 
+from benchmarks.arg_parser import common_benchmark_parser
+from benchmarks.benchmark_result import BenchmarkResult
+from benchmarks.benchmark_result_summary import BenchmarkResultSummary
+from benchmarks.exercise_runners.exercise_runner_factory import ExerciseRunnerFactory
 from mentat.config import Config
 from mentat.python_client.client import PythonClient
 from mentat.sampler.utils import clone_repo
 from mentat.session_context import SESSION_CONTEXT
-from tests.benchmarks.benchmark_result import BenchmarkResult
-from tests.benchmarks.benchmark_result_summary import BenchmarkResultSummary
-from tests.benchmarks.exercise_runners.exercise_runner_factory import (
-    ExerciseRunnerFactory,
-)
-
-pytestmark = pytest.mark.benchmark
 
 
-@pytest.fixture
 def clone_exercism_repo(refresh_repo, language):
     exercism_url = f"https://github.com/exercism/{language}.git"
     local_dir = clone_repo(exercism_url, f"exercism-{language}", refresh_repo)
     os.chdir(local_dir)
-
-
-@pytest.fixture
-def max_iterations(request):
-    return int(request.config.getoption("--max_iterations"))
-
-
-@pytest.fixture
-def max_workers(request):
-    return int(request.config.getoption("--max_workers"))
-
-
-@pytest.fixture
-def language(request):
-    return request.config.getoption("--language")
 
 
 prompt = (
@@ -200,8 +181,7 @@ def tqdm_summary(results):
     return "Passed: " + str(passed_in_n)[1:-1] + "| Failed: " + str(failed)
 
 
-def test_practice_directory_performance(
-    clone_exercism_repo,
+def run_exercism_benchmark(
     benchmarks,
     max_benchmarks,
     max_iterations,
@@ -237,3 +217,16 @@ def test_practice_directory_performance(
         with open("results.json", "w") as f:
             f.write(summary.to_json())
         summary.render_results()
+
+
+if __name__ == "__main__":
+    parser = common_benchmark_parser()
+    args = parser.parse_args()
+    clone_exercism_repo(args.refresh_repo, args.language)
+    run_exercism_benchmark(
+        args.benchmarks[0],
+        args.max_benchmarks,
+        args.max_iterations,
+        args.max_workers,
+        args.language,
+    )
