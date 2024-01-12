@@ -8,7 +8,7 @@ line-length = 120
 ignore = ["E731"]
 
 [tool.pytest.ini_options]
-addopts = "--ignore=vscode/bundled --ignore=benchmark_repos"
+addopts = "--ignore=vscode/bundled --ignore=benchmark_repos --ignore=testbed/exercism-python"
 
 [tool.black]
 preview = "true"
