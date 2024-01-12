@@ -9,8 +9,7 @@ TIMESTAMP=$(date +%Y%m%d%H%M%S)
     --max_iterations 2 \
     --max_workers 1 \
     --max_benchmarks 200 \
-    --language javascript \
-    --benchmark
+    --language javascript
 
 SUMMARY=$(jq '.summary_string' benchmark_repos/exercism-javascript/results.json)
 BUCKET="benchmarks.mentat.ai"
@@ -31,8 +30,7 @@ curl -X POST -H "Content-Type: application/json" -d "{\"benchmark_report\": \"${
     --max_iterations 2 \
     --max_workers 1 \
     --max_benchmarks 200 \
-    --language python \
-    --benchmark
+    --language python
 
 SUMMARY=$(jq '.summary_string' benchmark_repos/exercism-python/results.json)
 
@@ -48,7 +46,7 @@ curl -X POST -H "Content-Type: application/json" -d "{\"benchmark_report\": \"${
 #######################
 # REAL WORLD BENCHMARKS
 #######################
-./benchmarks/benchmark_runner.py --benchmark -s --retries 2
+./benchmarks/benchmark_runner.py --retries 2
 SUMMARY=$(jq '.summary_string' results.json)
 
 # Upload results to S3
