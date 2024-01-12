@@ -61,7 +61,7 @@ class Conversation:
                 messages,
                 config.model,
             ),
-            context_guard=False,
+            suppress_context_check=True,
         )
         messages.append(
             ChatCompletionSystemMessageParam(
