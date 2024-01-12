@@ -1,7 +1,7 @@
 [tool.isort]
 profile = "black"
 known_first_party = "mentat"
-skip = ["vscode/bundled", "benchmark_repos"]
+skip = ["vscode/bundled", "benchmark_repos", "testbed/exercism-python"]
 
 [tool.ruff]
 line-length = 120
