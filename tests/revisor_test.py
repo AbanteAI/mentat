@@ -10,6 +10,7 @@ from mentat.revisor.revisor import revise_edit
 @pytest.mark.asyncio
 async def test_revision(mock_session_context, mock_call_llm_api):
     file_name = Path("file").resolve()
+    mock_session_context.conversation.add_user_message("User Request")
     mock_session_context.code_file_manager.file_lines[file_name] = dedent("""\
         def hello_world():
             pass
