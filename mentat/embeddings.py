@@ -2,7 +2,7 @@ import logging
 from timeit import default_timer
 
 import chromadb
-from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
+from chromadb.api.types import Embeddable, EmbeddingFunction, Embeddings
 
 from mentat.code_feature import CodeFeature, count_feature_tokens
 from mentat.errors import MentatError
@@ -11,18 +11,22 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
 from mentat.utils import mentat_dir_path
 
-EMBEDDINGS_API_BATCH_SIZE = 1000
+EMBEDDINGS_API_BATCH_SIZE = 2048
 
 client = chromadb.PersistentClient(path=str(mentat_dir_path / "chroma"))
 
 
-class MentatEmbeddingFunction(EmbeddingFunction[Documents]):
-    def __call__(self, input: Documents) -> Embeddings:
+class MentatEmbeddingFunction(EmbeddingFunction[Embeddable]):
+    def __call__(self, input: Embeddable) -> Embeddings:
+        if not all(isinstance(item, str) for item in input):
+            raise MentatError("MentatEmbeddings only enabled for text files")
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         llm_api_handler = session_context.llm_api_handler
 
-        n_batches = 0 if len(input) == 0 else len(input) // 1000 + 1
+        n_batches = (
+            0 if len(input) == 0 else len(input) // EMBEDDINGS_API_BATCH_SIZE + 1
+        )
         output: Embeddings = []
         for batch in range(n_batches):
             i_start, i_end = (
@@ -37,12 +41,10 @@ class MentatEmbeddingFunction(EmbeddingFunction[Documents]):
 
 
 class Collection:
-    _collection = None
-
     def __init__(self, embedding_model: str):
         self._collection = client.get_or_create_collection(
             name=f"mentat-{embedding_model}",
-            embedding_function=MentatEmbeddingFunction(),  # type: ignore
+            embedding_function=MentatEmbeddingFunction(),
         )
         self.migrate_old_db()
 
