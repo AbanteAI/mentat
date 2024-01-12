@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+import asyncio
 import json
 import os
 from collections import defaultdict
@@ -5,19 +7,17 @@ from itertools import islice
 from pathlib import Path
 from typing import Any
 
-import pytest
 from git import Repo
 
+from benchmarks.arg_parser import common_benchmark_parser
 from mentat.code_context import CodeContext
-from mentat.code_feature import CodeFeature, CodeMessageLevel
+from mentat.code_feature import CodeFeature
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
-from mentat.interval import Interval
-from mentat.llm_api import CostTracker, count_tokens, model_context_size, setup_api_key
+from mentat.cost_tracker import CostTracker
+from mentat.llm_api_handler import count_tokens, model_context_size
 from mentat.sampler.utils import clone_repo
 from mentat.session_context import SESSION_CONTEXT, SessionContext
-
-pytestmark = pytest.mark.benchmark
 
 
 class MockStream:
@@ -29,7 +29,7 @@ class MockStream:
 def _load_benchmarks() -> dict[str, dict[str, Any]]:
     """Load all benchmarks found in benchmark_repos"""
     benchmarks = {}
-    benchmarks_dir = Path(__file__).parent / "../../benchmark_repos"
+    benchmarks_dir = Path(__file__).parent / "../benchmark_repos"
     for repo_dir in benchmarks_dir.iterdir():
         benchmarks_path = repo_dir / "benchmarks.json"
         if benchmarks_path.exists():
@@ -46,18 +46,9 @@ def _convert_features_to_line_sets(
     for feature in features:
         # Non-explicit features (e.g. CodeMaps) are considered false positives.
         # Using negative numbers here as that affect.
-        if feature.level not in (CodeMessageLevel.CODE, CodeMessageLevel.INTERVAL):
-            n_lines = len(feature.get_code_message())
-            lines[feature.path].update(range(-1, -n_lines - 1, -1))
-            continue
 
-        # Otherwise match specific lines
         path = feature.path.relative_to(git_root)
-        if feature.level == CodeMessageLevel.INTERVAL:
-            interval = feature.interval
-        else:
-            n_lines = len(feature.get_code_message())
-            interval = Interval(1, n_lines + 1)
+        interval = feature.interval
         lines[path].update(range(interval.start, interval.end + 1))
     return lines
 
@@ -129,15 +120,13 @@ async def select_features_for_benchmark(
     return {"features": selected_features, "score": selector_performance}
 
 
-@pytest.mark.asyncio
 async def test_code_context_performance(benchmarks, max_benchmarks=10):
     """Run a set of benchmarks and evaluate performance
 
     Run standalone:
-        `pytest -s tests/benchmarks/context_benchmark.py --benchmark`
+        `./benchmarks/context_benchmark.py`
     """
     # Load applicable benchmarks
-    setup_api_key()
     all_benchmarks = _load_benchmarks()
     if len(benchmarks) > 0:
         benchmarks_to_run = {k: v for k, v in all_benchmarks.items() if k in benchmarks}
@@ -203,3 +192,14 @@ async def test_code_context_performance(benchmarks, max_benchmarks=10):
                     print(f"Error: '{e}'; skipping")
 
     return scores
+
+
+if __name__ == "__main__":
+    parser = common_benchmark_parser()
+    args = parser.parse_args()
+    asyncio.run(
+        test_code_context_performance(
+            args.benchmarks,
+            args.max_benchmarks,
+        )
+    )

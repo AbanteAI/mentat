@@ -6,7 +6,7 @@ from typing import Tuple
 import attr
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from tests.benchmarks.benchmark_result import BenchmarkResult
+from benchmarks.benchmark_result import BenchmarkResult
 
 
 class BenchmarkResultSummary:
@@ -124,9 +124,7 @@ class BenchmarkResultSummary:
     def render_results(self):
         env = Environment(
             loader=FileSystemLoader(
-                os.path.join(
-                    os.path.dirname(__file__), "../../mentat/resources/templates"
-                )
+                os.path.join(os.path.dirname(__file__), "../mentat/resources/templates")
             ),
             autoescape=select_autoescape(["html", "xml"]),
         )

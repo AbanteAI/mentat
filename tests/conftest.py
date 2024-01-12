@@ -47,69 +47,6 @@ def filter_mark(items, mark, exists):
 def pytest_addoption(parser):
     parser.addoption("--benchmark", action="store_true")
     parser.addoption("--uitest", action="store_true")
-    # The following flags are used by benchmark tests
-    parser.addoption(
-        "--max_benchmarks",
-        action="store",
-        default="1",
-        help="The maximum number of exercises to run",
-    )
-    parser.addoption(
-        "--retries",
-        action="store",
-        default="1",
-        help="Number of times to retry a benchmark",
-    )
-    parser.addoption(
-        "--max_iterations",
-        action="store",
-        default="1",
-        help="Number of times to rerun mentat with error messages",
-    )
-    parser.addoption(
-        "--language",
-        action="store",
-        default="python",
-        help="Which exercism language to do exercises for",
-    )
-    parser.addoption(
-        "--max_workers",
-        action="store",
-        default="1",
-        help="Number of workers to use for multiprocessing",
-    )
-    parser.addoption(
-        "--refresh_repo",
-        action="store_true",
-        default=False,
-        help="When set local changes will be discarded.",
-    )
-    parser.addoption(
-        "--benchmarks",
-        action="append",
-        nargs="*",
-        default=[],
-        help=(
-            "Which benchmarks to run. max_benchmarks ignored when set. Exact meaning"
-            " depends on benchmark."
-        ),
-    )
-    parser.addoption(
-        "--repo",
-        action="store",
-        default="mentat",
-        help="For benchmarks that are evaluated against a repo",
-    )
-    parser.addoption(
-        "--evaluate_baseline",
-        action="store_true",
-        help="Evaluate the baseline for the benchmark",
-    )
-
-
-@pytest.fixture
-def refresh_repo(request):
-    return request.config.getoption("--refresh_repo")
 
 
 @pytest.fixture
@@ -118,11 +55,6 @@ def benchmarks(request):
     if len(benchmarks) == 1:
         return benchmarks[0]
     return benchmarks
-
-
-@pytest.fixture
-def max_benchmarks(request):
-    return int(request.config.getoption("--max_benchmarks"))
 
 
 def pytest_configure(config):
