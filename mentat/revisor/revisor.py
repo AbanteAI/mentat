@@ -6,11 +6,11 @@ from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
-    ChatCompletionUserMessageParam,
 )
 from termcolor import colored
 
 from mentat.errors import MentatError
+from mentat.llm_api_handler import prompt_tokens
 from mentat.parsers.change_display_helper import (
     change_delimiter,
     get_lexer,
@@ -46,15 +46,30 @@ def _file_edit_diff(file_edit: FileEdit) -> str:
 async def revise_edit(file_edit: FileEdit):
     ctx = SESSION_CONTEXT.get()
 
-    # No point in revising deletion edits as they aren't used
+    # No point in revising deletion edits
     if file_edit.is_deletion:
         return
     diff = _file_edit_diff(file_edit)
-
+    # There should always be a user_message by the time we're revising
+    user_message = list(
+        filter(
+            lambda message: message["role"] == "user",
+            ctx.conversation.get_messages(),
+        )
+    )[-1]
+    user_message["content"] = f"User Request:\n{user_message['content']}"
     messages: List[ChatCompletionMessageParam] = [
         ChatCompletionSystemMessageParam(content=revisor_prompt, role="system"),
-        ChatCompletionUserMessageParam(content=diff, role="user"),
+        user_message,
+        ChatCompletionSystemMessageParam(content=f"Diff:\n{diff}", role="system"),
     ]
+    code_message = await ctx.code_context.get_code_message(
+        prompt_tokens(messages, ctx.config.model)
+    )
+    messages.insert(
+        1, ChatCompletionSystemMessageParam(content=code_message, role="system")
+    )
+
     ctx.stream.send(
         "\nRevising edits for file"
         f" {get_relative_path(file_edit.file_path, ctx.cwd)}...",
