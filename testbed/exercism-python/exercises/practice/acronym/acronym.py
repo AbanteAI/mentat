@@ -1,2 +1,0 @@
-def abbreviate(words):
-    pass
