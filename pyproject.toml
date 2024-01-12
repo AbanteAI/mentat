@@ -12,3 +12,8 @@ addopts = "--ignore=vscode/bundled --ignore=benchmark_repos"
 
 [tool.black]
 preview = "true"
+exclude = """
+/(
+    testbed/exercism-python
+)/
+"""
