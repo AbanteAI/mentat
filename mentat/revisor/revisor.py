@@ -27,10 +27,17 @@ revisor_prompt_filename = Path("revisor_prompt.txt")
 revisor_prompt = read_prompt(revisor_prompt_filename)
 
 
-def _file_edit_diff(file_edit: FileEdit) -> str:
+def _get_stored_lines(file_edit: FileEdit) -> List[str]:
     ctx = SESSION_CONTEXT.get()
 
-    stored_lines = ctx.code_file_manager.file_lines[file_edit.file_path].copy()
+    if file_edit.is_creation:
+        return []
+    else:
+        return ctx.code_file_manager.file_lines[file_edit.file_path].copy()
+
+
+def _file_edit_diff(file_edit: FileEdit) -> str:
+    stored_lines = _get_stored_lines(file_edit)
     new_lines = file_edit.get_updated_file_lines(stored_lines)
     diff = list(difflib.unified_diff(stored_lines, new_lines, lineterm=""))
     return "\n".join(diff)
@@ -49,7 +56,7 @@ async def revise_edit(file_edit: FileEdit):
         ChatCompletionUserMessageParam(content=diff, role="user"),
     ]
     ctx.stream.send(
-        "\nRevising edit for file"
+        "\nRevising edits for file"
         f" {get_relative_path(file_edit.file_path, ctx.cwd)}...",
         style="info",
     )
@@ -83,7 +90,7 @@ async def revise_edit(file_edit: FileEdit):
     # (the new file edit doesn't know about file creation or renaming)
     # Additionally, since we do this one at a time there should only ever be 1 file edit.
     if parsed_response.file_edits:
-        stored_lines = ctx.code_file_manager.file_lines[file_edit.file_path].copy()
+        stored_lines = _get_stored_lines(file_edit)
         pre_lines = file_edit.get_updated_file_lines(stored_lines)
         file_edit.replacements = parsed_response.file_edits[0].replacements
         post_lines = file_edit.get_updated_file_lines(stored_lines)
