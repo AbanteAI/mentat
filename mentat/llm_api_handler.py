@@ -38,7 +38,7 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
 
-from mentat.errors import MentatError, ReturnToUser, UserError
+from mentat.errors import MentatError, ModelError, ReturnToUser, UserError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -86,6 +86,16 @@ def chunk_to_lines(chunk: ChatCompletionChunk) -> list[str]:
     return ("" if content is None else content).splitlines(keepends=True)
 
 
+def get_encoding_for_model(model: str) -> tiktoken.Encoding:
+    try:
+        # OpenAI fine-tuned models are named `ft:<base model>:<name>:<id>`. If tiktoken
+        # can't match the full string, it tries to match on startswith, e.g. 'gpt-4'
+        _model = model.split(":")[1] if model.startswith("ft:") else model
+        return tiktoken.encoding_for_model(_model)
+    except KeyError:
+        return tiktoken.get_encoding("cl100k_base")
+
+
 def count_tokens(message: str, model: str, full_message: bool) -> int:
     """
     Calculates the tokens in this message. Will NOT be accurate for a full prompt!
@@ -93,10 +103,7 @@ def count_tokens(message: str, model: str, full_message: bool) -> int:
     If full_message is true, will include the extra 4 tokens used in a chat completion by this message
     if this message is part of a prompt. You do NOT want full_message to be true for a response.
     """
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = get_encoding_for_model(model)
     return len(encoding.encode(message, disallowed_special=())) + (
         4 if full_message else 0
     )
@@ -107,10 +114,7 @@ def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str):
     Returns the number of tokens used by a prompt if it was sent to OpenAI for a chat completion.
     Adapted from https://platform.openai.com/docs/guides/text-generation/managing-tokens
     """
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = get_encoding_for_model(model)
 
     num_tokens = 0
     for message in messages:
@@ -153,24 +157,58 @@ class Model:
     embedding_model: bool = attr.field(default=False)
 
 
-known_models: Dict[str, Model] = {
-    "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
-    "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
-    "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
-    "gpt-4-32k": Model("gpt-4-32k", 32768, 0.06, 0.12),
-    "gpt-4-0613": Model("gpt-4-0613", 8192, 0.03, 0.06),
-    "gpt-4-32k-0613": Model("gpt-4-32k-0613", 32768, 0.06, 0.12),
-    "gpt-4-0314": Model("gpt-4-0314", 8192, 0.03, 0.06),
-    "gpt-4-32k-0314": Model("gpt-4-32k-0314", 32768, 0.06, 0.12),
-    "gpt-3.5-turbo-1106": Model("gpt-3.5-turbo-1106", 16385, 0.001, 0.002),
-    "gpt-3.5-turbo": Model("gpt-3.5-turbo", 16385, 0.001, 0.002),
-    "gpt-3.5-turbo-0613": Model("gpt-3.5-turbo-0613", 4096, 0.0015, 0.002),
-    "gpt-3.5-turbo-16k-0613": Model("gpt-3.5-turbo-16k-0613", 16385, 0.003, 0.004),
-    "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
-    "text-embedding-ada-002": Model(
-        "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
-    ),
-}
+class ModelsIndex(Dict[str, Model]):
+    def __init__(self, models: Dict[str, Model]):
+        super().update(models)
+
+    def _validate_key(self, key: str) -> str:
+        """Try to match fine-tuned models to their base models."""
+        if super().__contains__(key):
+            return key
+        if key.startswith("ft:"):
+            base_model = key.split(":")[
+                1
+            ]  # e.g. "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F"
+            if super().__contains__(base_model):
+                ctx = SESSION_CONTEXT.get()
+                ctx.stream.send(
+                    f"Using base model {base_model} for size and cost estimates.",
+                    style="info",
+                )
+                super().__setitem__(
+                    key, attr.evolve(super().__getitem__(base_model), name=key)
+                )
+                return key
+            raise ModelError(f"Could not identify base model for {key}")
+        raise ModelError(f"Unrecognized model: {key}")
+
+    def __getitem__(self, key: str) -> Model:
+        return super().__getitem__(self._validate_key(key))
+
+    def __contains__(self, key: object) -> bool:
+        return super().__contains__(self._validate_key(str(key)))
+
+
+known_models = ModelsIndex(
+    {
+        "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
+        "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
+        "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
+        "gpt-4-32k": Model("gpt-4-32k", 32768, 0.06, 0.12),
+        "gpt-4-0613": Model("gpt-4-0613", 8192, 0.03, 0.06),
+        "gpt-4-32k-0613": Model("gpt-4-32k-0613", 32768, 0.06, 0.12),
+        "gpt-4-0314": Model("gpt-4-0314", 8192, 0.03, 0.06),
+        "gpt-4-32k-0314": Model("gpt-4-32k-0314", 32768, 0.06, 0.12),
+        "gpt-3.5-turbo-1106": Model("gpt-3.5-turbo-1106", 16385, 0.001, 0.002),
+        "gpt-3.5-turbo": Model("gpt-3.5-turbo", 16385, 0.001, 0.002),
+        "gpt-3.5-turbo-0613": Model("gpt-3.5-turbo-0613", 4096, 0.0015, 0.002),
+        "gpt-3.5-turbo-16k-0613": Model("gpt-3.5-turbo-16k-0613", 16385, 0.003, 0.004),
+        "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
+        "text-embedding-ada-002": Model(
+            "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
+        ),
+    }
+)
 
 
 def model_context_size(model: str) -> Optional[int]:
