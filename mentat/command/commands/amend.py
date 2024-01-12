@@ -34,5 +34,7 @@ class AmendCommand(Command, command_name="amend"):
     @classmethod
     def help_message(cls) -> str:
         return (
-            "Removes all context since last user request. Will not undo any edits made."
+            "Used to amend a previous user request. Works by resetting context to the"
+            " state it was at the last request and prefills user input with the last"
+            " request. Does not undo any edits."
         )
