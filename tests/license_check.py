@@ -23,8 +23,6 @@ accepted_licenses = [
     "ISC License (ISCL)",
     "Historical Permission Notice and Disclaimer (HPND)",
     "BSD",
-    "GNU General Public License (GPL)",
-    "Public Domain",
     "The Unlicense (Unlicense)",
 ]
 
