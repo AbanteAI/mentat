@@ -21,6 +21,7 @@ from mentat.parsers.git_parser import GitParser
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage
+from mentat.utils import get_relative_path
 
 revisor_prompt_filename = Path("revisor_prompt.txt")
 revisor_prompt = read_prompt(revisor_prompt_filename)
@@ -47,7 +48,11 @@ async def revise_edit(file_edit: FileEdit):
         ChatCompletionSystemMessageParam(content=revisor_prompt, role="system"),
         ChatCompletionUserMessageParam(content=diff, role="user"),
     ]
-    ctx.stream.send(f"\nRevising edit for file {file_edit.file_path}...", style="info")
+    ctx.stream.send(
+        "\nRevising edit for file"
+        f" {get_relative_path(file_edit.file_path, ctx.cwd)}...",
+        style="info",
+    )
     response = await ctx.llm_api_handler.call_llm_api(
         messages, model=ctx.config.model, stream=False
     )
@@ -88,14 +93,14 @@ async def revise_edit(file_edit: FileEdit):
         lexer = get_lexer(file_edit.file_path)
         for line in diff_lines:
             if line.startswith("---"):
-                diff_diff.append(f"{line} {file_edit.file_path}")
+                diff_diff.append(f"{line}{file_edit.file_path}")
             elif line.startswith("+++"):
                 new_name = (
                     file_edit.rename_file_path
                     if file_edit.rename_file_path is not None
                     else file_edit.file_path
                 )
-                diff_diff.append(f"{line} {new_name}")
+                diff_diff.append(f"{line}{new_name}")
             elif line.startswith("@@"):
                 diff_diff.append(line)
             elif line.startswith("+"):
