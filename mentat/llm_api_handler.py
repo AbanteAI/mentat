@@ -176,7 +176,7 @@ class ModelsIndex(Dict[str, Model]):
                     style="info",
                 )
                 super().__setitem__(
-                    base_model, attr.evolve(super().__getitem__(base_model), name=key)
+                    key, attr.evolve(super().__getitem__(base_model), name=key)
                 )
                 return key
             raise ModelError(f"Could not identify base model for {key}")
