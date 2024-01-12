@@ -4,6 +4,7 @@ import base64
 import io
 import os
 import sys
+from inspect import iscoroutinefunction
 from pathlib import Path
 from timeit import default_timer
 from typing import (
@@ -21,6 +22,7 @@ from typing import (
 import attr
 import sentry_sdk
 import tiktoken
+from chromadb.api.types import Embeddings
 from dotenv import load_dotenv
 from openai import (
     APIConnectionError,
@@ -28,6 +30,8 @@ from openai import (
     AsyncOpenAI,
     AsyncStream,
     AuthenticationError,
+    AzureOpenAI,
+    OpenAI,
 )
 from openai.types.chat import (
     ChatCompletion,
@@ -63,19 +67,36 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
     2. Converts APIConnectionErrors to MentatErrors
     """
 
-    async def wrapper(*args: Any, **kwargs: Any) -> Any:
-        assert (
-            not is_test_environment()
-        ), "OpenAI call attempted in non-benchmark test environment!"
-        try:
-            return await func(*args, **kwargs)
-        except APIConnectionError:
-            raise MentatError(
-                "API connection error: please check your internet connection and try"
-                " again."
-            )
+    if iscoroutinefunction(func):
 
-    return wrapper
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            assert (
+                not is_test_environment()
+            ), "OpenAI call attempted in non-benchmark test environment!"
+            try:
+                return await func(*args, **kwargs)
+            except APIConnectionError:
+                raise MentatError(
+                    "API connection error: please check your internet connection and"
+                    " try again."
+                )
+
+        return async_wrapper
+    else:
+
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            assert (
+                not is_test_environment()
+            ), "OpenAI call attempted in non-benchmark test environment!"
+            try:
+                return func(*args, **kwargs)
+            except APIConnectionError:
+                raise MentatError(
+                    "API connection error: please check your internet connection and"
+                    " try again."
+                )
+
+        return sync_wrapper
 
 
 # Ensures that each chunk will have at most one newline character
@@ -280,10 +301,15 @@ class LlmApiHandler:
         azure_key = os.getenv("AZURE_OPENAI_KEY")
         azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 
-        # We don't have any use for a synchronous client, but if we ever do we can easily make it here
+        # ChromaDB requires a sync function for embeddings
         if azure_endpoint and azure_key:
             ctx.stream.send("Using Azure OpenAI client.", color="cyan")
             self.async_client = AsyncAzureOpenAI(
+                api_key=azure_key,
+                api_version="2023-12-01-preview",
+                azure_endpoint=azure_endpoint,
+            )
+            self.sync_client = AzureOpenAI(
                 api_key=azure_key,
                 api_version="2023-12-01-preview",
                 azure_endpoint=azure_endpoint,
@@ -298,6 +324,7 @@ class LlmApiHandler:
                 # If they set the base_url but not the key, they probably don't need a key, but the client requires one
                 key = "fake_key"
             self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
+            self.sync_client = OpenAI(api_key=key, base_url=base_url)
 
         try:
             self.async_client.models.list()  # Test the key
@@ -391,13 +418,14 @@ class LlmApiHandler:
         return response
 
     @api_guard
-    async def call_embedding_api(
+    def call_embedding_api(
         self, input_texts: list[str], model: str = "text-embedding-ada-002"
-    ) -> list[list[float]]:
-        response = await self.async_client.embeddings.create(
+    ) -> Embeddings:
+        embeddings = self.sync_client.embeddings.create(
             input=input_texts, model=model
-        )
-        return [embedding.embedding for embedding in response.data]
+        ).data
+        sorted_embeddings = sorted(embeddings, key=lambda e: e.index)
+        return [result.embedding for result in sorted_embeddings]
 
     @api_guard
     async def call_whisper_api(self, audio_path: Path) -> str:
