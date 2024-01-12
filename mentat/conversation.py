@@ -252,7 +252,8 @@ class Conversation:
             loading_multiplier=0.5 * loading_multiplier,
         )
         messages_snapshot.insert(
-            1, ChatCompletionSystemMessageParam(role="system", content=code_message)
+            0 if config.no_parser_prompt else 1,
+            ChatCompletionSystemMessageParam(role="system", content=code_message),
         )
 
         try:

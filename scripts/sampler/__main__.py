@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import datetime
 import json
 import os
 import random
 from typing import Any
 
 from add_context import add_context
-from finetune_gpt import generate_finetune_gpt
+from finetune import generate_finetune
 from remove_context import remove_context
 from run import run_sample
 from validate import validate_sample
@@ -18,6 +19,7 @@ from benchmarks.benchmark_runner import (
     grade_diff_syntax,
     grade_model_response,
 )
+from mentat.llm_api_handler import count_tokens
 from mentat.sampler.sample import Sample
 from mentat.utils import mentat_dir_path
 
@@ -28,8 +30,6 @@ def warn(msg: Any):
 
 SAMPLES_DIR = mentat_dir_path / "samples"
 os.makedirs(SAMPLES_DIR, exist_ok=True)
-FINETUNE_DIR = mentat_dir_path / "finetune"
-os.makedirs(FINETUNE_DIR, exist_ok=True)
 
 
 async def main():
@@ -83,7 +83,7 @@ async def main():
         if (args.add_context or args.remove_context) and (
             "[ADDED CONTEXT]" in sample.title or "[REMOVED CONTEXT]" in sample.title
         ):
-            warn(f"Skipping {sample.id}: has already been modified.")
+            warn(f"Skipping {sample.id[:8]}: has already been modified.")
             continue
         if args.validate:
             is_valid, reason = await validate_sample(sample)
@@ -96,15 +96,19 @@ async def main():
             logs.append({"id": sample.id, "is_valid": is_valid, "reason": reason})
         elif args.finetune:
             try:
-                example = await generate_finetune_gpt(sample)
-                example_file = FINETUNE_DIR / f"finetune_{sample.id}.json"
-                with open(example_file, "w") as f:
-                    json.dump(example, f, indent=4)
-                print(f"Generated fine-tuning example {example_file}")
-                logs.append({"id": sample.id, "example_file": example_file})
+                example = await generate_finetune(sample)
+                # Toktoken only includes encoding for openAI models, so this isn't always correct
+                example["tokens"] = count_tokens(
+                    example["text"], "gpt-4", full_message=False
+                )
+                print(
+                    "Generated finetune example"
+                    f" {sample.id[:8]} ({example['tokens']} tokens)"
+                )
+                logs.append(example)
             except Exception as e:
                 warn(
-                    f"Error generating fine-tuning example for sample {sample.id}: {e}"
+                    f"Error generating finetune example for sample {sample.id[:8]}: {e}"
                 )
         elif args.add_context:
             try:
@@ -114,10 +118,10 @@ async def main():
                 print(f"Generated new sample with extra context: {sample_file}")
                 logs.append({"id": new_sample.id, "prototype_id": sample.id})
             except Exception as e:
-                warn(f"Error adding extra context to sample {sample.id}: {e}")
+                warn(f"Error adding extra context to sample {sample.id[:8]}: {e}")
         elif args.remove_context:
             if not sample.context or len(sample.context) == 1:
-                warn(f"Skipping {sample.id}: no context to remove.")
+                warn(f"Skipping {sample.id[:8]}: no context to remove.")
                 continue
             try:
                 new_sample = await remove_context(sample)
@@ -125,7 +129,7 @@ async def main():
                 print(f"Generated new sample with context removed: {sample_file}")
                 logs.append({"id": new_sample.id, "prototype_id": sample.id})
             except Exception as e:
-                warn(f"Error removing context from sample {sample.id}: {e}")
+                warn(f"Error removing context from sample {sample.id[:8]}: {e}")
         else:
             print(f"Running sample {sample.id[:8]}")
             print(f"  Prompt: {sample.message_prompt}")
@@ -155,7 +159,16 @@ async def main():
             " validation."
         )
     elif args.finetune:
-        print(f"{len(logs)} fine-tuning examples generated.")
+        # Dump all logs into a .jsonl file
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        fname = mentat_dir_path / f"finetune_examples_{timestamp}.jsonl"
+        tokens = 0
+        with open(fname, "w") as f:
+            for log in logs:
+                tokens += log["tokens"]
+                del log["tokens"]
+                f.write(json.dumps(log) + "\n")
+        print(f"{len(logs)} fine-tuning examples ({tokens} tokens) saved to {fname}.")
     elif args.add_context:
         print(f"{len(logs)} samples with extra context generated.")
     elif args.remove_context:
