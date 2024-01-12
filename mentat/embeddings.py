@@ -1,4 +1,3 @@
-import logging
 from timeit import default_timer
 
 import chromadb
@@ -46,7 +45,6 @@ class Collection:
             name=f"mentat-{embedding_model}",
             embedding_function=MentatEmbeddingFunction(),
         )
-        self.migrate_old_db()
 
     def exists(self, id: str) -> bool:
         assert self._collection is not None, "Collection not initialized"
@@ -78,49 +76,6 @@ class Collection:
         )
         assert results["distances"], "Error calculating distances"
         return {c: e for c, e in zip(results["ids"][0], results["distances"][0])}
-
-    def migrate_old_db(self):
-        """Temporary helper function to migrate sqlite3 to chromadb
-
-        Prior to January 2024, embeddings were fetched directly from the OpenAI API in
-        batches and saved to a db. We're currently using the same embeddings (ada-2) with
-        ChromaDB, so we might as well save the effort of re-fetching them. One drawback
-        is that ChromaDB saves the actual text, while our old schema did not, so migrated
-        records will have an empty documents field. This shouldn't be a problem. If it is,
-        we can just update the 'exists' method to require a non-empty "document" field.
-
-        TODO: erase this method/call after a few months
-        """
-        path = mentat_dir_path / "embeddings.sqlite3"
-        if not path.exists():
-            return
-        import json
-        import sqlite3
-
-        try:
-            conn = sqlite3.connect(path)
-            cursor = conn.execute("SELECT checksum, vector FROM embeddings")
-            results = {row[0]: json.loads(row[1]) for row in cursor.fetchall()}
-            results = {
-                k: v
-                for k, v in results.items()
-                if not self.exists(k) and len(v) == 1536
-            }
-            if results:
-                ids = list(results.keys())
-                embeddings = list(results.values())
-                batches = len(ids) // 1000 + 1
-                for i in range(batches):
-                    _ids = ids[i * 1000 : (i + 1) * 1000]
-                    _embeddings = embeddings[i * 1000 : (i + 1) * 1000]
-                    self._collection.add(  # type: ignore
-                        ids=_ids,
-                        embeddings=_embeddings,
-                        metadatas=[{"active": False} for _ in _ids],
-                    )
-            path.unlink()
-        except Exception as e:
-            logging.debug(f"Error migrating old embeddings database: {e}")
 
 
 async def get_feature_similarity_scores(
