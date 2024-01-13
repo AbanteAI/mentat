@@ -165,14 +165,16 @@ class GitParser:
             file_edits.append(file_edit)
 
         return ParsedLLMResponse(git_diff, commit_message, file_edits)
-    
+
     def file_edit_to_git_diff(self, file_edit: FileEdit) -> str:
         """Converts a FileEdit object into a git diff string."""
         session_context = SESSION_CONTEXT.get()
         cwd = session_context.cwd
 
         diff_lines: list[str] = []
-        file_path_str = Path(file_edit.file_path).relative_to(session_context.cwd).as_posix()
+        file_path_str = (
+            Path(file_edit.file_path).relative_to(session_context.cwd).as_posix()
+        )
 
         if file_edit.is_deletion:
             assert file_edit.previous_file_lines is not None, "Missing previous lines"
@@ -206,7 +208,9 @@ class GitParser:
             diff_lines.append(f"--- a/{file_path_str}")
             diff_lines.append(f"+++ b/{file_path_str}")
 
-        sorted_replacements = sorted(file_edit.replacements, key=lambda r: r.starting_line)
+        sorted_replacements = sorted(
+            file_edit.replacements, key=lambda r: r.starting_line
+        )
         net_change_in_lines: int = 0
         for replacement in sorted_replacements:
             if file_edit.is_creation:
@@ -234,7 +238,9 @@ class GitParser:
             diff_lines.append(hunk_header)
 
             if not file_edit.is_creation:
-                assert file_edit.previous_file_lines is not None, "Missing previous lines"
+                assert (
+                    file_edit.previous_file_lines is not None
+                ), "Missing previous lines"
                 for line in range(a, a + b):
                     diff_lines.append(f"-{file_edit.previous_file_lines[line - 1]}")
             for line in replacement.new_lines:
