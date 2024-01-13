@@ -133,6 +133,7 @@ class BenchmarkResultSummary:
 
         with open("results.html", "w") as f:
             f.write(rendered_html)
+        print(os.path.realpath("results.html"))
         webbrowser.open("file://" + os.path.realpath("results.html"))
 
     def to_json(self) -> str:
