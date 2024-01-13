@@ -5,15 +5,16 @@ from textwrap import dedent
 import pytest
 from git import Repo
 from openai.types.chat import (
-    ChatCompletionAssistantMessageParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
 
+from mentat.conversation import MentatChatCompletionAssistantMessageParam
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
+from mentat.parsers.parser import ParsedLLMResponse
 from mentat.python_client.client import PythonClient
 from mentat.sampler import __version__
 from mentat.sampler.sample import Sample
@@ -48,7 +49,8 @@ async def test_sample_from_context(
                 content="test_user_content",
                 role="user",
             ),
-            ChatCompletionAssistantMessageParam(
+            MentatChatCompletionAssistantMessageParam(
+                parsed_llm_response=ParsedLLMResponse("", "test_assistant_content", []),
                 content="test_assistant_content",
                 role="assistant",
             ),

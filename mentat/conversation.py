@@ -28,6 +28,10 @@ from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
 
 
+class MentatChatCompletionAssistantMessageParam(ChatCompletionAssistantMessageParam):
+    parsed_llm_response: ParsedLLMResponse
+
+
 class Conversation:
     def __init__(self):
         self._messages = list[ChatCompletionMessageParam]()
@@ -119,14 +123,21 @@ class Conversation:
         self.add_message(ChatCompletionUserMessageParam(role="user", content=content))
 
     def add_model_message(
-        self, message: str, messages_snapshot: list[ChatCompletionMessageParam]
+        self,
+        message: str,
+        messages_snapshot: list[ChatCompletionMessageParam],
+        parsed_llm_response: ParsedLLMResponse,
     ):
         """Used for actual model output messages"""
         self.add_transcript_message(
             ModelMessage(message=message, prior_messages=messages_snapshot)
         )
         self.add_message(
-            ChatCompletionAssistantMessageParam(role="assistant", content=message)
+            MentatChatCompletionAssistantMessageParam(
+                parsed_llm_response=parsed_llm_response,
+                role="assistant",
+                content=message,
+            )
         )
 
     def add_message(self, message: ChatCompletionMessageParam):
@@ -134,15 +145,30 @@ class Conversation:
         self._messages.append(message)
 
     def get_messages(
-        self, include_system_prompt: bool = True
+        self,
+        include_system_prompt: bool = True,
+        include_parsed_llm_responses: bool = False,
     ) -> list[ChatCompletionMessageParam]:
         """Returns the messages in the conversation. The system message may change throughout
-        the conversation so it is important to access the messages through this method.
+        the conversation and messages may contain additional metadata not supported by the API,
+        so it is important to access the messages through this method.
         """
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
+
+        _messages = [
+            (  # Remove metadata from messages by default
+                ChatCompletionAssistantMessageParam(
+                    role=msg["role"], content=msg["content"]
+                )
+                if msg["role"] == "assistant" and include_parsed_llm_responses is False
+                else msg
+            )
+            for msg in self._messages.copy()
+        ]
+
         if config.no_parser_prompt or not include_system_prompt:
-            return self._messages.copy()
+            return _messages
         else:
             parser = config.parser
             prompt = parser.get_system_prompt()
@@ -152,7 +178,7 @@ class Conversation:
                     content=prompt,
                 )
             )
-            return [prompt_message] + self._messages.copy()
+            return [prompt_message] + _messages
 
     def clear_messages(self) -> None:
         """Clears the messages in the conversation"""
@@ -165,6 +191,7 @@ class Conversation:
     ) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
+        code_file_manager = session_context.code_file_manager
         config = session_context.config
         parser = config.parser
         llm_api_handler = session_context.llm_api_handler
@@ -205,6 +232,11 @@ class Conversation:
             parsed_llm_response = await parser.stream_and_parse_llm_response(
                 add_newline(response)
             )
+        # Sampler and History require previous_file_lines
+        for file_edit in parsed_llm_response.file_edits:
+            file_edit.previous_file_lines = code_file_manager.file_lines.get(
+                file_edit.file_path, []
+            )
         if not parsed_llm_response.interrupted:
             cost_tracker.display_last_api_call()
         else:
@@ -223,7 +255,9 @@ class Conversation:
                 role="assistant", content=parsed_llm_response.full_response
             )
         )
-        self.add_model_message(parsed_llm_response.full_response, messages)
+        self.add_model_message(
+            parsed_llm_response.full_response, messages, parsed_llm_response
+        )
 
         return parsed_llm_response
 

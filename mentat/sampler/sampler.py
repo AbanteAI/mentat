@@ -119,7 +119,7 @@ class Sampler:
         message_history: list[dict[str, str]] = []
         message_prompt = ""
         response_edit: None | ParsedLLMResponse = None
-        for m in conversation.get_messages()[::-1]:
+        for m in conversation.get_messages(include_parsed_llm_responses=True)[::-1]:
             response: str | ParsedLLMResponse | None = None
             role, content = m["role"], m["content"]
             if role == "user":
@@ -136,18 +136,27 @@ class Sampler:
                     message_history.insert(0, {"role": role, "content": text})
 
             elif role == "assistant":
-                if not isinstance(content, str):
-                    raise SampleError("Assistant message content is not a string")
-                parsed_llm_response = await config.parser.parse_llm_response(content)
-                if not parsed_llm_response:
-                    raise SampleError("Error parsing assistant response")
+                parsed_llm_response = m.get("parsed_llm_response")
+                if parsed_llm_response is None:
+                    raise SampleError(
+                        "Assistant messages must include a the parsed_llm_response."
+                        " Hint: Use"
+                        " mentat.conversation.MentatChatCompletionAssistantMessageParam"
+                        " instead  of"
+                        " openai.types.chat.ChatCompletionAssistantMessageParam."
+                    )
 
                 if not message_prompt:
                     response_edit = parsed_llm_response
                 else:
                     message_history.append(
-                        {"role": role, "content": parsed_llm_response.conversation}
-                    )  # TODO: Convert edits to git diff format and include
+                        {
+                            "role": role,
+                            "content": GitParser().file_edits_to_llm_message(
+                                parsed_llm_response
+                            ),
+                        }
+                    )
 
         if not response_edit:
             raise SampleError("No LLM response found.")
