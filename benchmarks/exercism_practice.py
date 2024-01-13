@@ -80,6 +80,7 @@ async def failure_analysis(exercise_runner, language):
 
 
 async def run_exercise(problem_dir, language="python", max_iterations=2):
+    print(os.getcwd())
     exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
     client = PythonClient(
         cwd=Path("."),
