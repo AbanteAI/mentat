@@ -14,8 +14,8 @@ for the LLM. We implement only those methods/properties which are necessary for 
 Things to be aware of:
 1. git diffs include SHA-1 hashes, which link the diff to a known record in the git repo. When
     we generate diffs from scratch, we won't have these, so the diff can't be reverse-applied via
-    e.g. `git apply myfile.diff`. The SHA-1 hashes should also be removed e.g. when comparing 
-    outputs in tests as they are not expected to match.
+    `git apply myfile.diff`. The SHA-1 hashes should also be removed when comparing outputs in 
+    tests as they are not expected to match.
 
 2. git diffs include removed and to-be-modified lines, prefixed with a '-'. These are drawn from
     FileEdit.previous_file_lines field. When calling GitParser.file_edits_to_llm_message, 
@@ -30,85 +30,6 @@ b = number of original lines changed, omitted if = 1
 c = edited starting line number
 d = number of edited lines in the change, ommitted if = 1
 """
-
-
-def file_edit_to_git_diff(file_edit: FileEdit) -> str:
-    """Converts a FileEdit object into a git diff string."""
-    session_context = SESSION_CONTEXT.get()
-    cwd = session_context.cwd
-
-    diff_lines: list[str] = []
-    file_path = Path(file_edit.file_path).relative_to(session_context.cwd)
-    file_path_str = str(file_path)
-
-    if file_edit.is_deletion:
-        assert file_edit.previous_file_lines is not None, "Missing previous lines"
-        diff_lines.append(f"diff --git a/{file_path_str} b/{file_path_str}")
-        diff_lines.append("deleted file mode 100644")
-        diff_lines.append("index fffffff..0000000")
-        diff_lines.append(f"--- a/{file_path_str}")
-        diff_lines.append("+++ /dev/null")
-        diff_lines.append(f"@@ -1,{len(file_edit.previous_file_lines) - 1} +0,0 @@")
-        for line in file_edit.previous_file_lines:
-            diff_lines.append(f"-{line}")
-        if diff_lines[-1] == "-":
-            diff_lines = diff_lines[:-1]
-        return "\n".join(diff_lines)
-
-    if file_edit.is_creation:
-        diff_lines.append(f"diff --git a/{file_path_str} b/{file_path_str}")
-        diff_lines.append("new file mode 100644")
-        diff_lines.append("index 0000000..fffffff")
-        diff_lines.append("--- /dev/null")
-        diff_lines.append(f"+++ b/{file_path_str}")
-    elif file_edit.rename_file_path:
-        new_file_path = file_edit.rename_file_path.relative_to(cwd)
-        new_file_path_str = str(new_file_path)
-        diff_lines.append(f"diff --git a/{file_path_str} b/{new_file_path_str}")
-        diff_lines.append("similarity index 100%")
-        diff_lines.append(f"rename from {file_path_str}")
-        diff_lines.append(f"rename to {new_file_path_str}")
-    else:
-        diff_lines.append(f"diff --git a/{file_path_str} b/{file_path_str}")
-        diff_lines.append("index fffffff..fffffff 100644")
-        diff_lines.append(f"--- a/{file_path_str}")
-        diff_lines.append(f"+++ b/{file_path_str}")
-
-    sorted_replacements = sorted(file_edit.replacements, key=lambda r: r.starting_line)
-    net_change_in_lines: int = 0
-    for replacement in sorted_replacements:
-        if file_edit.is_creation:
-            a = 0
-            b = 0
-        else:
-            n_changed_lines = replacement.ending_line - replacement.starting_line
-            a = replacement.starting_line + (1 if n_changed_lines > 0 else 0)
-            b = n_changed_lines
-        n_inserted_lines = len(replacement.new_lines)
-        c = (
-            replacement.starting_line
-            + 1  # Git uses one-based indiexing
-            - (1 if n_inserted_lines == 0 else 0)
-            + net_change_in_lines
-        )
-        d = n_inserted_lines
-        hunk_header = (
-            f"@@ -{a}"
-            + (" " if b == 1 else f",{b} ")
-            + f"+{c}"
-            + (" @@" if d == 1 else f",{d} @@")
-        )
-        net_change_in_lines += d - b
-        diff_lines.append(hunk_header)
-
-        if not file_edit.is_creation:
-            assert file_edit.previous_file_lines is not None, "Missing previous lines"
-            for line in range(a, a + b):
-                diff_lines.append(f"-{file_edit.previous_file_lines[line - 1]}")
-        for line in replacement.new_lines:
-            diff_lines.append(f"+{line}")
-
-    return "\n".join(diff_lines)
 
 
 class GitParser:
@@ -244,10 +165,86 @@ class GitParser:
             file_edits.append(file_edit)
 
         return ParsedLLMResponse(git_diff, commit_message, file_edits)
+    
+    def file_edit_to_git_diff(self, file_edit: FileEdit) -> str:
+        """Converts a FileEdit object into a git diff string."""
+        session_context = SESSION_CONTEXT.get()
+        cwd = session_context.cwd
+
+        diff_lines: list[str] = []
+        file_path_str = Path(file_edit.file_path).relative_to(session_context.cwd).as_posix()
+
+        if file_edit.is_deletion:
+            assert file_edit.previous_file_lines is not None, "Missing previous lines"
+            diff_lines.append(f"diff --git a/{file_path_str} b/{file_path_str}")
+            diff_lines.append("deleted file mode 100644")
+            diff_lines.append("index fffffff..0000000")
+            diff_lines.append(f"--- a/{file_path_str}")
+            diff_lines.append("+++ /dev/null")
+            diff_lines.append(f"@@ -1,{len(file_edit.previous_file_lines) - 1} +0,0 @@")
+            for line in file_edit.previous_file_lines:
+                diff_lines.append(f"-{line}")
+            if diff_lines[-1] == "-":
+                diff_lines = diff_lines[:-1]
+            return "\n".join(diff_lines)
+
+        if file_edit.is_creation:
+            diff_lines.append(f"diff --git a/{file_path_str} b/{file_path_str}")
+            diff_lines.append("new file mode 100644")
+            diff_lines.append("index 0000000..fffffff")
+            diff_lines.append("--- /dev/null")
+            diff_lines.append(f"+++ b/{file_path_str}")
+        elif file_edit.rename_file_path:
+            new_file_path_str = file_edit.rename_file_path.relative_to(cwd).as_posix()
+            diff_lines.append(f"diff --git a/{file_path_str} b/{new_file_path_str}")
+            diff_lines.append("similarity index 100%")
+            diff_lines.append(f"rename from {file_path_str}")
+            diff_lines.append(f"rename to {new_file_path_str}")
+        else:
+            diff_lines.append(f"diff --git a/{file_path_str} b/{file_path_str}")
+            diff_lines.append("index fffffff..fffffff 100644")
+            diff_lines.append(f"--- a/{file_path_str}")
+            diff_lines.append(f"+++ b/{file_path_str}")
+
+        sorted_replacements = sorted(file_edit.replacements, key=lambda r: r.starting_line)
+        net_change_in_lines: int = 0
+        for replacement in sorted_replacements:
+            if file_edit.is_creation:
+                a = 0
+                b = 0
+            else:
+                n_changed_lines = replacement.ending_line - replacement.starting_line
+                a = replacement.starting_line + (1 if n_changed_lines > 0 else 0)
+                b = n_changed_lines
+            n_inserted_lines = len(replacement.new_lines)
+            c = (
+                replacement.starting_line
+                + 1  # Git uses one-based indiexing
+                - (1 if n_inserted_lines == 0 else 0)
+                + net_change_in_lines
+            )
+            d = n_inserted_lines
+            hunk_header = (
+                f"@@ -{a}"
+                + (" " if b == 1 else f",{b} ")
+                + f"+{c}"
+                + (" @@" if d == 1 else f",{d} @@")
+            )
+            net_change_in_lines += d - b
+            diff_lines.append(hunk_header)
+
+            if not file_edit.is_creation:
+                assert file_edit.previous_file_lines is not None, "Missing previous lines"
+                for line in range(a, a + b):
+                    diff_lines.append(f"-{file_edit.previous_file_lines[line - 1]}")
+            for line in replacement.new_lines:
+                diff_lines.append(f"+{line}")
+
+        return "\n".join(diff_lines)
 
     def file_edits_to_llm_message(self, parsedLLMResponse: ParsedLLMResponse) -> str:
         ans = parsedLLMResponse.conversation.strip() + "\n\n"
         for file_edit in parsedLLMResponse.file_edits:
-            ans += file_edit_to_git_diff(file_edit) + "\n"
+            ans += self.file_edit_to_git_diff(file_edit) + "\n"
 
         return ans

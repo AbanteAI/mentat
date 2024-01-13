@@ -6,7 +6,7 @@ import pytest
 from git import Repo
 
 from mentat.parsers.file_edit import FileEdit, Replacement
-from mentat.parsers.git_parser import GitParser, file_edit_to_git_diff
+from mentat.parsers.git_parser import GitParser
 from mentat.parsers.parser import ParsedLLMResponse
 from mentat.utils import convert_string_to_asynciter
 
@@ -89,7 +89,7 @@ def modify_file_edit(temp_testbed, mock_session_context):
 def test_creation_file_edit_to_git_diff(temp_testbed, create_file_edit):
     repo = Repo(temp_testbed)
 
-    add_file_diff = file_edit_to_git_diff(create_file_edit)
+    add_file_diff = GitParser().file_edit_to_git_diff(create_file_edit)
 
     with open(temp_testbed / "create.txt", "w") as f:
         f.write("# I created this file\n# And it has two lines\n")
@@ -103,7 +103,7 @@ def test_creation_file_edit_to_git_diff(temp_testbed, create_file_edit):
 def test_deletion_file_edit_to_git_diff(temp_testbed, delete_file_edit):
     repo = Repo(temp_testbed)
 
-    delete_file_diff = file_edit_to_git_diff(delete_file_edit)
+    delete_file_diff = GitParser().file_edit_to_git_diff(delete_file_edit)
 
     file_to_delete = delete_file_edit.file_path
     file_to_delete.unlink()
@@ -117,7 +117,7 @@ def test_deletion_file_edit_to_git_diff(temp_testbed, delete_file_edit):
 def test_rename_file_edit_to_git_diff(temp_testbed, rename_file_edit):
     repo = Repo(temp_testbed)
 
-    rename_file_diff = file_edit_to_git_diff(rename_file_edit)
+    rename_file_diff = GitParser().file_edit_to_git_diff(rename_file_edit)
 
     os.rename(rename_file_edit.file_path, rename_file_edit.rename_file_path)
     repo.git.add(["--all"])
@@ -130,7 +130,7 @@ def test_rename_file_edit_to_git_diff(temp_testbed, rename_file_edit):
 def test_modify_file_edit_to_git_diff(temp_testbed, modify_file_edit):
     repo = Repo(temp_testbed)
 
-    modify_file_diff = file_edit_to_git_diff(modify_file_edit)
+    modify_file_diff = GitParser().file_edit_to_git_diff(modify_file_edit)
 
     with open(modify_file_edit.file_path, "w") as f:
         f.write(dedent("""\
@@ -187,10 +187,6 @@ async def test_git_parser_inverse(
     back_twice = await parser.stream_and_parse_llm_response(generator2)
 
     # The full_response is originally blank for compatibility with all formats. So we invert twice.
-    for pre_edit, edit_once in zip(parsedLLMResponse.file_edits, back_once.file_edits):
-        if pre_edit.is_creation:
-            continue
-        assert pre_edit == edit_once
     assert parsedLLMResponse.file_edits == back_once.file_edits
     assert back_once == back_twice
     # Verify the inverse uses relative paths
