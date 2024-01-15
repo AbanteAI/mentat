@@ -2,6 +2,9 @@
 
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
+git config --global user.email "jakethekoenig@gmail.com"
+git config --global user.name "Jake Koenig"
+
 #######################
 # REAL WORLD BENCHMARKS
 #######################
