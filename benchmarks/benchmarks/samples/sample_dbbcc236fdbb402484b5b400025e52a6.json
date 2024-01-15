@@ -1,0 +1,23 @@
+{
+    "title": "Summarize AgentHandler",
+    "description": "",
+    "id": "dbbcc236fdbb402484b5b400025e52a6",
+    "parent_id": "",
+    "repo": "http://github.com/AbanteAI/mentat",
+    "merge_base": "9498bdde0dcdeafcaaac6ab148bdb599f3d7548c",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "Summarize AgentHandler",
+    "message_edit": "The `AgentHandler` class in the `mentat/agent_handler.py` file is responsible for managing the \"agent mode\" in the Mentat system. This mode allows the system to autonomously make changes and run commands based on the model's decisions. The class includes methods to enable and disable agent mode, determine which files and commands the model should consider, and add context for the agent to operate within.\n\nKey components and methods of the `AgentHandler` class include:\n\n- `__init__`: Initializes the handler, setting up prompts and flags for agent mode.\n- `agent_enabled`: A read-only property that indicates whether the agent mode is enabled.\n- `disable_agent_mode`: Disables the agent mode.\n- `enable_agent_mode`: Enables the agent mode and determines which files the model should use to understand the context for testing changes.\n- `_determine_commands`: Asynchronously determines the list of commands that the model suggests to test changes.\n- `add_agent_context`: Adds context for the agent and decides whether control should be handed back to the user based on the model's suggestions.\n\nThe class interacts with other components of the Mentat system, such as `SESSION_CONTEXT`, `llm_api_handler`, and `conversation`, to perform its tasks. It uses prompts read from text files to communicate with the model and handles the model's responses to guide the autonomous operation of the system.",
+    "context": [
+        "mentat/command/commands/agent.py",
+        "mentat/agent_handler.py",
+        "mentat/session_context.py",
+        "mentat/code_file_manager.py",
+        "mentat/session.py"
+    ],
+    "diff_edit": "",
+    "test_command": "",
+    "version": "0.1.0"
+}

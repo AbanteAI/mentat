@@ -1,0 +1,21 @@
+{
+    "title": "Make redis its own file, use get func",
+    "description": "",
+    "id": "12d5a1695d294c3db53285964c0fc3ca",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "6f55eae77895a1fbf3257de26543732ca8e07572",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "Move redis to a new file called redis.js, and export a func get_redis() -> redis. Use that in word_vectors.py. Then, use it in app.py to store user data.",
+    "message_edit": "I will create a new file called `redis.js` which will contain a function to get the Redis client. Then, I will update `word_vectors.py` to import and use this function. Finally, I will modify `app.py` to use the Redis client for storing user data.\n\nSteps:\n1. Create `redis.js` with a function `get_redis` that returns a Redis client.\n2. Modify `word_vectors.py` to import and use `get_redis` instead of creating a Redis client directly.\n3. Modify `app.py` to import and use `get_redis` for storing and retrieving user data.",
+    "context": [
+        "backend/word_vectors.py",
+        "backend/redis.js",
+        "backend/app.py"
+    ],
+    "diff_edit": "diff --git a/backend/app.py b/backend/app.py\nindex 2c9dbbe..5e8e53d 100644\n--- a/backend/app.py\n+++ b/backend/app.py\n@@ -3,2 +3,3 @@ import datetime\n import secrets\n+import pickle\n \n@@ -10,2 +11,3 @@ from functools import wraps\n from word_vectors import get_coordinates, get_pca_id\n+from redis import get_redis\n \n@@ -33,7 +35,12 @@ def get_token_for(user_id, days=365):\n \n+def get_user_data(user_id):\n+    user_data = get_redis().get(user_id)\n+    if user_data:\n+        return pickle.loads(user_data)\n+    else:\n+        return None\n \n-users = {}\n def create_user():\n     user_id = secrets.token_hex(16)\n-    users[user_id] = {\n+    user_data = {\n         \"created_at\": datetime.datetime.now(),\n@@ -42,2 +49,3 @@ def create_user():\n     }\n+    get_redis().set(user_id, pickle.dumps(user_data))\n     token = get_token_for(user_id)\n@@ -58,3 +66,3 @@ def token_required(f):\n             user_id = data['user_id']\n-            user = users[user_id]\n+            user = get_user_data(user_id)\n         except:\ndiff --git a/backend/redis.py b/backend/redis.py\nnew file mode 100644\nindex 0000000..fd96a45\n--- /dev/null\n+++ b/backend/redis.py\n@@ -0,0 +1,9 @@\n+import redis\n+\n+redis = None\n+\n+def get_redis():\n+    global redis\n+    if not redis:\n+        redis = redis.Redis(host=\"redis\", port=6379, db=0)\n+    return redis\ndiff --git a/backend/word_vectors.py b/backend/word_vectors.py\nindex 761819c..c9c2c4c 100644\n--- a/backend/word_vectors.py\n+++ b/backend/word_vectors.py\n@@ -5,5 +5,5 @@ from embeddings import DistilBertEmbeddingsModel\n from pca import get_pca_for\n+from redis import get_redis\n \n model = DistilBertEmbeddingsModel()\n-redis_client = redis.Redis(host=\"redis\", port=6379, db=0)\n \n@@ -20,2 +20,3 @@ def get_pca_id(words: list[str] = []) -> str:\n def get_embeddings(words: list[str] = []) -> list[list[float]]:\n+    redis_client = get_redis()\n     # Get from redis and/or model\n",
+    "test_command": "",
+    "version": "0.1.0"
+}

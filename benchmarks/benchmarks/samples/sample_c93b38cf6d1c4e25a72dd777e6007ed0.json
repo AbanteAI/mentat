@@ -1,0 +1,24 @@
+{
+    "title": "Add basic git parser test",
+    "description": "",
+    "id": "c93b38cf6d1c4e25a72dd777e6007ed0",
+    "parent_id": "",
+    "repo": "https://github.com/AbanteAI/mentat",
+    "merge_base": "9498bdde0dcdeafcaaac6ab148bdb599f3d7548c",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "Create a new file in tests/parser_tests to test the GitParser. Add a very basic test of the current functionality.",
+    "message_edit": "I will create a new test file named `test_git_parser.py` in the `tests/parser_tests` directory. This file will contain a basic test for the `GitParser` class to ensure it can parse a simple git diff string and produce the expected `ParsedLLMResponse` object.\n\nSteps:\n1. Create a new file `test_git_parser.py` in `tests/parser_tests`.\n2. Write a basic test function `test_git_parser_basic` that creates a `GitParser` instance, parses a simple git diff string, and asserts that the resulting `ParsedLLMResponse` object matches the expected output.",
+    "context": [
+        "mentat/utils.py",
+        "mentat/parsers/file_edit.py",
+        "tests/parser_tests/inverse.py",
+        "tests/conftest.py",
+        "mentat/parsers/parser.py",
+        "mentat/parsers/git_parser.py"
+    ],
+    "diff_edit": "diff --git a/tests/parser_tests/test_git_parser.py b/tests/parser_tests/test_git_parser.py\nnew file mode 100644\nindex 0000000..4832a22\n--- /dev/null\n+++ b/tests/parser_tests/test_git_parser.py\n@@ -0,0 +1,37 @@\n+import pytest\n+\n+from mentat.parsers.file_edit import FileEdit, Replacement\n+from mentat.parsers.git_parser import GitParser\n+from mentat.parsers.parser import ParsedLLMResponse\n+from mentat.utils import convert_string_to_asynciter\n+\n+\n+@pytest.mark.asyncio\n+async def test_git_parser_basic(temp_testbed):\n+    git_diff = (\n+        \"diff --git a/sample.txt b/sample.txt\\n\"\n+        \"new file mode 100644\\n\"\n+        \"index 0000000..e69de29\\n\"\n+        \"--- /dev/null\\n\"\n+        \"+++ b/sample.txt\\n\"\n+        \"@@ -0,0 +1 @@\\n\"\n+        \"+Hello, World!\\n\"\n+    )\n+    expected_file_edit = FileEdit(\n+        file_path=temp_testbed / \"sample.txt\",\n+        replacements=[\n+            Replacement(starting_line=-1, ending_line=-1, new_lines=[\"Hello, World!\"])\n+        ],\n+        is_creation=True,\n+        is_deletion=False,\n+        rename_file_path=None,\n+    )\n+    expected_response = ParsedLLMResponse(\n+        full_response=git_diff, conversation=\"\", file_edits=[expected_file_edit]\n+    )\n+\n+    git_parser = GitParser()\n+    response_iter = convert_string_to_asynciter(git_diff, 100)\n+    parsed_response = await git_parser.stream_and_parse_llm_response(response_iter)\n+\n+    assert parsed_response == expected_response\n",
+    "test_command": "",
+    "version": "0.1.0"
+}

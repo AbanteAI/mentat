@@ -1,0 +1,19 @@
+{
+    "title": "Increase rate limit",
+    "description": "",
+    "id": "f088219806ff49659bbd17d80f4579b7",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "e314331b285afba33ff1745477a074159c652ed9",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "in my nginx.prod.conf, on the site, I keep getting nginx_1     | 2023/12/28 08:20:33 [error] 29#29: *44 limiting requests, excess: 5.551 by zone \"req_limit_per_ip\", client: 115.78.228.162, server: latentdictionary.com, request: \"GET /favicon.ico HTTP/1.1\", host: \"latentdictionary.com\", referrer: \"https://latentdictionary.com/\" --- so let's ease off whatever limit that's hitting",
+    "message_edit": "I will update the `nginx.prod.conf` file to ease the rate limiting by increasing the rate and burst values for the `req_limit_per_ip` zone.\n\nSteps:\n1. Increase the rate limit in the `limit_req_zone` directive.\n2. Increase the burst limit in the `limit_req` directives within the `location` blocks.",
+    "context": [
+        "nginx/nginx.prod.conf"
+    ],
+    "diff_edit": "diff --git a/nginx/nginx.prod.conf b/nginx/nginx.prod.conf\nindex f5da607..4711f35 100644\n--- a/nginx/nginx.prod.conf\n+++ b/nginx/nginx.prod.conf\n@@ -6,3 +6,3 @@ http {\n     # The zone is stored in memory and the key is the client IP address.\n-    limit_req_zone $binary_remote_addr zone=req_limit_per_ip:10m rate=1r/s;\n+    limit_req_zone $binary_remote_addr zone=req_limit_per_ip:10m rate=5r/s;\n \n@@ -40,3 +40,3 @@ http {\n         location /api {\n-            limit_req zone=req_limit_per_ip burst=5 nodelay;\n+            limit_req zone=req_limit_per_ip burst=10 nodelay;\n             limit_conn conn_limit_per_ip 10;\n@@ -52,3 +52,3 @@ http {\n         location / {\n-            limit_req zone=req_limit_per_ip burst=5 nodelay;\n+            limit_req zone=req_limit_per_ip burst=10 nodelay;\n             limit_conn conn_limit_per_ip 10;\n",
+    "test_command": "",
+    "version": "0.1.0"
+}

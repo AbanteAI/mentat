@@ -1,0 +1,24 @@
+{
+    "title": "Add glow effect to dot",
+    "description": "",
+    "id": "782bb650bb934593b9288b352e402310",
+    "parent_id": "d8face0952504ae28b367bbbff1f2f16",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "79415b71a6bcb579027291a95bf5e2d6f521d01d",
+    "diff_merge_base": "",
+    "diff_active": "diff --git a/frontend/src/Dot.js b/frontend/src/Dot.js\nindex dcafd70..19c30a3 100644\n--- a/frontend/src/Dot.js\n+++ b/frontend/src/Dot.js\n@@ -33,3 +33,3 @@ function Dot({ word, coordinates, selected }) {\n             <meshStandardMaterial \n-                color={localSelected ? 'hotpink' : 'gray'} \n+                color={localSelected ? 'hotpink' : 'white'} \n                 transparent \ndiff --git a/frontend/src/index.css b/frontend/src/index.css\nindex 94a4e94..6d00a4f 100644\n--- a/frontend/src/index.css\n+++ b/frontend/src/index.css\n@@ -8,2 +8,3 @@ body {\n   height: 100vh;\n+  background-color: black;\n   width: 100vw;\n",
+    "message_history": [],
+    "message_prompt": "When dots are selected, I want them to light-up like a sun.",
+    "message_edit": "I will update the Dot.js file to make the dots \"light-up\" when selected by changing their material properties to give them an emissive glow effect.\n\nSteps:\n1. Modify the `meshStandardMaterial` in Dot.js to include an emissive property that will make the dots glow when selected.",
+    "context": [
+        "frontend/src/App.css",
+        "frontend/src/Dot.js",
+        "frontend/src/index.css",
+        "frontend/src/SearchBox.js",
+        "frontend/src/index.js",
+        "frontend/src/App.js"
+    ],
+    "diff_edit": "diff --git a/frontend/src/Dot.js b/frontend/src/Dot.js\nindex 19c30a3..cf5baa7 100644\n--- a/frontend/src/Dot.js\n+++ b/frontend/src/Dot.js\n@@ -33,4 +33,6 @@ function Dot({ word, coordinates, selected }) {\n             <meshStandardMaterial \n-                color={localSelected ? 'hotpink' : 'white'} \n-                transparent \n+                color='white' \n+                emissive={localSelected ? 'yellow' : 'black'}\n+                transparent\n+                emissiveIntensity={localSelected ? 1 : 0}\n                 opacity={localSelected ? 1 : 0.5} \n",
+    "test_command": "",
+    "version": "0.1.0"
+}

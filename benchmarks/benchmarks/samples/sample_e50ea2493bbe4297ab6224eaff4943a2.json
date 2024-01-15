@@ -1,0 +1,20 @@
+{
+    "title": "Add console log every 60 frames",
+    "description": "",
+    "id": "e50ea2493bbe4297ab6224eaff4943a2",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "54d6e874c37ea9c8e7d582ddfe2a3ba5cb60b38d",
+    "diff_merge_base": "",
+    "diff_active": "diff --git a/frontend/src/App.js b/frontend/src/App.js\nindex e82a57e..6b37297 100644\n--- a/frontend/src/App.js\n+++ b/frontend/src/App.js\n@@ -7,2 +7,3 @@ import { Canvas } from '@react-three/fiber'\n import Dot from './Dot';\n+import Camera from './Camera';\n import Navigation from './navigation/Navigation';\n@@ -168,3 +169,3 @@ const App = () => {\n                 <pointLight position={[10, 10, 10]} />\n-                <perspectiveCamera position={[0, 0, 5]} />\n+                <Camera />\n                 <OrbitControls />\ndiff --git a/frontend/src/Camera.js b/frontend/src/Camera.js\nnew file mode 100644\nindex 0000000..2f97255\n--- /dev/null\n+++ b/frontend/src/Camera.js\n@@ -0,0 +1,9 @@\n+import React from 'react';\n+\n+const Camera = () => {\n+    return (\n+        <perspectiveCamera position={[0, 0, 5]} />\n+    );\n+};\n+\n+export default Camera;\n",
+    "message_history": [],
+    "message_prompt": "Now, in my camera, I want to log my position (x, y, z) to the console once per second using useFrame. If we know approximately the fps, just console it every N frames.",
+    "message_edit": "I will update the Camera.js file to include the useFrame hook from @react-three/fiber, which will allow us to log the camera's position to the console every N frames. Assuming an approximate frame rate of 60 fps, we can log the position once per second by logging every 60 frames.\n\nSteps:\n1. Import the useFrame hook in Camera.js.\n2. Update the Camera component to use the useFrame hook and log the camera's position every 60 frames.",
+    "context": [
+        "frontend/src/App.js",
+        "frontend/src/Camera.js"
+    ],
+    "diff_edit": "diff --git a/frontend/src/Camera.js b/frontend/src/Camera.js\nindex 2f97255..71513f7 100644\n--- a/frontend/src/Camera.js\n+++ b/frontend/src/Camera.js\n@@ -1,4 +1,14 @@\n import React from 'react';\n+import { useFrame } from '@react-three/fiber';\n \n const Camera = () => {\n+    let frameCount = 0;\n+    useFrame((state) => {\n+        frameCount++;\n+        if (frameCount % 60 === 0) {\n+            const position = state.camera.position;\n+            console.log(`Camera Position: x=${position.x}, y=${position.y}, z=${position.z}`);\n+        }\n+    });\n+\n     return (\n",
+    "test_command": "",
+    "version": "0.1.0"
+}

@@ -1,0 +1,19 @@
+{
+    "title": "Question about opensource licenses",
+    "description": "",
+    "id": "336ceec7e1cd4706af4c981cd46cb624",
+    "parent_id": "",
+    "repo": "https://github.com/AbanteAI/mentat",
+    "merge_base": "9498bdde0dcdeafcaaac6ab148bdb599f3d7548c",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "What kind of license am I using now? How does this compare to other common opensource licenses?",
+    "message_edit": "You are currently using the Apache License, Version 2.0. This is a permissive open-source license that allows users considerable freedom with the software, including the use, modification, and distribution of the licensed software. It also provides an express grant of patent rights from contributors to users.\n\nThe Apache License 2.0 is similar to other permissive licenses like the MIT License and the BSD License in that it allows for wide use and distribution of the software. However, it differs in some key aspects:\n\n1. **Patent License Grant**: The Apache License includes an explicit grant of patent rights from contributors to the users, which is not present in the MIT or BSD licenses. This means that contributors cannot sue users for patent infringement for using their contributions.\n\n2. **Protection Against Trademark Abuse**: The Apache License does not allow the use of the names, trademarks, or service marks of the licensor.\n\n3. **State Changes**: The Apache License requires modified files to state that they have been changed, which is not a requirement of the MIT or BSD licenses.\n\n4. **Inclusion of a NOTICE file**: If provided, the NOTICE file must be included in any derivative works and any attribution notices in the NOTICE file must be preserved.\n\nCompared to copyleft licenses like the GNU General Public License (GPL), the Apache License is more permissive because it does not require derivative works to be distributed under the same license terms. GPL-licensed software requires that any derivative works also be licensed under the GPL, a concept known as \"share-alike.\"\n\nIn summary, the Apache License 2.0 is a permissive open-source license that includes protections for both the licensor and the user, especially regarding patent rights, which makes it favorable for both open-source and proprietary software development.",
+    "context": [
+        "LICENSE"
+    ],
+    "diff_edit": "",
+    "test_command": "",
+    "version": "0.1.0"
+}

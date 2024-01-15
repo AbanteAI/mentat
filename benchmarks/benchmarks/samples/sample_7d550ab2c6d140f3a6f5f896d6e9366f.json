@@ -1,0 +1,21 @@
+{
+    "title": "Camera movement on click",
+    "description": "",
+    "id": "7d550ab2c6d140f3a6f5f896d6e9366f",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "b293d727faf5f36be68d8a20056eaf994d38e43b",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "What makes the camera move when I click on a dot?",
+    "message_edit": "The camera movement when you click on a dot in the `frontend/src/App.js` file is not directly handled within the `select` function. However, the `select` function updates the state of the application, which in turn can trigger a re-render and potentially cause the camera to move if the camera's behavior is tied to the state.\n\nHere's how the camera movement might be indirectly triggered:\n\n1. The `select` function updates the `corpus` state by toggling the `selected` property of the clicked dot's word.\n2. If the `selected` property of a word changes, the `searchTerm` state may also be updated.\n3. The `Camera` component in `frontend/src/Camera.js` receives `selectedCorpus` as a prop, which is derived from the `corpus` state in `App.js`.\n4. The `Camera` component has a `useEffect` hook that watches for changes in `selectedCorpus`. When `selectedCorpus` changes, the hook calculates a new camera position and target based on the bounding box of the selected words.\n5. The `useFrame` hook from `@react-three/fiber` is used to smoothly interpolate the camera's position and the controls' target to the new values calculated by the `useEffect` hook.\n\nThe camera movement is therefore a result of the state changes in `App.js` that are propagated to the `Camera` component, which then calculates and applies the new camera position and target.",
+    "context": [
+        "frontend/src/Dot.js",
+        "frontend/src/Camera.js",
+        "frontend/src/App.js"
+    ],
+    "diff_edit": "",
+    "test_command": "",
+    "version": "0.1.0"
+}

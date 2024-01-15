@@ -1,0 +1,31 @@
+{
+    "title": "Check for git user and email",
+    "description": "",
+    "id": "8863803ce69f47778ea71d1c17888696",
+    "parent_id": "c9604403795642e1a01b5177eb10c539",
+    "repo": "https://github.com/AbanteAI/mentat",
+    "merge_base": "9498bdde0dcdeafcaaac6ab148bdb599f3d7548c",
+    "diff_merge_base": "",
+    "diff_active": "diff --git a/mentat/sampler/sampler.py b/mentat/sampler/sampler.py\nindex eed7a8c..ced20cc 100644\n--- a/mentat/sampler/sampler.py\n+++ b/mentat/sampler/sampler.py\n@@ -51,2 +51,3 @@ class Sampler:\n     last_sample_hexsha: str | None = None\n+    active: bool = True\n \ndiff --git a/mentat/session.py b/mentat/session.py\nindex 149343a..1687ac5 100644\n--- a/mentat/session.py\n+++ b/mentat/session.py\n@@ -22,3 +22,9 @@ from mentat.cost_tracker import CostTracker\n from mentat.ctags import ensure_ctags_installed\n-from mentat.errors import ContextSizeInsufficient, MentatError, SessionExit, UserError\n+from mentat.errors import (\n+    ContextSizeInsufficient, \n+    MentatError, \n+    SampleError, \n+    SessionExit, \n+    UserError,\n+)\n from mentat.git_handler import get_git_root_for_path\n@@ -181,4 +187,8 @@ class Session:\n \n-                    if session_context.sampler:\n-                        session_context.sampler.set_active_diff()\n+                    if session_context.sampler and session_context.sampler.active:\n+                        try:\n+                            session_context.sampler.set_active_diff()\n+                        except SampleError as e:\n+                            stream.send(f\"Sample error: {e}\", color=\"red\")\n+                            session_context.sampler.active = False\n \n",
+    "message_history": [
+        {
+            "role": "assistant",
+            "content": "I will add the new attribute `active` to the `Sampler` class and modify the `Session` class to include the check for `active` being `True` before calling `set_active_diff`. Additionally, I will wrap the call to `set_active_diff` in a try-except block to handle `SampleError`.\n\nSteps:\n1. Add the `active` attribute to the `Sampler` class with a default value of `True`.\n2. Modify the `Session` class to check if `sampler.active` is `True` before calling `set_active_diff`.\n3. Wrap the call to `set_active_diff` in a try-except block to catch `SampleError`.\n4. If a `SampleError` is caught, print the error to the stream and set `sampler.active` to `False`."
+        },
+        {
+            "role": "user",
+            "content": "Add a new attribute to Sampler called 'active: bool = True'. In Session, add a check that active is True before calling set_active_diff, and wrap that call in a try block; except a SampleError, print it to the stream and set active to false."
+        }
+    ],
+    "message_prompt": "In get_snapshot_commit, check that git config user and email have been set up-front, and raise a SampleError if not.",
+    "message_edit": "I will modify the `get_active_snapshot_commit` function in `mentat/sampler/utils.py` to check if the Git user name and email configuration are set before proceeding with creating a temporary commit. If either the user name or email is not set, I will raise a `SampleError`.\n\nSteps:\n1. Check if Git user name and email are set using `repo.config_reader()`.\n2. If either is not set, raise a `SampleError` with an appropriate message.\n3. Place the check before making any changes to the repository.",
+    "context": [
+        "mentat/sampler/utils.py",
+        "mentat/session.py",
+        "mentat/sampler/sampler.py",
+        "mentat/errors.py"
+    ],
+    "diff_edit": "diff --git a/mentat/sampler/utils.py b/mentat/sampler/utils.py\nindex f6e7420..01ea40d 100644\n--- a/mentat/sampler/utils.py\n+++ b/mentat/sampler/utils.py\n@@ -12,2 +12,9 @@ def get_active_snapshot_commit(repo: Repo) -> str | None:\n     \"\"\"Returns the commit hash of the current active snapshot, or None if there are no active changes.\"\"\"\n+    config_reader = repo.config_reader()\n+    if not config_reader.get_value(\n+        \"user\", \"name\", default=None\n+    ) or not config_reader.get_value(\"user\", \"email\", default=None):\n+        raise SampleError(\n+            \"Git user name and email must be set before creating a sample.\"\n+        )\n     if not repo.is_dirty():\n",
+    "test_command": "",
+    "version": "0.1.0"
+}

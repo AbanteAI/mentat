@@ -1,0 +1,19 @@
+{
+    "title": "Add a license",
+    "description": "",
+    "id": "fe5fb3556bb94365ac6ee078a4ed642d",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "ad9ff1c44117a3f3e3a99ec738e2a387d7c88ca1",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "I want to create a license for this project. What's the one where anyone can use it or modify it but they need to give you credit if a substantial portion remains",
+    "message_edit": "The license you are referring to is likely the MIT License or the Apache License 2.0. Both are permissive free software licenses that allow for reuse, modification, and distribution of the software, provided that credit is given to the original authors. The MIT License is more succinct, while the Apache License 2.0 includes additional terms concerning patent rights and a stipulation that states changes made to the code must be documented. \n\nFor simplicity and brevity, I will create an MIT License file for you.\n\nSteps:\n1. Create a new file named LICENSE.\n\n\nPlease replace `[year]` with the current year and `[fullname]` with the name of the copyright holder (individual or organization) before using the LICENSE file.",
+    "context": [
+        "README.md"
+    ],
+    "diff_edit": "diff --git a/LICENSE b/LICENSE\nnew file mode 100644\nindex 0000000..63b4b68\n--- /dev/null\n+++ b/LICENSE\n@@ -0,0 +1,21 @@\n+MIT License\n+\n+Copyright (c) [year] [fullname]\n+\n+Permission is hereby granted, free of charge, to any person obtaining a copy\n+of this software and associated documentation files (the \"Software\"), to deal\n+in the Software without restriction, including without limitation the rights\n+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n+copies of the Software, and to permit persons to whom the Software is\n+furnished to do so, subject to the following conditions:\n+\n+The above copyright notice and this permission notice shall be included in all\n+copies or substantial portions of the Software.\n+\n+THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n+SOFTWARE.\n\\ No newline at end of file\n",
+    "test_command": "",
+    "version": "0.1.0"
+}
