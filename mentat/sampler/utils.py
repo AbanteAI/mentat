@@ -9,7 +9,7 @@ from mentat.errors import SampleError
 from mentat.git_handler import get_non_gitignored_files
 from mentat.utils import is_file_text_encoded
 
-CLONE_TO_DIR = Path(__file__).parent.parent.parent / "benchmark_repos"
+CLONE_TO_DIR = Path("benchmark_repos")
 
 
 def clone_repo(
