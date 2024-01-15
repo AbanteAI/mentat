@@ -5,11 +5,14 @@ TIMESTAMP=$(date +%Y%m%d%H%M%S)
 git config --global user.email "jakethekoenig@gmail.com"
 git config --global user.name "Jake Koenig"
 echo "Git config set"
+pwd
+ls
 
 #######################
 # REAL WORLD BENCHMARKS
 #######################
 ./benchmarks/benchmark_runner.py --retries 2
+ls
 SUMMARY=$(jq '.summary_string' results.json)
 
 # Upload results to S3
