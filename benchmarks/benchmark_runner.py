@@ -179,6 +179,7 @@ async def evaluate_sample(sample_file, retries=1):
     results = []
     for i in range(retries):
         formatted_title = re.sub(r"[ '\"/\\-^]", "", sample.title).replace(" ", "_")
+        print(f"Running {formatted_title}-{i}")
         result = BenchmarkResult(
             name=f"{formatted_title}-{i}",
             family=formatted_title,
