@@ -26,7 +26,7 @@ class AbstractExerciseRunner:
         except subprocess.TimeoutExpired:
             results = "Test timed out"
         with open(self.test_output_file, "w") as f:
-            f.write(results)
+            f.write(results.strip())
 
     def include_files(self):
         return [self.full_path, self.docs()]

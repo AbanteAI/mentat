@@ -1,0 +1,37 @@
+{%- import "generator_macros.j2" as macros with context -%}
+{{ macros.canonical_ref() }}
+
+{{ macros.header(["HighScores"]) }}
+
+{%- macro get_property(property) %}
+    {%- if property == "scores" %}
+    scores
+    {%- else %}
+    {{ property | to_snake }}()
+    {% endif -%}
+{% endmacro -%}
+
+{%- macro testcase(case) %}
+    def test_{{ case["description"] | to_snake }}(self):
+        scores = {{ case["input"]["scores"] }}
+        expected = {{ case["expected"] }}
+        {%- if "_after_" not in ( case["property"] | to_snake ) %}
+        self.assertEqual(HighScores(scores).{{ get_property(case["property"]) }}, expected)
+        {%- else %}
+        {%- set property, function = (case["property"] | to_snake).split("_after_") %}
+        highscores = HighScores(scores)
+        highscores.personal_{{ function }}()
+        self.assertEqual(highscores.{{ get_property(property) }}, expected)
+        {% endif -%}
+{% endmacro %}
+
+class {{ exercise | camel_case }}Test(unittest.TestCase):
+    {%- for case in cases -%}
+    {%- if "cases" in case -%}
+    {%- for subcase in case["cases"] -%}
+    {{- testcase(subcase) -}}
+    {% endfor %}
+    {%- else %}
+    {{- testcase(case) -}}
+    {% endif -%}
+    {% endfor %}
