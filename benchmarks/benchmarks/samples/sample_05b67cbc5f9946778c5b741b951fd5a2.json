@@ -1,0 +1,20 @@
+{
+    "title": "Why doesnt embeddings print stats",
+    "description": "",
+    "id": "05b67cbc5f9946778c5b741b951fd5a2",
+    "parent_id": "",
+    "repo": "https://github.com/AbanteAI/mentat",
+    "merge_base": "9498bdde0dcdeafcaaac6ab148bdb599f3d7548c",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "Why aren't the stats from my embeddings api calls printed anymore? Don't change anything, just answer my question.",
+    "message_edit": "The `CostTracker` class in `mentat/cost_tracker.py` is responsible for logging and displaying the statistics of API calls, including the number of tokens processed, the speed of processing, and the cost of the calls. However, in the `get_feature_similarity_scores` function in `mentat/embeddings.py`, while the `log_api_call_stats` method of `CostTracker` is called to log the stats of the embeddings API calls, there is no call to `display_last_api_call` or direct instruction to display the logged stats immediately after logging them.\n\nThe `log_api_call_stats` method does log the stats to a logger named \"costs\" and updates the `last_api_call` attribute of the `CostTracker` instance, but unless `display_last_api_call` is explicitly called somewhere after the API call, or the `display` parameter of `log_api_call_stats` is set to `True`, the stats will not be printed to the output stream.\n\nIf the stats were being displayed previously and are no longer visible, it's possible that either the code that called `display_last_api_call` has been removed or modified, or the `display` parameter was changed from `True` to `False` in a previous update to the codebase. Additionally, if the logger configuration has been changed and the \"costs\" logger no longer outputs to a visible stream, that could also explain why the stats are not being printed.",
+    "context": [
+        "mentat/cost_tracker.py",
+        "mentat/embeddings.py"
+    ],
+    "diff_edit": "",
+    "test_command": "",
+    "version": "0.1.0"
+}

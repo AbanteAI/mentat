@@ -1,0 +1,20 @@
+{
+    "title": "Rename a class and its file",
+    "description": "",
+    "id": "fe61aa46624b46079477199cc2dfa38e",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "20330f21818bff27a5b05d2d106c2dbcf61f7001",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "Rename SearchBox to Navigation - the file and the class.",
+    "message_edit": "I will rename the file `SearchBox.js` to `Navigation.js` and update the class name from `SearchBox` to `Navigation`.\n\nSteps:\n1. Rename the file `SearchBox.js` to `Navigation.js`.\n2. Replace the class name `SearchBox` with `Navigation` in the `Navigation.js` file.\n3. Update the import statement in `App.js` to reflect the new file and class name.",
+    "context": [
+        "frontend/src/App.js",
+        "frontend/src/SearchBox.js"
+    ],
+    "diff_edit": "diff --git a/frontend/src/App.js b/frontend/src/App.js\nindex 3e456cb..8c4318c 100644\n--- a/frontend/src/App.js\n+++ b/frontend/src/App.js\n@@ -7,3 +7,3 @@ import { Canvas } from '@react-three/fiber'\n import Dot from './Dot';\n-import SearchBox from './SearchBox';\n+import Navigation from './Navigation';\n \n@@ -157,3 +157,3 @@ const App = () => {\n         <>\n-            <SearchBox searchTerms={searchTerm} setSearchTerms={setSearchTerm} isLoading={isLoading} setPca={setPca} />\n+            <Navigation searchTerms={searchTerm} setSearchTerms={setSearchTerm} isLoading={isLoading} setPca={setPca} />\n             {/* {isLoading && <div className=\"loading\">Loading...</div>} NOT FLOATING PROPERLY */}  \ndiff --git a/frontend/src/SearchBox.js b/frontend/src/Navigation.js\nsimilarity index 96%\nrename from frontend/src/SearchBox.js\nrename to frontend/src/Navigation.js\nindex ae77174..f3aa2ae 100644\n--- a/frontend/src/SearchBox.js\n+++ b/frontend/src/Navigation.js\n@@ -10,3 +10,3 @@ const splitSearchTerm = (term) => {\n \n-const SearchBox = ({ searchTerms, setSearchTerms, isLoading, setPca }) => {\n+const Navigation = ({ searchTerms, setSearchTerms, isLoading, setPca }) => {\n     const [searchTerm, setSearchTerm] = useState('');\n@@ -103,2 +103,2 @@ const styles = {\n \n-export default SearchBox;\n+export default Navigation;\n",
+    "test_command": "",
+    "version": "0.1.0"
+}

@@ -1,0 +1,22 @@
+{
+    "title": "How are coordinates rendered to the screen?",
+    "description": "",
+    "id": "9f7020d6cb804a4a93b526ec7a3f1702",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "b293d727faf5f36be68d8a20056eaf994d38e43b",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "How are the coordinates passed around? Explain which components they touch bewteen being generated and then displayed on the screen.",
+    "message_edit": "The coordinates are generated on the backend and then passed through various components on the frontend before being displayed on the screen. Here's the flow of the coordinates:\n\n1. Backend Generation:\n   - The coordinates are generated in the `backend/word_vectors.py` file by the `get_coordinates` function. This function takes a list of words and a PCA ID, generates embeddings for those words using a model, and then transforms those embeddings into coordinates using PCA (Principal Component Analysis).\n\n2. Backend API Endpoints:\n   - The generated coordinates are returned as part of the JSON response from the backend API endpoints defined in `backend/app.py`. Specifically, the `/api/index`, `/api/search`, and `/api/set_pca` endpoints return coordinates in their responses.\n\n3. Frontend API Calls:\n   - The frontend in `frontend/src/App.js` makes API calls to the backend to fetch the coordinates. This is done in the `fetchApi`, `fetchIndex`, `search`, and `toggleMagicWand` functions using the `fetch` API.\n\n4. Frontend State Management:\n   - Once the frontend receives the coordinates from the backend, they are stored in the state of the `App` component. The state variables `corpus` and `searchHistory` are used to manage the coordinates and other related data.\n\n5. Frontend Rendering:\n   - The `App` component passes the coordinates to the `Canvas` component from `@react-three/fiber` to render the 3D visualization.\n   - Inside the `Canvas`, the `corpus` state is mapped to `DotMemo` components (a memoized version of the `Dot` component), which are responsible for rendering individual dots in the 3D space.\n   - The `Dot` component in `frontend/src/Dot.js` receives the coordinates as props and uses them to position the dots in the 3D space. The coordinates are scaled and set as the position of the `mesh` element that represents the dot.\n\n6. Display on Screen:\n   - Finally, the `Dot` components are rendered on the screen as part of the 3D visualization, with each dot positioned according to its coordinates.\n\nIn summary, the coordinates are created on the backend, sent to the frontend via API endpoints, managed in the state of the `App` component, passed to the `Dot` components, and then rendered on the screen as part of a 3D visualization.",
+    "context": [
+        "backend/word_vectors.py",
+        "frontend/src/Dot.js",
+        "frontend/src/App.js",
+        "backend/app.py"
+    ],
+    "diff_edit": "",
+    "test_command": "",
+    "version": "0.1.0"
+}

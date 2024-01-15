@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
+BUCKET="benchmarks.mentat.ai"
 
 git config --global user.email "jakethekoenig@gmail.com"
 git config --global user.name "Jake Koenig"

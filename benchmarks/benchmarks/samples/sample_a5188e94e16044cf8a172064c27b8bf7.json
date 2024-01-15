@@ -1,0 +1,20 @@
+{
+    "title": "Use fetchApi for index",
+    "description": "",
+    "id": "a5188e94e16044cf8a172064c27b8bf7",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "78d5342bc6e4fd18a0d5200479cc44d310a98b74",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "In my frontend fetchIndex func, use fetchApi instead of fetch",
+    "message_edit": "I will replace the direct `fetch` call in the `fetchIndex` function with the `fetchApi` helper function in the `frontend/src/App.js` file.\n\nSteps:\n1. Replace the `fetch` call in the `fetchIndex` function with a call to `fetchApi`.",
+    "context": [
+        "frontend/src/App.js",
+        "backend/app.py"
+    ],
+    "diff_edit": "diff --git a/frontend/src/App.js b/frontend/src/App.js\nindex 41bbe45..bf307b6 100644\n--- a/frontend/src/App.js\n+++ b/frontend/src/App.js\n@@ -22,3 +22,3 @@ const fetchApi = async (route=\"/api\", method=\"GET\", args={}) => {\n             headers: { 'Content-Type': 'application/json' },\n-            body: JSON.stringify(args),\n+            ...(method === \"GET\" ? {} : {body: JSON.stringify(args)}),\n         });\n@@ -49,4 +49,3 @@ const App = () => {\n         try {\n-            const response = await fetch(\"/api/index\")\n-            const data = await response.json()\n+            const data = await fetchApi(\"/api/index\");\n             console.log(data)\n",
+    "test_command": "",
+    "version": "0.1.0"
+}

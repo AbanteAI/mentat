@@ -1,0 +1,20 @@
+{
+    "title": "What type are embeddings",
+    "description": "",
+    "id": "cc7442e068484c2cba4467acc495b2cd",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "b293d727faf5f36be68d8a20056eaf994d38e43b",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "What type do I save embeddings as?",
+    "message_edit": "The embeddings are saved as lists of floats. This is evident from the `get_embeddings` function in the `backend/word_vectors.py` file, specifically line 27, where the embedding is converted to a list and then serialized using `pickle.dumps` before being stored in Redis. When the embeddings are retrieved from Redis, they are deserialized using `pickle.loads`, which would return them to their original list of floats format (see line 29).",
+    "context": [
+        "backend/embeddings.py",
+        "backend/word_vectors.py"
+    ],
+    "diff_edit": "",
+    "test_command": "",
+    "version": "0.1.0"
+}

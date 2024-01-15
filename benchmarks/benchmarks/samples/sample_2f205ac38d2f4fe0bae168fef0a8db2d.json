@@ -1,0 +1,19 @@
+{
+    "title": "Reposition camera if only one term",
+    "description": "",
+    "id": "2f205ac38d2f4fe0bae168fef0a8db2d",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "3621933957f560c6ab27c011ef02a0347947bb02",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "If there's only one item in SelectedCorpus, add z += 5 to the targetCoordinates",
+    "message_edit": "I will modify the Camera component in the `frontend/src/Camera.js` file to adjust the target coordinates when there is only one item in `selectedCorpus`.\n\nSteps:\n1. Check the length of `selectedCorpus` inside the `useEffect` that computes the bounding box.\n2. If there's only one item, add 5 to the z-coordinate of the target.",
+    "context": [
+        "frontend/src/Camera.js"
+    ],
+    "diff_edit": "diff --git a/frontend/src/Camera.js b/frontend/src/Camera.js\nindex 9eba702..47b3b40 100644\n--- a/frontend/src/Camera.js\n+++ b/frontend/src/Camera.js\n@@ -32,2 +32,5 @@ const Camera = ({ selectedCorpus }) => {\n             const target = new THREE.Vector3(center.x, center.y, center.z + cameraDistance);\n+            if (Object.keys(selectedCorpus).length === 1) {\n+                target.z += 5;\n+            }\n             setTargetCoordinates(target);\n",
+    "test_command": "",
+    "version": "0.1.0"
+}

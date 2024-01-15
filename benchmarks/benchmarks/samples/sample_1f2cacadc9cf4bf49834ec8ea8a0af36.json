@@ -1,0 +1,21 @@
+{
+    "title": "Switch a set route to toggle, from component to flask.",
+    "description": "",
+    "id": "1f2cacadc9cf4bf49834ec8ea8a0af36",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "a672010168107e09c0ca32cdeb5220d5d287ae17",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "Make MagicWand function like a toggle by passing it the pca_id, setting it locally when first click (and invert colors), then setting it back to nothing (and revert colors) the next time it's clicked. When it's clicked 'off', I want use the same route but just return coordinates using pca_id = \"default\"",
+    "message_edit": "I will update the `App.js` and `Navigation.js` files to implement the toggle functionality for the MagicWand button. The `setPca` function in `App.js` will be modified to accept an optional `pca_id` parameter, which will be used to determine whether to use the default PCA or a new one. The `MagicWandButton` component in `Navigation.js` will be updated to pass the current `pcaId` to the `setPca` function and to toggle the button's appearance based on whether the `pcaId` is \"default\" or not.\n\nSteps:\n1. Modify the `setPca` function in `App.js` to accept an optional `pca_id` parameter and use it to determine the PCA ID to send to the backend.\n2. Update the `MagicWandButton` component in `Navigation.js` to pass the current `pcaId` to the `setPca` function and to toggle the button's appearance based on the `pcaId`.",
+    "context": [
+        "frontend/src/Navigation.js",
+        "backend/app.py",
+        "frontend/src/App.js"
+    ],
+    "diff_edit": "diff --git a/backend/app.py b/backend/app.py\nindex f3ca647..158af8c 100644\n--- a/backend/app.py\n+++ b/backend/app.py\n@@ -55,4 +55,5 @@ def set_pca():\n         search_history = data.get(\"search_history\") or []\n+        reset = data.get(\"reset\")\n \n-        pca_id = get_pca_id(words)\n+        pca_id = \"default\" if reset else get_pca_id(words)\n         corpus = list(set(oxford_3000 + search_history + words))\ndiff --git a/frontend/src/App.js b/frontend/src/App.js\nindex 810ab58..30712a3 100644\n--- a/frontend/src/App.js\n+++ b/frontend/src/App.js\n@@ -119,4 +119,3 @@ const App = () => {\n         try {\n-            const args = {words: searchTerm, search_history: searchHistory}\n-            console.log('sending', args)\n+            const args = {words: searchTerm, search_history: searchHistory, reset: pcaId !== \"default\"}\n             const data = await fetchApi(\"/api/set_pca\", \"POST\", args);\n@@ -158,3 +157,3 @@ const App = () => {\n         <>\n-            <Navigation searchTerms={searchTerm} setSearchTerms={setSearchTerm} isLoading={isLoading} setPca={setPca} />\n+            <Navigation searchTerms={searchTerm} setSearchTerms={setSearchTerm} isLoading={isLoading} setPca={setPca} pcaId={pcaId} />\n             {/* {isLoading && <div className=\"loading\">Loading...</div>} NOT FLOATING PROPERLY */}  \ndiff --git a/frontend/src/Navigation.js b/frontend/src/Navigation.js\nindex 54ed435..4821ee1 100644\n--- a/frontend/src/Navigation.js\n+++ b/frontend/src/Navigation.js\n@@ -74,3 +74,3 @@ const SearchBar = ({ searchTerms, setSearchTerms, isLoading }) => {\n \n-const MagicWandButton = ({ setPca, isWandActive }) => (\n+const MagicWandButton = ({ setPca, isWandActive, pcaId }) => (\n     <button\n@@ -81,4 +81,4 @@ const MagicWandButton = ({ setPca, isWandActive }) => (\n             border: '1px solid #ccc',\n-            backgroundColor: 'black',\n-            color: 'white',\n+            backgroundColor: pcaId === 'default' ? 'black' : 'white',\n+            color: pcaId === 'default' ? 'white' : 'black',\n             height: '50px',\n@@ -100,3 +100,3 @@ const MagicWandButton = ({ setPca, isWandActive }) => (\n \n-const Navigation = ({ searchTerms, setSearchTerms, isLoading, setPca }) => (\n+const Navigation = ({ searchTerms, setSearchTerms, isLoading, setPca, pcaId }) => (\n     <div style={{\n@@ -121,2 +121,3 @@ const Navigation = ({ searchTerms, setSearchTerms, isLoading, setPca }) => (\n             isWandActive={!isLoading && searchTerms.length > 2} \n+            pcaId={pcaId}\n         />\n",
+    "test_command": "",
+    "version": "0.1.0"
+}

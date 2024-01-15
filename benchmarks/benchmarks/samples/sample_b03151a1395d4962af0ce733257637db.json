@@ -1,0 +1,28 @@
+{
+    "title": "Fix numpy/sklearn error",
+    "description": "",
+    "id": "b03151a1395d4962af0ce733257637db",
+    "parent_id": "",
+    "repo": "http://github.com/granawkins/latent-dictionary",
+    "merge_base": "ddb340a5fe05a3fefcecb6e62c774fa2dc69ef0b",
+    "diff_merge_base": "",
+    "diff_active": "diff --git a/backend/pca.py b/backend/pca.py\nindex 1ea7855..28c781e 100644\n--- a/backend/pca.py\n+++ b/backend/pca.py\n@@ -1,2 +1,3 @@\n from sklearn.decomposition import PCA\n+from sklearn.manifold import TSNE\n COMPONENTS = 3\n@@ -10 +11,9 @@ def get_pca_for(\n     return pca\n+\n+def get_tsne_for(\n+    items: list[list[float]], n_components: int = COMPONENTS\n+) -> list[list[float]]:\n+    \"\"\"Reduce dimensionality of a list of embeddings using t-SNE.\"\"\"\n+    tsne = TSNE(n_components=n_components)\n+    tsne.fit(items)\n+    return tsne\ndiff --git a/backend/word_vectors.py b/backend/word_vectors.py\nindex 0235a2f..59d7adc 100644\n--- a/backend/word_vectors.py\n+++ b/backend/word_vectors.py\n@@ -3,3 +3,3 @@ import pickle\n from embeddings import DistilBertEmbeddingsModel\n-from pca import get_pca_for\n+from pca import get_tsne_for\n from redis_client import get_redis_client\n@@ -14,3 +14,3 @@ def get_pca_id(words: list[str] = []) -> str:\n     if pca_id not in pcas:\n-        pcas[pca_id] = get_pca_for(get_embeddings(words))\n+        pcas[pca_id] = get_tsne_for(get_embeddings(words))\n     return pca_id\n@@ -36,3 +36,3 @@ def get_coordinates(words: list[str] = [], pca_id: str = \"default\") -> list[list\n         if pca_id == \"default\":\n-            pcas[\"default\"] = get_pca_for(embeddings)  # First time only\n+            pcas[\"default\"] = get_tsne_for(embeddings)  # First time only\n         else:\ndiff --git a/frontend/src/App.js b/frontend/src/App.js\nindex e9afa68..d69b075 100644\n--- a/frontend/src/App.js\n+++ b/frontend/src/App.js\n@@ -41,2 +41,3 @@ const App = () => {\n             const data = await response.json();\n+            console.log(data)\n             if (data.error) {\n",
+    "message_history": [],
+    "message_prompt": "I've just switched to tsne, and I'm getting an error \"\"'list' object has no attribute 'shape'\" Can you find why?",
+    "message_edit": "The error message \"'list' object has no attribute 'shape'\" suggests that there is an issue with the expected input type for a function or method that requires a NumPy array or similar data structure with a 'shape' attribute, but a list is being provided instead.\n\nThe `get_tsne_for` function in `backend/pca.py` is likely the source of the error, as t-SNE in scikit-learn expects a NumPy array rather than a list. The `fit` method of the `TSNE` object is being called with `items`, which is expected to be a list of lists of floats. However, `TSNE` requires a NumPy array or a similar data structure that supports the 'shape' attribute.\n\nTo fix this issue, we need to convert the list of lists into a NumPy array before calling the `fit` method on the `TSNE` object. I will make the necessary changes to the `get_tsne_for` function in `backend/pca.py`.\n\nChanges:\n1. Import NumPy in `backend/pca.py`.\n2. Convert the list of lists `items` into a NumPy array before fitting the t-SNE model.\n\nHere are the edits:\n\n\n\nThese changes should resolve the error by ensuring that the input to the t-SNE `fit` method has the required 'shape' attribute.",
+    "context": [
+        "backend/pca.py",
+        "backend/word_vectors.py",
+        "backend/Dockerfile",
+        "backend/requirements.txt",
+        "backend/__init__.py",
+        "backend/embeddings.py",
+        "backend/user_handler.py",
+        "backend/Dockerfile.prod",
+        "backend/redis_client.py",
+        "backend/app.py"
+    ],
+    "diff_edit": "diff --git a/backend/pca.py b/backend/pca.py\nindex 28c781e..7fea3a2 100644\n--- a/backend/pca.py\n+++ b/backend/pca.py\n@@ -1,2 +1,3 @@\n from sklearn.decomposition import PCA\n+import numpy as np\n from sklearn.manifold import TSNE\n@@ -16,2 +17,3 @@ def get_tsne_for(\n     \"\"\"Reduce dimensionality of a list of embeddings using t-SNE.\"\"\"\n+    items = np.array(items)\n     tsne = TSNE(n_components=n_components)\n",
+    "test_command": "",
+    "version": "0.1.0"
+}

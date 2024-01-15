@@ -1,0 +1,19 @@
+{
+    "title": "Add new config variable",
+    "description": "",
+    "id": "8525e9b309994398a879ddd00506e0db",
+    "parent_id": "",
+    "repo": "https://github.com/AbanteAI/mentat",
+    "merge_base": "9498bdde0dcdeafcaaac6ab148bdb599f3d7548c",
+    "diff_merge_base": "",
+    "diff_active": "",
+    "message_history": [],
+    "message_prompt": "Add a new attribute to Config called llm_feature_filter. Copy everything from auto_context_tokens except the abbreviation, which should be 'l', and the description, which should be: \"Send this many tokens of auto-context-selected code files to an LLM along with the user_prompt to post-select only files which are relevant to the task. Post-files will then be sent to the LLM again to respond to the user's prompt.\"",
+    "message_edit": "I will add a new attribute `llm_feature_filter` to the `Config` class in `mentat/config.py`.\n\nSteps:\n1. Add the new attribute `llm_feature_filter` to the `Config` class with the specified properties.",
+    "context": [
+        "mentat/config.py"
+    ],
+    "diff_edit": "diff --git a/mentat/config.py b/mentat/config.py\nindex 8d52d78..4f42393 100644\n--- a/mentat/config.py\n+++ b/mentat/config.py\n@@ -118,2 +118,17 @@ class Config:\n     )\n+    llm_feature_filter: int = attr.field(  # pyright: ignore\n+        default=0,\n+        metadata={\n+            \"description\": (\n+                \"Send this many tokens of auto-context-selected code files to an LLM\"\n+                \" along with the user_prompt to post-select only files which are\"\n+                \" relevant to the task. Post-files will then be sent to the LLM again\"\n+                \" to respond to the user's prompt.\"\n+            ),\n+            \"abbreviation\": \"l\",\n+            \"const\": 5000,\n+        },\n+        converter=int,\n+        validator=validators.ge(0),  # pyright: ignore\n+    )\n \n",
+    "test_command": "",
+    "version": "0.1.0"
+}
