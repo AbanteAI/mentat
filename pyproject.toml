@@ -15,6 +15,5 @@ preview = "true"
 exclude = """
 /(
     testbed/exercism-python
-    benchmarks/benchmark_repos
 )/
 """
