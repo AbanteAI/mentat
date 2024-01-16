@@ -86,6 +86,10 @@ pre {
     background-color: rgb(255, 197, 197);
 }
 
+.revisor {
+    background-color: rgb(243, 246, 196);
+}
+
 .button-group {
     position: absolute;
     top: 20px;

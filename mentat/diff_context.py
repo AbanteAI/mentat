@@ -4,7 +4,7 @@ from typing import List, Literal, Optional
 
 import attr
 
-from mentat.errors import UserError
+from mentat.errors import MentatError
 from mentat.git_handler import (
     check_head_exists,
     get_diff_for_file,
@@ -34,8 +34,8 @@ def parse_diff(diff: str) -> list[DiffAnnotation]:
     annotations: list[DiffAnnotation] = []
     active_annotation: Optional[DiffAnnotation] = None
     lines = diff.splitlines()
-    for line in lines[4:]:  # Ignore header
-        if line.startswith(("---", "+++", "//")):
+    for line in lines:
+        if line.startswith(("---", "+++", "//", "diff", "index")):
             continue
         elif line.startswith("@@"):
             if active_annotation:
@@ -48,7 +48,7 @@ def parse_diff(diff: str) -> list[DiffAnnotation]:
             active_annotation = DiffAnnotation(start=int(new_start), message=[])
         elif line.startswith(("+", "-")):
             if not active_annotation:
-                raise UserError("Invalid diff")
+                raise MentatError("Invalid diff")
             active_annotation.message.append(line)
     if active_annotation:
         annotations.append(active_annotation)

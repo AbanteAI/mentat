@@ -24,6 +24,7 @@ from mentat.errors import MentatError, ReturnToUser, SampleError, SessionExit, U
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
+from mentat.revisor.revisor import revise_edits
 from mentat.sampler.sampler import Sampler
 from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
@@ -171,13 +172,16 @@ class Session:
                     for file_edit in parsed_llm_response.file_edits
                     if file_edit.is_valid()
                 ]
+                for file_edit in file_edits:
+                    file_edit.resolve_conflicts()
                 if file_edits:
+                    if session_context.config.revisor:
+                        await revise_edits(file_edits)
+
                     if not agent_handler.agent_enabled:
                         file_edits, need_user_request = (
                             await get_user_feedback_on_edits(file_edits)
                         )
-                    for file_edit in file_edits:
-                        file_edit.resolve_conflicts()
 
                     if session_context.sampler and session_context.sampler.active:
                         try:

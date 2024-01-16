@@ -56,7 +56,7 @@ class UnifiedDiffParser(Parser):
         elif cur_line.startswith("-"):
             return colored(content, "red")
         else:
-            return highlight_text(display_information, content)
+            return highlight_text(content, display_information.lexer)
 
     @override
     def _could_be_special(self, cur_line: str) -> bool:
