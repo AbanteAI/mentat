@@ -202,6 +202,7 @@ async def evaluate_sample(sample_file, retries=1):
         await grade_and_clean_diff(
             repo, response, result, comparison_diff=sample.diff_edit
         )
+        os.chdir('../..')
         results.append(result)
     return results
 
@@ -241,6 +242,7 @@ async def evalute_py(path, retries):
                 result.verify = benchmark.verify()
 
             await grade_and_clean_diff(repo, response, result, comparison_diff)
+            os.chdir('../..')
             results.append(result)
     return results
 
