@@ -290,7 +290,6 @@ async def run_benchmarks(retries, benchmarks):
             results.extend(await evaluate_sample(path))
 
     summary = BenchmarkResultSummary(results)
-    os.chdir('../..')
     print(os.getcwd())
     with open("results.json", "w") as f:
         f.write(summary.to_json())
