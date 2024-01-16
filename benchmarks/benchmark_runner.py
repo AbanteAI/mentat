@@ -189,21 +189,23 @@ async def evaluate_sample(sample_file, retries=1):
             diff_merge_base=sample.diff_merge_base,
             diff_active=sample.diff_active,
         )
-        cwd = Path(repo.working_dir)
+        try:
+            cwd = Path(repo.working_dir)
 
-        # Run sample in PythonClient
-        paths = list[Path]()
-        for a in sample.context:
-            paths.append(Path(a))
-        client = PythonClient(cwd=cwd, paths=paths)
-        response = await run_client(
-            client, sample.message_prompt, result, sample.message_history
-        )
-        await grade_and_clean_diff(
-            repo, response, result, comparison_diff=sample.diff_edit
-        )
-        os.chdir('../..')
-        results.append(result)
+            # Run sample in PythonClient
+            paths = list[Path]()
+            for a in sample.context:
+                paths.append(Path(a))
+            client = PythonClient(cwd=cwd, paths=paths)
+            response = await run_client(
+                client, sample.message_prompt, result, sample.message_history
+            )
+            await grade_and_clean_diff(
+                repo, response, result, comparison_diff=sample.diff_edit
+            )
+            results.append(result)
+        finally:
+            os.chdir('../..')
     return results
 
 
