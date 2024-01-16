@@ -11,7 +11,7 @@ TIMESTAMP=$(date +%Y%m%d%H%M%S)
     --max_benchmarks 200 \
     --language javascript
 
-SUMMARY=$(jq '.summary_string' benchmark_repos/exercism-javascript/results.json)
+SUMMARY=$(jq '.summary_string' benchmarks/benchmark_repos/exercism-javascript/results.json)
 BUCKET="benchmarks.mentat.ai"
 
 # Upload results to S3
@@ -32,7 +32,7 @@ curl -X POST -H "Content-Type: application/json" -d "{\"benchmark_report\": \"${
     --max_benchmarks 200 \
     --language python
 
-SUMMARY=$(jq '.summary_string' benchmark_repos/exercism-python/results.json)
+SUMMARY=$(jq '.summary_string' benchmarks/benchmark_repos/exercism-python/results.json)
 
 # Upload results to S3
 aws s3 cp benchmark_repos/exercism-python/results.html s3://${BUCKET}/exercism-python-results-${TIMESTAMP}.html

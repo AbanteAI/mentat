@@ -177,6 +177,7 @@ async def evaluate_sample(sample_file, retries=1):
     """Run a sample using Mentat and return the resulting diff"""
     sample = Sample.load(sample_file)
     results = []
+    start_dir = Path.cwd()
     for i in range(retries):
         formatted_title = re.sub(r"[ '\"/\\-^]", "", sample.title).replace(" ", "_")
         result = BenchmarkResult(
@@ -189,20 +190,23 @@ async def evaluate_sample(sample_file, retries=1):
             diff_merge_base=sample.diff_merge_base,
             diff_active=sample.diff_active,
         )
-        cwd = Path(repo.working_dir)
+        try:
+            cwd = Path(repo.working_dir)
 
-        # Run sample in PythonClient
-        paths = list[Path]()
-        for a in sample.context:
-            paths.append(Path(a))
-        client = PythonClient(cwd=cwd, paths=paths)
-        response = await run_client(
-            client, sample.message_prompt, result, sample.message_history
-        )
-        await grade_and_clean_diff(
-            repo, response, result, comparison_diff=sample.diff_edit
-        )
-        results.append(result)
+            # Run sample in PythonClient
+            paths = list[Path]()
+            for a in sample.context:
+                paths.append(Path(a))
+            client = PythonClient(cwd=cwd, paths=paths)
+            response = await run_client(
+                client, sample.message_prompt, result, sample.message_history
+            )
+            await grade_and_clean_diff(
+                repo, response, result, comparison_diff=sample.diff_edit
+            )
+            results.append(result)
+        finally:
+            os.chdir(start_dir)
     return results
 
 
@@ -212,36 +216,41 @@ async def evalute_py(path, retries):
     title = benchmark.title
 
     print("Benchmark:", title)
-    repo = setup_repo(
-        url=benchmark.repo,
-        commit=benchmark.commit,
-    )
-    cwd = Path(repo.working_dir)
+    start_dir = Path.cwd()
+    try:
+        repo = setup_repo(
+            url=benchmark.repo,
+            commit=benchmark.commit,
+        )
+        cwd = Path(repo.working_dir)
 
-    if hasattr(benchmark, "comparison_commit"):
-        comparison_commit = benchmark.comparison_commit
-        repo.git.checkout(comparison_commit)
-        comparison_diff = repo.git.diff(benchmark.commit)
-    else:
-        comparison_diff = None
+        if hasattr(benchmark, "comparison_commit"):
+            comparison_commit = benchmark.comparison_commit
+            repo.git.checkout(comparison_commit)
+            comparison_diff = repo.git.diff(benchmark.commit)
+        else:
+            comparison_diff = None
 
-    for i, prompt in enumerate(benchmark.prompts):
-        print("  Prompt:", prompt)
-        for j in range(1, retries + 1):
-            formatted_title = re.sub(r"[ '\"/\\-^]", "", title).replace(" ", "_")
-            result = BenchmarkResult(
-                name=f"{formatted_title}-{i}-{j}",
-                family=formatted_title,
-            )
-            client = PythonClient(cwd=cwd, config=benchmark.config)
-            response = await run_client(client, prompt, result)
+        for i, prompt in enumerate(benchmark.prompts):
+            print("  Prompt:", prompt)
+            for j in range(1, retries + 1):
+                formatted_title = re.sub(r"[ '\"/\\-^]", "", title).replace(" ", "_")
+                result = BenchmarkResult(
+                    name=f"{formatted_title}-{i}-{j}",
+                    family=formatted_title,
+                )
+                client = PythonClient(cwd=cwd, paths=benchmark.paths, config=benchmark.config)
+                response = await run_client(client, prompt, result)
 
-            await client.shutdown()
-            if hasattr(benchmark, "verify"):
-                result.verify = benchmark.verify()
+                await client.shutdown()
+                if hasattr(benchmark, "verify"):
+                    result.verify = benchmark.verify()
 
-            await grade_and_clean_diff(repo, response, result, comparison_diff)
-            results.append(result)
+                await grade_and_clean_diff(repo, response, result, comparison_diff)
+                os.chdir('../..')
+                results.append(result)
+    finally:
+        os.chdir(start_dir)
     return results
 
 
@@ -252,9 +261,9 @@ def benchmark_listed(title, benchmarks):
     return False
 
 
-async def run_benchmarks(retries, benchmarks):
+async def run_benchmarks(benchmarks, retries=1):
     print("Running benchmarks")
-    benchmarks_dir = f"{os.path.dirname(__file__)}/benchmarks"
+    benchmarks_dir = Path("benchmarks/benchmarks")
 
     benchmark_paths = []
     for root, dirs, files in os.walk(benchmarks_dir):
@@ -296,7 +305,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     asyncio.run(
         run_benchmarks(
+            args.benchmarks,
             args.retries,
-            args.benchmarks[0],
         )
     )
