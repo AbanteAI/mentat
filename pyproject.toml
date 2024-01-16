@@ -1,19 +1,20 @@
 [tool.isort]
 profile = "black"
 known_first_party = "mentat"
-skip = ["vscode/bundled", "benchmark_repos", "testbed/exercism-python"]
+skip = ["vscode/bundled", "benchmarks/benchmark_repos", "testbed/exercism-python"]
 
 [tool.ruff]
 line-length = 120
 ignore = ["E731"]
 
 [tool.pytest.ini_options]
-addopts = "--ignore=vscode/bundled --ignore=benchmark_repos --ignore=testbed/exercism-python"
+addopts = "--ignore=vscode/bundled --ignore=benchmarks/benchmark_repos --ignore=testbed/exercism-python"
 
 [tool.black]
 preview = "true"
 exclude = """
 /(
     testbed/exercism-python
+    benchmarks/benchmark_repos
 )/
 """

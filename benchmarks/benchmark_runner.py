@@ -239,7 +239,9 @@ async def evalute_py(path, retries):
                     name=f"{formatted_title}-{i}-{j}",
                     family=formatted_title,
                 )
-                client = PythonClient(cwd=cwd, paths=benchmark.paths, config=benchmark.config)
+                client = PythonClient(
+                    cwd=cwd, paths=benchmark.paths, config=benchmark.config
+                )
                 response = await run_client(client, prompt, result)
 
                 await client.shutdown()
@@ -247,7 +249,7 @@ async def evalute_py(path, retries):
                     result.verify = benchmark.verify()
 
                 await grade_and_clean_diff(repo, response, result, comparison_diff)
-                os.chdir('../..')
+                os.chdir("../..")
                 results.append(result)
     finally:
         os.chdir(start_dir)
