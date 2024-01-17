@@ -130,7 +130,7 @@ async def translate_commits_to_transcripts(repo, count=10):
                 print("Skipping because too long")
                 continue
 
-            parsedLLMResponse = GitParser().parse_string(shown)
+            parsedLLMResponse = GitParser().parse_llm_response(shown)
 
             code_context.set_paths(bound_files(parsedLLMResponse.file_edits), [])
             code_message = await code_context.get_code_message("", 0)

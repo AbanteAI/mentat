@@ -171,7 +171,7 @@ class Sampler:
             context.update(_rp(f) for f in feature_refs)
         # Undo adds/removes/renames to match pre-diff_edit state
         if diff_edit:
-            file_edits = GitParser().parse_string(diff_edit).file_edits
+            file_edits = GitParser().parse_llm_response(diff_edit).file_edits
             for file_edit in file_edits:
                 file_path = _rp(file_edit.file_path)
                 rename_path = (

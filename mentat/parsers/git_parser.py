@@ -39,47 +39,25 @@ class GitParser:
         self,
         response: AsyncGenerator[Any, None],
     ) -> ParsedLLMResponse:
-        current_line = ""
-        conversation = ""
-        file_edits = ""
+        string = ""
         async for chunk in response:
             for content in chunk_to_lines(chunk):
-                # Wait for a full line
-                if "\n" not in content:
-                    current_line += content
-                    continue
-                # Add complete lines to conversation (pre-edits) or file_edits
-                current_line += content.split("\n")[0]
-                if file_edits or current_line.startswith(("diff --git ", "commit ")):
-                    file_edits += current_line + "\n"
-                else:
-                    conversation += current_line + "\n"
-                # Process the rest of the line, if any
-                current_line = content.split("\n", 1)[1]
-        file_edits += current_line
-        parsedLLMResponse = self.parse_string(file_edits)
-        if conversation:
-            while not conversation.endswith("\n\n"):
-                conversation += "\n"
-            parsedLLMResponse.full_response = (
-                conversation + parsedLLMResponse.full_response
-            )
-            parsedLLMResponse.conversation = conversation
-        return parsedLLMResponse
+                string += content
+        return self.parse_llm_response(string)
 
-    def parse_string(self, git_diff: str) -> ParsedLLMResponse:
+    def parse_llm_response(self, content: str) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
 
-        # This is safe because actual code is prepended with ' ', + or -.
-        split_on_diff = git_diff.split("\ndiff --git ")
+        split_on_diff = content.split("diff --git")
+        conversation = split_on_diff[0].strip()
+        split_on_diff = split_on_diff[1:]
+        git_diff = [f"diff --git{diff}" for diff in split_on_diff]
 
-        # Use commit message for conversation
-        commit_message = ""
-        if "\n\n" in split_on_diff[0]:
-            commit_message = dedent(split_on_diff[0].split("\n\n")[1].strip())
-            split_on_diff = split_on_diff[1:]
-        else:
-            split_on_diff[0] = split_on_diff[0].replace("diff --git ", "", 1)
+        # If there's a commit record, remove everything except the commit message.
+        if "commit " in conversation and "\n\n" in conversation:
+            conversation, commit_record = conversation.split("commit ", 1)
+            commit_message = dedent(commit_record.split("\n\n")[1].strip())
+            conversation += commit_message
 
         file_edits: List[FileEdit] = []
         for diff in split_on_diff:
@@ -164,7 +142,9 @@ class GitParser:
 
             file_edits.append(file_edit)
 
-        return ParsedLLMResponse(git_diff, commit_message, file_edits)
+        return ParsedLLMResponse(
+            f"{conversation}\n\n{git_diff}", conversation, file_edits
+        )
 
     def file_edit_to_git_diff(self, file_edit: FileEdit) -> str:
         """Converts a FileEdit object into a git diff string."""

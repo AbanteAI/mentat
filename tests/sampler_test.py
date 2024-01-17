@@ -196,7 +196,7 @@ test_sample = {
 
 @pytest.mark.asyncio
 async def test_sample_eval(mock_call_llm_api):
-    parsedLLMResponse = GitParser().parse_string(test_sample["diff_edit"])
+    parsedLLMResponse = GitParser().parse_llm_response(test_sample["diff_edit"])
     edit_message = BlockParser().file_edits_to_llm_message(parsedLLMResponse)
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         I will add a new helper function called `sha1` to the `mentat/utils.py` file.
@@ -306,7 +306,7 @@ def get_updates_as_parsed_llm_message(cwd):
     # Make diff_edit edits
     make_all_update_types(cwd, 2)
     diff_edit = get_git_diff("HEAD", cwd)
-    parsedLLMResponse = GitParser().parse_string(diff_edit)
+    parsedLLMResponse = GitParser().parse_llm_response(diff_edit)
     # Reset hard and remove uncommitted files
     repo.git.reset("--hard")
     repo.git.clean("-fd")
