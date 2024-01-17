@@ -28,7 +28,7 @@ from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
 
 
-class MentatChatCompletionAssistantMessageParam(ChatCompletionAssistantMessageParam):
+class MentatAssistantMessageParam(ChatCompletionAssistantMessageParam):
     parsed_llm_response: ParsedLLMResponse
 
 
@@ -133,7 +133,7 @@ class Conversation:
             ModelMessage(message=message, prior_messages=messages_snapshot)
         )
         self.add_message(
-            MentatChatCompletionAssistantMessageParam(
+            MentatAssistantMessageParam(
                 parsed_llm_response=parsed_llm_response,
                 role="assistant",
                 content=message,
@@ -159,7 +159,7 @@ class Conversation:
         _messages = [
             (  # Remove metadata from messages by default
                 ChatCompletionAssistantMessageParam(
-                    role=msg["role"], content=msg["content"]
+                    role=msg["role"], content=msg.get("content")
                 )
                 if msg["role"] == "assistant" and include_parsed_llm_responses is False
                 else msg

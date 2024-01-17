@@ -121,7 +121,7 @@ class Sampler:
         response_edit: None | ParsedLLMResponse = None
         for m in conversation.get_messages(include_parsed_llm_responses=True)[::-1]:
             response: str | ParsedLLMResponse | None = None
-            role, content = m["role"], m["content"]
+            role, content = m["role"], m.get("content")
             if role == "user":
                 if isinstance(content, str):
                     text = content
@@ -141,7 +141,7 @@ class Sampler:
                     raise SampleError(
                         "Assistant messages must include a the parsed_llm_response."
                         " Hint: Use"
-                        " mentat.conversation.MentatChatCompletionAssistantMessageParam"
+                        " mentat.conversation.MentatAssistantMessageParam"
                         " instead  of"
                         " openai.types.chat.ChatCompletionAssistantMessageParam."
                     )

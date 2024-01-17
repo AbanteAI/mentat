@@ -9,7 +9,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-from mentat.conversation import MentatChatCompletionAssistantMessageParam
+from mentat.conversation import MentatAssistantMessageParam
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.block_parser import BlockParser
@@ -49,7 +49,7 @@ async def test_sample_from_context(
                 content="test_user_content",
                 role="user",
             ),
-            MentatChatCompletionAssistantMessageParam(
+            MentatAssistantMessageParam(
                 parsed_llm_response=ParsedLLMResponse("", "test_assistant_content", []),
                 content="test_assistant_content",
                 role="assistant",
@@ -166,7 +166,7 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
     assert "test_file.py" in edits[1]
     assert "+# forty two" in edits[1]
     assert sample.test_command == "test_test_command"
-    assert sample.version == "0.1.0"
+    assert sample.version == "0.2.0"
 
 
 test_sample = {
@@ -215,7 +215,7 @@ async def test_sample_eval(mock_call_llm_api):
 @pytest.mark.asyncio
 async def test_sample_version_mismatch(temp_testbed):
     sample = Sample(**test_sample)
-    sample.version = "0.0.9"
+    sample.version = "2.3"
     sample_path = temp_testbed / "temp_sample.json"
     sample.save(sample_path)
     with pytest.raises(SampleError):
