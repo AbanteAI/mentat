@@ -33,7 +33,7 @@ A `Sample` captures interactions between a developer and any LLM Coding Assistan
 Notes:
 - All diffs and code changes follow standard git-diff format (`diff --git a/new_filename...`)
 - Samples should link to a permanent commit. Mentat has a config variable `sample_merge_base_target` (e.g. 'master'). If this value is None (default), merge_base is set to the latest commit on HEAD, otherwise it's set to the merge-base of HEAD and `..target`. 
-- `message_history` can include user or  If any assistant messages include edits, they should be converted to git-diff format. It can include messages with mistakes, where the sample task is to find and/or correct it.
+- `message_history` can include user or assistant messages. If any assistant messages include edits, they should be converted to git-diff format. It can include messages with mistakes, where the sample task is to find and/or correct it. NOTE: git diffs may not correspond to an actual git record, as they are a "hypothetical edit" and may not have SHA-1's. See mentat.parsers.git_parser for more details.
 
 ## Evaluate Samples
 The evaluation procedure, in abstract, is:
@@ -42,7 +42,7 @@ The evaluation procedure, in abstract, is:
    b. If there's a `diff_active`, it's applied using `git apply`. 
 2. Generate the conversation history
    a. Add code from files/lines in `paths` as a System message
-   b. Add messages from `message_history` as User or Assistant messages
+   b. Add messages from `message_history` as User or Assistant messages. Convert edits from git-diff format to target edit format.
    c. Add `message_prompt` as a User message
 3. Generate an LLM Completion for the conversation.
 4. If using a Coding Assistant tool, process the response to apply edits to codebase.

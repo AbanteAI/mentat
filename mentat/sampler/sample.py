@@ -37,6 +37,10 @@ class Sample:
         with open(fname, "r") as f:
             kwargs = json.load(f)
             _version = kwargs.get("version")
+            if _version and _version < "0.2.0":
+                kwargs["message_history"] = kwargs.get("message_history", [])[::-1]
+                kwargs["version"] = "0.2.0"
+                _version = kwargs["version"]
             if _version != __version__:
                 raise SampleError(
                     f"Warning: sample version ({_version}) does not match current"

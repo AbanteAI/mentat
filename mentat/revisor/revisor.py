@@ -57,7 +57,7 @@ async def revise_edit(file_edit: FileEdit):
             ctx.conversation.get_messages(),
         )
     )[-1]
-    user_message["content"] = f"User Request:\n{user_message['content']}"
+    user_message["content"] = f"User Request:\n{user_message.get('content')}"
     messages: List[ChatCompletionMessageParam] = [
         ChatCompletionSystemMessageParam(content=revisor_prompt, role="system"),
         user_message,

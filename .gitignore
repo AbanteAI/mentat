@@ -13,3 +13,4 @@ build
 .pytest_cache
 benchmark_repos
 docs/build
+.DS_Store

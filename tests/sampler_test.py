@@ -5,15 +5,16 @@ from textwrap import dedent
 import pytest
 from git import Repo
 from openai.types.chat import (
-    ChatCompletionAssistantMessageParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
 
+from mentat.conversation import MentatAssistantMessageParam
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
+from mentat.parsers.parser import ParsedLLMResponse
 from mentat.python_client.client import PythonClient
 from mentat.sampler import __version__
 from mentat.sampler.sample import Sample
@@ -48,7 +49,8 @@ async def test_sample_from_context(
                 content="test_user_content",
                 role="user",
             ),
-            ChatCompletionAssistantMessageParam(
+            MentatAssistantMessageParam(
+                parsed_llm_response=ParsedLLMResponse("", "test_assistant_content", []),
                 content="test_assistant_content",
                 role="assistant",
             ),
@@ -71,23 +73,24 @@ async def test_sample_from_context(
         ]
     )
     sampler = Sampler()
+    sampler.set_active_diff()
     sample = await sampler.create_sample()
     assert sample.title == "test_title"
     assert sample.description == "test_description"
     assert sample.repo == "test_sample_repo"
     assert is_sha1(sample.merge_base)
     assert sample.diff_merge_base == ""
-    assert sample.diff_active == ""
-    assert sample.message_history == []
-    assert sample.message_prompt == "test_user_content"
-    assert sample.message_edit == "test_assistant_content"
-    assert sample.context == ["multifile_calculator/operations.py"]
     expected_diff = (
         "diff --git a/test_file.py b/test_file.py\nnew file mode 100644\nindex"
         " 0000000..fffffff\n--- /dev/null\n+++ b/test_file.py\n@@ -0,0 +1"
         " @@\n+test_file_content\n"
     )
-    assert remove_checksums(sample.diff_edit) == remove_checksums(expected_diff)
+    assert remove_checksums(sample.diff_active) == remove_checksums(expected_diff)
+    assert sample.message_history == []
+    assert sample.message_prompt == "test_user_content"
+    assert sample.message_edit == "test_assistant_content"
+    assert sample.context == ["multifile_calculator/operations.py"]
+    assert sample.diff_edit == ""
     assert sample.id != ""
     assert sample.test_command == "test_test_command"
     assert sample.version == __version__
@@ -163,7 +166,7 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
     assert "test_file.py" in edits[1]
     assert "+# forty two" in edits[1]
     assert sample.test_command == "test_test_command"
-    assert sample.version == "0.1.0"
+    assert sample.version == "0.2.0"
 
 
 test_sample = {
@@ -212,7 +215,7 @@ async def test_sample_eval(mock_call_llm_api):
 @pytest.mark.asyncio
 async def test_sample_version_mismatch(temp_testbed):
     sample = Sample(**test_sample)
-    sample.version = "0.0.9"
+    sample.version = "2.3"
     sample_path = temp_testbed / "temp_sample.json"
     sample.save(sample_path)
     with pytest.raises(SampleError):
@@ -411,7 +414,7 @@ async def test_sampler_integration(
     assert sample.diff_merge_base != ""
     assert sample.diff_active != ""
     assert sample.message_history == []
-    assert sample.message_edit == "I will make the following edits. "
+    assert sample.message_edit == "I will make the following edits."
     assert set(sample.context) == {
         "scripts/echo1.py",
         "multifile_calculator/operations.py",
