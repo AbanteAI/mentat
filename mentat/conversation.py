@@ -237,7 +237,7 @@ class Conversation:
 
         # Get current code message
         loading_multiplier = 1.0 if config.auto_context_tokens > 0 else 0.0
-        prompt = messages_snapshot[-1]["content"]
+        prompt = messages_snapshot[-1].get("content")
         if isinstance(prompt, list):
             text_prompts = [
                 p.get("text", "") for p in prompt if p.get("type") == "text"

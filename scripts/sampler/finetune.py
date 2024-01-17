@@ -45,7 +45,7 @@ async def generate_finetune(
     conversation.append({"role": "user", "content": sample.message_prompt})
     message_example = sample.message_edit or ""
     if sample.diff_edit:  # Convert any diff_edit to block format for answer
-        parsed_llm_response = GitParser().parse_string(sample.diff_edit)
+        parsed_llm_response = GitParser().parse_llm_response(sample.diff_edit)
         message_example += ctx.config.parser.file_edits_to_llm_message(
             parsed_llm_response
         )

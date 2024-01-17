@@ -99,7 +99,7 @@ async def revise_edit(file_edit: FileEdit):
         "diff --git a/file b/file\nindex 0000000..0000000\n--- a/file\n+++"
         f" b/file\n{message}"
     )
-    parsed_response = GitParser().parse_string(post_diff)
+    parsed_response = GitParser().parse_llm_response(post_diff)
 
     # Only modify the replacements of the current file edit
     # (the new file edit doesn't know about file creation or renaming)
