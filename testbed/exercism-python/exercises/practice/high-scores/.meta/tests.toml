@@ -1,0 +1,46 @@
+# This is an auto-generated file.
+#
+# Regenerating this file via `configlet sync` will:
+# - Recreate every `description` key/value pair
+# - Recreate every `reimplements` key/value pair, where they exist in problem-specifications
+# - Remove any `include = true` key/value pair (an omitted `include` key implies inclusion)
+# - Preserve any other key/value pair
+#
+# As user-added comments (using the # character) will be removed when this file
+# is regenerated, comments can be added via a `comment` key.
+
+[1035eb93-2208-4c22-bab8-fef06769a73c]
+description = "List of scores"
+
+[6aa5dbf5-78fa-4375-b22c-ffaa989732d2]
+description = "Latest score"
+
+[b661a2e1-aebf-4f50-9139-0fb817dd12c6]
+description = "Personal best"
+
+[3d996a97-c81c-4642-9afc-80b80dc14015]
+description = "Top 3 scores -> Personal top three from a list of scores"
+
+[1084ecb5-3eb4-46fe-a816-e40331a4e83a]
+description = "Top 3 scores -> Personal top highest to lowest"
+
+[e6465b6b-5a11-4936-bfe3-35241c4f4f16]
+description = "Top 3 scores -> Personal top when there is a tie"
+
+[f73b02af-c8fd-41c9-91b9-c86eaa86bce2]
+description = "Top 3 scores -> Personal top when there are less than 3"
+
+[16608eae-f60f-4a88-800e-aabce5df2865]
+description = "Top 3 scores -> Personal top when there is only one"
+
+[2df075f9-fec9-4756-8f40-98c52a11504f]
+description = "Top 3 scores -> Latest score after personal top scores"
+
+[809c4058-7eb1-4206-b01e-79238b9b71bc]
+description = "Top 3 scores -> Scores after personal top scores"
+
+[ddb0efc0-9a86-4f82-bc30-21ae0bdc6418]
+description = "Top 3 scores -> Latest score after personal best"
+
+[6a0fd2d1-4cc4-46b9-a5bb-2fb667ca2364]
+description = "Top 3 scores -> Scores after personal best"

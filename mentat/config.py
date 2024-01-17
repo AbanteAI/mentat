@@ -98,6 +98,17 @@ class Config:
         },
         converter=converters.optional(converters.to_bool),
     )
+    revisor: bool = attr.field(
+        default=False,
+        metadata={
+            "description": (
+                "Enables or disables a revisor tweaking model edits after they're made."
+                " The revisor will use the same model regular edits do."
+            ),
+            "auto_completions": bool_autocomplete,
+        },
+        converter=converters.optional(converters.to_bool),
+    )
 
     # Context specific settings
     file_exclude_glob_list: list[str] = attr.field(

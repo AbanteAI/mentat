@@ -107,7 +107,26 @@ def mock_collect_user_input(mocker):
 def mock_call_llm_api(mocker):
     completion_mock = mocker.patch.object(LlmApiHandler, "call_llm_api")
 
-    def set_streamed_values(values):
+    def wrap_unstreamed_string(value):
+        timestamp = int(time.time())
+        return ChatCompletion(
+            id="test-id",
+            choices=[
+                Choice(
+                    finish_reason="stop",
+                    index=0,
+                    message=ChatCompletionMessage(
+                        content=value,
+                        role="assistant",
+                    ),
+                )
+            ],
+            created=timestamp,
+            model="test-model",
+            object="chat.completion",
+        )
+
+    def wrap_streamed_strings(values):
         async def _async_generator():
             timestamp = int(time.time())
             for value in values:
@@ -125,30 +144,31 @@ def mock_call_llm_api(mocker):
                     object="chat.completion.chunk",
                 )
 
-        completion_mock.return_value = _async_generator()
+        return _async_generator()
+
+    def set_streamed_values(values):
+        completion_mock.return_value = wrap_streamed_strings(values)
 
     completion_mock.set_streamed_values = set_streamed_values
 
     def set_unstreamed_values(value):
-        timestamp = int(time.time())
-        completion_mock.return_value = ChatCompletion(
-            id="test-id",
-            choices=[
-                Choice(
-                    finish_reason="stop",
-                    index=0,
-                    message=ChatCompletionMessage(
-                        content=value,
-                        role="assistant",
-                    ),
-                )
-            ],
-            created=timestamp,
-            model="test-model",
-            object="chat.completion",
-        )
+        completion_mock.return_value = wrap_unstreamed_string(value)
 
     completion_mock.set_unstreamed_values = set_unstreamed_values
+
+    def set_return_values(values):
+        async def call_llm_api_mock(messages, model, stream, response_format="unused"):
+            value = call_llm_api_mock.values.pop()
+            if stream:
+                return wrap_streamed_strings([value])
+            else:
+                return wrap_unstreamed_string(value)
+
+        call_llm_api_mock.values = values[::-1]
+        completion_mock.side_effect = call_llm_api_mock
+
+    completion_mock.set_return_values = set_return_values
+
     return completion_mock
 
 
