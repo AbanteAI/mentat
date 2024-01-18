@@ -92,7 +92,7 @@ class SearchCommand(Command, command_name="search"):
                             )
                             stream.send(f"{rel_path} added to context", style="success")
                     else:
-                        stream.send("(Y/n)")
+                        stream.send("(Y/n)", style="input")
                     user_input: str = (
                         await collect_user_input(plain=True)
                     ).data.strip()

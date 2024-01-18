@@ -133,11 +133,11 @@ class JsonParser(Parser):
             validate(instance=response_json, schema=output_schema)
         except JSONDecodeError:
             # Should never happen with OpenAI's response_format set to json
-            stream.send("Error processing model response: Invalid JSON", color="red")
+            stream.send("Error processing model response: Invalid JSON", style="error")
             return ParsedLLMResponse(message, "", [])
         except ValidationError:
             stream.send(
-                "Error processing model response: Invalid format given", color="red"
+                "Error processing model response: Invalid format given", style="error"
             )
             return ParsedLLMResponse(message, "", [])
 
