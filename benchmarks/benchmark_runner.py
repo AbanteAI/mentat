@@ -1,6 +1,6 @@
+#!/usr/bin/env python
 from __future__ import annotations
 
-#!/usr/bin/env python
 import asyncio
 import importlib.util
 import json
@@ -123,7 +123,7 @@ async def compare_diffs(actual, generated):
     return await grade(prompt, comparison_prompt)
 
 
-async def grade_and_clean_diff(diff, response, result, comparison_diff=None):
+async def grade_diff(diff, response, result, comparison_diff=None):
     # Set syntax and response grade information
     result.code = diff
     diff_grade = await grade_diff_syntax(diff)
@@ -211,39 +211,38 @@ class Benchmark:
             samples=[sample],
         )
 
-
-async def run_benchmark(
-    benchmark: Benchmark, retries: int = 1
-) -> list[BenchmarkResult]:
-    print("Benchmark:", benchmark.title)
-    start_dir = Path.cwd()
-    results: list[BenchmarkResult] = []
-    for i, sample in enumerate(benchmark.samples):
-        print("  Prompt:", sample.message_prompt)
-        for j in range(1, retries + 1):
-            formatted_title = re.sub(r"[ '\"/\\-^]", "", sample.title).replace(" ", "_")
-            result = BenchmarkResult(
-                name=f"{formatted_title}-{i}-{j}",
-                family=formatted_title,
-            )
-            try:
-                sample_result = await run_sample(sample)
-                result.cost = sample_result["cost"]
-                result.tokens = sample_result["tokens"]
-                result.transcript = sample_result["transcript"]
-                if benchmark.verify is not None:
-                    result.verify = benchmark.verify()
-
-                await grade_and_clean_diff(
-                    sample_result["diff_eval"],
-                    sample_result["message_eval"],
-                    result,
-                    sample.diff_edit,
+    async def run(self, retries: int = 1) -> list[BenchmarkResult]:
+        print("Benchmark:", self.title)
+        start_dir = Path.cwd()
+        results: list[BenchmarkResult] = []
+        for i, sample in enumerate(self.samples):
+            print("  Prompt:", sample.message_prompt)
+            for j in range(1, retries + 1):
+                formatted_title = re.sub(r"[ '\"/\\-^]", "", sample.title).replace(
+                    " ", "_"
                 )
-                results.append(result)
-            finally:
-                os.chdir(start_dir)
-    return results
+                result = BenchmarkResult(
+                    name=f"{formatted_title}-{i}-{j}",
+                    family=formatted_title,
+                )
+                try:
+                    sample_result = await run_sample(sample)
+                    result.cost = sample_result["cost"]
+                    result.tokens = sample_result["tokens"]
+                    result.transcript = sample_result["transcript"]
+                    if self.verify is not None:
+                        result.verify = self.verify()
+
+                    await grade_diff(
+                        sample_result["diff_eval"],
+                        sample_result["message_eval"],
+                        result,
+                        sample.diff_edit,
+                    )
+                    results.append(result)
+                finally:
+                    os.chdir(start_dir)
+        return results
 
 
 def benchmark_listed(title, benchmarks):
@@ -277,7 +276,7 @@ async def run_benchmarks(user_benchmarks: list[str], retries: int = 1):
     print("Found benchmarks:\n" + "\n".join(b.title for b in benchmarks))
     results: list[BenchmarkResult] = []
     for benchmark in benchmarks:
-        results.extend(await run_benchmark(benchmark))
+        results.extend(await benchmark.run())
 
     summary = BenchmarkResultSummary(results)
     with open("results.json", "w") as f:
