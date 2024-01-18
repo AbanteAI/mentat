@@ -151,11 +151,13 @@ class Benchmark:
         title: str,
         description: str = "",
         config: Config = Config(),
+        verify: callable | None = None,
         samples: list[Sample] = [],
     ):
         self.title = title
         self.description = description
         self.config = config
+        self.verify = verify
         self.samples = samples
 
     @classmethod
@@ -170,6 +172,7 @@ class Benchmark:
             title=module.title,
             description=module.description,
             config=module.config,
+            verify=module.verify if hasattr(module, "verify") else None,
             samples=[
                 # Create new samples for each prompt
                 Sample(
@@ -190,8 +193,6 @@ class Benchmark:
                 for prompt in module.prompts
             ],
         )
-        if hasattr(module, "verify"):
-            output.verify = module.verify
         if hasattr(module, "comparison_commit"):
             diff_edit = git_diff_from_comparison_commit(
                 output.samples[0], module.comparison_commit
@@ -230,7 +231,7 @@ async def run_benchmark(
                 result.cost = sample_result["cost"]
                 result.tokens = sample_result["tokens"]
                 result.transcript = sample_result["transcript"]
-                if hasattr(benchmark, "verify"):
+                if benchmark.verify is not None:
                     result.verify = benchmark.verify()
 
                 await grade_and_clean_diff(
