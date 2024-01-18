@@ -7,7 +7,6 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any
 
 from openai.types.chat.completion_create_params import ResponseFormat
 
@@ -152,15 +151,14 @@ class Benchmark:
         title: str,
         description: str = "",
         config: Config = Config(),
+        verify: callable | None = None,
         samples: list[Sample] = [],
     ):
         self.title = title
         self.description = description
         self.config = config
+        self.verify = verify
         self.samples = samples
-
-    def verify(self) -> Any:
-        raise NotImplementedError
 
     @classmethod
     def from_module(cls, path_to_module: Path, module_name: str) -> Benchmark:
@@ -174,6 +172,7 @@ class Benchmark:
             title=module.title,
             description=module.description,
             config=module.config,
+            verify=module.verify if hasattr(module, "verify") else None,
             samples=[
                 # Create new samples for each prompt
                 Sample(
@@ -194,18 +193,13 @@ class Benchmark:
                 for prompt in module.prompts
             ],
         )
-        if hasattr(module, "verify"):
-            output.verify = module.verify
-        if (
-            output.samples
-            and not output.samples[0].diff_edit
-            and hasattr(module, "comparison_commit")
-        ):
+        if hasattr(module, "comparison_commit"):
             diff_edit = git_diff_from_comparison_commit(
                 output.samples[0], module.comparison_commit
             )
             for sample in output.samples:
-                sample.diff_edit = diff_edit
+                if not sample.diff_edit:
+                    sample.diff_edit = diff_edit
         return output
 
     @classmethod
@@ -237,6 +231,8 @@ async def run_benchmark(
                 result.cost = sample_result["cost"]
                 result.tokens = sample_result["tokens"]
                 result.transcript = sample_result["transcript"]
+                if benchmark.verify is not None:
+                    result.verify = benchmark.verify()
 
                 await grade_and_clean_diff(
                     sample_result["diff_eval"],
