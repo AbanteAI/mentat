@@ -20,7 +20,7 @@ from mentat.sampler.sample import Sample
 from mentat.sampler.sampler import Sampler
 from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session import Session
-from scripts.sampler.run import run_sample
+from scripts.sampler.run_sample import run_sample
 
 
 def remove_checksums(text):
