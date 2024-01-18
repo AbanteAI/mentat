@@ -117,7 +117,8 @@ class Session:
         ):
             for file in code_context.diff_context.diff_files():
                 code_context.include(file)
-        sampler.set_active_diff()
+        if config.auto_save_snapshot:
+            sampler.set_active_diff()
 
     def _create_task(self, coro: Coroutine[None, None, Any]):
         """Utility method for running a Task in the background"""

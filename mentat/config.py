@@ -109,6 +109,16 @@ class Config:
         },
         converter=converters.optional(converters.to_bool),
     )
+    auto_save_snapshot: bool = attr.field(
+        default=False,
+        metadata={
+            "description": (
+                "Automatically saves a git diff snapshot for the sampler on startup."
+            ),
+            "auto_completions": bool_autocomplete,
+        },
+        converter=converters.optional(converters.to_bool),
+    )
 
     # Context specific settings
     file_exclude_glob_list: list[str] = attr.field(
