@@ -117,7 +117,7 @@ class Session:
         ):
             for file in code_context.diff_context.diff_files():
                 code_context.include(file)
-        if config.auto_save_snapshot:
+        if config.sampler:
             sampler.set_active_diff()
 
     def _create_task(self, coro: Coroutine[None, None, Any]):
@@ -185,7 +185,7 @@ class Session:
                             await get_user_feedback_on_edits(file_edits)
                         )
 
-                    if session_context.sampler and session_context.sampler.active:
+                    if session_context.config.sampler:
                         session_context.sampler.set_active_diff()
 
                     applied_edits = await code_file_manager.write_changes_to_files(

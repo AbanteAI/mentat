@@ -109,7 +109,7 @@ class Config:
         },
         converter=converters.optional(converters.to_bool),
     )
-    auto_save_snapshot: bool = attr.field(
+    sampler: bool = attr.field(
         default=False,
         metadata={
             "description": (
