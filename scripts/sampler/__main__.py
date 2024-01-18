@@ -13,7 +13,6 @@ from typing import Any
 from add_context import add_context
 from finetune import generate_finetune
 from remove_context import remove_context
-from run import run_sample
 from validate import validate_sample
 
 from mentat.llm_api_handler import count_tokens, prompt_tokens
@@ -29,6 +28,7 @@ from benchmarks.benchmark_runner import (  # noqa: E402
     grade_diff_syntax,
     grade_model_response,
 )
+from benchmarks.run_sample import run_sample  # noqa: E402
 
 
 def warn(msg: Any):
@@ -142,8 +142,9 @@ async def main():
         else:
             print(f"Running sample {sample.id[:8]}")
             print(f"  Prompt: {sample.message_prompt}")
-            diff_eval = await run_sample(sample)
-            message_eval = ""  # TODO: return from run_sample
+            sample_result = await run_sample(sample)
+            message_eval = sample_result["message_eval"]
+            diff_eval = sample_result["diff_eval"]
 
             diff_grade = await grade_diff_syntax(diff_eval)
             print(f"  Diff Grade: {diff_grade}")

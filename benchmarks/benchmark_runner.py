@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import annotations
+
 import asyncio
 import importlib.util
 import json
@@ -6,28 +8,33 @@ import os
 import re
 from pathlib import Path
 
-from openai.types.chat import (
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionUserMessageParam,
-)
 from openai.types.chat.completion_create_params import ResponseFormat
 
 from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.benchmark_result import BenchmarkResult
 from benchmarks.benchmark_result_summary import BenchmarkResultSummary
-from mentat.errors import SampleError
+from benchmarks.run_sample import run_sample
+from mentat.config import Config
+from mentat.git_handler import get_git_diff
 from mentat.llm_api_handler import model_context_size, prompt_tokens
-from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import setup_repo
 from mentat.session_context import SESSION_CONTEXT
 
 
-def dynamic_import(path_to_module, module_name):
-    spec = importlib.util.spec_from_file_location(module_name, path_to_module)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def git_diff_from_comparison_commit(sample: Sample, comparison_commit: str) -> str:
+    starting_cwd = Path.cwd()
+    repo = setup_repo(
+        url=sample.repo,
+        cwd=None,
+        commit=sample.merge_base,
+        diff_merge_base=sample.diff_merge_base,
+        diff_active=sample.diff_active,
+    )
+    cwd = Path(repo.working_dir)
+    diff = get_git_diff("HEAD", comparison_commit, cwd=cwd)
+    os.chdir(starting_cwd)
+    return diff
 
 
 async def grade(to_grade, prompt, model="gpt-4-1106-preview"):
@@ -116,11 +123,8 @@ async def compare_diffs(actual, generated):
     return await grade(prompt, comparison_prompt)
 
 
-async def grade_and_clean_diff(repo, response, result, comparison_diff=None):
+async def grade_diff(diff, response, result, comparison_diff=None):
     # Set syntax and response grade information
-    repo.git.add(["--all"])
-
-    diff = repo.git.diff(["--staged"])
     result.code = diff
     diff_grade = await grade_diff_syntax(diff)
     result.diff_grade = diff_grade
@@ -138,122 +142,107 @@ async def grade_and_clean_diff(repo, response, result, comparison_diff=None):
         result.extra_functionality = comparison_grade.get("extra_functionality")
         result.missing_functionality = comparison_grade.get("missing_functionality")
 
-    # Clean up
-    repo.git.reset("--hard")
-    repo.git.clean("-fd")
-
     return result
 
 
-async def run_client(client, prompt, result, messages=None):
-    await client.startup()
-    conversation = client.get_conversation()
-    if messages is not None:
-        for msg in messages:
-            msg_cls = {
-                "user": ChatCompletionUserMessageParam,
-                "assistant": ChatCompletionAssistantMessageParam,
-            }.get(msg["role"])
-            if msg_cls is None:
-                raise SampleError(
-                    f"Invalid role found in message_history: {msg['role']}"
+class Benchmark:
+    def __init__(
+        self,
+        title: str,
+        description: str = "",
+        config: Config = Config(),
+        verify: callable | None = None,
+        samples: list[Sample] = [],
+    ):
+        self.title = title
+        self.description = description
+        self.config = config
+        self.verify = verify
+        self.samples = samples
+
+    @classmethod
+    def from_module(cls, path_to_module: Path, module_name: str) -> Benchmark:
+        # Dynamic import
+        spec = importlib.util.spec_from_file_location(module_name, path_to_module)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        output = cls(
+            title=module.title,
+            description=module.description,
+            config=module.config,
+            verify=module.verify if hasattr(module, "verify") else None,
+            samples=[
+                # Create new samples for each prompt
+                Sample(
+                    title=module.title,
+                    description=module.description,
+                    id="",
+                    parent_id="",
+                    repo=module.repo,
+                    merge_base=module.commit,
+                    diff_merge_base="",
+                    diff_active="",
+                    message_history=[],
+                    message_prompt=prompt,
+                    message_edit="",
+                    context=getattr(module, "minimum_context", []),
+                    diff_edit="",
                 )
-            conversation.add_message(msg_cls(role=msg["role"], content=msg["content"]))
-    await client.call_mentat_auto_accept(prompt)
-    await client.shutdown()
-    messages = conversation.literal_messages
-    response = messages[-1]["message"]
-    cost_tracker = client.get_cost_tracker()
-    result.cost = cost_tracker.total_cost
-    result.tokens = cost_tracker.total_tokens
-    result.transcript = {
-        "id": result.name,
-        "messages": messages,
-    }
-    return response
-
-
-async def evaluate_sample(sample_file, retries=1):
-    """Run a sample using Mentat and return the resulting diff"""
-    sample = Sample.load(sample_file)
-    results = []
-    start_dir = Path.cwd()
-    for i in range(retries):
-        formatted_title = re.sub(r"[ '\"/\\-^]", "", sample.title).replace(" ", "_")
-        result = BenchmarkResult(
-            name=f"{formatted_title}-{i}",
-            family=formatted_title,
+                for prompt in module.prompts
+            ],
         )
-        repo = setup_repo(
-            url=sample.repo,
-            commit=sample.merge_base,
-            diff_merge_base=sample.diff_merge_base,
-            diff_active=sample.diff_active,
-        )
-        try:
-            cwd = Path(repo.working_dir)
-
-            # Run sample in PythonClient
-            paths = list[Path]()
-            for a in sample.context:
-                paths.append(Path(a))
-            client = PythonClient(cwd=cwd, paths=paths)
-            response = await run_client(
-                client, sample.message_prompt, result, sample.message_history
+        if hasattr(module, "comparison_commit"):
+            diff_edit = git_diff_from_comparison_commit(
+                output.samples[0], module.comparison_commit
             )
-            await grade_and_clean_diff(
-                repo, response, result, comparison_diff=sample.diff_edit
-            )
-            results.append(result)
-        finally:
-            os.chdir(start_dir)
-    return results
+            for sample in output.samples:
+                if not sample.diff_edit:
+                    sample.diff_edit = diff_edit
+        return output
 
-
-async def evalute_py(path, retries):
-    results = []
-    benchmark = dynamic_import(path, "benchmark")
-    title = benchmark.title
-
-    print("Benchmark:", title)
-    start_dir = Path.cwd()
-    try:
-        repo = setup_repo(
-            url=benchmark.repo,
-            commit=benchmark.commit,
+    @classmethod
+    def from_sample(cls, path_to_sample: Path) -> Benchmark:
+        sample = Sample.load(path_to_sample)
+        return cls(
+            title=sample.title,
+            description=sample.description,
+            samples=[sample],
         )
-        cwd = Path(repo.working_dir)
 
-        if hasattr(benchmark, "comparison_commit"):
-            comparison_commit = benchmark.comparison_commit
-            repo.git.checkout(comparison_commit)
-            comparison_diff = repo.git.diff(benchmark.commit)
-        else:
-            comparison_diff = None
-
-        for i, prompt in enumerate(benchmark.prompts):
-            print("  Prompt:", prompt)
+    async def run(self, retries: int = 1) -> list[BenchmarkResult]:
+        print("Benchmark:", self.title)
+        start_dir = Path.cwd()
+        results: list[BenchmarkResult] = []
+        for i, sample in enumerate(self.samples):
+            print("  Prompt:", sample.message_prompt)
             for j in range(1, retries + 1):
-                formatted_title = re.sub(r"[ '\"/\\-^]", "", title).replace(" ", "_")
+                formatted_title = re.sub(r"[ '\"/\\-^]", "", sample.title).replace(
+                    " ", "_"
+                )
                 result = BenchmarkResult(
                     name=f"{formatted_title}-{i}-{j}",
                     family=formatted_title,
                 )
-                client = PythonClient(
-                    cwd=cwd, paths=benchmark.paths, config=benchmark.config
-                )
-                response = await run_client(client, prompt, result)
+                try:
+                    sample_result = await run_sample(sample)
+                    result.cost = sample_result["cost"]
+                    result.tokens = sample_result["tokens"]
+                    result.transcript = sample_result["transcript"]
+                    if self.verify is not None:
+                        result.verify = self.verify()
 
-                await client.shutdown()
-                if hasattr(benchmark, "verify"):
-                    result.verify = benchmark.verify()
-
-                await grade_and_clean_diff(repo, response, result, comparison_diff)
-                os.chdir("../..")
-                results.append(result)
-    finally:
-        os.chdir(start_dir)
-    return results
+                    await grade_diff(
+                        sample_result["diff_eval"],
+                        sample_result["message_eval"],
+                        result,
+                        sample.diff_edit,
+                    )
+                    results.append(result)
+                finally:
+                    os.chdir(start_dir)
+        return results
 
 
 def benchmark_listed(title, benchmarks):
@@ -263,38 +252,31 @@ def benchmark_listed(title, benchmarks):
     return False
 
 
-async def run_benchmarks(benchmarks, retries=1):
+async def run_benchmarks(user_benchmarks: list[str], retries: int = 1):
     print("Running benchmarks")
     benchmarks_dir = Path("benchmarks/benchmarks")
 
-    benchmark_paths = []
+    benchmarks: list[Benchmark] = []
     for root, dirs, files in os.walk(benchmarks_dir):
         for file in files:
-            path = os.path.join(root, file)
+            path = Path(root) / file
             if file.endswith(".py"):
-                if len(benchmarks) > 0:
-                    benchmark = dynamic_import(path, "benchmark")
-                    title = benchmark.title
-                    if benchmark_listed(title, benchmarks):
-                        benchmark_paths.append(path)
-                else:
-                    benchmark_paths.append(path)
-            if file.endswith(".json"):
-                if len(benchmarks) > 0:
-                    sample = Sample.load(path)
-                    title = sample.title
-                    if benchmark_listed(title, benchmarks):
-                        benchmark_paths.append(path)
-                else:
-                    benchmark_paths.append(path)
+                benchmark = Benchmark.from_module(path, "benchmark")
+            elif file.endswith(".json"):
+                benchmark = Benchmark.from_sample(path)
+            else:
+                continue
 
-    print("Found benchmarks:\n" + "\n".join(benchmark_paths))
-    results = []
-    for path in benchmark_paths:
-        if path.endswith(".py"):
-            results.extend(await evalute_py(path, retries))
-        elif path.endswith(".json"):
-            results.extend(await evaluate_sample(path))
+            if len(user_benchmarks) > 0 and not benchmark_listed(
+                benchmark.title, user_benchmarks
+            ):
+                continue
+            benchmarks.append(benchmark)
+
+    print("Found benchmarks:\n" + "\n".join(b.title for b in benchmarks))
+    results: list[BenchmarkResult] = []
+    for benchmark in benchmarks:
+        results.extend(await benchmark.run())
 
     summary = BenchmarkResultSummary(results)
     with open("results.json", "w") as f:
