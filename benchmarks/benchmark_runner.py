@@ -15,6 +15,7 @@ from openai.types.chat.completion_create_params import ResponseFormat
 from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.benchmark_result import BenchmarkResult
 from benchmarks.benchmark_result_summary import BenchmarkResultSummary
+from benchmarks.run_sample import run_sample
 from mentat.errors import SampleError
 from mentat.llm_api_handler import model_context_size, prompt_tokens
 from mentat.python_client.client import PythonClient
@@ -116,11 +117,16 @@ async def compare_diffs(actual, generated):
     return await grade(prompt, comparison_prompt)
 
 
-async def grade_and_clean_diff(repo, response, result, comparison_diff=None):
-    # Set syntax and response grade information
+def get_git_diff(repo):
     repo.git.add(["--all"])
-
     diff = repo.git.diff(["--staged"])
+    repo.git.reset("--hard")
+    repo.git.clean("-fd")
+    return diff
+
+
+async def grade_and_clean_diff(diff, response, result, comparison_diff=None):
+    # Set syntax and response grade information
     result.code = diff
     diff_grade = await grade_diff_syntax(diff)
     result.diff_grade = diff_grade
@@ -137,10 +143,6 @@ async def grade_and_clean_diff(repo, response, result, comparison_diff=None):
         result.comparison_grade = comparison_grade
         result.extra_functionality = comparison_grade.get("extra_functionality")
         result.missing_functionality = comparison_grade.get("missing_functionality")
-
-    # Clean up
-    repo.git.reset("--hard")
-    repo.git.clean("-fd")
 
     return result
 
@@ -184,29 +186,22 @@ async def evaluate_sample(sample_file, retries=1):
             name=f"{formatted_title}-{i}",
             family=formatted_title,
         )
-        repo = setup_repo(
-            url=sample.repo,
-            commit=sample.merge_base,
-            diff_merge_base=sample.diff_merge_base,
-            diff_active=sample.diff_active,
-        )
         try:
-            cwd = Path(repo.working_dir)
+            sample_result = await run_sample(sample)
+            result.cost = sample_result["cost"]
+            result.tokens = sample_result["tokens"]
+            result.transcript = sample_result["transcript"]
 
-            # Run sample in PythonClient
-            paths = list[Path]()
-            for a in sample.context:
-                paths.append(Path(a))
-            client = PythonClient(cwd=cwd, paths=paths)
-            response = await run_client(
-                client, sample.message_prompt, result, sample.message_history
-            )
             await grade_and_clean_diff(
-                repo, response, result, comparison_diff=sample.diff_edit
+                sample_result["diff_eval"],
+                sample_result["message_eval"],
+                result,
+                sample.diff_edit,
             )
             results.append(result)
         finally:
             os.chdir(start_dir)
+
     return results
 
 
@@ -248,7 +243,8 @@ async def evalute_py(path, retries):
                 if hasattr(benchmark, "verify"):
                     result.verify = benchmark.verify()
 
-                await grade_and_clean_diff(repo, response, result, comparison_diff)
+                diff = get_git_diff(repo)
+                await grade_and_clean_diff(diff, response, result, comparison_diff)
                 os.chdir("../..")
                 results.append(result)
     finally:
@@ -294,6 +290,7 @@ async def run_benchmarks(benchmarks, retries=1):
         if path.endswith(".py"):
             results.extend(await evalute_py(path, retries))
         elif path.endswith(".json"):
+            sample = Sample.load(path)
             results.extend(await evaluate_sample(path))
 
     summary = BenchmarkResultSummary(results)

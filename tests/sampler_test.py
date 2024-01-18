@@ -10,6 +10,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
+from benchmarks.run_sample import run_sample
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.block_parser import BlockParser
@@ -20,7 +21,6 @@ from mentat.sampler.sample import Sample
 from mentat.sampler.sampler import Sampler
 from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session import Session
-from scripts.sampler.run_sample import run_sample
 
 
 def remove_checksums(text):
@@ -205,7 +205,8 @@ async def test_sample_eval(mock_call_llm_api):
         1. Add the `sha1` function to `mentat/utils.py`.{edit_message}""")])
 
     sample = Sample(**test_sample)
-    message_eval, diff_eval = await run_sample(sample)
+    result = await run_sample(sample)
+    diff_eval = result["diff_eval"]
     assert remove_checksums(diff_eval) == remove_checksums(sample.diff_edit)
 
 
@@ -422,5 +423,6 @@ async def test_sampler_integration(
     mock_call_llm_api.set_streamed_values(
         [f"I will make the following edits. {llm_response}"]
     )
-    message_eval, diff_eval = await run_sample(sample, temp_testbed)
+    result = await run_sample(sample, temp_testbed)
+    diff_eval = result["diff_eval"]
     assert diff_eval == sample.diff_edit
