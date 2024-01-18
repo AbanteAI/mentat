@@ -14,6 +14,7 @@ prompts = [
 repo = "https://github.com/AbanteAI/mentat"
 commit = "d611e2ff742856c7328d54f6e71c2418f9c5508b"
 minimum_context = ["tests/benchmarks/exercise_runners"]
+paths = []
 
 config = Config(
     auto_context_tokens=8000,
