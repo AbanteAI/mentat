@@ -46,7 +46,7 @@ Finally set the OPENAI_API_BASE in the terminal before running mentat.
 
 .. note::
 
-    When using a litellm proxy, the model set in Mentat's config will not effect the model being run. To change the model, rerun the litellm proxy with a different model. As mentat thinks it is talking to gpt-4-1106-preview you may want to set :code:`maximum_context`.
+    When using a litellm proxy, the model set in Mentat's config will not affect the model being run. To change the model, rerun the litellm proxy with a different model. As mentat thinks it is talking to gpt-4-1106-preview you may want to set :code:`maximum_context`.
 
 .. warning::
 

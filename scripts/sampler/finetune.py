@@ -6,6 +6,7 @@ from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import setup_repo
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import convert_string_to_asynciter
 
 
 async def generate_finetune(
@@ -40,12 +41,22 @@ async def generate_finetune(
     if paths:
         code_message = await ctx.code_context.get_code_message(0)
         conversation.append({"role": "system", "content": code_message})
-    # TODO: Ignore conversation_history for now because file_edits are not yet included
-    # conversation += sample.message_history[::-1]
+    for message in sample.message_history:
+        if message["role"] == "user":
+            conversation.append({"role": "user", "content": message["content"]})
+        elif message["role"] == "assistant":
+            generator = convert_string_to_asynciter(message["content"], 100)
+            parsed_llm_response = await GitParser().stream_and_parse_llm_response(
+                generator
+            )
+            formatted_content = ctx.config.parser.file_edits_to_llm_message(
+                parsed_llm_response
+            )
+            conversation.append({"role": "assistant", "content": formatted_content})
     conversation.append({"role": "user", "content": sample.message_prompt})
     message_example = sample.message_edit or ""
     if sample.diff_edit:  # Convert any diff_edit to block format for answer
-        parsed_llm_response = GitParser().parse_string(sample.diff_edit)
+        parsed_llm_response = GitParser().parse_llm_response(sample.diff_edit)
         message_example += ctx.config.parser.file_edits_to_llm_message(
             parsed_llm_response
         )

@@ -3,45 +3,17 @@ from pathlib import Path
 from uuid import uuid4
 
 from git import GitCommandError, Repo  # type: ignore
-from openai.types.chat import ChatCompletionMessageParam
 
 from mentat.code_feature import get_consolidated_feature_refs
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff, get_git_root_for_path, get_hexsha_active
 from mentat.parsers.git_parser import GitParser
+from mentat.parsers.parser import ParsedLLMResponse
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import collect_user_input
 from mentat.utils import get_relative_path
-
-
-def parse_message(message: ChatCompletionMessageParam) -> dict[str, str]:
-    ctx = SESSION_CONTEXT.get()
-    content = message.get("content")
-    text, code = "", ""
-    if isinstance(content, str):
-        if message.get("role") != "assistant":
-            text = content
-        output = list[str]()
-        in_special = False
-        for line in content.splitlines():
-            if ctx.config.parser._starts_special(line):  # type: ignore
-                in_special = True
-            if not in_special:
-                output.append(line)
-            else:
-                pass  # TODO: Convert to git diff format, replace 'code' above
-            if ctx.config.parser._ends_code(line):  # type: ignore
-                in_special = False
-        while output[-1] == "":
-            output.pop()
-        text = "\n".join(output)
-    elif isinstance(content, list) and len(content) > 0:
-        content = content[0]
-        if "text" in content and isinstance(content.get("text"), str):  # type: ignore
-            text = content.get("text")  # type: ignore
-    return {"text": text, "code": code}
 
 
 class Sampler:
@@ -58,13 +30,20 @@ class Sampler:
         if not git_root:
             return
         repo = Repo(git_root)
-        self.commit_active = get_active_snapshot_commit(repo)
-        # If changes were made since the last sample, don't list it as parent.
-        if not self.last_sample_hexsha:
-            return
-        if self.last_sample_hexsha != get_hexsha_active():
-            self.last_sample_id = None
-            self.last_sample_hexsha = None
+        try:
+            self.commit_active = get_active_snapshot_commit(repo)
+            # If changes were made since the last sample, don't list it as parent.
+            if not self.last_sample_hexsha:
+                return
+            if self.last_sample_hexsha != get_hexsha_active():
+                self.last_sample_id = None
+                self.last_sample_hexsha = None
+        except SampleError as e:
+            ctx.stream.send(
+                f"Sampler error setting active diff: {e}. Disabling sampler.",
+                style="error",
+            )
+            self.active = False
 
     async def create_sample(self) -> Sample:
         # Check for repo and merge_base in config
@@ -100,7 +79,7 @@ class Sampler:
                 f"Use latest commit ({merge_base[:10]} as merge base? Press 'ENTER' to"
                 " accept, or enter a new merge base commit."
             )
-            response = (await collect_user_input()).data.strip()
+            response = str((await collect_user_input()).data).strip()
             if response:
                 merge_base = response
         try:
@@ -127,7 +106,7 @@ class Sampler:
             if response == "y":
                 repo = remote_url
             else:
-                repo = response
+                repo = str(response)
             config.sample_repo = repo
 
         stream.send("Sample Title:")
@@ -137,26 +116,59 @@ class Sampler:
         stream.send("Test Command: (optional, e.g. 'pytest -k foo')")
         test_command = (await collect_user_input()).data.strip() or ""
 
-        message_history, message_prompt, message_edit = list[dict[str, str]](), "", ""
-        for m in conversation.get_messages()[::-1]:
-            if m["role"] not in {"user", "assistant"}:
-                continue
-            parsed = parse_message(m)
-            text = parsed["text"]
-            code = parsed["code"]
-            if not message_prompt:
-                if m["role"] == "user":
-                    message_prompt = text
-                elif m["role"] == "assistant":
-                    message_edit += text
-            else:
-                message_history.append({"role": m["role"], "content": text + code})
+        message_history: list[dict[str, str]] = []
+        message_prompt = ""
+        response_edit: None | ParsedLLMResponse = None
+        for m in conversation.get_messages(include_parsed_llm_responses=True)[::-1]:
+            response: str | ParsedLLMResponse | None = None
+            role, content = m["role"], m.get("content")
+            if role == "user":
+                if isinstance(content, str):
+                    text = content
+                elif isinstance(content, list) and len(content) > 0:
+                    text = content[0].get("text", "")
+                else:
+                    continue
 
-        diff_active = ""
-        diff_edit = get_git_diff("HEAD")
+                if not message_prompt:
+                    message_prompt = text
+                else:
+                    message_history.insert(0, {"role": role, "content": text})
+
+            elif role == "assistant":
+                parsed_llm_response = m.get("parsed_llm_response")
+                if parsed_llm_response is None:
+                    raise SampleError(
+                        "Assistant messages must include a the parsed_llm_response."
+                        " Hint: Use"
+                        " mentat.conversation.MentatAssistantMessageParam"
+                        " instead  of"
+                        " openai.types.chat.ChatCompletionAssistantMessageParam."
+                    )
+
+                if not message_prompt:
+                    response_edit = parsed_llm_response
+                else:
+                    message_history.append(
+                        {
+                            "role": role,
+                            "content": GitParser().file_edits_to_llm_message(
+                                parsed_llm_response
+                            ),
+                        }
+                    )
+
+        if not response_edit:
+            raise SampleError("No LLM response found.")
+        message_edit = response_edit.conversation.strip()
         if self.commit_active:
             diff_active = get_git_diff("HEAD", self.commit_active)
-            diff_edit = get_git_diff(self.commit_active)
+        else:
+            diff_active = ""
+        if response_edit.file_edits:
+            diff_edit = get_git_diff(self.commit_active or "HEAD")
+        else:
+            diff_edit = ""
 
         context = set[str]()
 
@@ -171,7 +183,7 @@ class Sampler:
             context.update(_rp(f) for f in feature_refs)
         # Undo adds/removes/renames to match pre-diff_edit state
         if diff_edit:
-            file_edits = GitParser().parse_string(diff_edit).file_edits
+            file_edits = GitParser().parse_llm_response(diff_edit).file_edits
             for file_edit in file_edits:
                 file_path = _rp(file_edit.file_path)
                 rename_path = (

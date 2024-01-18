@@ -158,7 +158,7 @@ class LLMFeatureFilter(FeatureFilter):
             except (PathValidationError, AssertionError):
                 stream.send(
                     f"LLM selected invalid path: {selected_ref}, skipping.",
-                    color="light_yellow",
+                    style="warning",
                 )
 
         # Truncate again to enforce max_tokens

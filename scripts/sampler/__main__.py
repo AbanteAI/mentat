@@ -6,6 +6,8 @@ import datetime
 import json
 import os
 import random
+import sys
+from pathlib import Path
 from typing import Any
 
 from add_context import add_context
@@ -13,15 +15,20 @@ from finetune import generate_finetune
 from remove_context import remove_context
 from validate import validate_sample
 
-from benchmarks.benchmark_runner import (
+from mentat.llm_api_handler import count_tokens, prompt_tokens
+from mentat.sampler.sample import Sample
+from mentat.utils import mentat_dir_path
+
+# benchmarks is not automatically included in path
+benchamrks_dir_path = Path(__file__).resolve().parent.parent.parent / "benchmarks"
+if str(benchamrks_dir_path) not in sys.path:
+    sys.path.insert(0, str(benchamrks_dir_path))
+from benchmarks.benchmark_runner import (  # noqa: E402
     compare_diffs,
     grade_diff_syntax,
     grade_model_response,
 )
-from benchmarks.run_sample import run_sample
-from mentat.llm_api_handler import count_tokens
-from mentat.sampler.sample import Sample
-from mentat.utils import mentat_dir_path
+from benchmarks.run_sample import run_sample  # noqa: E402
 
 
 def warn(msg: Any):
@@ -98,9 +105,11 @@ async def main():
             try:
                 example = await generate_finetune(sample)
                 # Toktoken only includes encoding for openAI models, so this isn't always correct
-                example["tokens"] = count_tokens(
-                    example["text"], "gpt-4", full_message=False
-                )
+                if "messages" in example:
+                    tokens = prompt_tokens(example["messages"], "gpt-4")
+                elif "text" in example:
+                    tokens = count_tokens(example["text"], "gpt-4", full_message=False)
+                example["tokens"] = tokens
                 print(
                     "Generated finetune example"
                     f" {sample.id[:8]} ({example['tokens']} tokens)"

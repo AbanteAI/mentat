@@ -44,7 +44,7 @@ async def _ask_user_change(
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
-    stream.send(text, color="light_blue")
+    stream.send(text, style="input")
     return await ask_yes_no(default_yes=True)
 
 
@@ -153,14 +153,14 @@ class FileEdit:
             if self.file_path.exists():
                 stream.send(
                     f"File {display_path} already exists, canceling creation.",
-                    color="light_yellow",
+                    style="warning",
                 )
                 return False
         else:
             if not self.file_path.exists():
                 stream.send(
                     f"File {display_path} does not exist, canceling all edits to file.",
-                    color="light_yellow",
+                    style="warning",
                 )
                 return False
             file_features_in_context = [
@@ -173,7 +173,7 @@ class FileEdit:
             ):
                 stream.send(
                     f"File {display_path} not in context, canceling all edits to file.",
-                    color="light_yellow",
+                    style="warning",
                 )
                 return False
 
@@ -184,7 +184,7 @@ class FileEdit:
             stream.send(
                 f"File {display_path} being renamed to existing file"
                 f" {rel_rename_path or self.rename_file_path}, canceling rename.",
-                color="light_yellow",
+                style="warning",
             )
             self.rename_file_path = None
         return True
@@ -215,7 +215,7 @@ class FileEdit:
 
         if not self.is_creation:
             new_replacements = list[Replacement]()
-            for replacement in self.replacements:
+            for replacement in sorted(self.replacements):
                 self._display_replacement(replacement, file_lines)
                 if await _ask_user_change("Keep this change?"):
                     new_replacements.append(replacement)
@@ -236,7 +236,7 @@ class FileEdit:
         stream.send(self.file_path)
         stream.send(change_delimiter)
         for line in first.new_lines + second.new_lines:
-            stream.send("+ " + line, color="green")
+            stream.send("+ " + line, style="success")
         stream.send(change_delimiter)
 
     def resolve_conflicts(self):
@@ -291,7 +291,7 @@ class FileEdit:
 
             self._display_creation(prefix=prefix)
             ctx.stream.send(
-                f"Creation of file {self.file_path} undone", color="light_blue"
+                f"Creation of file {self.file_path} undone", style="success"
             )
             return
 
@@ -311,7 +311,7 @@ class FileEdit:
             self._display_rename(prefix=prefix)
             ctx.stream.send(
                 f"Rename of file {self.file_path} to {self.rename_file_path} undone",
-                color="light_blue",
+                style="success",
             )
 
         if self.is_deletion:
@@ -330,7 +330,7 @@ class FileEdit:
 
             self._display_deletion(self.previous_file_lines, prefix=prefix)
             ctx.stream.send(
-                f"Deletion of file {self.file_path} undone", color="light_red"
+                f"Deletion of file {self.file_path} undone", style="success"
             )
         elif self.replacements:
             if not self.file_path.exists():
@@ -345,6 +345,4 @@ class FileEdit:
                 f.write("\n".join(self.previous_file_lines))
 
             self._display_replacements(self.previous_file_lines, prefix=prefix)
-            ctx.stream.send(
-                f"Edits to file {self.file_path} undone", color="light_blue"
-            )
+            ctx.stream.send(f"Edits to file {self.file_path} undone", style="success")

@@ -6,7 +6,7 @@ themes: dict[str | None, dict[str, str]] = {
         "success": "green",
         "input": "light_blue",
         "error": "red",
-        "warning": "blue",
+        "warning": "yellow",
     },
     "dark": {
         "code": "blue",

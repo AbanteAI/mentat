@@ -15,7 +15,7 @@ from mentat.utils import get_relative_path
 change_delimiter = 60 * "="
 
 
-def _get_lexer(file_path: Path):
+def get_lexer(file_path: Path):
     try:
         lexer: Lexer = get_lexer_for_filename(file_path)
     except ClassNotFound:
@@ -64,7 +64,7 @@ class DisplayInformation:
         ctx = SESSION_CONTEXT.get()
 
         self.line_number_buffer = get_line_number_buffer(self.file_lines)
-        self.lexer = _get_lexer(self.file_name)
+        self.lexer = get_lexer(self.file_name)
 
         if self.file_name.is_absolute():
             self.file_name = get_relative_path(self.file_name, ctx.cwd)
@@ -191,9 +191,9 @@ def get_removed_lines(
     )
 
 
-def highlight_text(display_information: DisplayInformation, text: str) -> str:
+def highlight_text(text: str, lexer: Lexer) -> str:
     # pygments doesn't have type hints on TerminalFormatter
-    return highlight(text, display_information.lexer, TerminalFormatter(bg="dark"))  # type: ignore
+    return highlight(text, lexer, TerminalFormatter(bg="dark"))  # type: ignore
 
 
 def get_previous_lines(
@@ -223,7 +223,7 @@ def get_previous_lines(
     ]
 
     prev = "\n".join(numbered)
-    return highlight_text(display_information, prev)
+    return highlight_text(prev, display_information.lexer)
 
 
 def get_later_lines(
@@ -253,4 +253,4 @@ def get_later_lines(
     ]
 
     later = "\n".join(numbered)
-    return highlight_text(display_information, later)
+    return highlight_text(later, display_information.lexer)
