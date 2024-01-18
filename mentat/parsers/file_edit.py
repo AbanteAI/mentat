@@ -345,6 +345,4 @@ class FileEdit:
                 f.write("\n".join(self.previous_file_lines))
 
             self._display_replacements(self.previous_file_lines, prefix=prefix)
-            ctx.stream.send(
-                f"Edits to file {self.file_path} undone", style="success"
-            )
+            ctx.stream.send(f"Edits to file {self.file_path} undone", style="success")
