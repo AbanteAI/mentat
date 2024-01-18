@@ -133,8 +133,7 @@ async def main():
         else:
             print(f"Running sample {sample.id[:8]}")
             print(f"  Prompt: {sample.message_prompt}")
-            diff_eval = await run_sample(sample)
-            message_eval = ""  # TODO: return from run_sample
+            message_eval, diff_eval = await run_sample(sample)
 
             diff_grade = await grade_diff_syntax(diff_eval)
             print(f"  Diff Grade: {diff_grade}")

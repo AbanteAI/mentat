@@ -205,7 +205,7 @@ async def test_sample_eval(mock_call_llm_api):
         1. Add the `sha1` function to `mentat/utils.py`.{edit_message}""")])
 
     sample = Sample(**test_sample)
-    diff_eval = await run_sample(sample)
+    message_eval, diff_eval = await run_sample(sample)
     assert remove_checksums(diff_eval) == remove_checksums(sample.diff_edit)
 
 
@@ -422,5 +422,5 @@ async def test_sampler_integration(
     mock_call_llm_api.set_streamed_values(
         [f"I will make the following edits. {llm_response}"]
     )
-    diff_eval = await run_sample(sample, temp_testbed)
+    message_eval, diff_eval = await run_sample(sample, temp_testbed)
     assert diff_eval == sample.diff_edit

@@ -12,7 +12,7 @@ from mentat.sampler.utils import get_active_snapshot_commit, setup_repo
 from mentat.session_context import SESSION_CONTEXT
 
 
-async def run_sample(sample, cwd: Path | str | None = None):
+async def run_sample(sample, cwd: Path | str | None = None) -> tuple[str, str]:
     """Run a sample using Mentat and return the resulting diff"""
 
     repo = setup_repo(
@@ -47,6 +47,8 @@ async def run_sample(sample, cwd: Path | str | None = None):
     await python_client.shutdown()
 
     # Get the diff between pre- and post-edit
+    transcript_message = conversation.literal_messages[-1]
+    message_eval = transcript_message["message"]
     diff_eval = get_git_diff(commit_active or "HEAD", cwd=cwd)
 
-    return diff_eval
+    return message_eval, diff_eval
