@@ -224,7 +224,6 @@ if __name__ == "__main__":
     parser = common_benchmark_parser()
     args = parser.parse_args()
     clone_exercism_repo(args.refresh_repo, args.language)
-    print(args)
     run_exercism_benchmark(
         args.benchmarks,
         args.max_benchmarks,
