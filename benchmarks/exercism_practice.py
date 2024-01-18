@@ -225,7 +225,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     clone_exercism_repo(args.refresh_repo, args.language)
     run_exercism_benchmark(
-        args.benchmarks[0],
+        args.benchmarks,
         args.max_benchmarks,
         args.max_iterations,
         args.max_workers,

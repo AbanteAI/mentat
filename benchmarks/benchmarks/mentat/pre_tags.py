@@ -22,6 +22,7 @@ prompts = [
 
 repo = "https://github.com/AbanteAI/mentat"
 commit = "b8d90b89e4a0d7ad266bf914c4ce99c473dd8dc0"
+paths = []
 
 config = Config(
     auto_context_tokens=8000,

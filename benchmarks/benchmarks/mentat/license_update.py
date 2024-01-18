@@ -22,6 +22,7 @@ prompts = [
 repo = "https://github.com/AbanteAI/mentat"
 commit = "b0848711c36e0c2fe9619ebb2b77dc6d27396ff2"
 minimum_context = ["tests/license_check.py:11-22"]
+paths = []
 
 config = Config(
     auto_context_tokens=8000,

@@ -36,6 +36,7 @@ def mock_pool():
 
 def test_run_exercism_benchmark(mock_pool, mock_webbrowser, mock_call_llm_api):
     os.chdir("exercism-python")
+    cwd = os.getcwd()
     mock_call_llm_api.set_return_values(
         [
             dedent("""\
@@ -103,6 +104,7 @@ def test_run_exercism_benchmark(mock_pool, mock_webbrowser, mock_call_llm_api):
         1,
         "python",
     )
+    assert os.getcwd() == cwd
     with open("results.json") as f:
         results = json.load(f)
     summary = results["summary"]
