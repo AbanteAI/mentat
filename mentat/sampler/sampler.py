@@ -17,7 +17,6 @@ from mentat.utils import get_relative_path
 
 
 class Sampler:
-    active: bool = True
     diff_active: str | None = None
     commit_active: str | None = None
     last_sample_id: str | None = None
@@ -43,7 +42,7 @@ class Sampler:
                 f"Sampler error setting active diff: {e}. Disabling sampler.",
                 style="error",
             )
-            self.active = False
+            ctx.config.sampler = False
 
     async def create_sample(self) -> Sample:
         # Check for repo and merge_base in config

@@ -37,6 +37,7 @@ async def test_sample_from_context(
     mock_collect_user_input,
 ):
     mock_session_context.config.sample_repo = "test_sample_repo"
+    mock_session_context.config.sampler = True
 
     mocker.patch(
         "mentat.conversation.Conversation.get_messages",
@@ -382,6 +383,7 @@ async def test_sampler_integration(
     # Generate a sample using Mentat
     python_client = PythonClient(cwd=temp_testbed, paths=["."])
     await python_client.startup()
+    python_client.session.ctx.config.sampler = True
     await python_client.call_mentat_auto_accept(dedent("""\
         Make the following changes to "multifile_calculator/operations.py":
         1. Add "# Inserted line 2" as the first line
