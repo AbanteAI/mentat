@@ -14,8 +14,7 @@ def mock_webbrowser():
         yield mock
 
 
-@pytest.mark.asyncio
-async def test_run_exercism_benchmark(mock_webbrowser, mock_call_llm_api):
+def test_run_exercism_benchmark(mock_webbrowser, mock_call_llm_api):
     cwd = os.getcwd()
     mock_call_llm_api.set_return_values(
         [
@@ -85,7 +84,7 @@ async def test_run_exercism_benchmark(mock_webbrowser, mock_call_llm_api):
             }"""),
         ]
     )
-    await run_benchmarks(["Clojure Exercism Runner"])
+    run_benchmarks(["Clojure Exercism Runner"], "benchmarks/benchmarks")
     assert os.getcwd() == cwd
     with open("results.json") as f:
         results = json.load(f)
