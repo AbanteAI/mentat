@@ -25,6 +25,13 @@ def common_benchmark_parser():
         ),
     )
     parser.add_argument(
+        "--directory",
+        "-d",
+        default="benchmarks/benchmarks",
+        type=str,
+        help="Directory from which to load benchmarks and/or samples",
+    )
+    parser.add_argument(
         "--max_benchmarks",
         default=1,
         type=int,

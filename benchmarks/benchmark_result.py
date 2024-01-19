@@ -23,6 +23,9 @@ class BenchmarkResult:
     test_output: Optional[str] = attr.ib(
         default=None, metadata={"formatted_name": "Test output", "display": "code"}
     )
+    run_error: Optional[str] = attr.ib(
+        default=None, metadata={"aggregation": "percent"}
+    )
     response: Optional[str] = attr.ib(
         default=None, metadata={"formatted_name": "Analysis", "display": "text"}
     )
@@ -83,5 +86,5 @@ class BenchmarkResult:
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_json(cls, json_str):
+    def from_json(cls, json_str: str) -> "BenchmarkResult":
         return cls(**json.loads(json_str))

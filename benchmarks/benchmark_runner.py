@@ -7,6 +7,7 @@ import json
 import os
 import re
 from pathlib import Path
+from uuid import uuid4
 
 from openai.types.chat.completion_create_params import ResponseFormat
 
@@ -239,8 +240,10 @@ class Benchmark:
                         result,
                         sample.diff_edit,
                     )
-                    results.append(result)
+                except Exception as e:
+                    result.run_error = str(e)
                 finally:
+                    results.append(result)
                     os.chdir(start_dir)
         return results
 
@@ -252,12 +255,13 @@ def benchmark_listed(title, benchmarks):
     return False
 
 
-async def run_benchmarks(user_benchmarks: list[str], retries: int = 1):
-    print("Running benchmarks")
-    benchmarks_dir = Path("benchmarks/benchmarks")
-
+def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1):
+    # Load benchmarks
+    dir_path = Path(directory).resolve()
+    assert dir_path.exists(), f"Invalid directory: {directory}"
+    print(f"Running benchmarks from {dir_path}")
     benchmarks: list[Benchmark] = []
-    for root, dirs, files in os.walk(benchmarks_dir):
+    for root, dirs, files in os.walk(dir_path):
         for file in files:
             path = Path(root) / file
             if file.endswith(".py"):
@@ -272,24 +276,45 @@ async def run_benchmarks(user_benchmarks: list[str], retries: int = 1):
             ):
                 continue
             benchmarks.append(benchmark)
-
     print("Found benchmarks:\n" + "\n".join(b.title for b in benchmarks))
-    results: list[BenchmarkResult] = []
-    for benchmark in benchmarks:
-        results.extend(await benchmark.run())
+    print("*" * 80)
 
+    # Run benchmarks
+    results_cache = dir_path / f"benchmark_results_cache_{uuid4()}.jsonl"
+    results_cache.touch()
+    total_cost = 0.0
+    for benchmark in benchmarks:
+        # Run benchmark.run() with timeout
+        try:
+            result = asyncio.run(benchmark.run(retries=retries))
+            with open(results_cache, "a") as f:
+                for r in result:
+                    total_cost += r.cost if r.cost else 0.0
+                    f.write(r.to_json() + "\n")
+        except KeyboardInterrupt:
+            # TODO: Prints none on first ctrl+c, then here - probably the PythonClient
+            print("Exiting...")
+            break
+        except Exception as e:
+            print(f"Error running benchmark {benchmark.title}: {e}")
+            continue
+
+    # Summarize results
+    print(f"Total cost: {total_cost}")
+    with open(results_cache, "r") as f:
+        results = [BenchmarkResult.from_json(line) for line in f.readlines()]
     summary = BenchmarkResultSummary(results)
     with open("results.json", "w") as f:
         f.write(summary.to_json())
+    results_cache.unlink()  # Delete cache
     summary.render_results()
 
 
 if __name__ == "__main__":
     parser = common_benchmark_parser()
     args = parser.parse_args()
-    asyncio.run(
-        run_benchmarks(
-            args.benchmarks,
-            args.retries,
-        )
+    run_benchmarks(
+        args.benchmarks,
+        args.directory,
+        args.retries,
     )
