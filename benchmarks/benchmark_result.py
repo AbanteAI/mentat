@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import json
-from typing import Optional, Self
+from typing import Optional
 
 import attr
 
@@ -86,5 +88,5 @@ class BenchmarkResult:
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_json(cls, json_str: str) -> Self:
+    def from_json(cls, json_str: str) -> BenchmarkResult:
         return cls(**json.loads(json_str))
