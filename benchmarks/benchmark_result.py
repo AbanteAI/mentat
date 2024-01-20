@@ -26,7 +26,7 @@ class BenchmarkResult:
         default=None, metadata={"formatted_name": "Test output", "display": "code"}
     )
     run_error: Optional[str] = attr.ib(
-        default=None, metadata={"aggregation": "percent"}
+        default=None, metadata={"formatted_name": "Run Error", "display": "code"}
     )
     response: Optional[str] = attr.ib(
         default=None, metadata={"formatted_name": "Analysis", "display": "text"}
