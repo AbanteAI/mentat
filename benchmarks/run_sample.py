@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Any
 
+from git import Repo
+
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.git_parser import GitParser
@@ -8,12 +10,9 @@ from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import get_active_snapshot_commit, setup_repo
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import convert_string_to_asynciter
 
 
-async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str, Any]:
-    """Run a sample using Mentat and return the resulting diff"""
-
+async def setup_python_client(sample: Sample, cwd: Path | str | None = None) -> PythonClient:
     repo = setup_repo(
         url=sample.repo,
         cwd=cwd,
@@ -23,9 +22,6 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
     )
     cwd = Path(repo.working_dir)
 
-    # Make a commit from the pre-edited state (should match diff_active)
-    commit_active = get_active_snapshot_commit(repo)
-
     # Run sample in PythonClient
     paths = list[Path]()
     for a in sample.context:
@@ -34,21 +30,32 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
     await python_client.startup()
     session_context = SESSION_CONTEXT.get()
     conversation = session_context.conversation
-    cost_tracker = session_context.cost_tracker
     for msg in sample.message_history:
         if msg["role"] == "user":
             conversation.add_user_message(msg["content"])
         elif msg["role"] == "assistant":
-            generator = convert_string_to_asynciter(msg["content"], 100)
-            parsed_llm_response = await GitParser().stream_and_parse_llm_response(
-                generator
-            )
+            parsed_llm_response = GitParser().parse_llm_response(msg["content"])
             content = session_context.config.parser.file_edits_to_llm_message(
                 parsed_llm_response
             )
             conversation.add_model_message(content, [], parsed_llm_response)
         else:
             raise SampleError(f"Invalid role found in message_history: {msg['role']}")
+    return python_client
+
+
+async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str, Any]:
+    """Run a sample using Mentat and return the resulting diff"""
+    python_client = setup_python_client(sample, cwd)
+
+    session_context = SESSION_CONTEXT.get()
+    conversation = session_context.conversation
+    cwd = session_context.cwd
+    cost_tracker = session_context.cost_tracker
+
+    repo = Repo(cwd)
+    commit_active = get_active_snapshot_commit(repo)
+
     await python_client.call_mentat_auto_accept(sample.message_prompt)
     await python_client.shutdown()
 
