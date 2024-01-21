@@ -6,6 +6,9 @@ from pathlib import Path
 import attrs
 from tree_sitter import Language, Node, Parser
 
+from mentat.git_handler import get_non_gitignored_files
+from mentat.utils import is_file_text_encoded
+
 file_extension_map = {
     ".py": "python",
     ".go": "go",
@@ -112,13 +115,15 @@ def parse_file(path: Path, cwd: Path, cg: CallGraph | None = None) -> CallGraph:
     return cg
 
 
-def parse_dir(path: Path, cwd: Path | str | None = None) -> CallGraph:
+def parse_dir(path: Path, cwd: Path | str | None = None, recursive: bool = True) -> CallGraph:
     cwd = path if cwd is None else Path(cwd)
     cg = CallGraph()
-    for file in path.iterdir():
+    files = path.iterdir() if recursive is False else get_non_gitignored_files(path)
+    for file in files:
+        abs_path = cwd / file
         try:
-            if file.is_file():
-                parse_file(file, cwd, cg)
+            if is_file_text_encoded(abs_path):
+                parse_file(abs_path, cwd, cg)
         except TreesitterParsingError:
             print(f"Skipping {file} due to parsing error")
             continue
