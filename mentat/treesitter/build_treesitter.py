@@ -3,8 +3,7 @@ from pathlib import Path
 
 from tree_sitter import Language
 
-
-# Base directory to clone the grammars into. 
+# Base directory to clone the grammars into.
 TEMP_DIR = Path(__file__).parent / "grammars"
 
 LANGUAGES = {
@@ -13,9 +12,10 @@ LANGUAGES = {
     "python": "https://github.com/tree-sitter/tree-sitter-python",
 }
 
+
 def clone_or_update_repo(lang: str, repo_url: str):
     lang_dir = TEMP_DIR / lang
-    
+
     if not lang_dir.exists():
         # Clone the repository.
         print(f"Cloning {repo_url} into {lang_dir}...")
@@ -25,11 +25,13 @@ def clone_or_update_repo(lang: str, repo_url: str):
         print(f"Updating {lang_dir}...")
         subprocess.run(["git", "-C", lang_dir, "pull"], check=True)
 
-def bytes_to_human_readable(num: float, i_unit: int=0) -> str:
+
+def bytes_to_human_readable(num: float, i_unit: int = 0) -> str:
     units = ["B", "KB", "MB", "GB", "TB", "PB"]
     if num < 1024.0:
         return f"{num:.2f} {units[i_unit]}"
     return bytes_to_human_readable(num / 1024.0, i_unit + 1)
+
 
 def main():
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
@@ -49,6 +51,7 @@ def main():
     if input() == "y":
         print("Deleting...")
         subprocess.run(["rm", "-rf", TEMP_DIR], check=True)
+
 
 if __name__ == "__main__":
     main()

@@ -1,14 +1,14 @@
-from pathlib import Path
-from typing import List, Union
 from dataclasses import dataclass
+from pathlib import Path
 
-from tree_sitter import Language, Parser, Node
+from tree_sitter import Language, Node, Parser
 
 file_extension_map = {
-  ".py": "python",
-  ".go": "go",
-  ".js": "javascript",
+    ".py": "python",
+    ".go": "go",
+    ".js": "javascript",
 }
+
 
 @dataclass
 class FunctionSignature:
@@ -16,33 +16,33 @@ class FunctionSignature:
     return_type: str
     parameters: str
 
-@dataclass
-class SyntaxTree:
-    functions: List[FunctionSignature]
-
-def clean_text(node: Node) -> str:
-    return " ".join(node.text.decode('utf-8').split())
 
 class TreesitterParsingError(Exception):
     """
     Raised when an error is encountered parsing a file with treesitter, typically ignored
     """
 
-def extract_function_data(node: Node, source_code: str) -> Union[FunctionSignature, None]:
+
+def parse_node(node: Node, source_code: str) -> FunctionSignature | None:
     """Extracts function signature data from a given node."""
     if node.type == "function_definition":
+
+        def _clean_text(node: Node) -> str:
+            return " ".join(node.text.decode("utf-8").split())
+
         _name = node.child_by_field_name("name")
         _return_type = node.child_by_field_name("return_type")
         _parameters = node.child_by_field_name("parameters")
         return FunctionSignature(
-            clean_text(_name) if _name else "",
-            clean_text(_return_type) if _return_type else "",
-            clean_text(_parameters) if _parameters else "",
+            _clean_text(_name) if _name else "",
+            _clean_text(_return_type) if _return_type else "",
+            _clean_text(_parameters) if _parameters else "",
         )
     else:
         return None
 
-def parse_file(path: Path) -> SyntaxTree:
+
+def parse_file(path: Path) -> list[FunctionSignature]:
     # Load parser
     filetype = path.suffix
     if filetype not in file_extension_map:
@@ -57,21 +57,27 @@ def parse_file(path: Path) -> SyntaxTree:
     functions = list[FunctionSignature]()
     cursor = tree.walk()
     cursor.goto_first_child()
-    while cursor.goto_next_sibling():
-        function_data = extract_function_data(cursor.node, source_code)
+    while True:
+        function_data = parse_node(cursor.node, source_code)
         if function_data:
             functions.append(function_data)
+        if not cursor.goto_next_sibling():
+            break
 
-    return SyntaxTree(functions)
+    return functions
 
-def parse_dir(path: Path) -> SyntaxTree:
-    functions = list[FunctionSignature]()
+
+def parse_dir(
+    path: Path, cwd: Path | str | None = None
+) -> dict[str, list[FunctionSignature]]:
+    dir_functions = dict[str, list[FunctionSignature]]()
     for file in path.iterdir():
+        relative_path = file.relative_to(cwd) if cwd else file
         try:
             if file.is_file():
-                parsed_file = parse_file(file)
-                functions.extend(parsed_file.functions)
-        except TreesitterParsingError as e:
+                file_functions = parse_file(file)
+                dir_functions[relative_path.as_posix()] = file_functions
+        except TreesitterParsingError:
             print(f"Skipping {file} due to parsing error")
             continue
-    return SyntaxTree(functions)
+    return dir_functions
