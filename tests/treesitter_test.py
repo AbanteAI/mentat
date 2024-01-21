@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from mentat.treesitter.parser import parse_dir, parse_file
 
 
@@ -44,7 +45,6 @@ def test_call_graph_on_mentat(temp_testbed):
     mentat_path = Path(__file__).parent.parent / "mentat"
     call_graph = parse_dir(mentat_path)
     call_graph.save(temp_testbed / "call_graph.txt")
-
     saved_call_graph = (temp_testbed / "call_graph.txt").read_text()
     assert saved_call_graph.startswith("NODES\n")
     assert "\nEDGES\n" in saved_call_graph
