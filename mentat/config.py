@@ -36,22 +36,53 @@ class Config:
     # Model specific settings
     model: str = attr.field(
         default="gpt-4-1106-preview",
-        metadata={"auto_completions": list(known_models.keys())},
+        metadata={
+            "auto_completions": list(known_models.keys()),
+            "description": "Choose from one of the supported models: " + ", ".join(
+                list(known_models.keys())
+            ),
+        },
     )
     feature_selection_model: str = attr.field(
         default="gpt-4-1106-preview",
-        metadata={"auto_completions": list(known_models.keys())},
+        metadata={
+            "auto_completions": list(known_models.keys()),
+            "description": (
+                "The model used to prune the features before sending to the main model"
+                " for edits. Only used if llm_feature_filter is greater than 0."
+                " Possible models are: "
+                + ", ".join(list(known_models.keys()))
+            ),
+        },
     )
     embedding_model: str = attr.field(
         default="text-embedding-ada-002",
         metadata={
             "auto_completions": [
                 model.name for model in known_models.values() if model.embedding_model
-            ]
+            ],
+            "description": (
+                "The model used to create embeddings for auto context: "
+                + ", ".join(
+                    [
+                        model.name
+                        for model in known_models.values()
+                        if model.embedding_model
+                    ]
+                )
+            ),
         },
     )
     temperature: float = attr.field(
-        default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)]
+        default=0.2,
+        converter=float,
+        validator=[validators.le(1), validators.ge(0)],
+        metadata={
+            "description": (
+                "The model's temperature. Temperature is a number between 0 to 1"
+                "  that controls the model variability."
+            )
+        },
     )
 
     maximum_context: int | None = attr.field(
@@ -210,6 +241,7 @@ class Config:
             arguments = {
                 "help": field.metadata.get("description", ""),
             }
+            arguments["default"] = field.default
             if "const" in field.metadata:
                 arguments["nargs"] = "?"
                 arguments["const"] = field.metadata["const"]
