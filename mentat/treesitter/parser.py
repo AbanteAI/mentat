@@ -30,10 +30,9 @@ def parse_imports(
 ) -> list[tuple[str, str]]:
     module = ""
     if import_line.startswith("from"):
-        _, module, import_line = import_line.split(" ", 2)
-        module = module.strip()
-        if module in import_namespace:
-            module = import_namespace[module] + "."
+        _, _module, import_line = import_line.split(" ", 2)
+        if _module.strip() in import_namespace:
+            module = import_namespace[_module] + "."
 
     import_line = import_line.replace("import", "").strip()
     source_alias = ""
@@ -127,9 +126,8 @@ def parse_node(
             stem = _name.split(".")[0]
             if stem in namespace:
                 _name = _name.replace(stem, namespace[stem])
-        else:
-            _name = namespace.get(_name, _name)
-        call_graph.add_edge(call_path, _name)
+        if _name in namespace:
+            call_graph.add_edge(call_path, namespace[_name])
 
     # If it has children, parse with call_path
     if node.children:
@@ -154,7 +152,7 @@ def parse_file(
 
     if cg is None:
         cg = CallGraph()
-    relative_path = path.relative_to(cwd)
+    relative_path = path.relative_to(cwd.parent)
     call_path = relative_path.as_posix()
 
     language_name = file_extension_map[filetype]
@@ -182,9 +180,9 @@ def load_namespace_for_dir(path: Path, cwd: Path | str | None = None) -> dict[st
             _parts[-1] = _parts[-1].replace(file.suffix, "")
         for part in _parts[::-1]:
             i_part = _parts.index(part)
-            namespace_id = ".".join(_parts[i_part:])
+            namespace_id = "/".join(_parts[i_part:])
             if namespace_id not in namespace:
-                namespace[namespace_id] = ".".join(_parts)
+                namespace[namespace_id] = "/".join(_parts)
     return namespace
 
 

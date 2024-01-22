@@ -8,10 +8,10 @@ def test_parse_file(temp_testbed):
     call_graph = parse_file(test_path, cwd=temp_testbed)
     assert sorted(list(call_graph.nodes.keys())) == sorted(
         [
-            "multifile_calculator/operations.py:add_numbers",
-            "multifile_calculator/operations.py:multiply_numbers",
-            "multifile_calculator/operations.py:subtract_numbers",
-            "multifile_calculator/operations.py:divide_numbers",
+            "testbed/multifile_calculator/operations.py:add_numbers",
+            "testbed/multifile_calculator/operations.py:multiply_numbers",
+            "testbed/multifile_calculator/operations.py:subtract_numbers",
+            "testbed/multifile_calculator/operations.py:divide_numbers",
         ]
     )
     assert dict(call_graph.edges) == {}
@@ -22,23 +22,20 @@ def test_parse_dir(temp_testbed):
     call_graph = parse_dir(test_path, cwd=temp_testbed)
     assert sorted(list(call_graph.nodes.keys())) == sorted(
         [
-            "multifile_calculator/operations.py:add_numbers",
-            "multifile_calculator/operations.py:multiply_numbers",
-            "multifile_calculator/operations.py:subtract_numbers",
-            "multifile_calculator/operations.py:divide_numbers",
-            "multifile_calculator/calculator.py:calculate",
+            "testbed/multifile_calculator/operations.py:add_numbers",
+            "testbed/multifile_calculator/operations.py:multiply_numbers",
+            "testbed/multifile_calculator/operations.py:subtract_numbers",
+            "testbed/multifile_calculator/operations.py:divide_numbers",
+            "testbed/multifile_calculator/calculator.py:calculate",
         ]
     )
-    assert call_graph.edges["multifile_calculator/calculator.py:calculate"] == [
-        "add_numbers",
-        "subtract_numbers",
-        "multiply_numbers",
-        "divide_numbers",
-        "print",
-    ]
-    assert call_graph.edges["multifile_calculator/calculator.py"] == [
-        "fire.Fire",
-    ]
+    assert call_graph.edges["testbed/multifile_calculator/calculator.py:calculate"] == {
+        "testbed/multifile_calculator/operations.add_numbers",
+        "testbed/multifile_calculator/operations.subtract_numbers",
+        "testbed/multifile_calculator/operations.multiply_numbers",
+        "testbed/multifile_calculator/operations.divide_numbers",
+    }
+    assert call_graph.edges["testbed/multifile_calculator/calculator.py"] == set()
 
 
 def test_call_graph_on_mentat(temp_testbed):
