@@ -1,9 +1,8 @@
-import os
+import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Any
-
-import asyncio
 
 from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.run_sample import setup_python_client
@@ -11,17 +10,19 @@ from mentat.sampler.sample import Sample
 from mentat.session_context import SESSION_CONTEXT
 
 
-async def run_auto_context_benchmark(sample: Sample, cwd: Path | str | None = None) -> dict[str, Any]:
+async def run_auto_context_benchmark(
+    sample: Sample, cwd: Path | str | None = None
+) -> dict[str, Any]:
     """Run a sample using Mentat and return the resulting diff"""
     python_client = await setup_python_client(sample, cwd)
-    
+
     session_context = SESSION_CONTEXT.get()
     code_context = session_context.code_context
     config = session_context.config
     cwd = session_context.cwd
 
-
     expected_files = {c for c in sample.context}
+
     async def score():
         _ = await code_context.get_code_message(0, sample.message_prompt)
         features = {feature.rel_path(cwd) for feature in code_context.auto_features}
@@ -72,6 +73,7 @@ def main(directory: str):
     results_path = dir_path / "context_benchmark_results.json"
     with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
+
 
 if __name__ == "__main__":
     parser = common_benchmark_parser()

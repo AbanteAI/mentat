@@ -12,7 +12,9 @@ from mentat.sampler.utils import get_active_snapshot_commit, setup_repo
 from mentat.session_context import SESSION_CONTEXT
 
 
-async def setup_python_client(sample: Sample, cwd: Path | str | None = None) -> PythonClient:
+async def setup_python_client(
+    sample: Sample, cwd: Path | str | None = None
+) -> PythonClient:
     repo = setup_repo(
         url=sample.repo,
         cwd=cwd,
@@ -46,7 +48,7 @@ async def setup_python_client(sample: Sample, cwd: Path | str | None = None) -> 
 
 async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str, Any]:
     """Run a sample using Mentat and return the resulting diff"""
-    python_client = setup_python_client(sample, cwd)
+    python_client = await setup_python_client(sample, cwd)
 
     session_context = SESSION_CONTEXT.get()
     conversation = session_context.conversation
