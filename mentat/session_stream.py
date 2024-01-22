@@ -50,6 +50,16 @@ class SessionStream:
     after every input request. See TerminalClient for exact implementation.
 
     *interrupt: Sent by the client. Sent whenever client interrupts current work. Equivalent to ctrl-C
+
+    context_update: A JSON object describing the context sent whenever the context changes. JSON Schema:
+    {
+        "cwd": "Mentat's cwd",
+        "diff_context_display": "The display for the diff context",
+        "auto_context_tokens": The number of auto context tokens,
+        "features": ["List of user included features"],
+        "auto_features": ["List of auto included features"],
+        "git_diff_paths": ["List of all paths with git diffs; used to color the changed included features"]
+    }
     """
 
     def __init__(self):

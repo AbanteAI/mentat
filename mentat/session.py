@@ -143,7 +143,7 @@ class Session:
             ensure_ctags_installed()
 
         session_context.llm_api_handler.initialize_client()
-        code_context.display_context()
+        code_context.refresh_context_display()
         await conversation.display_token_count()
 
         stream.send("Type 'q' or use Ctrl-C to quit at any time.")

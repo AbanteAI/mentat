@@ -1,0 +1,24 @@
+Screen {
+    layout: horizontal;
+}
+
+ContentContainer {
+    height: 100%;
+    width: 75%;
+}
+
+ContentContainer > Input {
+    dock: bottom;
+}
+
+ContextContainer {
+    border-left: solid white;
+    height: 100%;
+    overflow: auto;
+    width: 25%;
+}
+
+ContextContainer > Tree {
+    width: auto;
+    height: auto;
+}

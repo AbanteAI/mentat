@@ -168,20 +168,6 @@ class Config:
         validator=validators.in_(themes.keys()),  # pyright: ignore
     )
 
-    # Only settable by config file
-    input_style: list[tuple[str, str]] = attr.field(
-        factory=lambda: [
-            ["", "#9835bd"],
-            ["prompt", "#ffffff bold"],
-            ["continuation", "#ffffff bold"],
-        ],
-        metadata={
-            "description": "Styling information for the terminal.",
-            "no_flag": True,
-            "no_midsession_change": True,
-        },
-    )
-
     @classmethod
     def get_fields(cls) -> list[str]:
         return [

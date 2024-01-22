@@ -65,7 +65,7 @@ class StreamingPrinter:
                     self.strings_to_print = deque[str]([])
                 else:
                     next_string = self.strings_to_print.popleft()
-                stream.send(next_string, end="", flush=True)
+                stream.send(next_string, end="")
                 self.chars_remaining -= 1
             elif self.finishing:
                 break

@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 import logging
 import signal
 from asyncio import Event
@@ -7,17 +8,11 @@ from pathlib import Path
 from types import FrameType
 from typing import Any, Coroutine, List, Set
 
-from prompt_toolkit import PromptSession
-from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
-from prompt_toolkit.styles import Style
-
 from mentat.config import Config
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.loading import LoadingHandler
-from mentat.terminal.output import print_stream_message
-from mentat.terminal.prompt_completer import MentatCompleter
-from mentat.terminal.prompt_session import MentatPromptSession
+from mentat.terminal.terminal_app import TerminalApp
 from mentat.terminal.themes import themes
 
 
@@ -48,6 +43,13 @@ class TerminalClient:
         """Utility method for running a Task in the background"""
 
         def task_cleanup(task: asyncio.Task[None]):
+            if task.exception() is not None:
+                self.session.stream.send(
+                    f"Error in task {task.get_coro()}: {str(task.exception())}",
+                    style="error",
+                )
+                # TODO
+                # self._should_exit.set()
             self._tasks.remove(task)
 
         task = asyncio.create_task(coro)
@@ -56,14 +58,46 @@ class TerminalClient:
 
         return task
 
-    async def _cprint_session_stream(self):
+    async def _run_terminal_app(self):
+        self.app = TerminalApp()
+        await self.app.run_async()
+        self._should_exit.set()
+
+    async def _default_channel_stream(self):
         async for message in self.session.stream.listen():
-            print_stream_message(message, themes[self.config.theme])
+            self.app.display_stream_message(message, themes[self.config.theme])
 
     async def _default_prompt_stream(self):
         self._default_prompt = ""
         async for message in self.session.stream.listen("default_prompt"):
             self._default_prompt += message.data
+
+    async def _listen_for_context_updates(self):
+        async for message in self.session.stream.listen("context_update"):
+            data = json.loads(message.data)
+            (
+                cwd,
+                diff_context_display,
+                auto_context_tokens,
+                features,
+                auto_features,
+                git_diff_paths,
+            ) = (
+                Path(data["cwd"]),
+                data["diff_context_display"],
+                data["auto_context_tokens"],
+                data["features"],
+                data["auto_features"],
+                set(Path(path) for path in data["git_diff_paths"]),
+            )
+            self.app.update_context(
+                cwd,
+                diff_context_display,
+                auto_context_tokens,
+                features,
+                auto_features,
+                git_diff_paths,
+            )
 
     async def _handle_loading_messages(self):
         loading_handler = LoadingHandler()
@@ -73,20 +107,19 @@ class TerminalClient:
     async def _handle_input_requests(self):
         while True:
             input_request_message = await self.session.stream.recv("input_request")
-            # TODO: Make extra kwargs like plain constants
-            if input_request_message.extra.get("plain"):
-                prompt_session = self._plain_session
-            else:
-                prompt_session = self._prompt_session
-            self.mentat_completer.command_autocomplete = (
-                input_request_message.extra.get("command_autocomplete", False)
-            )
 
             default_prompt = self._default_prompt.strip()
             self._default_prompt = ""
 
-            user_input = await prompt_session.prompt_async(
-                handle_sigint=False, default=default_prompt
+            plain = input_request_message.extra.get("plain", False)
+            command_autocomplete = input_request_message.extra.get(
+                "command_autocomplete", False
+            )
+
+            user_input = await self.app.get_user_input(
+                default_prompt=default_prompt,
+                plain=plain,
+                command_autocomplete=command_autocomplete,
             )
             if user_input == "q":
                 self._should_exit.set()
@@ -151,33 +184,13 @@ class TerminalClient:
         )
         self.session.start()
 
-        self.mentat_completer = MentatCompleter(self.session.stream)
-        self._prompt_session = MentatPromptSession(
-            completer=self.mentat_completer,
-            style=Style(self.config.input_style),
-            enable_suspend=True,
-        )
+        # TODO: What do we do when session recieves error? We want user to be able to see it but still shutdown
+        # self._create_task(self._run_terminal_app())
+        asyncio.create_task(self._run_terminal_app())
 
-        plain_bindings = KeyBindings()
-
-        @plain_bindings.add("c-c")
-        @plain_bindings.add("c-d")
-        def _(event: KeyPressEvent):
-            if event.current_buffer.text != "":
-                event.current_buffer.reset()
-            else:
-                event.app.exit(result="q")
-
-        self._plain_session = PromptSession[str](
-            message=[("class:prompt", ">>> ")],
-            style=Style(self.config.input_style),
-            completer=None,
-            key_bindings=plain_bindings,
-            enable_suspend=True,
-        )
-
-        self._create_task(self._cprint_session_stream())
+        self._create_task(self._default_channel_stream())
         self._create_task(self._handle_input_requests())
+        self._create_task(self._listen_for_context_updates())
         self._create_task(self._handle_loading_messages())
         self._create_task(self._default_prompt_stream())
         self._create_task(self._listen_for_client_exit())

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Union
@@ -17,13 +18,11 @@ from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilari
 from mentat.git_handler import get_paths_with_git_diffs
 from mentat.include_files import (
     PathType,
-    build_path_tree,
     get_code_features_for_path,
     get_path_type,
     get_paths_for_directory,
     is_file_text_encoded,
     match_path_with_patterns,
-    print_path_tree,
     validate_and_format_path,
 )
 from mentat.interval import parse_intervals, split_intervals_from_path
@@ -60,53 +59,38 @@ class CodeContext:
         self.ignore_files: Set[Path] = set()
         self.auto_features: List[CodeFeature] = []
 
-    def display_context(self):
-        """Display the baseline context: included files and auto-context settings"""
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-        config = session_context.config
+    def refresh_context_display(self):
+        """
+        Sends a message to the client with the new updated code context
+        Must be called whenever the context changes!
+        """
+        ctx = SESSION_CONTEXT.get()
 
-        stream.send("Code Context:", style="code")
-        prefix = "  "
-        stream.send(f"{prefix}Directory: {session_context.cwd}")
+        diff_context_display = None
         if self.diff_context and self.diff_context.name:
-            stream.send(f"{prefix}Diff:", end=" ")
-            stream.send(self.diff_context.get_display_context(), style="success")
+            diff_context_display = self.diff_context.get_display_context()
 
-        if config.auto_context_tokens > 0:
-            stream.send(f"{prefix}Auto-Context: Enabled")
-            stream.send(f"{prefix}Auto-Context Tokens: {config.auto_context_tokens}")
-        else:
-            stream.send(f"{prefix}Auto-Context: Disabled")
-
-        if self.include_files:
-            stream.send(f"{prefix}Included files:")
-            stream.send(f"{prefix + prefix}{session_context.cwd.name}")
-            features = [
+        features = get_consolidated_feature_refs(
+            [
                 feature
                 for file_features in self.include_files.values()
                 for feature in file_features
             ]
-            refs = get_consolidated_feature_refs(features)
-            print_path_tree(
-                build_path_tree([Path(r) for r in refs], session_context.cwd),
-                get_paths_with_git_diffs(self.git_root) if self.git_root else set(),
-                session_context.cwd,
-                prefix + prefix,
-            )
-        else:
-            stream.send(f"{prefix}Included files: ", end="")
-            stream.send("None", style="warning")
+        )
+        auto_features = get_consolidated_feature_refs(self.auto_features)
+        git_diff_paths = (
+            list(get_paths_with_git_diffs(self.git_root)) if self.git_root else []
+        )
 
-        if self.auto_features:
-            stream.send(f"{prefix}Auto-Included Features:")
-            refs = get_consolidated_feature_refs(self.auto_features)
-            print_path_tree(
-                build_path_tree([Path(r) for r in refs], session_context.cwd),
-                get_paths_with_git_diffs(self.git_root) if self.git_root else set(),
-                session_context.cwd,
-                prefix + prefix,
-            )
+        data = {
+            "cwd": str(ctx.cwd),
+            "diff_context_display": diff_context_display,
+            "auto_context_tokens": ctx.config.auto_context_tokens,
+            "features": features,
+            "auto_features": auto_features,
+            "git_diff_paths": [str(p) for p in git_diff_paths],
+        }
+        ctx.stream.send(json.dumps(data), channel="context_update")
 
     async def get_code_message(
         self,
@@ -130,7 +114,9 @@ class CodeContext:
         # Setup code message metadata
         code_message = list[str]()
         if self.diff_context:
-            self.diff_context.clear_cache()
+            # Since there is no way of knowing when the git diff changes,
+            # we just refresh the cache every time get_code_message is called
+            self.diff_context.refresh_diff_files()
             if self.diff_context.diff_files():
                 code_message += [
                     "Diff References:",
@@ -170,9 +156,10 @@ class CodeContext:
                 expected_edits,
                 loading_multiplier=loading_multiplier,
             )
-            self.auto_features = list(
+            self._auto_features = list(
                 set(self.auto_features) | set(await feature_filter.filter(features))
             )
+            self.refresh_context_display()
 
         # Merge include file features and auto features and add to code message
         code_message += get_code_message_from_features(
@@ -221,7 +208,8 @@ class CodeContext:
         """
         Clears all auto-features added to the conversation so far.
         """
-        self.auto_features = []
+        self._auto_features = []
+        self.refresh_context_display()
 
     def include_features(self, code_features: Iterable[CodeFeature]):
         """
@@ -249,6 +237,7 @@ class CodeContext:
                         self.include_files[code_feature.path] = []
                     self.include_files[code_feature.path].append(code_feature)
                     included_paths.add(Path(str(code_feature)))
+        self.refresh_context_display()
         return included_paths
 
     def include(
@@ -404,6 +393,7 @@ class CodeContext:
         except PathValidationError as e:
             session_context.stream.send(str(e), style="error")
 
+        self.refresh_context_display()
         return excluded_paths
 
     async def search(
