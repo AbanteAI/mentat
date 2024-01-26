@@ -15,13 +15,15 @@ from textual.widgets._tree import TreeNode
 from typing_extensions import override
 
 from mentat.session_stream import SessionStream, StreamMessage
+from mentat.terminal.history_suggester import HistorySuggester
 from mentat.terminal.patched_autocomplete import PatchedAutoComplete, PatchedDropdown
-from mentat.utils import fetch_resource
+from mentat.utils import fetch_resource, mentat_dir_path
 
 if TYPE_CHECKING:
     from mentat.terminal.client import TerminalClient
 
 css_path = Path("textual/terminal_app.tcss")
+history_file_location = mentat_dir_path / "prompt_history"
 
 
 class ContentDisplay(Static):
@@ -44,21 +46,28 @@ class ContentContainer(Static):
         self.stream = stream
         self.input_event = Event()
         self.last_user_input = ""
+        self.suggester = HistorySuggester(
+            history_file=history_file_location, case_sensitive=False
+        )
 
         super().__init__(renderable, **kwargs)
 
     @override
     def compose(self) -> ComposeResult:
         yield ContentDisplay()
-        # TODO: Add suggester (equivalent to current history completion)
         yield PatchedAutoComplete(
-            Input(classes="user-input", disabled=True),
+            Input(
+                classes="user-input",
+                disabled=True,
+                suggester=self.suggester,
+            ),
             PatchedDropdown(self.stream),
         )
 
     @on(Input.Submitted)
     def on_user_input(self, event: Input.Submitted):
         self.last_user_input = event.value
+        self.suggester.append_to_history(event.value)
         self.input_event.set()
 
     async def collect_user_input(
