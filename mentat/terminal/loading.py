@@ -3,6 +3,7 @@ from tqdm import tqdm
 from mentat.session_stream import StreamMessage
 
 
+# TODO: Make loading work
 class LoadingHandler:
     def __init__(self):
         self.pbar = None

@@ -22,3 +22,11 @@ ContextContainer > Tree {
     width: auto;
     height: auto;
 }
+
+.autocomplete--main-column {
+
+}
+
+.autocomplete--selected-column {
+
+}

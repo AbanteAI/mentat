@@ -14,7 +14,8 @@ from textual.widgets import Header, Input, Static, Tree
 from textual.widgets._tree import TreeNode
 from typing_extensions import override
 
-from mentat.session_stream import StreamMessage
+from mentat.session_stream import SessionStream, StreamMessage
+from mentat.terminal.patched_autocomplete import PatchedAutoComplete, PatchedDropdown
 from mentat.utils import fetch_resource
 
 if TYPE_CHECKING:
@@ -37,7 +38,10 @@ class ContentDisplay(Static):
 
 
 class ContentContainer(Static):
-    def __init__(self, renderable: RenderableType = "", **kwargs: Any):
+    def __init__(
+        self, stream: SessionStream, renderable: RenderableType = "", **kwargs: Any
+    ):
+        self.stream = stream
         self.input_event = Event()
         self.last_user_input = ""
 
@@ -46,8 +50,11 @@ class ContentContainer(Static):
     @override
     def compose(self) -> ComposeResult:
         yield ContentDisplay()
-        # TODO: Add suggester (equivalent to current history completion), add auto complete
-        yield Input(classes="user-input", disabled=True)
+        # TODO: Add suggester (equivalent to current history completion)
+        yield PatchedAutoComplete(
+            Input(classes="user-input", disabled=True),
+            PatchedDropdown(self.stream),
+        )
 
     @on(Input.Submitted)
     def on_user_input(self, event: Input.Submitted):
@@ -166,14 +173,14 @@ class TerminalApp(App[None]):
     CSS = css
     TITLE = "Mentat"
 
-    def __init__(self, session: TerminalClient, **kwargs: Any):
-        self.session = session
+    def __init__(self, client: TerminalClient, **kwargs: Any):
+        self.client = client
         super().__init__(**kwargs)
 
     @override
     def compose(self) -> ComposeResult:
         yield Header()
-        yield ContentContainer()
+        yield ContentContainer(self.client.session.stream)
         yield ContextContainer()
 
     def display_stream_message(
@@ -223,4 +230,4 @@ class TerminalApp(App[None]):
         )
 
     def action_on_interrupt(self):
-        self.session.send_interrupt()
+        self.client.send_interrupt()
