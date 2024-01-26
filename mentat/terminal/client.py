@@ -2,10 +2,8 @@ import argparse
 import asyncio
 import json
 import logging
-import signal
 from asyncio import Event
 from pathlib import Path
-from types import FrameType
 from typing import Any, Coroutine, List, Set
 
 from mentat.config import Config
@@ -16,6 +14,7 @@ from mentat.terminal.terminal_app import TerminalApp
 from mentat.terminal.themes import themes
 
 
+# TODO: Should this be so separate from the terminalapp?
 class TerminalClient:
     def __init__(
         self,
@@ -59,7 +58,7 @@ class TerminalClient:
         return task
 
     async def _run_terminal_app(self):
-        self.app = TerminalApp()
+        self.app = TerminalApp(self)
         await self.app.run_async()
         self._should_exit.set()
 
@@ -143,16 +142,7 @@ class TerminalClient:
             None, source=StreamMessageSource.CLIENT, channel="session_exit"
         )
 
-    async def _send_session_stream_interrupt(self):
-        logging.debug("Sending interrupt to session stream")
-        self.session.stream.send(
-            "", source=StreamMessageSource.CLIENT, channel="interrupt"
-        )
-
-    # Be careful editing this function; since we use signal.signal instead of asyncio's
-    # add signal handler (which isn't available on Windows), this function can interrupt
-    # asyncio coroutines, potentially causing race conditions.
-    def _handle_sig_int(self, sig: int, frame: FrameType | None):
+    def send_interrupt(self):
         if (
             # If session is still starting up we want to quit without an error
             not self.session
@@ -165,14 +155,12 @@ class TerminalClient:
                 logging.debug("Should exit client...")
                 self._should_exit.set()
         else:
-            # We create a task here in order to avoid race conditions
-            self._create_task(self._send_session_stream_interrupt())
-
-    def _init_signal_handlers(self):
-        signal.signal(signal.SIGINT, self._handle_sig_int)
+            logging.debug("Sending interrupt to session stream")
+            self.session.stream.send(
+                None, source=StreamMessageSource.CLIENT, channel="interrupt"
+            )
 
     async def _run(self):
-        self._init_signal_handlers()
         self.session = Session(
             self.cwd,
             self.paths,

@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import os
 from asyncio import Event
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from rich.console import RenderableType
 from rich.markup import escape
@@ -14,6 +16,9 @@ from typing_extensions import override
 
 from mentat.session_stream import StreamMessage
 from mentat.utils import fetch_resource
+
+if TYPE_CHECKING:
+    from mentat.terminal.client import TerminalClient
 
 css_path = Path("textual/terminal_app.tcss")
 
@@ -157,10 +162,13 @@ with css_resource.open("r") as css_file:
 
 # TODO: Should be light mode if terminal is light mode
 class TerminalApp(App[None]):
-    # TODO: Call _handle_sig_int on ctrl-c
-    BINDINGS = []  # [("ctrl+c", "", "")]
+    BINDINGS = [("ctrl+c", "on_interrupt", "Send interrupt")]
     CSS = css
     TITLE = "Mentat"
+
+    def __init__(self, session: TerminalClient, **kwargs: Any):
+        self.session = session
+        super().__init__(**kwargs)
 
     @override
     def compose(self) -> ComposeResult:
@@ -213,3 +221,6 @@ class TerminalApp(App[None]):
             auto_features,
             git_diff_paths,
         )
+
+    def action_on_interrupt(self):
+        self.session.send_interrupt()
