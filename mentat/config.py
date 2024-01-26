@@ -35,7 +35,7 @@ class Config:
 
     # Model specific settings
     model: str = attr.field(
-        default="gpt-4-1106-preview",
+        default="gpt-4-0125-preview",
         metadata={"auto_completions": list(known_models.keys())},
     )
     feature_selection_model: str = attr.field(
@@ -43,7 +43,7 @@ class Config:
         metadata={"auto_completions": list(known_models.keys())},
     )
     embedding_model: str = attr.field(
-        default="text-embedding-ada-002",
+        default="text-embedding-3-small",
         metadata={
             "auto_completions": [
                 model.name for model in known_models.values() if model.embedding_model
