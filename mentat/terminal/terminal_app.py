@@ -9,6 +9,7 @@ from rich.console import RenderableType
 from rich.markup import escape
 from textual import on
 from textual.app import App, ComposeResult
+from textual.message import Message
 from textual.reactive import reactive
 from textual.widgets import Header, Input, Static, Tree
 from textual.widgets._tree import TreeNode
@@ -37,6 +38,10 @@ class ContentDisplay(Static):
 
     def watch_content(self, content: str):
         self.update(content)
+        self.post_message(self.ContentAdded())
+
+    class ContentAdded(Message):
+        pass
 
 
 class ContentContainer(Static):
@@ -46,9 +51,7 @@ class ContentContainer(Static):
         self.stream = stream
         self.input_event = Event()
         self.last_user_input = ""
-        self.suggester = HistorySuggester(
-            history_file=history_file_location, case_sensitive=False
-        )
+        self.suggester = HistorySuggester(history_file=history_file_location)
 
         super().__init__(renderable, **kwargs)
 
@@ -70,13 +73,16 @@ class ContentContainer(Static):
         self.suggester.append_to_history(event.value)
         self.input_event.set()
 
-    async def collect_user_input(
-        self, default_prompt: str, plain: bool, command_autocomplete: bool
-    ) -> str:
+    @on(ContentDisplay.ContentAdded)
+    def on_content_added(self, event: ContentDisplay.ContentAdded):
+        self.scroll_end(animate=False)
+
+    async def collect_user_input(self, default_prompt: str) -> str:
         self.input_event.clear()
 
         user_input = self.query_one(Input)
         user_input.disabled = False
+        user_input.value = default_prompt
         user_input.focus()
         await self.input_event.wait()
         user_input.value = ""
@@ -142,8 +148,6 @@ class ContextContainer(Static):
         auto_features: List[str],
         git_diff_paths: Set[Path],
     ):
-        self.remove_children()
-
         feature_tree = self._build_tree_widget(features, cwd, git_diff_paths)
         auto_feature_tree = self._build_tree_widget(auto_features, cwd, git_diff_paths)
 
@@ -161,11 +165,11 @@ class ContextContainer(Static):
         context_header += "\nIncluded Files:"
         if not features:
             context_header += " [yellow]None[/yellow]"
-        self.mount(Static(context_header))
 
+        self.remove_children()
+        self.mount(Static(context_header))
         if features:
             self.mount(feature_tree)
-
         if auto_features:
             self.mount(Static("Auto-Included Features:"))
             self.mount(auto_feature_tree)
@@ -184,6 +188,7 @@ class TerminalApp(App[None]):
 
     def __init__(self, client: TerminalClient, **kwargs: Any):
         self.client = client
+        self.command_autocomplete = False
         super().__init__(**kwargs)
 
     @override
@@ -212,12 +217,13 @@ class TerminalApp(App[None]):
         content_display.add_content(content, color)
 
     async def get_user_input(
-        self, default_prompt: str, plain: bool, command_autocomplete: bool
+        self, default_prompt: str, command_autocomplete: bool
     ) -> str:
+        # This is a really janky way to pass command_autocomplete to Dropdown._get_completions(),
+        # but I couldn't think of anything better
+        self.command_autocomplete = command_autocomplete
         content_container = self.query_one(ContentContainer)
-        return await content_container.collect_user_input(
-            default_prompt, plain, command_autocomplete
-        )
+        return await content_container.collect_user_input(default_prompt)
 
     def update_context(
         self,

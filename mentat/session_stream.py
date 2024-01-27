@@ -39,7 +39,7 @@ class SessionStream:
 
     loading: Used to tell the client to display a loading bar. Valid kwargs: progress, terminate
 
-    input_request: Used to request input from the client (data unused). Valid kwargs: plain, command_autocomplete
+    input_request: Used to request input from the client (data unused). Valid kwargs: command_autocomplete
     *input_request:<message_id>: Sent by the client. The channel the response to an input_request is sent over.
 
     edits_complete: A boolean sent when edits have been completed. True if any edits were accepted.

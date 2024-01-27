@@ -156,7 +156,7 @@ class CodeContext:
                 expected_edits,
                 loading_multiplier=loading_multiplier,
             )
-            self._auto_features = list(
+            self.auto_features = list(
                 set(self.auto_features) | set(await feature_filter.filter(features))
             )
             self.refresh_context_display()

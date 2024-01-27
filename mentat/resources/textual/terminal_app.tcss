@@ -5,10 +5,16 @@ Screen {
 ContentContainer {
     height: 100%;
     width: 75%;
+    overflow-y: auto;
 }
 
-ContentContainer > Input {
+ContentContainer > PatchedAutoComplete {
+    height: auto;
     dock: bottom;
+}
+
+PatchedAutoComplete > Input {
+    height: auto;
 }
 
 ContextContainer {

@@ -19,9 +19,7 @@ async def _get_input_request(**kwargs: Any) -> StreamMessage:
     return response
 
 
-async def collect_user_input(
-    plain: bool = False, command_autocomplete: bool = False
-) -> StreamMessage:
+async def collect_user_input(command_autocomplete: bool = False) -> StreamMessage:
     """
     Listens for user input on a new channel
 
@@ -30,9 +28,7 @@ async def collect_user_input(
     close the channel after receiving the input
     """
 
-    response = await _get_input_request(
-        plain=plain, command_autocomplete=command_autocomplete
-    )
+    response = await _get_input_request(command_autocomplete=command_autocomplete)
     # Quit on q
     if isinstance(response.data, str) and response.data.strip() == "q":
         raise SessionExit
@@ -47,7 +43,7 @@ async def ask_yes_no(default_yes: bool) -> bool:
     while True:
         # TODO: combine this into a single message (include content)
         stream.send("(Y/n)" if default_yes else "(y/N)")
-        response = await collect_user_input(plain=True)
+        response = await collect_user_input()
         content = response.data.strip().lower()
         if content in ["y", "n", ""]:
             break

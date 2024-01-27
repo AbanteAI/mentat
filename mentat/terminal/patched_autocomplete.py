@@ -100,7 +100,7 @@ class PatchedDropdown(Dropdown):
             text,
             source=StreamMessageSource.CLIENT,
             channel="completion_request",
-            command_autocomplete=True,  # TODO Pass this here somehow
+            command_autocomplete=self.parent.parent.command_autocomplete,  # pyright: ignore
         )
 
         response = await self.stream.recv(channel=f"completion_request:{message.id}")

@@ -14,7 +14,6 @@ from mentat.terminal.terminal_app import TerminalApp
 from mentat.terminal.themes import themes
 
 
-# TODO: Should this be so separate from the terminalapp?
 class TerminalClient:
     def __init__(
         self,
@@ -110,14 +109,12 @@ class TerminalClient:
             default_prompt = self._default_prompt.strip()
             self._default_prompt = ""
 
-            plain = input_request_message.extra.get("plain", False)
             command_autocomplete = input_request_message.extra.get(
                 "command_autocomplete", False
             )
 
             user_input = await self.app.get_user_input(
                 default_prompt=default_prompt,
-                plain=plain,
                 command_autocomplete=command_autocomplete,
             )
 
