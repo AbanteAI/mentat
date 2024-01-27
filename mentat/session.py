@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import traceback
-from asyncio import CancelledError, Task
+from asyncio import CancelledError, Event, Task
 from pathlib import Path
 from typing import Any, Coroutine, List, Optional, Set
 from uuid import uuid4
@@ -52,7 +52,7 @@ class Session:
         config: Config = Config(),
     ):
         # All errors thrown here need to be caught here
-        self.stopped = False
+        self.stopped = Event()
 
         if not mentat_dir_path.exists():
             os.mkdir(mentat_dir_path)
@@ -211,6 +211,7 @@ class Session:
                     need_user_request = True
                 stream.send(bool(file_edits), channel="edits_complete")
             except SessionExit:
+                stream.send(None, channel="client_exit")
                 break
             except ReturnToUser:
                 need_user_request = True
@@ -258,6 +259,7 @@ class Session:
             except Exception as e:
                 # All unhandled exceptions end up here
                 error = f"Unhandled Exception: {traceback.format_exc()}"
+                logging.error(error)
                 # Helps us handle errors in tests
                 if is_test_environment():
                     print(error)
@@ -274,9 +276,9 @@ class Session:
         self._create_task(self.listen_for_completion_requests())
 
     async def _stop(self):
-        if self.stopped:
+        if self.stopped.is_set():
             return
-        self.stopped = True
+        self.stopped.set()
 
         session_context = SESSION_CONTEXT.get()
         cost_tracker = session_context.cost_tracker
@@ -295,6 +297,6 @@ class Session:
         except CancelledError:
             pass
 
-        self.stream.send(None, channel="client_exit")
+        self.stream.send(None, channel="session_stopped")
         await self.stream.join()
         self.stream.stop()

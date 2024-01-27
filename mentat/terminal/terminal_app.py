@@ -240,3 +240,7 @@ class TerminalApp(App[None]):
 
     def action_on_interrupt(self):
         self.client.send_interrupt()
+
+    def disable_app(self):
+        user_input = self.query_one(Input)
+        user_input.disabled = True

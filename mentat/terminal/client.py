@@ -47,8 +47,7 @@ class TerminalClient:
                     f"Error in task {task.get_coro()}: {str(task.exception())}",
                     style="error",
                 )
-                # TODO
-                # self._should_exit.set()
+                self._should_exit.set()
             self._tasks.remove(task)
 
         task = asyncio.create_task(coro)
@@ -61,6 +60,7 @@ class TerminalClient:
         self.app = TerminalApp(self)
         await self.app.run_async()
         self._should_exit.set()
+        asyncio.create_task(self._shutdown())
 
     async def _default_channel_stream(self):
         async for message in self.session.stream.listen():
@@ -120,9 +120,6 @@ class TerminalClient:
                 plain=plain,
                 command_autocomplete=command_autocomplete,
             )
-            if user_input == "q":
-                self._should_exit.set()
-                return
 
             self.session.stream.send(
                 user_input,
@@ -130,13 +127,19 @@ class TerminalClient:
                 channel=f"input_request:{input_request_message.id}",
             )
 
+    async def _listen_for_session_stopped(self):
+        await self.session.stream.recv(channel="session_stopped")
+        self.app.disable_app()
+
     async def _listen_for_client_exit(self):
-        """When the Session shuts down, it will send the client_exit signal for the client to shutdown."""
         await self.session.stream.recv(channel="client_exit")
         asyncio.create_task(self._shutdown())
 
     async def _listen_for_should_exit(self):
-        """This listens for a user event signaling shutdown (like SigInt), and tells the session to shutdown."""
+        """
+        This listens for a user event signaling session shutdown (like an error), and tells the session to shutdown.
+        Does *NOT* shut down the client, only disables it.
+        """
         await self._should_exit.wait()
         self.session.stream.send(
             None, source=StreamMessageSource.CLIENT, channel="session_exit"
@@ -147,12 +150,14 @@ class TerminalClient:
             # If session is still starting up we want to quit without an error
             not self.session
             or self.session.stream.interrupt_lock.locked() is False
+            or self.session.stopped.is_set()
         ):
             if self._should_exit.is_set():
                 logging.debug("Force exiting client...")
                 exit(0)
             else:
                 logging.debug("Should exit client...")
+                asyncio.create_task(self._shutdown())
                 self._should_exit.set()
         else:
             logging.debug("Sending interrupt to session stream")
@@ -172,16 +177,14 @@ class TerminalClient:
         )
         self.session.start()
 
-        # TODO: What do we do when session recieves error? We want user to be able to see it but still shutdown
-        # self._create_task(self._run_terminal_app())
-        asyncio.create_task(self._run_terminal_app())
-
+        self._create_task(self._run_terminal_app())
         self._create_task(self._default_channel_stream())
         self._create_task(self._handle_input_requests())
         self._create_task(self._listen_for_context_updates())
         self._create_task(self._handle_loading_messages())
         self._create_task(self._default_prompt_stream())
         self._create_task(self._listen_for_client_exit())
+        self._create_task(self._listen_for_session_stopped())
         self._create_task(self._listen_for_should_exit())
 
         logging.debug("Completed startup")
@@ -189,6 +192,7 @@ class TerminalClient:
 
     async def _shutdown(self):
         logging.debug("Running shutdown")
+        await self.session.stopped.wait()
 
         # Stop all background tasks
         for task in self._tasks:

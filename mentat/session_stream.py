@@ -34,7 +34,8 @@ class SessionStream:
     default: Any data sent to the client over this channel should be displayed. Valid kwargs: color, style
 
     *session_exit: Sent by the client, suggesting that the session should exit whenever possible.
-    client_exit: Sent by the server directly before shutting down. Client should shut down when received.
+    client_exit: Sent by the server, client should shut down when recieved.
+    session_stopped: Sent by the server directly before server shuts down. Server can't be contacted after recieved.
 
     loading: Used to tell the client to display a loading bar. Valid kwargs: progress, terminate
 
