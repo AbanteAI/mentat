@@ -16,7 +16,7 @@ In addition, Mentat uses the :code:`gpt-4-1106-preview` model by default. When u
 🦙 Local Models
 ---------------
 
-In our experiments we have not found any non-openai models to be as good as even gpt-3.5-turbo with Mentat. That being said it is possible to use Mentat with other models with just a few steps. Mentat uses the OpenAI SDK to retrieve chat completions. This means that setting the `OPENAI_API_BASE` environment variable is enough to use any model that has the same response schema as OpenAI. To use models with different response schemas, we recommend setting up a litellm proxy as described [here](https://docs.litellm.ai/docs/proxy/quick_start) and pointing `OPENAI_API_BASE` to the proxy. You can use local models run with ollama with the following steps:
+In our experiments we have not found any non-openai models to be as good as even gpt-3.5-turbo with Mentat. That being said it is possible to use Mentat with other models with just a few steps. Mentat uses the OpenAI SDK to retrieve chat completions. This means that setting the `OPENAI_API_BASE` environment variable is enough to use any model that has the same response schema as OpenAI. To use models with different response schemas, we recommend setting up a litellm proxy as described `here <https://docs.litellm.ai/docs/proxy/quick_start>`__ and pointing `OPENAI_API_BASE` to the proxy. You can use local models run with ollama with the following steps:
 
 First run ollama. Replace mixtral with whichever model you want to use.
 
