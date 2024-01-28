@@ -209,6 +209,7 @@ class ModelsIndex(Dict[str, Model]):
 
 known_models = ModelsIndex(
     {
+        "gpt-4-0125-preview": Model("gpt-4-0125-preview", 128000, 0.01, 0.03),
         "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
         "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
         "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
