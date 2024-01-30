@@ -2,6 +2,7 @@
 import asyncio
 import multiprocessing
 import os
+from datetime import datetime
 from functools import partial
 from pathlib import Path
 
@@ -10,9 +11,10 @@ from openai import BadRequestError
 
 from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.benchmark_result import BenchmarkResult
-from benchmarks.benchmark_result_summary import BenchmarkResultSummary
+from benchmarks.benchmark_run import BenchmarkRun
 from benchmarks.exercise_runners.exercise_runner_factory import ExerciseRunnerFactory
 from mentat.config import Config
+from mentat.git_handler import get_mentat_branch, get_mentat_hexsha
 from mentat.python_client.client import PythonClient
 from mentat.sampler.utils import clone_repo
 from mentat.session_context import SESSION_CONTEXT
@@ -214,10 +216,18 @@ def run_exercism_benchmark(
             pbar.set_description(tqdm_summary(results) + "| Last Ran: " + result.name)
         results.sort(key=lambda result: result.name)
 
-        summary = BenchmarkResultSummary(results)
-        with open("results.json", "w") as f:
-            f.write(summary.to_json())
-        summary.render_results()
+        benchmark_run = BenchmarkRun(
+            results,
+            metadata={
+                "language": language,
+                "type": "exercism",
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "commit": get_mentat_hexsha(),
+                "branch": get_mentat_branch(),
+            },
+        )
+        benchmark_run.save()
+        benchmark_run.render_results()
 
 
 if __name__ == "__main__":

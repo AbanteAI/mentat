@@ -252,3 +252,32 @@ def get_hexsha_active() -> str:
                 hasher.update(file_path.read_bytes())
         hexsha = hasher.hexdigest()
     return hexsha
+
+
+# The following utilities give git information for the Mentat project itself. They are
+# useful for benchmarks but shouldn't be used by the mentat module because it won't be a
+# git repo when installed via pip.
+def get_mentat_hexsha():
+    try:
+        hexsha = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).parent.parent,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        return hexsha
+    except subprocess.CalledProcessError:
+        return ""
+
+
+def get_mentat_branch():
+    try:
+        branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=Path(__file__).parent.parent,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        return branch
+    except subprocess.CalledProcessError:
+        return ""
