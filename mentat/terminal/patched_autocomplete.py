@@ -43,6 +43,7 @@ class CompletionDropdownItem(DropdownItem):
     position: int = 0
 
 
+# TODO: Dropdown up when at bottom of screen
 class PatchedDropdown(Dropdown):
     """
     The dropdown class in textual_autocomplete isn't able to do everything we need it to (mainly async completions),

@@ -140,6 +140,7 @@ class ContextContainer(Static):
         self._build_sub_tree(cwd, tree.root, path_tree, git_diff_paths)
         return tree
 
+    # TODO: Add total cost, tokens in context, etc.
     def update_context(
         self,
         cwd: Path,
