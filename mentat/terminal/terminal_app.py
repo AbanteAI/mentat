@@ -58,7 +58,8 @@ class ContentContainer(Static):
     @override
     def compose(self) -> ComposeResult:
         yield ContentDisplay()
-        yield PatchedAutoComplete(
+        yield Static(id="loading-display")
+        yield PatchedAutoComplete(  # TODO: Press up to cycle through last inputs
             Input(
                 classes="user-input",
                 disabled=True,
@@ -248,5 +249,10 @@ class TerminalApp(App[None]):
         self.client.send_interrupt()
 
     def disable_app(self):
-        user_input = self.query_one(Input)
-        user_input.disabled = True
+        self.query_one(Input).disabled = True
+
+    def start_loading(self):
+        self.query_one("#loading-display").loading = True
+
+    def end_loading(self):
+        self.query_one("#loading-display").loading = False

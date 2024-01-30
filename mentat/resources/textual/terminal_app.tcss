@@ -8,7 +8,7 @@ ContentContainer {
     overflow-y: auto;
 }
 
-ContentContainer > PatchedAutoComplete {
+PatchedAutoComplete {
     height: auto;
     dock: bottom;
 }
@@ -35,4 +35,9 @@ ContextContainer > Tree {
 
 .autocomplete--selected-column {
 
+}
+
+#loading-display {
+    height: 1;
+    width: 100%;
 }

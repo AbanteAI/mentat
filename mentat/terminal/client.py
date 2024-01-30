@@ -9,7 +9,6 @@ from typing import Any, Coroutine, List, Set
 from mentat.config import Config
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
-from mentat.terminal.loading import LoadingHandler
 from mentat.terminal.terminal_app import TerminalApp
 from mentat.terminal.themes import themes
 
@@ -98,9 +97,11 @@ class TerminalClient:
             )
 
     async def _handle_loading_messages(self):
-        loading_handler = LoadingHandler()
         async for message in self.session.stream.listen("loading"):
-            loading_handler.update(message)
+            if message.extra.get("terminate", False):
+                self.app.end_loading()
+            else:
+                self.app.start_loading()
 
     async def _handle_input_requests(self):
         while True:
