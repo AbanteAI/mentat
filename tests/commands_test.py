@@ -276,7 +276,7 @@ async def test_search_command(
     await session.stream.recv(channel="client_exit")
 
     rel_path = mock_feature.path.relative_to(Path(temp_testbed))
-    assert str(rel_path) in session.stream.messages[-3].data
+    assert str(rel_path) in session.stream.messages[-6].data
     assert "cost" in session.stream.messages[-2].data
 
 
