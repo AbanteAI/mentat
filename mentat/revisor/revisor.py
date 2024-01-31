@@ -17,7 +17,7 @@ from mentat.parsers.change_display_helper import (
 )
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.git_parser import GitParser
-from mentat.parsers.streaming_printer import FormattedString
+from mentat.parsers.streaming_printer import FormattedString, send_formatted_string
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage
@@ -137,10 +137,7 @@ async def revise_edit(file_edit: FileEdit):
             ctx.stream.send("Revision diff:", style="info")
             ctx.stream.send(change_delimiter)
             for line in diff_diff:
-                if isinstance(line, str):
-                    ctx.stream.send(line)
-                else:
-                    ctx.stream.send(line[0], **line[1])
+                send_formatted_string(line)
             ctx.stream.send(change_delimiter)
         ctx.cost_tracker.display_last_api_call()
 

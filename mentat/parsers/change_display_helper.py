@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Tuple
 
 import attr
-from pygments import highlight  # pyright: ignore[reportUnknownVariableType]
+from pygments import lex
 from pygments.formatters import TerminalFormatter
 from pygments.lexer import Lexer
 from pygments.lexers import TextLexer, get_lexer_for_filename
@@ -195,8 +195,13 @@ def get_removed_lines(
 
 
 def highlight_text(text: str, lexer: Lexer) -> FormattedString:
-    # pygments doesn't have type hints on TerminalFormatter
-    return highlight(text, lexer, TerminalFormatter(bg="dark"))  # type: ignore
+    formatter = TerminalFormatter(bg="dark")  # type: ignore
+    string: FormattedString = []
+    for ttype, value in lex(text, lexer):
+        # We use TerminalFormatter's color scheme; TODO: Hook this up to our style themes instead
+        color = formatter._get_color(ttype)  # type: ignore
+        string.append((value, {"color": color}))
+    return string
 
 
 def get_previous_lines(
