@@ -15,7 +15,7 @@ class UndoCommand(Command, command_name="undo"):
 
         errors = code_file_manager.history.undo()
         if errors:
-            stream.send(errors)
+            stream.send("\n".join(errors), style="error")
         stream.send("Undo complete", style="success")
 
     @override

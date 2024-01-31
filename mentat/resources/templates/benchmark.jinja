@@ -66,9 +66,9 @@
                         <h1>{{ display_name|capitalize }}</h1>
                             <div class="content">
                                 {% if section.type == "text" %}
-                                    {{ section.content }}
+                                    {{ section.content |escape }}
                                 {% elif section.type == "code" %}
-                                    <pre><code>{{ section.content }}</code></pre>
+                                    <pre><code>{{ section.content |escape }}</code></pre>
                                 {% elif section.type == "json" %}
                                     <pre>{{ section.content |tojson(indent=4)|safe}}</pre>
                                 {% elif section.type == "transcript" %}

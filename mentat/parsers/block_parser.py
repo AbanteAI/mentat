@@ -11,6 +11,7 @@ from mentat.errors import ModelError
 from mentat.parsers.change_display_helper import DisplayInformation, FileActionType
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import ParsedLLMResponse, Parser
+from mentat.parsers.streaming_printer import FormattedString
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
@@ -192,7 +193,7 @@ class BlockParser(Parser):
         code_block: str,
         display_information: DisplayInformation,
         file_edit: FileEdit,
-    ) -> str:
+    ) -> FormattedString:
         file_edit.replacements.append(
             Replacement(
                 display_information.first_changed_line,

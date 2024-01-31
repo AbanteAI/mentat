@@ -1,6 +1,4 @@
-from typing import Optional
-
-from termcolor import colored
+from typing import List
 
 from mentat.errors import HistoryError
 from mentat.parsers.file_edit import FileEdit
@@ -22,9 +20,9 @@ class EditHistory:
             self.edits.append(self.cur_edits)
             self.cur_edits = list[FileEdit]()
 
-    def undo(self) -> str:
+    def undo(self) -> List[str]:
         if not self.edits:
-            return colored("No edits available to undo", color="light_red")
+            return ["No edits available to undo"]
 
         # Make sure to go top down
         cur_edit = self.edits.pop()
@@ -36,14 +34,14 @@ class EditHistory:
                 cur_file_edit.undo()
                 undone_edit.append(cur_file_edit)
             except HistoryError as e:
-                errors.append(colored(str(e), color="light_red"))
+                errors.append(str(e))
         if undone_edit:
             self.undone_edits.append(undone_edit)
-        return "\n".join(errors)
+        return errors
 
-    async def redo(self) -> Optional[str]:
+    async def redo(self) -> List[str]:
         if not self.undone_edits:
-            return colored("No edits available to redo", color="light_red")
+            return ["No edits available to redo"]
 
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
@@ -53,14 +51,15 @@ class EditHistory:
         for edit in edits_to_redo:
             edit.display_full_edit(code_file_manager.file_lines[edit.file_path])
         await code_file_manager.write_changes_to_files(edits_to_redo)
+        return []
 
-    def undo_all(self) -> str:
+    def undo_all(self) -> List[str]:
         if not self.edits:
-            return colored("No edits available to undo", color="light_red")
+            return ["No edits available to undo"]
 
         errors = list[str]()
         while self.edits:
             error = self.undo()
             if error:
-                errors.append(error)
-        return "\n".join(errors)
+                errors += error
+        return errors

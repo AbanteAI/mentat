@@ -9,7 +9,7 @@ from mentat.errors import SampleError
 from mentat.git_handler import get_non_gitignored_files
 from mentat.utils import is_file_text_encoded
 
-CLONE_TO_DIR = Path("benchmark_repos")
+CLONE_TO_DIR = Path("benchmarks/benchmark_repos")
 
 
 def clone_repo(
@@ -96,7 +96,7 @@ def setup_repo(
 
 def get_active_snapshot_commit(repo: Repo) -> str | None:
     """Returns the commit hash of the current active snapshot, or None if there are no active changes."""
-    if not repo.is_dirty():
+    if not repo.is_dirty() and not repo.untracked_files:
         return None
     if not repo.config_reader().has_option("user", "name"):
         raise SampleError(

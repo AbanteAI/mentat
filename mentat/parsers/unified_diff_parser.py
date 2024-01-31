@@ -1,7 +1,6 @@
 from enum import Enum
 from pathlib import Path
 
-from termcolor import colored
 from typing_extensions import override
 
 from mentat.code_file_manager import CodeFileManager
@@ -14,6 +13,7 @@ from mentat.parsers.change_display_helper import (
 from mentat.parsers.diff_utils import matching_index
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import Parser
+from mentat.parsers.streaming_printer import FormattedString
 from mentat.prompts.prompts import read_prompt
 
 unified_diff_parser_prompt_filename = Path("unified_diff_parser_prompt.txt")
@@ -38,8 +38,8 @@ class UnifiedDiffParser(Parser):
     @override
     def _code_line_beginning(
         self, display_information: DisplayInformation, cur_block: str
-    ) -> str:
-        return ""
+    ) -> FormattedString:
+        return ("", {})
 
     @override
     def _code_line_content(
@@ -48,13 +48,13 @@ class UnifiedDiffParser(Parser):
         content: str,
         cur_line: str,
         cur_block: str,
-    ) -> str:
+    ) -> FormattedString:
         if cur_line == UnifiedDiffDelimiter.MidChange.value:
             return change_delimiter + "\n"
         elif cur_line.startswith("+"):
-            return colored(content, "green")
+            return (content, {"color": "green"})
         elif cur_line.startswith("-"):
-            return colored(content, "red")
+            return (content, {"color": "red"})
         else:
             return highlight_text(content, display_information.lexer)
 
@@ -134,7 +134,7 @@ class UnifiedDiffParser(Parser):
         code_block: str,
         display_information: DisplayInformation,
         file_edit: FileEdit,
-    ) -> str:
+    ) -> FormattedString:
         file_lines = self._get_file_lines(
             code_file_manager, rename_map, file_edit.file_path
         ).copy()
@@ -160,9 +160,7 @@ class UnifiedDiffParser(Parser):
                     and not line.startswith("-")
                     and not line.startswith(" ")
                 ):
-                    return colored(
-                        "Error: Invalid diff format given. Discarding this change."
-                    )
+                    return "Error: Invalid diff format given. Discarding this change."
                 cur_lines.append(line)
         if cur_lines:
             changes.append(cur_lines)
@@ -185,9 +183,9 @@ class UnifiedDiffParser(Parser):
 
             start_index = matching_index(file_lines, search_lines)
             if start_index == -1:
-                return colored(
+                return (
                     "Error: Original lines not found. Discarding this change.",
-                    color="red",
+                    {"color": "red"},
                 )
 
             # Matching lines checks for matches that are missing whitespace only lines;

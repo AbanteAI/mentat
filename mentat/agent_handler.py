@@ -114,7 +114,8 @@ class AgentHandler:
         messages.append(
             ChatCompletionAssistantMessageParam(role="assistant", content=content)
         )
-        ctx.conversation.add_model_message(content, messages)
+        parsed_llm_response = await ctx.config.parser.parse_llm_response(content)
+        ctx.conversation.add_model_message(content, messages, parsed_llm_response)
 
         commands = content.strip().split("\n")
         return commands

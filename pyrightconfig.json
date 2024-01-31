@@ -1,6 +1,13 @@
 {
     "include": ["mentat"],
-    "ignore": ["testbed", "tests", "scripts", "benchmark_repos", "build"],
+    "ignore": [
+        "testbed",
+        "tests",
+        "scripts",
+        "benchmark_repos",
+        "build",
+        "benchmarks/benchmark_repos",
+    ],
     "typeCheckingMode": "strict",
     "reportMissingTypeStubs": false,
 }

@@ -20,7 +20,7 @@ from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
-from mentat.errors import MentatError, ReturnToUser, SampleError, SessionExit, UserError
+from mentat.errors import MentatError, ReturnToUser, SessionExit, UserError
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
@@ -117,6 +117,8 @@ class Session:
         ):
             for file in code_context.diff_context.diff_files():
                 code_context.include(file)
+        if config.sampler:
+            sampler.set_active_diff()
 
     def _create_task(self, coro: Coroutine[None, None, Any]):
         """Utility method for running a Task in the background"""
@@ -183,16 +185,8 @@ class Session:
                             await get_user_feedback_on_edits(file_edits)
                         )
 
-                    if session_context.sampler and session_context.sampler.active:
-                        try:
-                            session_context.sampler.set_active_diff()
-                        except SampleError as e:
-                            stream.send(
-                                f"Sampler error setting active diff: {e}. Disabling"
-                                " sampler.",
-                                style="error",
-                            )
-                            session_context.sampler.active = False
+                    if session_context.config.sampler:
+                        session_context.sampler.set_active_diff()
 
                     applied_edits = await code_file_manager.write_changes_to_files(
                         file_edits

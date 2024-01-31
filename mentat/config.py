@@ -35,7 +35,7 @@ class Config:
 
     # Model specific settings
     model: str = attr.field(
-        default="gpt-4-1106-preview",
+        default="gpt-4-0125-preview",
         metadata={"auto_completions": list(known_models.keys())},
     )
     feature_selection_model: str = attr.field(
@@ -104,6 +104,16 @@ class Config:
             "description": (
                 "Enables or disables a revisor tweaking model edits after they're made."
                 " The revisor will use the same model regular edits do."
+            ),
+            "auto_completions": bool_autocomplete,
+        },
+        converter=converters.optional(converters.to_bool),
+    )
+    sampler: bool = attr.field(
+        default=False,
+        metadata={
+            "description": (
+                "Automatically saves a git diff snapshot for the sampler on startup."
             ),
             "auto_completions": bool_autocomplete,
         },

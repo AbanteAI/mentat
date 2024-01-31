@@ -1,6 +1,5 @@
 from typing import List, Set
 
-from termcolor import colored
 from typing_extensions import override
 
 from mentat.command.command import Command, CommandArgument
@@ -51,28 +50,30 @@ class SearchCommand(Command, command_name="search"):
 
         cumulative_tokens = 0
         for i, (feature, _) in enumerate(results, start=1):
-            prefix = "\n   "
+            stream.send(str(i).ljust(3), end="")
+            prefix = "   "
 
+            # TODO: The file_name was originally bolded; I decided it wasn't worth it to add a way to add
+            # text attributes for this one scenario, but if we ever do add text attributes, make this bold again.
             file_name = feature.rel_path(session_context.cwd)
-            file_name = colored(file_name, "blue", attrs=["bold"])
-            file_name += colored(feature.interval_string(), "light_cyan")
+            stream.send(file_name, color="blue", end="")
+            file_interval = feature.interval_string()
+            stream.send(file_interval, color="light_cyan", end="")
 
             tokens = feature.count_tokens(config.model)
             cumulative_tokens += tokens
-            tokens_str = colored(f"  ({tokens} tokens)", "yellow")
-            file_name += tokens_str
+            tokens_str = f"  ({tokens} tokens)"
+            stream.send(tokens_str, color="yellow")
 
-            name = []
             if feature.name:
                 name = feature.name.split(",")
-                name = [
-                    f"{'└' if i == len(name) - 1 else '├'}─ {colored(n, 'cyan')}"
-                    for i, n in enumerate(name)
-                ]
+                for j, n in enumerate(name):
+                    stream.send(prefix, end="")
+                    stream.send(f"{'└' if j == len(name) - 1 else '├'}─ ", end="")
+                    stream.send(n, color="cyan")
+            stream.send("")
 
-            message = f"{str(i).ljust(3)}" + prefix.join([file_name] + name + [""])
-            stream.send(message)
-            if i > 1 and i % SEARCH_RESULT_BATCH_SIZE == 0:
+            if i % SEARCH_RESULT_BATCH_SIZE == 0:
                 # Required to avoid circular imports, but not ideal.
                 from mentat.session_input import collect_user_input
 
@@ -92,7 +93,7 @@ class SearchCommand(Command, command_name="search"):
                             )
                             stream.send(f"{rel_path} added to context", style="success")
                     else:
-                        stream.send("(Y/n)")
+                        stream.send("(Y/n)", style="input")
                     user_input: str = (await collect_user_input()).data.strip()
                 if user_input.lower() == "n":
                     stream.send("Exiting search mode...", style="input")

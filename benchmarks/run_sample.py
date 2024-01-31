@@ -1,18 +1,17 @@
 from pathlib import Path
-
-from openai.types.chat import (
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionUserMessageParam,
-)
+from typing import Any
 
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
+from mentat.parsers.git_parser import GitParser
 from mentat.python_client.client import PythonClient
+from mentat.sampler.sample import Sample
 from mentat.sampler.utils import get_active_snapshot_commit, setup_repo
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import convert_string_to_asynciter
 
 
-async def run_sample(sample, cwd: Path | str | None = None):
+async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str, Any]:
     """Run a sample using Mentat and return the resulting diff"""
 
     repo = setup_repo(
@@ -35,18 +34,38 @@ async def run_sample(sample, cwd: Path | str | None = None):
     await python_client.startup()
     session_context = SESSION_CONTEXT.get()
     conversation = session_context.conversation
+    cost_tracker = session_context.cost_tracker
     for msg in sample.message_history:
-        msg_cls = {
-            "user": ChatCompletionUserMessageParam,
-            "assistant": ChatCompletionAssistantMessageParam,
-        }.get(msg["role"])
-        if msg_cls is None:
+        if msg["role"] == "user":
+            conversation.add_user_message(msg["content"])
+        elif msg["role"] == "assistant":
+            generator = convert_string_to_asynciter(msg["content"], 100)
+            parsed_llm_response = await GitParser().stream_and_parse_llm_response(
+                generator
+            )
+            content = session_context.config.parser.file_edits_to_llm_message(
+                parsed_llm_response
+            )
+            conversation.add_model_message(content, [], parsed_llm_response)
+        else:
             raise SampleError(f"Invalid role found in message_history: {msg['role']}")
-        conversation.add_message(msg_cls(role=msg["role"], content=msg["content"]))
     await python_client.call_mentat_auto_accept(sample.message_prompt)
     await python_client.shutdown()
 
     # Get the diff between pre- and post-edit
+    transcript_messages = conversation.literal_messages.copy()
+
+    message_eval = str(transcript_messages[-1].get("message", ""))
     diff_eval = get_git_diff(commit_active or "HEAD", cwd=cwd)
 
-    return diff_eval
+    return {
+        "id": sample.id,
+        "message_eval": message_eval,
+        "diff_eval": diff_eval,
+        "cost": cost_tracker.total_cost,
+        "tokens": cost_tracker.total_tokens,
+        "transcript": {
+            "id": sample.id,
+            "messages": transcript_messages,
+        },
+    }

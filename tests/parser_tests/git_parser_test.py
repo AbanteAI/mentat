@@ -13,7 +13,7 @@ from mentat.utils import convert_string_to_asynciter
 
 def clean_diff(diff):
     """
-    NOTE: Git diffs include a SHA-1 hash, which links the diff to a known record
+    NOTE: Git diffs include SHA-1 hashes, which links the diff to a known record
     in the git repo. We won't have that, so diffs generated with this function cannot be
     applied via `git apply myfile.diff`.
     """

@@ -10,7 +10,7 @@ from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
     change_delimiter,
-    get_full_change,
+    display_full_change,
 )
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
@@ -44,7 +44,7 @@ async def _ask_user_change(
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
-    stream.send(text, color="light_blue")
+    stream.send(text, style="input")
     return await ask_yes_no(default_yes=True)
 
 
@@ -74,19 +74,15 @@ class FileEdit:
             raise ValueError(f"File_path must be an absolute path, got {value}")
 
     def _display_creation(self, prefix: str = ""):
-        ctx = SESSION_CONTEXT.get()
-
         added_lines = list[str]()
         for replacement in self.replacements:
             added_lines.extend(replacement.new_lines)
         display_information = DisplayInformation(
             self.file_path, [], added_lines, [], FileActionType.CreateFile
         )
-        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+        display_full_change(display_information, prefix=prefix)
 
     def _display_deletion(self, file_lines: list[str], prefix: str = ""):
-        ctx = SESSION_CONTEXT.get()
-
         display_information = DisplayInformation(
             self.file_path,
             [],
@@ -94,11 +90,9 @@ class FileEdit:
             file_lines,
             FileActionType.DeleteFile,
         )
-        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+        display_full_change(display_information, prefix=prefix)
 
     def _display_rename(self, prefix: str = ""):
-        ctx = SESSION_CONTEXT.get()
-
         display_information = DisplayInformation(
             self.file_path,
             [],
@@ -107,13 +101,11 @@ class FileEdit:
             FileActionType.RenameFile,
             new_name=self.rename_file_path,
         )
-        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+        display_full_change(display_information, prefix=prefix)
 
     def _display_replacement(
         self, replacement: Replacement, file_lines: list[str], prefix: str = ""
     ):
-        ctx = SESSION_CONTEXT.get()
-
         removed_block = file_lines[replacement.starting_line : replacement.ending_line]
         display_information = DisplayInformation(
             self.file_path,
@@ -125,7 +117,7 @@ class FileEdit:
             replacement.ending_line,
             self.rename_file_path,
         )
-        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+        display_full_change(display_information, prefix=prefix)
 
     def _display_replacements(self, file_lines: list[str], prefix: str = ""):
         for replacement in self.replacements:
@@ -153,14 +145,14 @@ class FileEdit:
             if self.file_path.exists():
                 stream.send(
                     f"File {display_path} already exists, canceling creation.",
-                    color="light_yellow",
+                    style="warning",
                 )
                 return False
         else:
             if not self.file_path.exists():
                 stream.send(
                     f"File {display_path} does not exist, canceling all edits to file.",
-                    color="light_yellow",
+                    style="warning",
                 )
                 return False
             file_features_in_context = [
@@ -173,7 +165,7 @@ class FileEdit:
             ):
                 stream.send(
                     f"File {display_path} not in context, canceling all edits to file.",
-                    color="light_yellow",
+                    style="warning",
                 )
                 return False
 
@@ -184,7 +176,7 @@ class FileEdit:
             stream.send(
                 f"File {display_path} being renamed to existing file"
                 f" {rel_rename_path or self.rename_file_path}, canceling rename.",
-                color="light_yellow",
+                style="warning",
             )
             self.rename_file_path = None
         return True
@@ -236,7 +228,7 @@ class FileEdit:
         stream.send(self.file_path)
         stream.send(change_delimiter)
         for line in first.new_lines + second.new_lines:
-            stream.send("+ " + line, color="green")
+            stream.send("+ " + line, style="success")
         stream.send(change_delimiter)
 
     def resolve_conflicts(self):
@@ -291,7 +283,7 @@ class FileEdit:
 
             self._display_creation(prefix=prefix)
             ctx.stream.send(
-                f"Creation of file {self.file_path} undone", color="light_blue"
+                f"Creation of file {self.file_path} undone", style="success"
             )
             return
 
@@ -311,7 +303,7 @@ class FileEdit:
             self._display_rename(prefix=prefix)
             ctx.stream.send(
                 f"Rename of file {self.file_path} to {self.rename_file_path} undone",
-                color="light_blue",
+                style="success",
             )
 
         if self.is_deletion:
@@ -330,7 +322,7 @@ class FileEdit:
 
             self._display_deletion(self.previous_file_lines, prefix=prefix)
             ctx.stream.send(
-                f"Deletion of file {self.file_path} undone", color="light_red"
+                f"Deletion of file {self.file_path} undone", style="success"
             )
         elif self.replacements:
             if not self.file_path.exists():
@@ -345,6 +337,4 @@ class FileEdit:
                 f.write("\n".join(self.previous_file_lines))
 
             self._display_replacements(self.previous_file_lines, prefix=prefix)
-            ctx.stream.send(
-                f"Edits to file {self.file_path} undone", color="light_blue"
-            )
+            ctx.stream.send(f"Edits to file {self.file_path} undone", style="success")

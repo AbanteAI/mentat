@@ -17,13 +17,19 @@ def common_benchmark_parser():
     )
     parser.add_argument(
         "--benchmarks",
-        action="append",
         nargs="*",
-        default=[[]],
+        default=[],
         help=(
             "Which benchmarks to run. max_benchmarks ignored when set. Exact meaning"
             " depends on benchmark."
         ),
+    )
+    parser.add_argument(
+        "--directory",
+        "-d",
+        default="benchmarks/benchmarks",
+        type=str,
+        help="Directory from which to load benchmarks and/or samples",
     )
     parser.add_argument(
         "--max_benchmarks",

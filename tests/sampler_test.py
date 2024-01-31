@@ -5,22 +5,23 @@ from textwrap import dedent
 import pytest
 from git import Repo
 from openai.types.chat import (
-    ChatCompletionAssistantMessageParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
 
+from benchmarks.run_sample import run_sample
+from mentat.conversation import MentatAssistantMessageParam
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
+from mentat.parsers.parser import ParsedLLMResponse
 from mentat.python_client.client import PythonClient
 from mentat.sampler import __version__
 from mentat.sampler.sample import Sample
 from mentat.sampler.sampler import Sampler
 from mentat.sampler.utils import get_active_snapshot_commit
 from mentat.session import Session
-from scripts.sampler.run import run_sample
 
 
 def remove_checksums(text):
@@ -36,6 +37,7 @@ async def test_sample_from_context(
     mock_collect_user_input,
 ):
     mock_session_context.config.sample_repo = "test_sample_repo"
+    mock_session_context.config.sampler = True
 
     mocker.patch(
         "mentat.conversation.Conversation.get_messages",
@@ -48,7 +50,8 @@ async def test_sample_from_context(
                 content="test_user_content",
                 role="user",
             ),
-            ChatCompletionAssistantMessageParam(
+            MentatAssistantMessageParam(
+                parsed_llm_response=ParsedLLMResponse("", "test_assistant_content", []),
                 content="test_assistant_content",
                 role="assistant",
             ),
@@ -71,23 +74,24 @@ async def test_sample_from_context(
         ]
     )
     sampler = Sampler()
+    sampler.set_active_diff()
     sample = await sampler.create_sample()
     assert sample.title == "test_title"
     assert sample.description == "test_description"
     assert sample.repo == "test_sample_repo"
     assert is_sha1(sample.merge_base)
     assert sample.diff_merge_base == ""
-    assert sample.diff_active == ""
-    assert sample.message_history == []
-    assert sample.message_prompt == "test_user_content"
-    assert sample.message_edit == "test_assistant_content"
-    assert sample.context == ["multifile_calculator/operations.py"]
     expected_diff = (
         "diff --git a/test_file.py b/test_file.py\nnew file mode 100644\nindex"
         " 0000000..fffffff\n--- /dev/null\n+++ b/test_file.py\n@@ -0,0 +1"
         " @@\n+test_file_content\n"
     )
-    assert remove_checksums(sample.diff_edit) == remove_checksums(expected_diff)
+    assert remove_checksums(sample.diff_active) == remove_checksums(expected_diff)
+    assert sample.message_history == []
+    assert sample.message_prompt == "test_user_content"
+    assert sample.message_edit == "test_assistant_content"
+    assert sample.context == ["multifile_calculator/operations.py"]
+    assert sample.diff_edit == ""
     assert sample.id != ""
     assert sample.test_command == "test_test_command"
     assert sample.version == __version__
@@ -163,7 +167,7 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
     assert "test_file.py" in edits[1]
     assert "+# forty two" in edits[1]
     assert sample.test_command == "test_test_command"
-    assert sample.version == "0.1.0"
+    assert sample.version == "0.2.0"
 
 
 test_sample = {
@@ -205,14 +209,15 @@ async def test_sample_eval(mock_call_llm_api):
         1. Add the `sha1` function to `mentat/utils.py`.{edit_message}""")])
 
     sample = Sample(**test_sample)
-    diff_eval = await run_sample(sample)
+    result = await run_sample(sample)
+    diff_eval = result["diff_eval"]
     assert remove_checksums(diff_eval) == remove_checksums(sample.diff_edit)
 
 
 @pytest.mark.asyncio
 async def test_sample_version_mismatch(temp_testbed):
     sample = Sample(**test_sample)
-    sample.version = "0.0.9"
+    sample.version = "2.3"
     sample_path = temp_testbed / "temp_sample.json"
     sample.save(sample_path)
     with pytest.raises(SampleError):
@@ -378,6 +383,7 @@ async def test_sampler_integration(
     # Generate a sample using Mentat
     python_client = PythonClient(cwd=temp_testbed, paths=["."])
     await python_client.startup()
+    python_client.session.ctx.config.sampler = True
     await python_client.call_mentat_auto_accept(dedent("""\
         Make the following changes to "multifile_calculator/operations.py":
         1. Add "# Inserted line 2" as the first line
@@ -411,7 +417,7 @@ async def test_sampler_integration(
     assert sample.diff_merge_base != ""
     assert sample.diff_active != ""
     assert sample.message_history == []
-    assert sample.message_edit == "I will make the following edits. "
+    assert sample.message_edit == "I will make the following edits."
     assert set(sample.context) == {
         "scripts/echo1.py",
         "multifile_calculator/operations.py",
@@ -422,5 +428,6 @@ async def test_sampler_integration(
     mock_call_llm_api.set_streamed_values(
         [f"I will make the following edits. {llm_response}"]
     )
-    diff_eval = await run_sample(sample, temp_testbed)
+    result = await run_sample(sample, temp_testbed)
+    diff_eval = result["diff_eval"]
     assert diff_eval == sample.diff_edit
