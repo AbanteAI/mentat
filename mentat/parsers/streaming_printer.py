@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Tuple
 
 from mentat.session_context import SESSION_CONTEXT
 
+# TODO: Make this a class
 FormattedString = str | Tuple[str, Dict[str, Any]] | List[Tuple[str, Dict[str, Any]]]
 
 
