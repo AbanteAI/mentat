@@ -31,6 +31,12 @@ class ContentDisplay(Static):
     content = reactive("")
 
     def add_content(self, new_content: str, color: Optional[str] = None):
+        """
+        Using any sort of outside text renderer / colorer (like termcolor.colored or pygments.formatted)
+        will lead to strange artifacts appearing on the ContentDisplay. Do *NOT* use anything other than
+        the SessionStream's style/color kwargs!
+        """
+
         new_content = escape(new_content)
         if color is not None:
             new_content = f"[{color}]{new_content}[/{color}]"
@@ -58,7 +64,7 @@ class ContentContainer(Static):
     @override
     def compose(self) -> ComposeResult:
         yield ContentDisplay()
-        yield Static(id="loading-display")
+        yield Static(id="loading-display")  # TODO: Make this a ProgressBar
         yield PatchedAutoComplete(  # TODO: Press up to cycle through last inputs
             Input(
                 classes="user-input",
