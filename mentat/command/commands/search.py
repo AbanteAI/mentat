@@ -58,7 +58,7 @@ class SearchCommand(Command, command_name="search"):
             file_name = feature.rel_path(session_context.cwd)
             stream.send(file_name, color="blue", end="")
             file_interval = feature.interval_string()
-            stream.send(file_interval, color="light_cyan", end="")
+            stream.send(file_interval, color="bright_cyan", end="")
 
             tokens = feature.count_tokens(config.model)
             cumulative_tokens += tokens

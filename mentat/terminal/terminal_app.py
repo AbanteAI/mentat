@@ -38,7 +38,7 @@ class ContentDisplay(Static):
         """
 
         new_content = escape(new_content)
-        if color is not None:
+        if color is not None and color:
             new_content = f"[{color}]{new_content}[/{color}]"
         self.content += new_content
 

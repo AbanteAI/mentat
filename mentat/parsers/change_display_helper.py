@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, cast
 
 import attr
 from pygments import lex
@@ -150,11 +150,11 @@ def get_file_name(
 ) -> FormattedString:
     match display_information.file_action_type:
         case FileActionType.CreateFile:
-            return (f"\n{display_information.file_name}*", {"color": "light_green"})
+            return (f"\n{display_information.file_name}*", {"color": "bright_green"})
         case FileActionType.DeleteFile:
             return (
                 f"\nDeletion: {display_information.file_name}",
-                {"color": "light_red"},
+                {"color": "bright_red"},
             )
         case FileActionType.RenameFile:
             return (
@@ -165,7 +165,7 @@ def get_file_name(
                 {"color": "yellow"},
             )
         case FileActionType.UpdateFile:
-            return (f"\n{display_information.file_name}", {"color": "light_blue"})
+            return (f"\n{display_information.file_name}", {"color": "bright_blue"})
 
 
 def get_added_lines(
@@ -199,7 +199,20 @@ def highlight_text(text: str, lexer: Lexer) -> FormattedString:
     string: FormattedString = []
     for ttype, value in lex(text, lexer):
         # We use TerminalFormatter's color scheme; TODO: Hook this up to our style themes instead
-        color = formatter._get_color(ttype)  # type: ignore
+        color = cast(str, formatter._get_color(ttype))  # type: ignore
+
+        # Convert Pygment styles to Rich styles
+        if color.startswith("bright"):
+            color = color.replace("bright", "bright_")
+        if color.startswith("*"):
+            # TODO: Send bold style
+            color = color[1:-1]
+        if color.startswith("_"):
+            # TODO: Send italic style
+            color = color[1:-1]
+        if not color:
+            color = None
+
         string.append((value, {"color": color}))
     return string
 
