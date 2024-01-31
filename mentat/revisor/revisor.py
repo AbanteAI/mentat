@@ -7,7 +7,6 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
 )
-from termcolor import colored
 
 from mentat.errors import MentatError
 from mentat.llm_api_handler import prompt_tokens
@@ -18,6 +17,7 @@ from mentat.parsers.change_display_helper import (
 )
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.git_parser import GitParser
+from mentat.parsers.streaming_printer import FormattedString, send_formatted_string
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage
@@ -111,7 +111,7 @@ async def revise_edit(file_edit: FileEdit):
         post_lines = file_edit.get_updated_file_lines(stored_lines)
 
         diff_lines = difflib.unified_diff(pre_lines, post_lines, lineterm="")
-        diff_diff: List[str] = []
+        diff_diff: List[FormattedString] = []
         lexer = get_lexer(file_edit.file_path)
         for line in diff_lines:
             if line.startswith("---"):
@@ -126,9 +126,9 @@ async def revise_edit(file_edit: FileEdit):
             elif line.startswith("@@"):
                 diff_diff.append(line)
             elif line.startswith("+"):
-                diff_diff.append(colored(line, "green"))
+                diff_diff.append((line, {"color": "green"}))
             elif line.startswith("-"):
-                diff_diff.append(colored(line, "red"))
+                diff_diff.append((line, {"color": "red"}))
             elif line.startswith(" "):
                 diff_diff.append(highlight_text(line, lexer))
             else:
@@ -136,7 +136,8 @@ async def revise_edit(file_edit: FileEdit):
         if diff_diff:
             ctx.stream.send("Revision diff:", style="info")
             ctx.stream.send(change_delimiter)
-            ctx.stream.send("\n".join(diff_diff))
+            for line in diff_diff:
+                send_formatted_string(line)
             ctx.stream.send(change_delimiter)
         ctx.cost_tracker.display_last_api_call()
 
