@@ -307,6 +307,11 @@ class Conversation:
         finally:
             if loading_multiplier:
                 stream.send(None, channel="loading", terminate=True)
+        response.file_edits = [
+            file_edit for file_edit in response.file_edits if file_edit.is_valid()
+        ]
+        for file_edit in response.file_edits:
+            file_edit.resolve_conflicts()
         return response
 
     def remaining_context(self) -> int | None:

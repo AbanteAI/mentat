@@ -1,0 +1,2 @@
+Next, output a newline separated list of files, directories, and glob patterns that will encompass all test files in the project (for example: src/tests, or **/*.spec).
+If there are no tests in the project, output NO TESTS FOUND.

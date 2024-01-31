@@ -169,13 +169,7 @@ class Session:
                     conversation.add_user_message(message.data)
 
                 parsed_llm_response = await conversation.get_model_response()
-                file_edits = [
-                    file_edit
-                    for file_edit in parsed_llm_response.file_edits
-                    if file_edit.is_valid()
-                ]
-                for file_edit in file_edits:
-                    file_edit.resolve_conflicts()
+                file_edits = parsed_llm_response.file_edits
                 if file_edits:
                     if session_context.config.revisor:
                         await revise_edits(file_edits)
@@ -188,13 +182,7 @@ class Session:
                     if session_context.config.sampler:
                         session_context.sampler.set_active_diff()
 
-                    applied_edits = await code_file_manager.write_changes_to_files(
-                        file_edits
-                    )
-                    stream.send(
-                        "Changes applied." if applied_edits else "No changes applied.",
-                        style="input",
-                    )
+                    await code_file_manager.write_changes_to_files(file_edits)
 
                     if agent_handler.agent_enabled:
                         if parsed_llm_response.interrupted:
