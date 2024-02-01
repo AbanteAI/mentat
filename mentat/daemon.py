@@ -22,39 +22,51 @@ def get_mentat_comment(filename: Path) -> Optional[Tuple[int, str]]:
 prompt = """
     You are an expert coding assistant. 
 
-    You will be given a coding task to complete, where your response will be inserted into an 
-    existing file. Your response must be valid python code and must adhere strictly to the required 
+    You will be given a code file and a coding task to complete. Your response will be inserted into 
+    the code file. Your response must be valid python code and must adhere strictly to the required 
     format. Put all of your response that's valid python code between '@@start' and '@@end' lines.
-    Do not include any examples or instructions in your response.
+    Do not include any examples or instructions in your response. Do not re-write the entire file, 
+    just answer the coding task.
 
-    Example 1:
+    Example Request:
 
-    Example 1 Task: create a new function that multiplies 2 numbers together.
+    Code File:
+    ```
+    def add_numbers(a, b):
+        return a + b
 
-    Example 1 Response:
-    
-    @@start
-    def multiply(a, b):
+
+    def multiply_numbers(a, b):
         return a * b
-    @@end
 
 
-    Example 2:
+    def subtract_numbers(a, b):
+        return a - b
+    ```
 
-    Example 2 Task: create a random number generator that returns a number between 1 and 10.
+    Code Task: create a new function that divides 2 numbers together.
 
-    Example 2 Response:
+
+    Example Response:
     
     @@start
-    import random
-
-    def random_number():
-        return random.randint(1, 10)
+    def divide_numbers(a, b):
+        return a / b
     @@end
 """
 
 
-def generate_code_lines(user_prompt: str) -> List[str]:
+def generate_code_lines(*, code_file: Path, code_task: str) -> List[str]:
+    user_prompt = f"""
+        Code File:
+        ```
+        {code_file.read_text()} 
+        ```
+
+        Code Task: {code_task}
+    """
+    user_prompt = dedent(user_prompt).strip()
+
     # Call openai
     chat = openai_client.chat.completions.create(
         messages=[
@@ -122,7 +134,7 @@ def process_file_change(path: Path):
 
     # Call openai
     print("Calling openai...")
-    code_lines = generate_code_lines(comment_text)
+    code_lines = generate_code_lines(code_file=path, code_task=comment_text)
     if len(code_lines) == 0:
         print("No code snippets generated")
         return
