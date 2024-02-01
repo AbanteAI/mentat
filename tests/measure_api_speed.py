@@ -2,9 +2,9 @@ import os
 from timeit import default_timer as timer
 
 import fire
-from openai import OpenAI
 import tiktoken
 from dotenv import load_dotenv
+from openai import OpenAI
 
 
 def get_tokens_from_message(message: str) -> int:
@@ -16,7 +16,7 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-def run(prompt, model: str = "gpt-4-1106-preview") -> None:    
+def run(prompt, model: str = "gpt-4-1106-preview") -> None:
     messages = [
         {"role": "system", "content": "be a helpful assistant"},
         {"role": "user", "content": prompt},
