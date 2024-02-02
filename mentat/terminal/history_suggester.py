@@ -8,7 +8,7 @@ from typing_extensions import override
 class HistorySuggester(Suggester):
     def __init__(self, history_file: Path, *, case_sensitive: bool = True) -> None:
         self.history_file = history_file
-        self.position = 0
+        self.position = -1
         if not history_file.exists():
             with open(self.history_file, "w") as f:
                 pass
@@ -43,7 +43,7 @@ class HistorySuggester(Suggester):
         return self._suggestions[self.position]
 
     def move_down(self) -> Optional[str]:
-        if self.position >= -1:
+        if self.position == -1:
             return None
         self.position += 1
         return self._suggestions[self.position]
