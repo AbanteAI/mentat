@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -82,6 +83,8 @@ class BenchmarkRunSummary:
 
     @classmethod
     def load_file(cls, file: Path) -> "BenchmarkRunSummary":
+        file_name = os.path.basename(file)
         with open(file, "r") as f:
             summary = cls.load_json(f.read())
+        summary.metadata["file"] = file_name  # Used for links
         return summary
