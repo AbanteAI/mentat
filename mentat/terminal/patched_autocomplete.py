@@ -7,6 +7,7 @@ from typing_extensions import override
 
 from mentat.auto_completer import Completion
 from mentat.session_stream import SessionStream, StreamMessageSource
+from mentat.terminal.history_suggester import HistorySuggester
 
 
 class PatchedAutoComplete(AutoComplete):
@@ -43,7 +44,6 @@ class CompletionDropdownItem(DropdownItem):
     position: int = 0
 
 
-# TODO: Dropdown up when at bottom of screen
 class PatchedDropdown(Dropdown):
     """
     The dropdown class in textual_autocomplete isn't able to do everything we need it to (mainly async completions),
@@ -54,10 +54,12 @@ class PatchedDropdown(Dropdown):
     def __init__(
         self,
         stream: SessionStream,
+        history_suggestor: HistorySuggester,
         id: str | None = None,
         classes: str | None = None,
     ):
         self.stream = stream
+        self.history_suggester = history_suggestor
         super().__init__([], id, classes)
 
     # This function is mostly copied from Dropdown; the only change is using our async functions as callbacks
@@ -121,12 +123,18 @@ class PatchedDropdown(Dropdown):
 
     # These 2 functions are very similar to their synchronous versions
     async def _async_input_cursor_position_changed(self, cursor_position: int) -> None:
-        if self.input_widget is not None:  # pyright: ignore
+        if (
+            self.input_widget is not None  # pyright: ignore
+            and not self.history_suggester.just_moved(self.input_widget.value)
+        ):
             matches = await self._get_completions()
             self._mentat_sync_state(self.input_widget.value, cursor_position, matches)
 
     async def _async_input_value_changed(self, value: str) -> None:
-        if self.input_widget is not None:  # pyright: ignore
+        if (
+            self.input_widget is not None  # pyright: ignore
+            and not self.history_suggester.just_moved(value)
+        ):
             matches = await self._get_completions()
             self._mentat_sync_state(
                 value, self.input_widget.cursor_position, matches  # pyright: ignore
@@ -145,3 +153,39 @@ class PatchedDropdown(Dropdown):
         self.cursor_home()
         self.reposition(input_cursor_position)
         self.child.refresh()
+
+    # By default the dropdown can only be below the input, but since our input is always at the bottom of the screen
+    # we want the opposite, so we patch this function to drop up instead of down
+    @override
+    def reposition(
+        self,
+        input_cursor_position: int | None = None,
+        scroll_target_adjust_y: int = 0,
+    ) -> None:
+        if self.input_widget is None:  # pyright: ignore
+            return
+
+        if input_cursor_position is None:
+            input_cursor_position = self.input_widget.cursor_position
+
+        top, right, bottom, left = self.styles.margin  # pyright: ignore
+        x, y, width, height = self.input_widget.content_region  # pyright: ignore
+        # This is the line we change to fix the position
+        line_below_cursor = (
+            y
+            + scroll_target_adjust_y
+            - min(
+                int(self.styles.max_height.value),  # pyright: ignore
+                len(self.child.matches),
+            )
+        )
+
+        cursor_screen_position = x + (
+            input_cursor_position - self.input_widget.view_position
+        )
+        self.styles.margin = (
+            line_below_cursor,
+            right,
+            bottom,
+            cursor_screen_position,
+        )

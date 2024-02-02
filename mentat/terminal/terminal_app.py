@@ -80,7 +80,7 @@ class ContentContainer(Static):
                 disabled=True,
                 suggester=self.suggester,
             ),
-            PatchedDropdown(self.stream),
+            PatchedDropdown(self.stream, self.suggester),
         )
 
     @on(Input.Submitted)
@@ -111,12 +111,16 @@ class ContentContainer(Static):
     def action_history_up(self):
         history = self.suggester.move_up()
         if history is not None:
-            self.query_one(Input).value = history
+            user_input = self.query_one(Input)
+            user_input.value = history
+            user_input.cursor_position = len(history)
 
     def action_history_down(self):
         history = self.suggester.move_down()
         if history is not None:
-            self.query_one(Input).value = history
+            user_input = self.query_one(Input)
+            user_input.value = history
+            user_input.cursor_position = len(history)
 
 
 class ContextContainer(Static):

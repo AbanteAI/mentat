@@ -47,3 +47,8 @@ class HistorySuggester(Suggester):
             return None
         self.position += 1
         return self._suggestions[self.position]
+
+    # This is a bit of a hacky way to let the autocomplete (which watches the input value)
+    # know if the new input value was from moving in history (in which case we don't want autocomplete to pop up)
+    def just_moved(self, value: str):
+        return self._suggestions[self.position] == value
