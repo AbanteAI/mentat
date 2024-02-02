@@ -225,7 +225,7 @@ class FileEdit:
         stream = session_context.stream
 
         stream.send("Change overlap detected, auto-merged back to back changes:\n")
-        stream.send(self.file_path)
+        stream.send(get_relative_path(self.file_path, session_context.cwd))
         stream.send(change_delimiter)
         for line in first.new_lines + second.new_lines:
             stream.send("+ " + line, style="success")

@@ -51,6 +51,11 @@ class ContentDisplay(Static):
 
 
 class ContentContainer(Static):
+    BINDINGS = [
+        ("up", "history_up", "Move up in history"),
+        ("down", "history_down", "Move down in history"),
+    ]
+
     def __init__(
         self, stream: SessionStream, renderable: RenderableType = "", **kwargs: Any
     ):
@@ -69,7 +74,7 @@ class ContentContainer(Static):
         )
         loading_bar.visible = False
         yield loading_bar
-        yield PatchedAutoComplete(  # TODO: Press up to cycle through last inputs
+        yield PatchedAutoComplete(
             Input(
                 classes="user-input",
                 disabled=True,
@@ -102,6 +107,16 @@ class ContentContainer(Static):
         content_display = self.query_one(ContentDisplay)
         content_display.add_content(f">>> {self.last_user_input}\n", color="white")
         return self.last_user_input
+
+    def action_history_up(self):
+        history = self.suggester.move_up()
+        if history is not None:
+            self.query_one(Input).value = history
+
+    def action_history_down(self):
+        history = self.suggester.move_down()
+        if history is not None:
+            self.query_one(Input).value = history
 
 
 class ContextContainer(Static):
@@ -228,7 +243,7 @@ class TerminalApp(App[None]):
                     color = theme[style]
 
         content_display = self.query_one(ContentDisplay)
-        content = message.data + end
+        content = str(message.data) + end
         content_display.add_content(content, color)
 
     async def get_user_input(

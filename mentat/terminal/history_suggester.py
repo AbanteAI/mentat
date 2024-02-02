@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from git import Optional
 from textual.suggester import Suggester
 from typing_extensions import override
 
@@ -7,6 +8,7 @@ from typing_extensions import override
 class HistorySuggester(Suggester):
     def __init__(self, history_file: Path, *, case_sensitive: bool = True) -> None:
         self.history_file = history_file
+        self.position = 0
         if not history_file.exists():
             with open(self.history_file, "w") as f:
                 pass
@@ -15,6 +17,11 @@ class HistorySuggester(Suggester):
         super().__init__(use_cache=False, case_sensitive=case_sensitive)
 
     def append_to_history(self, submission: str):
+        self.position = 0
+        if not submission or (
+            self._suggestions and self._suggestions[-1] == submission
+        ):
+            return
         self._suggestions.append(submission)
         with open(self.history_file, "a") as f:
             f.write(f"{submission}\n")
@@ -28,3 +35,15 @@ class HistorySuggester(Suggester):
             if suggestion.startswith(value):
                 return suggestion
         return None
+
+    def move_up(self) -> Optional[str]:
+        if self.position == -len(self._suggestions):
+            return None
+        self.position -= 1
+        return self._suggestions[self.position]
+
+    def move_down(self) -> Optional[str]:
+        if self.position >= -1:
+            return None
+        self.position += 1
+        return self._suggestions[self.position]

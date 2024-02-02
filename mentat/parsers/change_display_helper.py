@@ -202,14 +202,15 @@ def highlight_text(text: str, lexer: Lexer) -> FormattedString:
         color = cast(str, formatter._get_color(ttype))  # type: ignore
 
         # Convert Pygment styles to Rich styles
-        if color.startswith("bright"):
-            color = color.replace("bright", "bright_")
         if color.startswith("*"):
             # TODO: Send bold style
             color = color[1:-1]
         if color.startswith("_"):
             # TODO: Send italic style
             color = color[1:-1]
+        if color.startswith("bright"):
+            color = color.replace("bright", "bright_")
+
         if not color:
             color = None
 
