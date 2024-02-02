@@ -18,6 +18,7 @@ from mentat.terminal.loading import LoadingHandler
 from mentat.terminal.output import print_stream_message
 from mentat.terminal.prompt_completer import MentatCompleter
 from mentat.terminal.prompt_session import MentatPromptSession
+from mentat.terminal.themes import themes
 
 
 class TerminalClient:
@@ -57,7 +58,7 @@ class TerminalClient:
 
     async def _cprint_session_stream(self):
         async for message in self.session.stream.listen():
-            print_stream_message(message)
+            print_stream_message(message, themes[self.config.theme])
 
     async def _default_prompt_stream(self):
         self._default_prompt = ""
@@ -77,6 +78,9 @@ class TerminalClient:
                 prompt_session = self._plain_session
             else:
                 prompt_session = self._prompt_session
+            self.mentat_completer.command_autocomplete = (
+                input_request_message.extra.get("command_autocomplete", False)
+            )
 
             default_prompt = self._default_prompt.strip()
             self._default_prompt = ""
@@ -102,7 +106,9 @@ class TerminalClient:
     async def _listen_for_should_exit(self):
         """This listens for a user event signaling shutdown (like SigInt), and tells the session to shutdown."""
         await self._should_exit.wait()
-        self.session.stream.send(None, channel="session_exit")
+        self.session.stream.send(
+            None, source=StreamMessageSource.CLIENT, channel="session_exit"
+        )
 
     async def _send_session_stream_interrupt(self):
         logging.debug("Sending interrupt to session stream")
@@ -145,9 +151,9 @@ class TerminalClient:
         )
         self.session.start()
 
-        mentat_completer = MentatCompleter()
+        self.mentat_completer = MentatCompleter(self.session.stream)
         self._prompt_session = MentatPromptSession(
-            completer=mentat_completer,
+            completer=self.mentat_completer,
             style=Style(self.config.input_style),
             enable_suspend=True,
         )
@@ -170,7 +176,6 @@ class TerminalClient:
             enable_suspend=True,
         )
 
-        self._create_task(mentat_completer.refresh_completions())
         self._create_task(self._cprint_session_stream())
         self._create_task(self._handle_input_requests())
         self._create_task(self._handle_loading_messages())
@@ -193,7 +198,7 @@ class TerminalClient:
         asyncio.run(self._run())
 
 
-def run_cli():
+def get_parser():
     parser = argparse.ArgumentParser(
         description="Run conversation with command line args"
     )
@@ -239,11 +244,16 @@ def run_cli():
     parser.add_argument(
         "--cwd", default=Path.cwd(), help="The current working directory"
     )
-
     Config.add_fields_to_argparse(parser)
+    return parser
+
+
+def run_cli():
+    parser = get_parser()
+
     args = parser.parse_args()
 
-    cwd = args.cwd
+    cwd = Path(args.cwd).expanduser().resolve()
     paths = args.paths
     exclude_paths = args.exclude
     ignore_paths = args.ignore

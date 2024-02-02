@@ -1,3 +1,4 @@
+import gc
 import os
 import shutil
 import stat
@@ -17,6 +18,7 @@ from openai.types.chat.chat_completion_chunk import ChoiceDelta
 
 from mentat import config
 from mentat.agent_handler import AgentHandler
+from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config, config_file_name
@@ -24,9 +26,10 @@ from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler
+from mentat.parsers.streaming_printer import StreamingPrinter
+from mentat.sampler.sampler import Sampler
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_stream import SessionStream, StreamMessage, StreamMessageSource
-from mentat.streaming_printer import StreamingPrinter
 from mentat.vision.vision_manager import VisionManager
 
 pytest_plugins = ("pytest_reportlog",)
@@ -44,69 +47,6 @@ def filter_mark(items, mark, exists):
 def pytest_addoption(parser):
     parser.addoption("--benchmark", action="store_true")
     parser.addoption("--uitest", action="store_true")
-    # The following flags are used by benchmark tests
-    parser.addoption(
-        "--max_benchmarks",
-        action="store",
-        default="1",
-        help="The maximum number of exercises to run",
-    )
-    parser.addoption(
-        "--retries",
-        action="store",
-        default="1",
-        help="Number of times to retry a benchmark",
-    )
-    parser.addoption(
-        "--max_iterations",
-        action="store",
-        default="1",
-        help="Number of times to rerun mentat with error messages",
-    )
-    parser.addoption(
-        "--language",
-        action="store",
-        default="python",
-        help="Which exercism language to do exercises for",
-    )
-    parser.addoption(
-        "--max_workers",
-        action="store",
-        default="1",
-        help="Number of workers to use for multiprocessing",
-    )
-    parser.addoption(
-        "--refresh_repo",
-        action="store_true",
-        default=False,
-        help="When set local changes will be discarded.",
-    )
-    parser.addoption(
-        "--benchmarks",
-        action="append",
-        nargs="*",
-        default=[],
-        help=(
-            "Which benchmarks to run. max_benchmarks ignored when set. Exact meaning"
-            " depends on benchmark."
-        ),
-    )
-    parser.addoption(
-        "--repo",
-        action="store",
-        default="mentat",
-        help="For benchmarks that are evaluated against a repo",
-    )
-    parser.addoption(
-        "--evaluate_baseline",
-        action="store_true",
-        help="Evaluate the baseline for the benchmark",
-    )
-
-
-@pytest.fixture
-def refresh_repo(request):
-    return request.config.getoption("--refresh_repo")
 
 
 @pytest.fixture
@@ -115,11 +55,6 @@ def benchmarks(request):
     if len(benchmarks) == 1:
         return benchmarks[0]
     return benchmarks
-
-
-@pytest.fixture
-def max_benchmarks(request):
-    return int(request.config.getoption("--max_benchmarks"))
 
 
 def pytest_configure(config):
@@ -172,7 +107,26 @@ def mock_collect_user_input(mocker):
 def mock_call_llm_api(mocker):
     completion_mock = mocker.patch.object(LlmApiHandler, "call_llm_api")
 
-    def set_streamed_values(values):
+    def wrap_unstreamed_string(value):
+        timestamp = int(time.time())
+        return ChatCompletion(
+            id="test-id",
+            choices=[
+                Choice(
+                    finish_reason="stop",
+                    index=0,
+                    message=ChatCompletionMessage(
+                        content=value,
+                        role="assistant",
+                    ),
+                )
+            ],
+            created=timestamp,
+            model="test-model",
+            object="chat.completion",
+        )
+
+    def wrap_streamed_strings(values):
         async def _async_generator():
             timestamp = int(time.time())
             for value in values:
@@ -190,30 +144,31 @@ def mock_call_llm_api(mocker):
                     object="chat.completion.chunk",
                 )
 
-        completion_mock.return_value = _async_generator()
+        return _async_generator()
+
+    def set_streamed_values(values):
+        completion_mock.return_value = wrap_streamed_strings(values)
 
     completion_mock.set_streamed_values = set_streamed_values
 
     def set_unstreamed_values(value):
-        timestamp = int(time.time())
-        completion_mock.return_value = ChatCompletion(
-            id="test-id",
-            choices=[
-                Choice(
-                    finish_reason="stop",
-                    index=0,
-                    message=ChatCompletionMessage(
-                        content=value,
-                        role="assistant",
-                    ),
-                )
-            ],
-            created=timestamp,
-            model="test-model",
-            object="chat.completion",
-        )
+        completion_mock.return_value = wrap_unstreamed_string(value)
 
     completion_mock.set_unstreamed_values = set_unstreamed_values
+
+    def set_return_values(values):
+        async def call_llm_api_mock(messages, model, stream, response_format="unused"):
+            value = call_llm_api_mock.values.pop()
+            if stream:
+                return wrap_streamed_strings([value])
+            else:
+                return wrap_unstreamed_string(value)
+
+        call_llm_api_mock.values = values[::-1]
+        completion_mock.side_effect = call_llm_api_mock
+
+    completion_mock.set_return_values = set_return_values
+
     return completion_mock
 
 
@@ -229,13 +184,6 @@ def mock_call_embedding_api(mocker):
 
 
 ### Auto-used fixtures
-
-
-@pytest.fixture(autouse=True, scope="function")
-def mock_model_available(mocker):
-    model_available_mock = mocker.patch.object(LlmApiHandler, "is_model_available")
-    model_available_mock.return_value = True
-    return model_available_mock
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -276,6 +224,10 @@ def mock_session_context(temp_testbed):
 
     agent_handler = AgentHandler()
 
+    auto_completer = AutoCompleter()
+
+    sampler = Sampler()
+
     session_context = SessionContext(
         Path.cwd(),
         stream,
@@ -287,6 +239,8 @@ def mock_session_context(temp_testbed):
         conversation,
         vision_manager,
         agent_handler,
+        auto_completer,
+        sampler,
     )
     token = SESSION_CONTEXT.set(session_context)
     yield session_context
@@ -321,6 +275,7 @@ def add_permissions(func, path, exc_info):
     If the error is for another reason it re-raises the error.
     """
 
+    gc.collect()  # Force garbage collection
     # Is the error an access error?
     if not os.access(path, os.W_OK):
         os.chmod(path, stat.S_IWUSR)

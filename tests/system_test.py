@@ -5,6 +5,7 @@ from textwrap import dedent
 import pytest
 
 from mentat.session import Session
+from tests.conftest import run_git_command
 
 
 @pytest.mark.asyncio
@@ -209,3 +210,41 @@ async def test_sub_directory(
             content = f.read()
             expected_content = 'print("Hello, world!")'
         assert content == expected_content
+
+
+@pytest.mark.asyncio
+@pytest.mark.no_git_testbed
+@pytest.mark.clear_testbed
+async def test_recursive_git_repositories(temp_testbed, mock_collect_user_input):
+    # Tests if a git repo inside of a git repo inside of a git repo works, from outside of a git repo
+
+    dirs = ["outer", "git1", "git2", "inner1", "git3", "inner2"]
+    total_path = Path(".")
+
+    files = []
+    for dir_name in dirs:
+        file_path = total_path / (dir_name + ".txt")
+        with open(file_path, "w") as f:
+            f.write("")
+        files.append(temp_testbed / file_path)
+
+        total_path = total_path / dir_name
+        os.mkdir(total_path)
+        if dir_name.startswith("git"):
+            run_git_command(total_path, "init")
+    file_path = total_path / "innermost.txt"
+    with open(file_path, "w") as f:
+        f.write("")
+    files.append(temp_testbed / file_path)
+
+    mock_collect_user_input.set_stream_messages(
+        [
+            "q",
+        ]
+    )
+
+    session = Session(cwd=temp_testbed, paths=[Path(".")])
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    assert set(session.ctx.code_context.include_files.keys()) == set(files)

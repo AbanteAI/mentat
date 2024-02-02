@@ -1,15 +1,19 @@
+import hashlib
 import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Set
+
+from git import Repo  # type: ignore
 
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import is_file_text_encoded
 
 
-def get_non_gitignored_files(path: Path) -> set[Path]:
-    return set(
+def get_non_gitignored_files(root: Path, visited: set[Path] = set()) -> Set[Path]:
+    paths = set(
         # git returns / separated paths even on windows, convert so we can remove
         # glob_excluded_files, which have windows paths on windows
         Path(os.path.normpath(p))
@@ -18,14 +22,31 @@ def get_non_gitignored_files(path: Path) -> set[Path]:
             subprocess.check_output(
                 # -c shows cached (regular) files, -o shows other (untracked/new) files
                 ["git", "ls-files", "-c", "-o", "--exclude-standard"],
-                cwd=path,
+                cwd=root,
                 text=True,
                 stderr=subprocess.DEVNULL,
             ).split("\n"),
         )
         # windows-safe check if p exists in path
-        if Path(path / p).exists()
+        if Path(root / p).exists()
     )
+
+    file_paths: Set[Path] = set()
+    # We use visited to make sure we break out of any infinite loops symlinks might cause
+    visited.add(root.resolve())
+    for path in paths:
+        # git ls-files returns directories if the directory is itself a git project;
+        # so we recursively run this function on any directories it returns.
+        if (root / path).is_dir():
+            if (root / path).resolve() in visited:
+                continue
+            file_paths.update(
+                root / path / inner_path
+                for inner_path in get_non_gitignored_files(root / path, visited)
+            )
+        else:
+            file_paths.add(path)
+    return file_paths
 
 
 def get_paths_with_git_diffs(git_root: Path) -> set[Path]:
@@ -118,6 +139,7 @@ def commit(message: str) -> None:
 
 def get_diff_for_file(target: str, path: Path) -> str:
     """Return commit data & diff for target versus active code"""
+    # TODO: Cache git diffs and check last modified time on file
     session_context = SESSION_CONTEXT.get()
 
     try:
@@ -199,3 +221,34 @@ def get_default_branch() -> str:
     except subprocess.CalledProcessError:
         # Handle error if needed or raise an exception
         raise Exception("Unable to determine the default branch.")
+
+
+def get_git_diff(*args: str, cwd: Optional[Path] = None) -> str:
+    """A wrapper on git diff that always includes new/untracked files."""
+    if cwd is None:
+        session_context = SESSION_CONTEXT.get()
+        cwd = session_context.cwd
+
+    repo = Repo(cwd)
+    # Stage untracked files so they are included in the diff
+    repo.git.add(all=True)
+    diff = repo.git.diff(*args, unified=1)
+    # Unstage changes again
+    repo.git.reset()
+    return diff + "\n" if diff else ""  # Required to form a valid .diff file
+
+
+def get_hexsha_active() -> str:
+    """Return the SHA-1 of the current commit."""
+    session_context = SESSION_CONTEXT.get()
+    cwd = session_context.cwd
+
+    hexsha = ""
+    all_files: set[Path] = get_non_gitignored_files(cwd)
+    if all_files:
+        hasher = hashlib.sha256()
+        for file_path in sorted(all_files):
+            if file_path.exists() and is_file_text_encoded(file_path):
+                hasher.update(file_path.read_bytes())
+        hexsha = hasher.hexdigest()
+    return hexsha

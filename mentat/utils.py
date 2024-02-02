@@ -110,11 +110,11 @@ def check_version():
             ctx.stream.send(
                 f"Version v{latest_version} of Mentat is available. If pip was used to"
                 " install Mentat, upgrade with:",
-                color="light_red",
+                style="error",
             )
-            ctx.stream.send("pip install --upgrade mentat", color="yellow")
+            ctx.stream.send("pip install --upgrade mentat", style="warning")
     except Exception as err:
-        ctx.stream.send(f"Error checking for most recent version: {err}", color="red")
+        ctx.stream.send(f"Error checking for most recent version: {err}", style="error")
 
 
 async def add_newline(
@@ -174,3 +174,15 @@ def get_relative_path(path: Path, target: Path) -> Path:
         relative_path = Path(*relative_parts)
 
     return relative_path
+
+
+# TODO: replace this with something that doesn't load the file into memory
+def is_file_text_encoded(abs_path: Path):
+    """Checks if a file is text encoded."""
+    try:
+        # The ultimate filetype test
+        with open(abs_path, "r") as f:
+            f.read()
+        return True
+    except UnicodeDecodeError:
+        return False

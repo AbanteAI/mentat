@@ -1,107 +1,81 @@
-import asyncio
-import json
-import os
-import sqlite3
-from pathlib import Path
 from timeit import default_timer
 
-import numpy as np
+import chromadb
+from chromadb.api.types import Embeddable, EmbeddingFunction, Embeddings
 
 from mentat.code_feature import CodeFeature, count_feature_tokens
 from mentat.errors import MentatError
-from mentat.llm_api_handler import (
-    count_tokens,
-    model_context_size,
-    model_price_per_1000_tokens,
-)
+from mentat.llm_api_handler import model_context_size, model_price_per_1000_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
-from mentat.utils import mentat_dir_path, sha256
+from mentat.utils import mentat_dir_path
 
-MAX_SIMULTANEOUS_REQUESTS = 10
+EMBEDDINGS_API_BATCH_SIZE = 2048
+
+client = chromadb.PersistentClient(path=str(mentat_dir_path / "chroma"))
 
 
-class EmbeddingsDatabase:
-    def __init__(self, output_dir: Path | None = None):
-        self.output_dir = output_dir or mentat_dir_path
-        os.makedirs(self.output_dir, exist_ok=True)
-        self.path = Path(self.output_dir) / "embeddings.sqlite3"
-        self._connect()
+class MentatEmbeddingFunction(EmbeddingFunction[Embeddable]):
+    def __call__(self, input: Embeddable) -> Embeddings:
+        if not all(isinstance(item, str) for item in input):
+            raise MentatError("MentatEmbeddings only enabled for text files")
+        session_context = SESSION_CONTEXT.get()
+        config = session_context.config
+        llm_api_handler = session_context.llm_api_handler
 
-    def _connect(self):
-        self.conn = sqlite3.connect(self.path)
-        with self.conn as db:
-            db.execute(
-                "CREATE TABLE IF NOT EXISTS embeddings "
-                "(checksum TEXT PRIMARY KEY, vector BLOB)"
+        n_batches = (
+            0 if len(input) == 0 else len(input) // EMBEDDINGS_API_BATCH_SIZE + 1
+        )
+        output: Embeddings = []
+        for batch in range(n_batches):
+            i_start, i_end = (
+                batch * EMBEDDINGS_API_BATCH_SIZE,
+                (batch + 1) * EMBEDDINGS_API_BATCH_SIZE,
             )
-
-    def set(self, items: dict[str, list[float]]):
-        with self.conn as db:
-            db.executemany(
-                "INSERT OR REPLACE INTO embeddings (checksum, vector) VALUES (?, ?)",
-                [
-                    (key, sqlite3.Binary(json.dumps(value).encode("utf-8")))
-                    for key, value in items.items()
-                ],
+            response = llm_api_handler.call_embedding_api(
+                input[i_start:i_end], config.embedding_model
             )
-
-    def get(self, keys: list[str]) -> dict[str, list[float]]:
-        with self.conn as db:
-            cursor = db.execute(
-                "SELECT checksum, vector FROM embeddings WHERE checksum IN"
-                f" ({','.join(['?']*len(keys))})",
-                keys,
-            )
-            return {row[0]: json.loads(row[1]) for row in cursor.fetchall()}
-
-    def exists(self, key: str) -> bool:
-        with self.conn as db:
-            cursor = db.execute("SELECT 1 FROM embeddings WHERE checksum=?", (key,))
-            return cursor.fetchone() is not None
-
-    def __del__(self):
-        self.conn.close()
+            output += response
+        return output
 
 
-database = EmbeddingsDatabase()
+class Collection:
+    def __init__(self, embedding_model: str):
+        self._collection = client.get_or_create_collection(
+            name=f"mentat-{embedding_model}",
+            embedding_function=MentatEmbeddingFunction(),
+        )
 
+    def exists(self, id: str) -> bool:
+        assert self._collection is not None, "Collection not initialized"
+        return len(self._collection.get(id)["ids"]) > 0
 
-def _batch_ffd(data: dict[str, int], batch_size: int) -> list[list[str]]:
-    """Batch files using the First Fit Decreasing algorithm."""
-    # Sort the data by the length of the strings in descending order
-    sorted_data = sorted(data.items(), key=lambda x: x[1], reverse=True)
-    batches = list[list[str]]()
-    for key, value in sorted_data:
-        # Place each item in the first batch that it fits in
-        placed = False
-        for batch in batches:
-            if sum(data[k] for k in batch) + value <= batch_size:
-                batch.append(key)
-                placed = True
-                break
-        if not placed:
-            batches.append([key])
-    return batches
+    def add(self, checksums: list[str], texts: list[str]) -> None:
+        assert self._collection is not None, "Collection not initialized"
+        return self._collection.add(  # type: ignore
+            ids=checksums,
+            documents=texts,
+            metadatas=[{"active": False} for _ in checksums],
+        )
 
+    def query(self, prompt: str, checksums: list[str]) -> dict[str, float]:
+        assert self._collection is not None, "Collection not initialized"
 
-embedding_api_semaphore = asyncio.Semaphore(MAX_SIMULTANEOUS_REQUESTS)
-
-
-async def _fetch_embeddings(model: str, batch: list[str]):
-    ctx = SESSION_CONTEXT.get()
-
-    async with embedding_api_semaphore:
-        response = await ctx.llm_api_handler.call_embedding_api(batch, model)
-        return response
-
-
-def _cosine_similarity(v1: list[float], v2: list[float]) -> float:
-    """Calculate the cosine similarity between two vectors."""
-    dot_product = np.dot(v1, v2)
-    norm_v1 = np.linalg.norm(v1)
-    norm_v2 = np.linalg.norm(v2)
-    return dot_product / (norm_v1 * norm_v2)  # pyright: ignore
+        self._collection.update(  # type: ignore
+            ids=checksums,
+            metadatas=[{"active": True} for _ in checksums],
+        )
+        results = self._collection.query(  # type: ignore
+            query_texts=[prompt],
+            where={"active": True},
+            n_results=len(checksums) + 1,
+        )
+        self._collection.update(  # type: ignore
+            ids=checksums,
+            metadatas=[{"active": False} for _ in checksums],
+        )
+        assert results["distances"], "Error calculating distances"
+        return {c: e for c, e in zip(results["ids"][0], results["distances"][0])}
 
 
 async def get_feature_similarity_scores(
@@ -110,88 +84,80 @@ async def get_feature_similarity_scores(
     loading_multiplier: float = 0.0,
 ) -> list[float]:
     """Return the similarity scores for a given prompt and list of features."""
-    global database
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
+    config = session_context.config
     cost_tracker = session_context.cost_tracker
     embedding_model = session_context.config.embedding_model
-    max_model_tokens = model_context_size(embedding_model)
+
+    max_model_tokens = model_context_size(config.embedding_model)
     if max_model_tokens is None:
         raise MentatError(f"Missing model context size for {embedding_model}.")
 
-    # Keep things in the same order
+    # Initialize DB
+    collection = Collection(embedding_model)
+
+    # Identify which items need embeddings.
     checksums: list[str] = [f.get_checksum() for f in features]
     tokens: list[int] = await count_feature_tokens(features, embedding_model)
-
-    # Make a checksum:content dict of all items that need to be embedded
-    items_to_embed = dict[str, str]()
-    items_to_embed_tokens = dict[str, int]()
-    prompt_checksum = sha256(prompt)
-    num_prompt_tokens = 0
-    if not database.exists(prompt_checksum):
-        items_to_embed[prompt_checksum] = prompt
-        items_to_embed_tokens[prompt_checksum] = count_tokens(
-            prompt, embedding_model, False
-        )
+    embed_texts = list[str]()
+    embed_checksums = list[str]()
+    embed_tokens = list[int]()
     for feature, checksum, token in zip(features, checksums, tokens):
         if token > max_model_tokens:
+            stream.send(
+                f"Warning: Feature {str(feature)} has {token} tokens, which exceeds the"
+                f" maximum of {max_model_tokens} for model {config.embedding_model}."
+                " Skipping."
+            )
             continue
-        if not database.exists(checksum):
-            feature_content = feature.get_code_message()
-            # Remove line numbering
-            items_to_embed[checksum] = "\n".join(feature_content)
-            items_to_embed_tokens[checksum] = token
-            num_prompt_tokens += token
+        if not collection.exists(checksum) and checksum not in embed_checksums:
+            embed_texts.append("\n".join(feature.get_code_message()))
+            embed_checksums.append(checksum)
+            embed_tokens.append(token)
 
     # If it costs more than $1, get confirmation from user.
     cost = model_price_per_1000_tokens(embedding_model)
     if cost is None:
         stream.send(
             "Warning: Could not determine cost of embeddings. Continuing anyway.",
-            color="light_yellow",
+            style="warning",
         )
     else:
-        expected_cost = (num_prompt_tokens / 1000) * cost[0]
+        expected_cost = (sum(embed_tokens) / 1000) * cost[0]
         if expected_cost > 1.0:
             stream.send(
-                f"Embedding {num_prompt_tokens} tokens will cost ${cost[0]:.2f}."
+                f"Embedding {sum(embed_tokens)} tokens will cost ${cost[0]:.2f}."
                 " Continue anyway?"
             )
             if not await ask_yes_no(default_yes=True):
                 stream.send("Ignoring embeddings for now.")
                 return [0.0 for _ in checksums]
 
-    # Fetch embeddings in batches
-    batches = _batch_ffd(items_to_embed_tokens, max_model_tokens)
-
-    tasks = list[tuple[asyncio.Task[list[list[float]]], list[str]]]()
-    for batch in batches:
-        batch_content = [items_to_embed[k] for k in batch]
-        task = asyncio.create_task(_fetch_embeddings(embedding_model, batch_content))
-        tasks.append((task, batch))
-    for i, (task, batch) in enumerate(tasks):
+    # Load embeddings
+    if embed_texts:
+        start_time = default_timer()
         if loading_multiplier:
             stream.send(
-                f"Fetching embeddings, batch {i+1}/{len(batches)}",
+                f"Fetching embeddings for {len(embed_texts)} documents",
                 channel="loading",
-                progress=(100 / len(batches)) * loading_multiplier,
+                progress=50 * loading_multiplier,
             )
-        start_time = default_timer()
-        response = await task
+        collection.add(embed_checksums, embed_texts)
         cost_tracker.log_api_call_stats(
-            sum(items_to_embed_tokens[k] for k in batch),
+            sum(embed_tokens),
             0,
             embedding_model,
             start_time - default_timer(),
         )
-        database.set({k: v for k, v in zip(batch, response)})
 
-    # Calculate similarity score for each feature
-    prompt_embedding = database.get([prompt_checksum])[prompt_checksum]
-    embeddings = database.get(checksums)
-    scores = [
-        _cosine_similarity(prompt_embedding, embeddings[k]) if k in embeddings else 0.0
-        for k in checksums
-    ]
-
-    return scores
+    # Get similarity scores
+    if loading_multiplier:
+        stream.send(
+            "Matching relevant documents based on embedding similarity",
+            channel="loading",
+            progress=(50 if embed_texts else 100) * loading_multiplier,
+        )
+    _checksums = list(set(checksums))
+    scores = collection.query(prompt, _checksums)
+    return [scores.get(f.get_checksum(), 0) for f in features]

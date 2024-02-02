@@ -1,0 +1,61 @@
+
+{% macro display_message(message, content_key) %}
+{% if message[content_key] is string %}
+    <pre>{{ message[content_key]|e }}</pre>
+{% else %}
+    {% for submessage in message[content_key] %}
+        {% if submessage["type"] == "text" %}
+            <pre>{{ submessage["text"]|e }}</pre>
+        {% elif submessage["type"] == "image_url" %}
+            <img src="{{ submessage['image_url']['url'] }}">
+        {% endif %}
+    {% endfor %}
+{% endif %}
+{% endmacro %}
+
+{% macro transcript_container(transcript) %}
+<div class="container" id={{ transcript["id"] }}>
+    <div class="left-viewer viewer">
+        <div class="button-group">
+            <a class="feedback-button">
+                <span class="tooltip">Give feedback</span>
+                <i class="material-icons">chat_bubble_outline</i>
+            </a>
+            <a class="share-button">
+                <span class="tooltip">Get shareable link</span>
+                <i class="material-icons">share</i>
+            </a>
+            <a class="download-parent">
+                <span class="tooltip">Download this transcript</span>
+                <i class="material-icons">file_download</i>
+            </a>
+        </div>
+        {% for message in transcript["messages"] %}
+        <div class="message {{'user' if message["prior_messages"] is none else 'assistant clickable'}} {{message["message_type"] if message["message_type"]}}">
+            {{ display_message(message, "message") }}
+            {% if message["prior_messages"] is not none %}
+                {% for seen_message in message["prior_messages"] %}
+                <div class="message viewpoint-message {{seen_message['role']}} hidden">
+                    {{ display_message(seen_message, "content") }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="right-viewer viewer">
+        <h1 class="viewpoint-title">Model's Viewpoint {{ transcript["id"] }}</h1>
+    </div>
+</div>
+<div id="feedback-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <form id="feedback-form">
+            <label for="feedback-input">Please enter your feedback:</label>
+            <textarea id="feedback-input" name="feedback" rows="4"></textarea>
+            <p id="feedback-message"></p>
+            <input type="submit" value="Submit Feedback">
+        </form>
+    </div>
+</div>
+{% endmacro %}

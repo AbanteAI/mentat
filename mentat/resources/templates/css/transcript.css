@@ -1,0 +1,212 @@
+h1 {
+    margin: 10 0px;
+}
+
+pre {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.container {
+    position: relative;
+    width: 100%;
+    flex-direction: row;
+    flex-grow: 1;
+}
+
+.hidden {
+    display: none;
+    height: 0;
+}
+
+.container.active {
+    display: flex;
+}
+
+.viewer {
+    border: 1px solid black;
+    overflow-y: auto;
+    text-align: center;
+}
+
+.left-viewer {
+    flex: 1 0 19%;
+}
+
+.right-viewer {
+    flex: 1 0 79%;
+}
+
+.message {
+    padding: 8px;
+    max-width: 65%;
+    width: fit-content;
+    border: 1px solid black;
+    border-radius: 16px;
+    margin: 32px 24px;
+    overflow-y: auto;
+    overflow-x: auto;
+    max-height: 500px;
+    text-align: left;
+}
+
+.system {
+    background-color: rgb(203, 203, 203);
+    width: 40%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.user {
+    background-color: rgb(187, 236, 255);
+    margin-left: auto;
+}
+
+.assistant {
+    transition: background-color 0.2s;
+    background-color: rgb(204, 243, 204);
+    margin-right: auto;
+}
+
+.clickable {
+    user-select: none;
+}
+
+.selected,
+.clickable:hover {
+    background-color: rgb(245, 245, 245);
+}
+
+.selected,
+.selected:hover {
+    background-color: rgb(255, 255, 255);
+}
+
+.agent {
+    background-color: rgb(255, 197, 197);
+}
+
+.revisor {
+    background-color: rgb(243, 246, 196);
+}
+
+.button-group {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgb(0, 0, 0, 0.4);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+}
+
+.close-button {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+#feedback-form {
+    display: flex;
+    flex-direction: column;
+}
+
+#feedback-form label {
+    margin-bottom: 10px;
+}
+
+#feedback-form textarea {
+    margin-bottom: 10px;
+}
+
+#feedback-form input[type="submit"] {
+    cursor: pointer;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
+
+#feedback-form input[type="submit"]:hover {
+    background-color: #45a049;
+}
+
+.button-group > a {
+    display: inline-block;
+    cursor: pointer;
+    padding: 8px 16px;
+    background-color: #ffcc00;
+    border: none;
+    border-radius: 18px;
+    font-size: 16px;
+    color: #333;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.button-group > a:hover {
+    background-color: #ffdd55;
+    transform: scale(1.11);
+}
+
+a .tooltip{
+  visibility: hidden;
+  width: 150px;
+  background-color: #555;
+  color: #fff;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+  position: absolute;
+  z-index: 1;
+  bottom: -150%; 
+  left: -50%;
+  margin-left: -75px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+a:hover .tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+.toast {
+    min-width: 250px;
+    margin-left: -125px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 2px;
+    padding: 16px;
+    position: fixed;
+    z-index: 1;
+    left: 50%;
+    top: 30px;
+    font-size: 17px;
+}

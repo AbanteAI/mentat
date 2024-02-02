@@ -4,7 +4,7 @@ name: Benchmark
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs at midnight UTC every day
+    - cron: '0 14 * * *'  # Runs at 6 am PST
   workflow_dispatch:
 
 jobs:
@@ -19,6 +19,9 @@ jobs:
         run: |
           python -m pip install .
           pip install -r dev-requirements.txt
+
+      - name: Install universal-ctags
+        run: sudo apt update && sudo apt install universal-ctags
 
       - name: Run and upload benchmarks
         run: ./scripts/run_and_upload_benchmarks.sh

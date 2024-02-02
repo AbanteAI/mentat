@@ -1,8 +1,13 @@
-from mentat.command.command import Command
+from typing import List
+
+from typing_extensions import override
+
+from mentat.command.command import Command, CommandArgument
 from mentat.session_context import SESSION_CONTEXT
 
 
 class RedoCommand(Command, command_name="redo"):
+    @override
     async def apply(self, *args: str) -> None:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
@@ -10,13 +15,22 @@ class RedoCommand(Command, command_name="redo"):
 
         errors = await code_file_manager.history.redo()
         if errors:
-            stream.send(errors)
-        stream.send("Redo complete", color="green")
+            stream.send("\n".join(errors), style="error")
+        stream.send("Redo complete", style="success")
 
+    @override
     @classmethod
-    def argument_names(cls) -> list[str]:
+    def arguments(cls) -> List[CommandArgument]:
         return []
 
+    @override
+    @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return []
+
+    @override
     @classmethod
     def help_message(cls) -> str:
-        return "Redo the last change made by Mentat"
+        return "Redo a change that was previously undone with /undo."

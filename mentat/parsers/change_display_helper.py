@@ -1,18 +1,22 @@
 from enum import Enum
 from pathlib import Path
+from typing import Tuple
 
 import attr
-from pygments import highlight  # pyright: ignore[reportUnknownVariableType]
+from pygments import lex
 from pygments.formatters import TerminalFormatter
 from pygments.lexer import Lexer
 from pygments.lexers import TextLexer, get_lexer_for_filename
 from pygments.util import ClassNotFound
-from termcolor import colored
+
+from mentat.parsers.streaming_printer import FormattedString
+from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import get_relative_path
 
 change_delimiter = 60 * "="
 
 
-def _get_lexer(file_path: Path):
+def get_lexer(file_path: Path):
     try:
         lexer: Lexer = get_lexer_for_filename(file_path)
     except ClassNotFound:
@@ -58,8 +62,15 @@ class DisplayInformation:
     new_name: Path | None = attr.field(default=None)
 
     def __attrs_post_init__(self):
+        ctx = SESSION_CONTEXT.get()
+
         self.line_number_buffer = get_line_number_buffer(self.file_lines)
-        self.lexer = _get_lexer(self.file_name)
+        self.lexer = get_lexer(self.file_name)
+
+        if self.file_name.is_absolute():
+            self.file_name = get_relative_path(self.file_name, ctx.cwd)
+        if self.new_name is not None and self.new_name.is_absolute():
+            self.new_name = get_relative_path(self.new_name, ctx.cwd)
 
 
 def _remove_extra_empty_lines(lines: list[str]) -> list[str]:
@@ -84,7 +95,7 @@ def _remove_extra_empty_lines(lines: list[str]) -> list[str]:
     return lines[max(start - 1, 0) : end + 2]
 
 
-def _prefixed_lines(line_number_buffer: int, lines: list[str], prefix: str):
+def _prefixed_lines(line_number_buffer: int, lines: list[str], prefix: str) -> str:
     return "\n".join(
         [
             prefix + " " * (line_number_buffer - len(prefix)) + line.strip("\n")
@@ -98,16 +109,18 @@ def _get_code_block(
     line_number_buffer: int,
     prefix: str,
     color: str | None,
-):
+) -> FormattedString:
     lines = _prefixed_lines(line_number_buffer, code_lines, prefix)
-    if lines:
-        return colored(lines, color=color)
+    if color is None:
+        return lines
     else:
-        return ""
+        return (lines, {"color": color})
 
 
-def get_full_change(display_information: DisplayInformation):
-    to_print = [
+def display_full_change(display_information: DisplayInformation, prefix: str = ""):
+    ctx = SESSION_CONTEXT.get()
+
+    full_change = [
         get_file_name(display_information),
         (
             change_delimiter
@@ -124,35 +137,42 @@ def get_full_change(display_information: DisplayInformation):
             else ""
         ),
     ]
-    full_change = "\n".join([line for line in to_print if line])
-    return full_change
+    for line in full_change:
+        if (isinstance(line, str) and line.strip()) or (
+            isinstance(line, Tuple) and line[0].strip()
+        ):
+            ctx.stream.send(prefix, end="")
+            ctx.stream.send(line)
 
 
 def get_file_name(
     display_information: DisplayInformation,
-):
+) -> FormattedString:
     match display_information.file_action_type:
         case FileActionType.CreateFile:
-            return colored(f"\n{display_information.file_name}*", color="light_green")
+            return (f"\n{display_information.file_name}*", {"color": "light_green"})
         case FileActionType.DeleteFile:
-            return colored(
-                f"\nDeletion: {display_information.file_name}", color="light_red"
+            return (
+                f"\nDeletion: {display_information.file_name}",
+                {"color": "light_red"},
             )
         case FileActionType.RenameFile:
-            return colored(
-                f"\nRename: {display_information.file_name} ->"
-                f" {display_information.new_name}",
-                color="yellow",
+            return (
+                (
+                    f"\nRename: {display_information.file_name} ->"
+                    f" {display_information.new_name}"
+                ),
+                {"color": "yellow"},
             )
         case FileActionType.UpdateFile:
-            return colored(f"\n{display_information.file_name}", color="light_blue")
+            return (f"\n{display_information.file_name}", {"color": "light_blue"})
 
 
 def get_added_lines(
     display_information: DisplayInformation,
     prefix: str = "+",
     color: str | None = "green",
-):
+) -> FormattedString:
     return _get_code_block(
         display_information.added_block,
         display_information.line_number_buffer,
@@ -165,7 +185,7 @@ def get_removed_lines(
     display_information: DisplayInformation,
     prefix: str = "-",
     color: str | None = "red",
-):
+) -> FormattedString:
     return _get_code_block(
         display_information.removed_block,
         display_information.line_number_buffer,
@@ -174,15 +194,20 @@ def get_removed_lines(
     )
 
 
-def highlight_text(display_information: DisplayInformation, text: str) -> str:
-    # pygments doesn't have type hints on TerminalFormatter
-    return highlight(text, display_information.lexer, TerminalFormatter(bg="dark"))  # type: ignore
+def highlight_text(text: str, lexer: Lexer) -> FormattedString:
+    formatter = TerminalFormatter(bg="dark")  # type: ignore
+    string: FormattedString = []
+    for ttype, value in lex(text, lexer):
+        # We use TerminalFormatter's color scheme; TODO: Hook this up to our style themes instead
+        color = formatter._get_color(ttype)  # type: ignore
+        string.append((value, {"color": color}))
+    return string
 
 
 def get_previous_lines(
     display_information: DisplayInformation,
     num: int = 2,
-) -> str:
+) -> FormattedString:
     if display_information.first_changed_line < 0:
         return ""
     lines = _remove_extra_empty_lines(
@@ -206,13 +231,13 @@ def get_previous_lines(
     ]
 
     prev = "\n".join(numbered)
-    return highlight_text(display_information, prev)
+    return highlight_text(prev, display_information.lexer)
 
 
 def get_later_lines(
     display_information: DisplayInformation,
     num: int = 2,
-) -> str:
+) -> FormattedString:
     if display_information.last_changed_line < 0:
         return ""
     lines = _remove_extra_empty_lines(
@@ -236,4 +261,4 @@ def get_later_lines(
     ]
 
     later = "\n".join(numbered)
-    return highlight_text(display_information, later)
+    return highlight_text(later, display_information.lexer)

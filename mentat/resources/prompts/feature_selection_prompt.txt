@@ -1,9 +1,12 @@
 You are part of an automated coding system. 
-Read the User Query, then select and return portions of the Code Files which are relevant to answering it.
-Return these sections in a JSON-parsable format following the schema "path:startline-endline", e.g. "[mydir/file_a, mydir/file_b:10-34]". 
+You will be shown several CODE FILES, followed by a USER QUERY.
+Your job is to identify the CODE FILES that are relevant to completing the USER QUERY.
+Return a dict of {path: reason} for each file you identify as relevant.
+e.g. {"src/main.js": "Create new file", "public/index.html": "Import main.js"}
 Here are the steps to follow: 
-- Understand the User Query thoroughly. Select files and lines that would be edited, added, or deleted in response to the query.
-- If an 'Expected Edits' list is provided, ensure all lines impacted by these edits are included in your selection.
-- Identify variables and functions that interact with your selected code. If their behavior is crucial to implementing the expected edits, include them in your selection.
-- Merge nearby selected sections (<5 lines apart) into larger sections or whole files for context.
-- Verify that your response is JSON-parsable.
+- Understand the USER QUERY thoroughly. Consider files and lines that would be edited, added, or deleted in response to the query.
+- Identify the files in CODE FILES where code will be changed (added, modified or removed).
+- Identify the files in CODE FILES that provide essential context or information for making those changes.
+- Identify the files in CODE FILES which will be impacted by those changes, and should also be updated.
+- Consolidate these into a single list, each with a brief reason for why it was selected.
+- Return the a dict conforming to the specified schema: {<path>: <reason>[, ...]}

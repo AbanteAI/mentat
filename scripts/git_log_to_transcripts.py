@@ -11,14 +11,14 @@ from textwrap import dedent
 from git import Repo
 from openai import OpenAI
 
+from benchmarks.context_benchmark import MockStream, select_features_for_benchmark
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.llm_api import CostTracker, count_tokens
 from mentat.parsers.git_parser import GitParser
+from mentat.sampler.utils import clone_repo
 from mentat.session_context import SESSION_CONTEXT, SessionContext
-from tests.benchmarks.context_benchmark import MockStream, select_features_for_benchmark
-from tests.benchmarks.utils import clone_repo
 
 system_prompt = dedent("""\
         You are part of an automated system for making synthetic data. You will be given the \
@@ -130,7 +130,7 @@ async def translate_commits_to_transcripts(repo, count=10):
                 print("Skipping because too long")
                 continue
 
-            parsedLLMResponse = GitParser().parse_string(shown)
+            parsedLLMResponse = GitParser().parse_llm_response(shown)
 
             code_context.set_paths(bound_files(parsedLLMResponse.file_edits), [])
             code_message = await code_context.get_code_message("", 0)

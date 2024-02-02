@@ -11,7 +11,6 @@ from typing import AsyncIterator
 import attr
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.completion_create_params import ResponseFormat
-from termcolor import colored
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
@@ -26,8 +25,9 @@ from mentat.parsers.change_display_helper import (
     get_removed_lines,
 )
 from mentat.parsers.file_edit import FileEdit
+from mentat.parsers.streaming_printer import FormattedString, StreamingPrinter
 from mentat.session_context import SESSION_CONTEXT
-from mentat.streaming_printer import StreamingPrinter
+from mentat.utils import convert_string_to_asynciter
 
 
 @attr.define
@@ -42,6 +42,7 @@ class Parser(ABC):
     def __init__(self):
         self.shutdown = Event()
         self._interrupt_task = None
+        self._silence_printer = False
 
     async def listen_for_interrupt(self):
         session_context = SESSION_CONTEXT.get()
@@ -87,7 +88,10 @@ class Parser(ABC):
         code_file_manager = session_context.code_file_manager
 
         printer = StreamingPrinter()
-        printer_task = asyncio.create_task(printer.print_lines())
+        if self._silence_printer:
+            printer_task = None
+        else:
+            printer_task = asyncio.create_task(printer.print_lines())
         message = ""
         conversation = ""
         file_edits = dict[Path, FileEdit]()
@@ -108,10 +112,10 @@ class Parser(ABC):
             if self.shutdown.is_set():
                 interrupted = True
                 printer.shutdown_printer()
-                await printer_task
+                if printer_task is not None:
+                    await printer_task
                 stream.send(
-                    colored("")  # Reset ANSI codes
-                    + "\n\nInterrupted by user. Using the response up to this point."
+                    "\n\nInterrupted by user. Using the response up to this point."
                 )
                 break
 
@@ -126,30 +130,36 @@ class Parser(ABC):
                     if not line_printed:
                         if not self._could_be_special(cur_line):
                             line_printed = True
-                            to_print = (
-                                cur_line
-                                if not in_code_lines or display_information is None
-                                else self._code_line_beginning(
-                                    display_information, cur_block
-                                )
-                                + self._code_line_content(
-                                    display_information, cur_line, cur_line, cur_block
-                                )
-                            )
-                            printer.add_string(to_print, end="")
                             if not in_code_lines or display_information is None:
-                                conversation += to_print
+                                printer.add_string(cur_line, end="")
+                                conversation += cur_line
+                            else:
+                                printer.add_string(
+                                    self._code_line_beginning(
+                                        display_information, cur_block
+                                    ),
+                                    end="",
+                                )
+                                printer.add_string(
+                                    self._code_line_content(
+                                        display_information,
+                                        cur_line,
+                                        cur_line,
+                                        cur_block,
+                                    ),
+                                    end="",
+                                )
                     else:
-                        to_print = (
-                            content
-                            if not in_code_lines or display_information is None
-                            else self._code_line_content(
-                                display_information, content, cur_line, cur_block
-                            )
-                        )
-                        printer.add_string(to_print, end="")
                         if not in_code_lines or display_information is None:
-                            conversation += to_print
+                            printer.add_string(content, end="")
+                            conversation += content
+                        else:
+                            printer.add_string(
+                                self._code_line_content(
+                                    display_information, content, cur_line, cur_block
+                                ),
+                                end="",
+                            )
 
                 # If we print non code lines, we want to reprint the file name of the next change,
                 # even if it's the same file as the last change
@@ -165,17 +175,21 @@ class Parser(ABC):
                         and not line_printed
                         and not self._could_be_special(cur_line)
                     ):
-                        to_print = (
-                            cur_line
-                            if not in_code_lines or display_information is None
-                            else self._code_line_beginning(
-                                display_information, cur_block
+                        if not in_code_lines or display_information is None:
+                            printer.add_string(cur_line, end="")
+                        else:
+                            printer.add_string(
+                                self._code_line_beginning(
+                                    display_information, cur_block
+                                ),
+                                end="",
                             )
-                            + self._code_line_content(
-                                display_information, cur_line, cur_line, cur_block
+                            printer.add_string(
+                                self._code_line_content(
+                                    display_information, cur_line, cur_line, cur_block
+                                ),
+                                end="",
                             )
-                        )
-                        printer.add_string(to_print, end="")
                         line_printed = True
 
                     if self._starts_special(cur_line.strip()):
@@ -201,10 +215,11 @@ class Parser(ABC):
                                 cur_block,
                             )
                         except ModelError as e:
-                            printer.add_string(str(e), color="red")
+                            printer.add_string((str(e), {"color": "red"}))
                             printer.add_string("Using existing changes.")
                             printer.wrap_it_up()
-                            await printer_task
+                            if printer_task is not None:
+                                await printer_task
                             logging.debug("LLM Response:")
                             logging.debug(message)
                             return ParsedLLMResponse(
@@ -218,14 +233,11 @@ class Parser(ABC):
                         cur_block = ""
 
                         # Rename map handling
-                        if display_information.new_name is not None:
-                            rename_map[display_information.new_name] = (
-                                display_information.file_name
-                            )
-                        if display_information.file_name in rename_map:
+                        if file_edit.rename_file_path is not None:
+                            rename_map[file_edit.rename_file_path] = file_edit.file_path
+                        if file_edit.file_path in rename_map:
                             file_edit.file_path = (
-                                session_context.cwd
-                                / rename_map[display_information.file_name]
+                                session_context.cwd / rename_map[file_edit.file_path]
                             )
 
                         # New file_edit creation and merging
@@ -316,7 +328,8 @@ class Parser(ABC):
 
             # Only finish printing if we don't quit from ctrl-c
             printer.wrap_it_up()
-            await printer_task
+            if printer_task is not None:
+                await printer_task
 
         logging.debug("LLM Response:")
         logging.debug(message)
@@ -332,15 +345,13 @@ class Parser(ABC):
         self,
         code_file_manager: CodeFileManager,
         rename_map: dict[Path, Path],
-        rel_path: Path,
+        abs_path: Path,
     ) -> list[str]:
-        ctx = SESSION_CONTEXT.get()
-
         path = rename_map.get(
-            rel_path,
-            rel_path,
+            abs_path,
+            abs_path,
         )
-        return code_file_manager.file_lines.get(ctx.cwd / path, [])
+        return code_file_manager.file_lines.get(path, [])
 
     # These methods aren't abstract, since most parsers will use this implementation, but can be overriden easily
     def provide_line_numbers(self) -> bool:
@@ -351,12 +362,13 @@ class Parser(ABC):
 
     def _code_line_beginning(
         self, display_information: DisplayInformation, cur_block: str
-    ) -> str:
+    ) -> FormattedString:
         """
         The beginning of a code line; normally this means printing the + prefix
         """
-        return colored(
-            "+" + " " * (display_information.line_number_buffer - 1), color="green"
+        return (
+            "+" + " " * (display_information.line_number_buffer - 1),
+            {"color": "green"},
         )
 
     def _code_line_content(
@@ -365,11 +377,11 @@ class Parser(ABC):
         content: str,
         cur_line: str,
         cur_block: str,
-    ) -> str:
+    ) -> FormattedString:
         """
         Part of a code line; normally this means printing in green
         """
-        return colored(content, color="green")
+        return (content, {"color": "green"})
 
     # These methods must be overriden if using the default stream and parse function
     def _could_be_special(self, cur_line: str) -> bool:
@@ -418,9 +430,16 @@ class Parser(ABC):
         code_block: str,
         display_information: DisplayInformation,
         file_edit: FileEdit,
-    ) -> str:
+    ) -> FormattedString:
         """
         Using the special block, code block and display_information, edits the FileEdit to add the new code block.
         Can return a message to print after this change is finished.
         """
         raise NotImplementedError()
+
+    async def parse_llm_response(self, response: str) -> ParsedLLMResponse:
+        self._silence_printer = True
+        async_iter_response = convert_string_to_asynciter(response, chunk_size=100)
+        parsed_response = await self.stream_and_parse_llm_response(async_iter_response)
+        self._silence_printer = False
+        return parsed_response

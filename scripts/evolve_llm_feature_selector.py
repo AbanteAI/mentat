@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import argparse
 import asyncio
 import json
@@ -8,9 +9,9 @@ from typing import Any
 
 from openai import AsyncOpenAI
 
+from benchmarks.context_benchmark import test_code_context_performance
 from mentat.errors import ModelError
 from mentat.prompts.prompts import read_prompt
-from tests.benchmarks.context_benchmark import test_code_context_performance
 
 prompts_dir = Path(__file__).parent.parent / "mentat/resources/prompts"
 

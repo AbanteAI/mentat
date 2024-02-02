@@ -9,8 +9,7 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
 )
 
-from mentat.code_feature import CodeMessageLevel
-from mentat.llm_api_handler import count_tokens, get_max_tokens, prompt_tokens
+from mentat.llm_api_handler import prompt_tokens
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no, collect_user_input
@@ -39,11 +38,10 @@ class AgentHandler:
     async def enable_agent_mode(self):
         ctx = SESSION_CONTEXT.get()
 
-        self._agent_enabled = True
         ctx.stream.send(
-            "Finding files to determine how to test changes...", color="cyan"
+            "Finding files to determine how to test changes...", style="info"
         )
-        features = ctx.code_context.get_all_features(CodeMessageLevel.FILE_NAME)
+        features = ctx.code_context.get_all_features(split_intervals=False)
         messages: List[ChatCompletionMessageParam] = [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_file_selection_prompt
@@ -70,14 +68,10 @@ class AgentHandler:
         ctx.stream.send(
             "The model has chosen these files to help it determine how to test its"
             " changes:",
-            color="cyan",
+            style="info",
         )
         ctx.stream.send("\n".join(str(path) for path in paths))
-        ctx.cost_tracker.log_api_call_stats(
-            prompt_tokens(messages, model),
-            count_tokens(content, model, full_message=False),
-            model,
-        )
+        ctx.cost_tracker.display_last_api_call()
 
         messages.append(
             ChatCompletionAssistantMessageParam(role="assistant", content=content)
@@ -85,46 +79,43 @@ class AgentHandler:
         ctx.conversation.add_transcript_message(
             ModelMessage(message=content, prior_messages=messages, message_type="agent")
         )
+        self._agent_enabled = True
 
     async def _determine_commands(self) -> List[str]:
         ctx = SESSION_CONTEXT.get()
 
         model = ctx.config.model
-        messages = ctx.conversation.get_messages(include_system_prompt=False) + [
-            ChatCompletionSystemMessageParam(
-                role="system", content=self.agent_file_message
-            ),
-        ]
-        max_tokens = get_max_tokens()
-        if max_tokens is not None:
-            max_tokens -= prompt_tokens(messages, model) + ctx.config.token_buffer
-        code_message = await ctx.code_context.get_code_message(max_tokens=max_tokens)
-        code_message = ChatCompletionSystemMessageParam(
-            role="system", content=code_message
-        )
-        messages.append(code_message)
-        messages.append(
+        messages = [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_command_prompt
             ),
+            ChatCompletionSystemMessageParam(
+                role="system", content=self.agent_file_message
+            ),
+        ] + ctx.conversation.get_messages(include_system_prompt=False)
+        code_message = await ctx.code_context.get_code_message(
+            prompt_tokens=prompt_tokens(messages, model)
         )
+        code_message = ChatCompletionSystemMessageParam(
+            role="system", content=code_message
+        )
+        messages.insert(1, code_message)
+
         try:
             # TODO: Should this even be a separate call or should we collect commands in the edit call?
             response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
+            ctx.cost_tracker.display_last_api_call()
         except BadRequestError as e:
-            ctx.stream.send(f"Error accessing OpenAI API: {e.message}", color="red")
+            ctx.stream.send(f"Error accessing OpenAI API: {e.message}", style="error")
             return []
+
         content = response.choices[0].message.content or ""
-        ctx.cost_tracker.log_api_call_stats(
-            prompt_tokens(messages, model),
-            count_tokens(content, model, full_message=False),
-            model,
-        )
 
         messages.append(
             ChatCompletionAssistantMessageParam(role="assistant", content=content)
         )
-        ctx.conversation.add_model_message(content, messages)
+        parsed_llm_response = await ctx.config.parser.parse_llm_response(content)
+        ctx.conversation.add_model_message(content, messages, parsed_llm_response)
 
         commands = content.strip().split("\n")
         return commands
@@ -139,18 +130,18 @@ class AgentHandler:
         if not commands:
             return True
         ctx.stream.send(
-            "The model has chosen these commands to test its changes:", color="cyan"
+            "The model has chosen these commands to test its changes:", style="info"
         )
         for command in commands:
             ctx.stream.send("* ", end="")
-            ctx.stream.send(command, color="light_yellow")
-        ctx.stream.send("Run these commands?", color="cyan")
+            ctx.stream.send(command, style="warning")
+        ctx.stream.send("Run these commands?", style="info")
         run_commands = await ask_yes_no(default_yes=True)
         if not run_commands:
             ctx.stream.send(
                 "Enter a new-line separated list of commands to run, or nothing to"
                 " return control to the user:",
-                color="cyan",
+                style="info",
             )
             commands: list[str] = (await collect_user_input()).data.strip().splitlines()
             if not commands:

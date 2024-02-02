@@ -4,8 +4,7 @@ import asyncio
 import json
 import logging
 import subprocess
-from timeit import default_timer
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
 from openai import RateLimitError
 from openai.types.chat import (
@@ -16,20 +15,21 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-from mentat.errors import MentatError
 from mentat.llm_api_handler import (
+    TOKEN_COUNT_WARNING,
     count_tokens,
     get_max_tokens,
-    model_context_size,
     prompt_tokens,
 )
+from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
 
-if TYPE_CHECKING:
-    from mentat.parsers.file_edit import FileEdit
+
+class MentatAssistantMessageParam(ChatCompletionAssistantMessageParam):
+    parsed_llm_response: ParsedLLMResponse
 
 
 class Conversation:
@@ -44,58 +44,38 @@ class Conversation:
         stream = session_context.stream
         config = session_context.config
         code_context = session_context.code_context
-        llm_api_handler = session_context.llm_api_handler
 
-        if not await llm_api_handler.is_model_available(config.model):
-            raise MentatError(
-                f"Model {config.model} is not available. Please try again with a"
-                " different model."
-            )
         if "gpt-4" not in config.model:
             stream.send(
                 "Warning: Mentat has only been tested on GPT-4. You may experience"
                 " issues with quality. This model may not be able to respond in"
                 " mentat's edit format.",
-                color="yellow",
+                style="warning",
             )
             if "gpt-3.5" not in config.model:
                 stream.send(
                     "Warning: Mentat does not know how to calculate costs or context"
                     " size for this model.",
-                    color="yellow",
+                    style="warning",
                 )
 
-        context_size = model_context_size(config.model)
-        maximum_context = config.maximum_context
-        if maximum_context:
-            if context_size:
-                context_size = min(context_size, maximum_context)
-            else:
-                context_size = maximum_context
-
-        included_code_message = ["Code Files:"] + [
-            line
-            for features_for_path in code_context.include_files.values()
-            for feature in features_for_path
-            for line in feature.get_code_message()
-        ]  # NOTE: missing diff info. negligible (0-30 tokens)
-        messages = self.get_messages() + [
+        messages = self.get_messages()
+        code_message = await code_context.get_code_message(
+            prompt_tokens(
+                messages,
+                config.model,
+            ),
+            suppress_context_check=True,
+        )
+        messages.append(
             ChatCompletionSystemMessageParam(
                 role="system",
-                content="\n".join(included_code_message),
+                content=code_message,
             )
-        ]
-        tokens = prompt_tokens(
-            messages,
-            config.model,
         )
+        tokens = prompt_tokens(messages, config.model)
 
         context_size = get_max_tokens()
-        if not context_size:
-            raise MentatError(
-                f"Context size for {config.model} is not known. Please set"
-                " maximum-context with `/config maximum_context value`."
-            )
         if tokens + config.token_buffer > context_size:
             _plural = len(code_context.include_files) > 1
             _exceed = tokens > context_size
@@ -107,13 +87,13 @@ class Conversation:
             }
             stream.send(
                 f"Included file{message[(_plural, _exceed)]} token limit"
-                f" ({tokens} / {context_size}). Truncating based on task similarity.",
-                color="yellow",
+                f" ({tokens} / {context_size}).",
+                style="warning",
             )
         else:
             stream.send(
                 f"Prompt and included files token count: {tokens} / {context_size}",
-                color="cyan",
+                style="info",
             )
 
     # The transcript logger logs tuples containing the actual message sent by the user or LLM
@@ -125,33 +105,39 @@ class Conversation:
 
     def add_user_message(self, message: str, image: Optional[str] = None):
         """Used for actual user input messages"""
-        content: List[ChatCompletionContentPartParam] = [
-            {
-                "type": "text",
-                "text": message,
-            },
-        ]
+        content: List[ChatCompletionContentPartParam] | str = message
         if image:
-            content.append(
+            content = [
+                {
+                    "type": "text",
+                    "text": message,
+                },
                 {
                     "type": "image_url",
                     "image_url": {
                         "url": image,
                     },
                 },
-            )
+            ]
         self.add_transcript_message(UserMessage(message=content, prior_messages=None))
         self.add_message(ChatCompletionUserMessageParam(role="user", content=content))
 
     def add_model_message(
-        self, message: str, messages_snapshot: list[ChatCompletionMessageParam]
+        self,
+        message: str,
+        messages_snapshot: list[ChatCompletionMessageParam],
+        parsed_llm_response: ParsedLLMResponse,
     ):
         """Used for actual model output messages"""
         self.add_transcript_message(
             ModelMessage(message=message, prior_messages=messages_snapshot)
         )
         self.add_message(
-            ChatCompletionAssistantMessageParam(role="assistant", content=message)
+            MentatAssistantMessageParam(
+                parsed_llm_response=parsed_llm_response,
+                role="assistant",
+                content=message,
+            )
         )
 
     def add_message(self, message: ChatCompletionMessageParam):
@@ -159,15 +145,30 @@ class Conversation:
         self._messages.append(message)
 
     def get_messages(
-        self, include_system_prompt: bool = True
+        self,
+        include_system_prompt: bool = True,
+        include_parsed_llm_responses: bool = False,
     ) -> list[ChatCompletionMessageParam]:
         """Returns the messages in the conversation. The system message may change throughout
-        the conversation so it is important to access the messages through this method.
+        the conversation and messages may contain additional metadata not supported by the API,
+        so it is important to access the messages through this method.
         """
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
+
+        _messages = [
+            (  # Remove metadata from messages by default
+                ChatCompletionAssistantMessageParam(
+                    role=msg["role"], content=msg.get("content")
+                )
+                if msg["role"] == "assistant" and include_parsed_llm_responses is False
+                else msg
+            )
+            for msg in self._messages.copy()
+        ]
+
         if config.no_parser_prompt or not include_system_prompt:
-            return self._messages.copy()
+            return _messages
         else:
             parser = config.parser
             prompt = parser.get_system_prompt()
@@ -177,7 +178,7 @@ class Conversation:
                     content=prompt,
                 )
             )
-            return [prompt_message] + self._messages.copy()
+            return [prompt_message] + _messages
 
     def clear_messages(self) -> None:
         """Clears the messages in the conversation"""
@@ -187,24 +188,14 @@ class Conversation:
         self,
         messages: list[ChatCompletionMessageParam],
         loading_multiplier: float = 0.0,
-    ):
+    ) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
+        code_file_manager = session_context.code_file_manager
         config = session_context.config
         parser = config.parser
         llm_api_handler = session_context.llm_api_handler
-
-        start_time = default_timer()
-
-        num_prompt_tokens = prompt_tokens(messages, config.model)
-        context_size = model_context_size(config.model)
-        if context_size:
-            if num_prompt_tokens > context_size - config.token_buffer:
-                stream.send(
-                    f"Warning: {config.model} has a maximum context length of"
-                    f" {context_size} tokens. Attempting to run anyway:",
-                    color="yellow",
-                )
+        cost_tracker = session_context.cost_tracker
 
         if loading_multiplier:
             stream.send(
@@ -226,130 +217,101 @@ class Conversation:
                 terminate=True,
             )
 
-        stream.send(f"Total token count: {num_prompt_tokens}", color="cyan")
+        num_prompt_tokens = prompt_tokens(messages, config.model)
+        stream.send(f"Total token count: {num_prompt_tokens}", style="info")
+        if num_prompt_tokens > TOKEN_COUNT_WARNING:
+            stream.send(
+                "Warning: LLM performance drops off rapidly at large context sizes. Use"
+                " /clear to clear context or use /exclude to exclude any uneccessary"
+                " files.",
+                style="warning",
+            )
+
         stream.send("Streaming... use control-c to interrupt the model at any point\n")
         async with parser.interrupt_catcher():
             parsed_llm_response = await parser.stream_and_parse_llm_response(
                 add_newline(response)
             )
+        # Sampler and History require previous_file_lines
+        for file_edit in parsed_llm_response.file_edits:
+            file_edit.previous_file_lines = code_file_manager.file_lines.get(
+                file_edit.file_path, []
+            )
+        if not parsed_llm_response.interrupted:
+            cost_tracker.display_last_api_call()
+        else:
+            # Generator doesn't log the api call if we interrupt it
+            cost_tracker.log_api_call_stats(
+                num_prompt_tokens,
+                count_tokens(
+                    parsed_llm_response.full_response, config.model, full_message=False
+                ),
+                config.model,
+                display=True,
+            )
 
-        time_elapsed = default_timer() - start_time
-        return (parsed_llm_response, time_elapsed, num_prompt_tokens)
+        messages.append(
+            ChatCompletionAssistantMessageParam(
+                role="assistant", content=parsed_llm_response.full_response
+            )
+        )
+        self.add_model_message(
+            parsed_llm_response.full_response, messages, parsed_llm_response
+        )
+
+        return parsed_llm_response
 
     async def get_model_response(self) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
         code_context = session_context.code_context
-        cost_tracker = session_context.cost_tracker
 
         messages_snapshot = self.get_messages()
 
-        # Rebuild code context with active code and available tokens
-        tokens = prompt_tokens(messages_snapshot, config.model)
-
-        loading_multiplier = 1.0 if config.auto_context else 0.0
-        prompt = messages_snapshot[-1]["content"]
+        # Get current code message
+        loading_multiplier = 1.0 if config.auto_context_tokens > 0 else 0.0
+        prompt = messages_snapshot[-1].get("content")
         if isinstance(prompt, list):
             text_prompts = [
                 p.get("text", "") for p in prompt if p.get("type") == "text"
             ]
             prompt = " ".join(text_prompts)
-        max_tokens = get_max_tokens()
-        if max_tokens is None:
-            stream.send(
-                f"Context size for {config.model} is not known. Please set"
-                " maximum-context with `/config maximum_context value`.",
-                color="light_red",
-            )
-            return ParsedLLMResponse("", "", list[FileEdit]())
-
-        if max_tokens - tokens < config.token_buffer:
-            if max_tokens - tokens < 0:
-                stream.send(
-                    f"The context size is limited to {max_tokens} tokens and"
-                    f" previous messages plus system prompts use {tokens} tokens."
-                    " Please use `/clear` to reset or restart the session.",
-                    color="light_red",
-                )
-            else:
-                stream.send(
-                    f"The context size is limited to {max_tokens} tokens and"
-                    f" previous messages plus system prompts use {tokens} tokens,"
-                    " leaving insufficent tokens for a response. Please use"
-                    " `/clear` to reset or restart the session.",
-                    color="light_red",
-                )
-            return ParsedLLMResponse("", "", list[FileEdit]())
-
         code_message = await code_context.get_code_message(
-            (
-                # Prompt can be image as well as text
-                prompt
+            prompt_tokens(messages_snapshot, config.model),
+            prompt=(
+                prompt  # Prompt can be image as well as text
                 if isinstance(prompt, str)
                 else ""
             ),
-            max_tokens - tokens - config.token_buffer,
             loading_multiplier=0.5 * loading_multiplier,
         )
-        messages_snapshot.append(
-            ChatCompletionSystemMessageParam(role="system", content=code_message)
+        messages_snapshot.insert(
+            0 if config.no_parser_prompt else 1,
+            ChatCompletionSystemMessageParam(role="system", content=code_message),
         )
-
-        # If we want to add agent specific messages in (this one didn't work too well):
-        # if agent_handler.agent_enabled:
-        # agent_message = (
-        #    "You are currently being run autonomously. After making your changes,"
-        #    " you will have the chance to lint and test your code. If applicable,"
-        #    " add tests that you can use to test your code."
-        # )
-        # messages_snapshot.append(
-        #    ChatCompletionSystemMessageParam(role="system", content=agent_message)
-        # )
 
         try:
             response = await self._stream_model_response(
                 messages_snapshot,
                 loading_multiplier=0.5 * loading_multiplier,
             )
-            parsed_llm_response, time_elapsed, num_prompt_tokens = response
         except RateLimitError:
             stream.send(
-                "Rate limit recieved from OpenAI's servers using model"
+                "Rate limit error received from OpenAI's servers using model"
                 f' {config.model}.\nUse "/config model <model_name>" to switch to a'
                 " different model.",
-                color="light_red",
+                style="error",
             )
             return ParsedLLMResponse("", "", list[FileEdit]())
         finally:
             if loading_multiplier:
                 stream.send(None, channel="loading", terminate=True)
-
-        cost_tracker.log_api_call_stats(
-            num_prompt_tokens,
-            count_tokens(
-                parsed_llm_response.full_response, config.model, full_message=False
-            ),
-            config.model,
-            time_elapsed,
-            display=True,
-        )
-
-        messages_snapshot.append(
-            ChatCompletionAssistantMessageParam(
-                role="assistant", content=parsed_llm_response.full_response
-            )
-        )
-        self.add_model_message(parsed_llm_response.full_response, messages_snapshot)
-        return parsed_llm_response
+        return response
 
     def remaining_context(self) -> int | None:
         ctx = SESSION_CONTEXT.get()
-        max_context = get_max_tokens()
-        if max_context is None:
-            return None
-
-        return max_context - prompt_tokens(self.get_messages(), ctx.config.model)
+        return get_max_tokens() - prompt_tokens(self.get_messages(), ctx.config.model)
 
     def can_add_to_context(self, message: str) -> bool:
         """
@@ -373,9 +335,9 @@ class Conversation:
         """
         ctx = SESSION_CONTEXT.get()
 
-        ctx.stream.send("Running command: ", end="", color="cyan")
-        ctx.stream.send(" ".join(command), color="yellow")
-        ctx.stream.send("Command output:", color="cyan")
+        ctx.stream.send("Running command: ", end="", style="info")
+        ctx.stream.send(" ".join(command), style="warning")
+        ctx.stream.send("Command output:", style="info")
 
         try:
             process = subprocess.Popen(
@@ -409,13 +371,31 @@ class Conversation:
                 ChatCompletionSystemMessageParam(role="system", content=message)
             )
             ctx.stream.send(
-                "Successfully added command output to model context.", color="green"
+                "Successfully added command output to model context.", style="success"
             )
             return True
         else:
             ctx.stream.send(
                 "Not enough tokens remaining in model's context to add command output"
                 " to model context.",
-                color="light_red",
+                style="error",
             )
             return False
+
+    def _get_user_message(self, message: ChatCompletionUserMessageParam) -> str:
+        if not message["content"]:
+            return ""
+        elif isinstance(message["content"], str):
+            return message["content"]
+        else:
+            full = ""
+            for part in message["content"]:
+                if part["type"] == "text":
+                    full += part["text"]
+            return full
+
+    def amend(self) -> Optional[str]:
+        for i, message in reversed(list(enumerate(self._messages))):
+            if message["role"] == "user" and self._get_user_message(message):
+                self._messages = self._messages[:i]
+                return self._get_user_message(message)

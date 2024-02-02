@@ -28,6 +28,12 @@ class HistoryError(Exception):
     """
 
 
+class SampleError(Exception):
+    """
+    Raised when an exception is raised by a Sample.
+    """
+
+
 class SessionExit(Exception):
     """
     Stops the session without any sign of error.
@@ -36,3 +42,10 @@ class SessionExit(Exception):
 
 class PathValidationError(Exception):
     pass
+
+
+class ReturnToUser(Exception):
+    """
+    Raised when trying to call the API with too many tokens for that model.
+    Will give control back to the user after being raised.
+    """

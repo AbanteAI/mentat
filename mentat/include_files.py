@@ -9,20 +9,9 @@ from typing import Any, List, Set
 from mentat.code_feature import CodeFeature
 from mentat.errors import PathValidationError
 from mentat.git_handler import get_git_root_for_path, get_non_gitignored_files
-from mentat.interval import parse_intervals
+from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.session_context import SESSION_CONTEXT
-
-
-# TODO: replace this with something that doesn't load the file into memory
-def is_file_text_encoded(abs_path: Path):
-    """Checks if a file is text encoded."""
-    try:
-        # The ultimate filetype test
-        with open(abs_path, "r") as f:
-            f.read()
-        return True
-    except UnicodeDecodeError:
-        return False
+from mentat.utils import is_file_text_encoded
 
 
 class PathType(Enum):
@@ -33,10 +22,9 @@ class PathType(Enum):
 
 
 def is_interval_path(path: Path) -> bool:
-    splits = str(path).rsplit(":", 1)
-    if len(splits) != 2:
+    path, interval_str = split_intervals_from_path(path)
+    if not interval_str:
         return False
-    interval_str = splits[1]
     intervals = parse_intervals(interval_str)
     if len(intervals) == 0:
         return False
@@ -64,7 +52,7 @@ def get_path_type(path: Path) -> PathType:
     elif re.search(r"[\*\?\[\]]", str(path)):
         return PathType.GLOB
     else:
-        raise PathValidationError(f"Unknown path type {path}")
+        raise PathValidationError(f"Path {path} does not exist")
 
 
 def validate_file_path(path: Path, check_for_text: bool = True) -> None:
@@ -77,8 +65,7 @@ def validate_file_path(path: Path, check_for_text: bool = True) -> None:
 
 
 def validate_file_interval_path(path: Path, check_for_text: bool = True) -> None:
-    _interval_path, interval_str = str(path).rsplit(":", 1)
-    interval_path = Path(_interval_path)
+    interval_path, interval_str = split_intervals_from_path(path)
     if not interval_path.is_absolute():
         raise PathValidationError(f"File interval {path} is not absolute")
     if not interval_path.exists():
@@ -94,9 +81,9 @@ def validate_file_interval_path(path: Path, check_for_text: bool = True) -> None
     # check that each interval exists
     if check_for_text:
         with open(interval_path, "r") as f:
-            line_count = len(f.readlines())
+            line_count = len(f.read().split("\n"))
         for interval in intervals:
-            if interval.start < 0 or interval.end > line_count:
+            if interval.start < 0 or interval.end > line_count + 1:
                 raise PathValidationError(
                     f"Interval {interval.start}-{interval.end} is out of bounds for"
                     f" file {interval_path}"
@@ -126,13 +113,19 @@ def validate_and_format_path(
     """
     path = Path(path)
 
+    # Resolve ~
+    try:
+        path = path.expanduser()
+    except RuntimeError as e:
+        raise PathValidationError(f"Error expanding path {path}: {e}")
+
     # Get absolute path
     if path.is_absolute():
         abs_path = path
     else:
-        abs_path = cwd.joinpath(path)
+        abs_path = cwd / path
 
-    # Resolve path (remove any '..')
+    # Resolve path (remove any '..' or symlinks)
     abs_path = abs_path.resolve()
 
     # Validate path
@@ -206,7 +199,7 @@ def get_paths_for_directory(
             dirs[:] = list[str]()
             git_non_gitignored_paths = get_non_gitignored_files(root)
             for git_path in git_non_gitignored_paths:
-                abs_git_path = root.joinpath(git_path)
+                abs_git_path = root / git_path
                 if not recursive and git_path.parent != Path("."):
                     continue
                 if any(include_patterns) and not match_path_with_patterns(
@@ -248,6 +241,7 @@ def get_paths_for_directory(
 
             if not recursive:
                 break
+    paths = set(p.resolve() for p in paths if is_file_text_encoded(p))
 
     return paths
 
@@ -264,13 +258,11 @@ def get_code_features_for_path(
         case PathType.FILE:
             code_features = set([CodeFeature(validated_path)])
         case PathType.FILE_INTERVAL:
-            interval_path, interval_str = str(validated_path).rsplit(":", 1)
+            interval_path, interval_str = split_intervals_from_path(validated_path)
             intervals = parse_intervals(interval_str)
             code_features: Set[CodeFeature] = set()
             for interval in intervals:
-                code_feature = CodeFeature(
-                    f"{interval_path}:{interval.start}-{interval.end}"
-                )
+                code_feature = CodeFeature(interval_path, interval)
                 code_features.add(code_feature)
         case PathType.DIRECTORY:
             paths = get_paths_for_directory(
@@ -337,7 +329,7 @@ def print_path_tree(
 
         cur = cur_path / key
         star = "* " if cur in changed_files else ""
-        color = "green" if star else None
+        color = "green" if star else ("blue" if tree[key] else None)
         stream.send(f"{star}{key}", color=color)
         if tree[key]:
             print_path_tree(tree[key], changed_files, cur, new_prefix)

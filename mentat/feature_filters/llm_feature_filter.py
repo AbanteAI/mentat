@@ -4,16 +4,15 @@ from timeit import default_timer
 from typing import Optional, Set
 
 from openai.types.chat import (
+    ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
 )
+from openai.types.chat.completion_create_params import ResponseFormat
 
-from mentat.code_feature import (
-    CodeFeature,
-    CodeMessageLevel,
-    get_code_message_from_features,
-)
-from mentat.errors import ModelError, UserError
+from mentat.code_feature import CodeFeature, get_code_message_from_features
+from mentat.errors import ModelError, PathValidationError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.include_files import get_code_features_for_path
@@ -29,13 +28,11 @@ class LLMFeatureFilter(FeatureFilter):
         self,
         max_tokens: int,
         user_prompt: Optional[str] = None,
-        levels: list[CodeMessageLevel] = [],
         expected_edits: Optional[list[str]] = None,
         loading_multiplier: float = 0.0,
     ):
         self.max_tokens = max_tokens
         self.user_prompt = user_prompt or ""
-        self.levels = levels
         self.expected_edits = expected_edits
         self.loading_multiplier = loading_multiplier
 
@@ -49,6 +46,13 @@ class LLMFeatureFilter(FeatureFilter):
         cost_tracker = session_context.cost_tracker
         llm_api_handler = session_context.llm_api_handler
 
+        if self.loading_multiplier:
+            stream.send(
+                "Asking LLM to filter out irrelevant context...",
+                channel="loading",
+                progress=50 * self.loading_multiplier,
+            )
+
         # Preselect as many features as fit in the context window
         model = config.feature_selection_model
         context_size = model_context_size(model)
@@ -57,6 +61,7 @@ class LLMFeatureFilter(FeatureFilter):
                 "Unknown context size for feature selection model: "
                 f"{config.feature_selection_model}"
             )
+        context_size = min(context_size, config.llm_feature_filter)
         system_prompt = read_prompt(self.feature_selection_prompt_path)
         system_prompt_tokens = count_tokens(
             system_prompt, config.feature_selection_model, full_message=True
@@ -74,64 +79,57 @@ class LLMFeatureFilter(FeatureFilter):
             - expected_edits_tokens
             - config.token_buffer
         )
-        truncate_filter = TruncateFilter(
-            preselect_max_tokens, model, levels=self.levels
-        )
+        truncate_filter = TruncateFilter(preselect_max_tokens, model)
         preselected_features = await truncate_filter.filter(features)
 
         # Ask the model to return only relevant features
-        content_message = [
-            "User Query:",
-            self.user_prompt,
-            "",
-            "Code Files:",
-        ]
-        content_message += get_code_message_from_features(preselected_features)
         messages: list[ChatCompletionMessageParam] = [
             ChatCompletionSystemMessageParam(role="system", content=system_prompt),
             ChatCompletionSystemMessageParam(
-                role="system", content="\n".join(content_message)
+                role="system",
+                content="\n".join(
+                    ["CODE FILES:"]
+                    + get_code_message_from_features(preselected_features)
+                ),
+            ),
+            ChatCompletionUserMessageParam(
+                role="user", content=f"USER QUERY: {self.user_prompt}"
             ),
         ]
         if self.expected_edits:
             messages.append(
-                ChatCompletionSystemMessageParam(
-                    role="system", content=f"Expected Edits:\n{self.expected_edits}"
+                ChatCompletionAssistantMessageParam(
+                    role="assistant", content=f"Expected Edits:\n{self.expected_edits}"
                 )
             )
-
-        if self.loading_multiplier:
-            stream.send(
-                "Asking LLM to filter out irrelevant context...",
-                channel="loading",
-                progress=50 * self.loading_multiplier,
+        messages.append(
+            ChatCompletionSystemMessageParam(
+                role="system",
+                content=(
+                    "Now, identify the CODE FILES that are relevant to answering the"
+                    " USER QUERY, Return a dict of {path: reason} for each file you"
+                    " identify as relevant. e.g. {'src/main.js': 'Create new file',"
+                    " 'public/index.html': 'Import main.js'}"
+                ),
             )
+        )
         selected_refs = list[Path]()
-        n_tries = 3
-        for i in range(n_tries):
-            start_time = default_timer()
-            message = (
-                (await llm_api_handler.call_llm_api(messages, model, stream=False))
-                .choices[0]
-                .message.content
-            ) or ""
-
-            tokens = prompt_tokens(messages, model)
-            response_tokens = count_tokens(message, model, full_message=True)
-            cost_tracker.log_api_call_stats(
-                tokens,
-                response_tokens,
-                model,
-                default_timer() - start_time,
-            )
-            try:
-                response = json.loads(message)  # type: ignore
-                selected_refs = [Path(r) for r in response]
-                break
-            except json.JSONDecodeError:
-                # TODO: Update Loader
-                if i == n_tries - 1:
-                    raise ModelError(f"The response is not valid json: {message}")
+        start_time = default_timer()
+        llm_response = await llm_api_handler.call_llm_api(
+            messages=messages,
+            model=model,
+            stream=False,
+            response_format=ResponseFormat(type="json_object"),
+        )
+        message = (llm_response.choices[0].message.content) or ""
+        tokens = prompt_tokens(messages, model)
+        response_tokens = count_tokens(message, model, full_message=True)
+        cost_tracker.log_api_call_stats(
+            tokens,
+            response_tokens,
+            model,
+            default_timer() - start_time,
+        )
         if self.loading_multiplier:
             stream.send(
                 "Parsing LLM response...",
@@ -139,37 +137,30 @@ class LLMFeatureFilter(FeatureFilter):
                 progress=50 * self.loading_multiplier,
             )
 
-        parsed_features: Set[CodeFeature] = set()
+        # Parse response into features
+        try:
+            response = json.loads(message)  # type: ignore
+            selected_refs = [Path(r) for r in response]
+        except json.JSONDecodeError:
+            raise ModelError(f"The response is not valid json: {message}")
+        postselected_features: Set[CodeFeature] = set()
         for selected_ref in selected_refs:
-            _parsed_features = get_code_features_for_path(
-                path=selected_ref, cwd=session_context.cwd
-            )
-            parsed_features.update(_parsed_features)
-
-        # parsed_features, _ = get_include_files(selected_refs, [])
-        # postselected_features = [feature for features in parsed_features.values() for feature in features]
-
-        for parsed_feature in parsed_features:
-            # Match with corresponding inputs
-            matching_inputs = [
-                in_feat
-                for in_feat in features
-                if in_feat.path == parsed_feature.path
-                and in_feat.interval.intersects(parsed_feature.interval)
-            ]
-            if len(matching_inputs) == 0:
-                raise ModelError(
-                    f"No input feature found for llm-selected {parsed_feature}"
+            try:
+                parsed_features = get_code_features_for_path(
+                    path=selected_ref, cwd=session_context.cwd
                 )
-            # Copy metadata
-            parsed_feature.user_included = any(f.user_included for f in matching_inputs)
-            diff = any(f.diff for f in matching_inputs)
-            name = any(f.name for f in matching_inputs)
-            if diff:
-                parsed_feature.diff = next(f.diff for f in matching_inputs if f.diff)
-            if name:
-                parsed_feature.name = next(f.name for f in matching_inputs if f.name)
+                for feature in parsed_features:
+                    assert any(
+                        in_feat.path == feature.path and in_feat.interval.intersects
+                        for in_feat in preselected_features
+                    )
+                    postselected_features.add(feature)
+            except (PathValidationError, AssertionError):
+                stream.send(
+                    f"LLM selected invalid path: {selected_ref}, skipping.",
+                    style="warning",
+                )
 
-        # Greedy again to enforce max_tokens
+        # Truncate again to enforce max_tokens
         truncate_filter = TruncateFilter(self.max_tokens, config.model)
-        return await truncate_filter.filter(parsed_features)
+        return await truncate_filter.filter(postselected_features)

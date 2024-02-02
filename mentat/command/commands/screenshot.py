@@ -1,9 +1,15 @@
-from mentat.command.command import Command
+from typing import List
+
+from typing_extensions import override
+
+from mentat.auto_completer import get_command_filename_completions
+from mentat.command.command import Command, CommandArgument
 from mentat.session_context import SESSION_CONTEXT
 from mentat.vision.vision_manager import ScreenshotException
 
 
 class ScreenshotCommand(Command, command_name="screenshot"):
+    @override
     async def apply(self, *args: str) -> None:
         session_context = SESSION_CONTEXT.get()
         vision_manager = session_context.vision_manager
@@ -17,13 +23,13 @@ class ScreenshotCommand(Command, command_name="screenshot"):
                 stream.send(
                     "Using a version of gpt that doesn't support images. Changing to"
                     " gpt-4-vision-preview",
-                    color="yellow",
+                    style="warning",
                 )
                 config.model = "gpt-4-vision-preview"
         else:
             stream.send(
                 "Can't determine if this model supports vision. Attempting anyway.",
-                color="yellow",
+                style="warning",
             )
 
         try:
@@ -36,15 +42,24 @@ class ScreenshotCommand(Command, command_name="screenshot"):
             conversation.add_user_message(f"A screenshot of {path}", image=image)
             stream.send(
                 f"Screenshot taken for: {path}.",
-                color="green",
+                style="success",
             )
         except ScreenshotException:
             return  # Screenshot manager will print the error to stream.
 
+    @override
     @classmethod
-    def argument_names(cls) -> list[str]:
-        return ["url or local file"]
+    def arguments(cls) -> List[CommandArgument]:
+        return [CommandArgument("optional", ["path", "url"])]
 
+    @override
+    @classmethod
+    def argument_autocompletions(
+        cls, arguments: list[str], argument_position: int
+    ) -> list[str]:
+        return get_command_filename_completions(arguments[-1])
+
+    @override
     @classmethod
     def help_message(cls) -> str:
-        return "Opens the url or local file in chrome and takes a screenshot."
+        return "Open a url or local file in a web browser and take a screenshot."

@@ -19,7 +19,9 @@ async def _get_input_request(**kwargs: Any) -> StreamMessage:
     return response
 
 
-async def collect_user_input(plain: bool = False) -> StreamMessage:
+async def collect_user_input(
+    plain: bool = False, command_autocomplete: bool = False
+) -> StreamMessage:
     """
     Listens for user input on a new channel
 
@@ -28,7 +30,9 @@ async def collect_user_input(plain: bool = False) -> StreamMessage:
     close the channel after receiving the input
     """
 
-    response = await _get_input_request(plain=plain)
+    response = await _get_input_request(
+        plain=plain, command_autocomplete=command_autocomplete
+    )
     # Quit on q
     if isinstance(response.data, str) and response.data.strip() == "q":
         raise SessionExit
@@ -44,7 +48,7 @@ async def ask_yes_no(default_yes: bool) -> bool:
         # TODO: combine this into a single message (include content)
         stream.send("(Y/n)" if default_yes else "(y/N)")
         response = await collect_user_input(plain=True)
-        content = response.data
+        content = response.data.strip().lower()
         if content in ["y", "n", ""]:
             break
     return content == "y" or (content != "n" and default_yes)
@@ -54,15 +58,16 @@ async def collect_input_with_commands() -> StreamMessage:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
-    response = await collect_user_input()
+    response = await collect_user_input(command_autocomplete=True)
     while isinstance(response.data, str) and response.data.startswith("/"):
         try:
-            arguments = shlex.split(response.data[1:])
-            command = Command.create_command(arguments[0])
-            await command.apply(*arguments[1:])
+            # We only use shlex to split the arguments, not the command itself
+            arguments = shlex.split(" ".join(response.data.split(" ")[1:]))
+            command = Command.create_command(response.data[1:].split(" ")[0])
+            await command.apply(*arguments)
         except ValueError as e:
-            stream.send(f"Error processing command arguments: {e}", color="light_red")
-        response = await collect_user_input()
+            stream.send(f"Error processing command arguments: {e}", style="error")
+        response = await collect_user_input(command_autocomplete=True)
     return response
 
 
@@ -76,9 +81,9 @@ async def listen_for_interrupt(
     asyncio.Task created from `coro` will be canceled.
 
     TODO:
-    - make sure task cancellation actually cancels the tasks
+      - make sure task cancellation actually cancels the tasks
       - Is there any kind of delay, or a possiblity of one?
-    - make sure there's no race conditions
+      - make sure there's no race conditions
 
     The `.result()` call for `wrapped_task` will re-raise any exceptions thrown
     inside of that Task.
