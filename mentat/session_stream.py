@@ -59,7 +59,9 @@ class SessionStream:
         "auto_context_tokens": The number of auto context tokens,
         "features": ["List of user included features"],
         "auto_features": ["List of auto included features"],
-        "git_diff_paths": ["List of all paths with git diffs; used to color the changed included features"]
+        "git_diff_paths": ["List of all paths with git diffs; used to color the changed included features"],
+        "total_tokens": Total tokens in context,
+        "total_cost": Total cost so far
     }
     """
 

@@ -11,7 +11,7 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.message import Message
 from textual.reactive import reactive
-from textual.widgets import Header, Input, Static, Tree
+from textual.widgets import Header, Input, ProgressBar, Static, Tree
 from textual.widgets._tree import TreeNode
 from typing_extensions import override
 
@@ -64,7 +64,11 @@ class ContentContainer(Static):
     @override
     def compose(self) -> ComposeResult:
         yield ContentDisplay()
-        yield Static(id="loading-display")  # TODO: Make this a ProgressBar
+        loading_bar = ProgressBar(
+            id="loading-display", show_percentage=False, show_eta=False
+        )
+        loading_bar.visible = False
+        yield loading_bar
         yield PatchedAutoComplete(  # TODO: Press up to cycle through last inputs
             Input(
                 classes="user-input",
@@ -96,13 +100,11 @@ class ContentContainer(Static):
         user_input.disabled = True
 
         content_display = self.query_one(ContentDisplay)
-        # TODO: This color shouldn't be hardcoded in (even though it previously was)
         content_display.add_content(f">>> {self.last_user_input}\n", color="white")
         return self.last_user_input
 
 
 class ContextContainer(Static):
-    # TODO: Remove all hardcoded colors
     def _build_path_tree(self, files: list[str], cwd: Path):
         """Builds a tree of paths from a list of CodeFiles."""
         tree = dict[str, Any]()
@@ -150,19 +152,24 @@ class ContextContainer(Static):
     def update_context(
         self,
         cwd: Path,
-        diff_context_display: str,
+        diff_context_display: Optional[str],
         auto_context_tokens: int,
         features: List[str],
         auto_features: List[str],
         git_diff_paths: Set[Path],
+        total_tokens: int,
+        total_cost: float,
     ):
         feature_tree = self._build_tree_widget(features, cwd, git_diff_paths)
         auto_feature_tree = self._build_tree_widget(auto_features, cwd, git_diff_paths)
 
         context_header = ""
-        context_header += "[blue]Code Context:[/blue]"
+        context_header += "[blue bold]Code Context:[/blue bold]"
+        context_header += f"\nTokens: [yellow]{total_tokens}[/yellow]"
+        context_header += f"\nTotal Session Cost: [yellow]${total_cost:.2f}[/yellow]"
         context_header += f"\nDirectory: {cwd}"
-        context_header += f"\nDiff:[green]{diff_context_display}[/green]"
+        if diff_context_display:
+            context_header += f"\nDiff:[green]{diff_context_display}[/green]"
         if auto_context_tokens > 0:
             context_header += (
                 f"\nAuto-Context: Enabled\nAuto-Context Tokens: {auto_context_tokens}"
@@ -188,7 +195,6 @@ with css_resource.open("r") as css_file:
     css = css_file.read()
 
 
-# TODO: Should be light mode if terminal is light mode
 class TerminalApp(App[None]):
     BINDINGS = [("ctrl+c", "on_interrupt", "Send interrupt")]
     CSS = css
@@ -197,6 +203,7 @@ class TerminalApp(App[None]):
     def __init__(self, client: TerminalClient, **kwargs: Any):
         self.client = client
         self.command_autocomplete = False
+        self.dark = client.config.theme == "dark"
         super().__init__(**kwargs)
 
     @override
@@ -236,11 +243,13 @@ class TerminalApp(App[None]):
     def update_context(
         self,
         cwd: Path,
-        diff_context_display: str,
+        diff_context_display: Optional[str],
         auto_context_tokens: int,
         features: List[str],
         auto_features: List[str],
         git_diff_paths: Set[Path],
+        total_tokens: int,
+        total_cost: float,
     ):
         context_container = self.query_one(ContextContainer)
         context_container.update_context(
@@ -250,6 +259,8 @@ class TerminalApp(App[None]):
             features,
             auto_features,
             git_diff_paths,
+            total_tokens,
+            total_cost,
         )
 
     def action_on_interrupt(self):
@@ -259,7 +270,7 @@ class TerminalApp(App[None]):
         self.query_one(Input).disabled = True
 
     def start_loading(self):
-        self.query_one("#loading-display").loading = True
+        self.query_one("#loading-display").visible = True
 
     def end_loading(self):
-        self.query_one("#loading-display").loading = False
+        self.query_one("#loading-display").visible = False

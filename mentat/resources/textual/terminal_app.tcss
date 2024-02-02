@@ -38,6 +38,6 @@ ContextContainer > Tree {
 }
 
 #loading-display {
-    height: 1;
+    align-horizontal: center;
     width: 100%;
 }

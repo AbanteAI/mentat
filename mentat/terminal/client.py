@@ -6,6 +6,7 @@ from asyncio import Event
 from pathlib import Path
 from typing import Any, Coroutine, List, Set
 
+from mentat.code_context import ContextStreamMessage
 from mentat.config import Config
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
@@ -71,7 +72,7 @@ class TerminalClient:
 
     async def _listen_for_context_updates(self):
         async for message in self.session.stream.listen("context_update"):
-            data = json.loads(message.data)
+            data: ContextStreamMessage = json.loads(message.data)
             (
                 cwd,
                 diff_context_display,
@@ -79,6 +80,8 @@ class TerminalClient:
                 features,
                 auto_features,
                 git_diff_paths,
+                total_tokens,
+                total_cost,
             ) = (
                 Path(data["cwd"]),
                 data["diff_context_display"],
@@ -86,6 +89,8 @@ class TerminalClient:
                 data["features"],
                 data["auto_features"],
                 set(Path(path) for path in data["git_diff_paths"]),
+                data["total_tokens"],
+                data["total_cost"],
             )
             self.app.update_context(
                 cwd,
@@ -94,6 +99,8 @@ class TerminalClient:
                 features,
                 auto_features,
                 git_diff_paths,
+                total_tokens,
+                total_cost,
             )
 
     async def _handle_loading_messages(self):

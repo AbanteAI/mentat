@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Optional, Set, TypedDict, Union
+
+from openai.types.chat import ChatCompletionSystemMessageParam
 
 from mentat.code_feature import (
     CodeFeature,
@@ -29,10 +31,22 @@ from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import (
     count_tokens,
     get_max_tokens,
+    prompt_tokens,
     raise_if_context_exceeds_max,
 )
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
+
+
+class ContextStreamMessage(TypedDict):
+    cwd: str
+    diff_context_display: Optional[str]
+    auto_context_tokens: int
+    features: List[str]
+    auto_features: List[str]
+    git_diff_paths: List[str]
+    total_tokens: int
+    total_cost: float
 
 
 class CodeContext:
@@ -82,14 +96,37 @@ class CodeContext:
             list(get_paths_with_git_diffs(self.git_root)) if self.git_root else []
         )
 
-        data = {
-            "cwd": str(ctx.cwd),
-            "diff_context_display": diff_context_display,
-            "auto_context_tokens": ctx.config.auto_context_tokens,
-            "features": features,
-            "auto_features": auto_features,
-            "git_diff_paths": [str(p) for p in git_diff_paths],
-        }
+        messages = ctx.conversation.get_messages()
+        code_message = get_code_message_from_features(
+            [
+                feature
+                for file_features in self.include_files.values()
+                for feature in file_features
+            ]
+            + self.auto_features
+        )
+        total_tokens = prompt_tokens(
+            messages
+            + [
+                ChatCompletionSystemMessageParam(
+                    role="system", content="\n".join(code_message)
+                )
+            ],
+            ctx.config.model,
+        )
+
+        total_cost = ctx.cost_tracker.total_cost
+
+        data = ContextStreamMessage(
+            cwd=str(ctx.cwd),
+            diff_context_display=diff_context_display,
+            auto_context_tokens=ctx.config.auto_context_tokens,
+            features=features,
+            auto_features=auto_features,
+            git_diff_paths=[str(p) for p in git_diff_paths],
+            total_tokens=total_tokens,
+            total_cost=total_cost,
+        )
         ctx.stream.send(json.dumps(data), channel="context_update")
 
     async def get_code_message(
