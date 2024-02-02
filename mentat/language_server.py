@@ -26,9 +26,7 @@ logger = logging.getLogger("mentat:language-server")
 
 class LanguageServerMessage(BaseModel):
     type: Literal["notification", "request", "command"]
-    method: Literal[
-        "mentat/serverMessage", "mentat/clientMessage", "mentat/inputRequest"
-    ]
+    method: Literal["mentat/serverMessage", "mentat/clientMessage", "mentat/inputRequest"]
     data: Any
 
 
@@ -36,9 +34,7 @@ class LanguageServerProtocol(pygls.protocol.LanguageServerProtocol):
     _server: LanguageServer
 
     @override
-    def connection_lost(
-        self, exc: Exception | None
-    ):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def connection_lost(self, _: Exception | None):  # pyright: ignore[reportIncompatibleMethodOverride]
         """Shutdown the LanguageServer on lost client connection"""
         if self._server.exit_on_lost_connection and not self._server.is_stopped:
             logger.error("Connection to the client is lost! Shutting down the server")
@@ -68,6 +64,7 @@ class LanguageServer(pygls.server.LanguageServer):
         self._server_task: asyncio.Task[None] | None = None
         self._stop_task: asyncio.Task[None] | None = None
 
+        self.cwd: Path | None = None
         self.session: Session | None = None
         self.handle_session_stream_task: asyncio.Task[None] | None = None
         self.handle_input_requests_task: asyncio.Task[None] | None = None
@@ -150,25 +147,27 @@ server = LanguageServer(host="127.0.0.1", port=7798, exit_on_lost_connection=Fal
 @server.feature(lsp.INITIALIZE)
 async def initialize(ls: LanguageServer, params: lsp.InitializeParams):
     if params.root_path is None:
-        print("No root path provided")
-        return
+        logger.debug("No root path provided, using home directory")
+        ls.cwd = Path.home()
+    else:
+        ls.cwd = Path(params.root_path)
 
-    print("Starting Session")
 
-    ls.session = Session(cwd=Path(params.root_path))
+@server.feature("mentat/createSession")
+async def create_session(ls: LanguageServer, params: lsp.InitializeParams):
+    # await asyncio.sleep(3)
+    assert ls.cwd is not None
+
+    ls.session = Session(cwd=ls.cwd)
     ls.session.start()
 
     async def handle_session_stream():
         if ls.session is None:
             return
         async for message in ls.session.stream.listen():
-            print("Got message:", message)
-            ls_message = LanguageServerMessage(
-                type="notification", method="mentat/serverMessage", data=message
-            )
-            ls.send_notification(
-                "mentat/serverMessage", ls_message.model_dump(mode="json")
-            )
+            logger.debug(f"Received Session Message: {message.data}")
+            ls_message = LanguageServerMessage(type="notification", method="mentat/serverMessage", data=message)
+            ls.send_notification("mentat/serverMessage", ls_message.model_dump(mode="json"))
 
     async def handle_input_requests():
         if ls.session is None:
@@ -182,9 +181,7 @@ async def initialize(ls: LanguageServer, params: lsp.InitializeParams):
                 method="mentat/inputRequest",
                 data=input_request_message,
             )
-            ls.send_notification(
-                "mentat/inputRequest", ls_message.model_dump(mode="json")
-            )
+            ls.send_notification("mentat/inputRequest", ls_message.model_dump(mode="json"))
 
     ls.handle_session_stream_task = asyncio.create_task(handle_session_stream())
     ls.handle_input_requests_task = asyncio.create_task(handle_input_requests())
@@ -204,9 +201,7 @@ async def shutdown(ls: LanguageServer):
 
 
 @server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
-async def handle_text_document_did_open(
-    ls: LanguageServer, params: lsp.DidOpenTextDocumentParams
-):
+async def handle_text_document_did_open(ls: LanguageServer, params: lsp.DidOpenTextDocumentParams):
     if ls.session is None:
         return
     print("Got params:", params)

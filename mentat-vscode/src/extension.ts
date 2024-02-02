@@ -25,6 +25,7 @@ async function createLanguageClient(args: {
   languageClient.onNotification(
     "mentat/serverMessage",
     async (message: LanguageServerMessage) => {
+      console.log("Emitting serverMessage")
       emitter.emit("mentat/serverMessage", message)
     }
   )

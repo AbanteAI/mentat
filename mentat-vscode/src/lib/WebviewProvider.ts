@@ -128,11 +128,22 @@ class WebviewProvider implements vscode.WebviewViewProvider {
 
     // Handle messages from the LanguageServer and send to Webview
     emitter.on("mentat/serverMessage", (message: LanguageServerMessage) => {
+      console.log("Got serverMessage from Emitter. Posting message to webview")
       this.postMessage(message)
     })
     emitter.on("mentat/inputRequest", (message: LanguageServerMessage) => {
       this.postMessage(message)
     })
+
+    // Create the Mentat Session on the LanguageServer
+    this.languageClient
+      .sendRequest("mentat/createSession", {})
+      .then((res) => {
+        console.log("Created Mentat Session")
+      })
+      .catch((err) => {
+        console.error(`There was an error creating the session: ${err}`)
+      })
   }
 }
 
