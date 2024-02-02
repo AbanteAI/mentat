@@ -26,7 +26,9 @@ logger = logging.getLogger("mentat:language-server")
 
 class LanguageServerMessage(BaseModel):
     type: Literal["notification", "request", "command"]
-    method: Literal["mentat/serverMessage", "mentat/clientMessage", "mentat/inputRequest"]
+    method: Literal[
+        "mentat/serverMessage", "mentat/clientMessage", "mentat/inputRequest"
+    ]
     data: Any
 
 
@@ -34,7 +36,9 @@ class LanguageServerProtocol(pygls.protocol.LanguageServerProtocol):
     _server: LanguageServer
 
     @override
-    def connection_lost(self, exc: Exception | None):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def connection_lost(
+        self, exc: Exception | None
+    ):  # pyright: ignore[reportIncompatibleMethodOverride]
         """Shutdown the LanguageServer on lost client connection"""
         if self._server.exit_on_lost_connection and not self._server.is_stopped:
             logger.error("Connection to the client is lost! Shutting down the server")
@@ -55,7 +59,9 @@ class LanguageServer(pygls.server.LanguageServer):
         self.exit_on_lost_connection = exit_on_lost_connection
 
         super().__init__(  # pyright: ignore[reportUnknownMemberType]
-            name="mentat", version=f"v{__version__}", protocol_cls=LanguageServerProtocol
+            name="mentat",
+            version=f"v{__version__}",
+            protocol_cls=LanguageServerProtocol,
         )
 
         self._server: asyncio.Server | None = None
@@ -157,8 +163,12 @@ async def initialize(ls: LanguageServer, params: lsp.InitializeParams):
             return
         async for message in ls.session.stream.listen():
             print("Got message:", message)
-            ls_message = LanguageServerMessage(type="notification", method="mentat/serverMessage", data=message)
-            ls.send_notification("mentat/serverMessage", ls_message.model_dump(mode="json"))
+            ls_message = LanguageServerMessage(
+                type="notification", method="mentat/serverMessage", data=message
+            )
+            ls.send_notification(
+                "mentat/serverMessage", ls_message.model_dump(mode="json")
+            )
 
     async def handle_input_requests():
         if ls.session is None:
@@ -168,9 +178,13 @@ async def initialize(ls: LanguageServer, params: lsp.InitializeParams):
             print("Got input request:", input_request_message)
             ls.session_input_request_id = input_request_message.id
             ls_message = LanguageServerMessage(
-                type="notification", method="mentat/inputRequest", data=input_request_message
+                type="notification",
+                method="mentat/inputRequest",
+                data=input_request_message,
             )
-            ls.send_notification("mentat/inputRequest", ls_message.model_dump(mode="json"))
+            ls.send_notification(
+                "mentat/inputRequest", ls_message.model_dump(mode="json")
+            )
 
     ls.handle_session_stream_task = asyncio.create_task(handle_session_stream())
     ls.handle_input_requests_task = asyncio.create_task(handle_input_requests())
@@ -190,7 +204,9 @@ async def shutdown(ls: LanguageServer):
 
 
 @server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
-async def handle_text_document_did_open(ls: LanguageServer, params: lsp.DidOpenTextDocumentParams):
+async def handle_text_document_did_open(
+    ls: LanguageServer, params: lsp.DidOpenTextDocumentParams
+):
     if ls.session is None:
         return
     print("Got params:", params)
@@ -210,7 +226,9 @@ async def handle_client_message(ls: LanguageServer, message: Any):
     print("Got:", message)
 
     ls.session.stream.send(
-        message.data, source=StreamMessageSource.CLIENT, channel=f"input_request:{ls.session_input_request_id}"
+        message.data,
+        source=StreamMessageSource.CLIENT,
+        channel=f"input_request:{ls.session_input_request_id}",
     )
 
 

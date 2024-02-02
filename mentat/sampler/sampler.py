@@ -148,14 +148,12 @@ class Sampler:
                 if not message_prompt:
                     response_edit = parsed_llm_response
                 else:
-                    message_history.append(
-                        {
-                            "role": role,
-                            "content": GitParser().file_edits_to_llm_message(
-                                parsed_llm_response
-                            ),
-                        }
-                    )
+                    message_history.append({
+                        "role": role,
+                        "content": GitParser().file_edits_to_llm_message(
+                            parsed_llm_response
+                        ),
+                    })
 
         if not response_edit:
             raise SampleError("No LLM response found.")
@@ -176,9 +174,9 @@ class Sampler:
 
         # Add include_files from context
         if code_context.include_files:
-            feature_refs = get_consolidated_feature_refs(
-                [f for fs in code_context.include_files.values() for f in fs]
-            )
+            feature_refs = get_consolidated_feature_refs([
+                f for fs in code_context.include_files.values() for f in fs
+            ])
             context.update(_rp(f) for f in feature_refs)
         # Undo adds/removes/renames to match pre-diff_edit state
         if diff_edit:

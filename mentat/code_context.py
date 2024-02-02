@@ -277,13 +277,11 @@ class CodeContext:
         path = Path(path)
 
         abs_exclude_patterns: Set[Path] = set()
-        all_exclude_patterns: Set[Union[str, Path]] = set(
-            [
-                *exclude_patterns,
-                *self.ignore_patterns,
-                *session_context.config.file_exclude_glob_list,
-            ]
-        )
+        all_exclude_patterns: Set[Union[str, Path]] = set([
+            *exclude_patterns,
+            *self.ignore_patterns,
+            *session_context.config.file_exclude_glob_list,
+        ])
         for pattern in all_exclude_patterns:
             if not Path(pattern).is_absolute():
                 abs_exclude_patterns.add(session_context.cwd / pattern)
