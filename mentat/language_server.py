@@ -245,11 +245,11 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        import debugpy
+        import debugpy  # pyright: ignore[reportMissingImports]
 
         print("Waiting for debugger attach")
-        debugpy.listen(("localhost", 5678))
-        debugpy.wait_for_client()
+        debugpy.listen(("localhost", 5678))  # pyright: ignore
+        debugpy.wait_for_client()  # pyright: ignore
         print("Debugger attached!")
 
     server.loop.run_until_complete(server.start())
