@@ -12,8 +12,6 @@ def migration(path: Path):
     full_result_path.mkdir(exist_ok=True)
     html_path.mkdir(exist_ok=True)
     for file in path.iterdir():
-        print(file)
-        print(file.name)
         if file.is_file() and file.suffix == ".json":
             benchmark_run = BenchmarkRun.load_file(file)
             try:
