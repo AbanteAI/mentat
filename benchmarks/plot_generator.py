@@ -82,7 +82,9 @@ def generate_plot_html(summary_list):
             go.Scatter(
                 x=[summary.metadata["date"] for summary in summary_list if f(summary)],
                 y=[
-                    summary.summary["cost"][0] for summary in summary_list if f(summary)
+                    summary.summary["passed"][0]
+                    for summary in summary_list
+                    if f(summary)
                 ],
                 text=[
                     summary.metadata["file"] for summary in summary_list if f(summary)
@@ -113,6 +115,7 @@ def generate_plot_html(summary_list):
                 x=1,
                 xanchor="right",
                 y=0.9,
+                active=metrics.index("passed"),
                 yanchor="middle",
             ),
         ]

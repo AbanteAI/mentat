@@ -12,7 +12,6 @@ def generate_list(path: Path, output: Path):
     summaries = []
     for file in path.iterdir():
         if file.is_file() and file.suffix == ".json":
-            print(file)
             summary = BenchmarkRunSummary.load_file(file)
             summaries.append(summary)
 
