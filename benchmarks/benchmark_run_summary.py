@@ -8,8 +8,6 @@ import attr
 from benchmarks.benchmark_result import BenchmarkResult
 
 
-# TODO: generate from file
-# TODO: generate from run
 class BenchmarkRunSummary:
     def __init__(
         self,
