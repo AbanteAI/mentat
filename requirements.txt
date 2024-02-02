@@ -26,3 +26,4 @@ tqdm==4.66.1
 webdriver_manager==4.0.1
 pygls==1.2.1
 pydantic==2.5.3
+watchfiles==0.21.0
