@@ -15,6 +15,8 @@ function Chat() {
       message.extra?.end === undefined ? "\n" : message.extra?.end
     const messageColor: string =
       message.extra?.color === undefined ? null : message.extra?.color
+    const messageStyle: string =
+      message.extra?.style === undefined ? null : message.extra?.style
 
     setChatMessages((prevChatMessages) => {
       // Create first message
@@ -23,6 +25,8 @@ function Chat() {
           id: 0,
           content: message.data + messageEnd,
           source: message.source,
+          color: messageColor,
+          style: messageStyle,
         }
         return [newChatMessage]
       }
@@ -43,6 +47,8 @@ function Chat() {
             id: lastMessage.id + 1,
             content: message.data + messageEnd,
             source: message.source,
+            color: messageColor,
+            style: messageStyle,
           }
           return [...prevChatMessages, newChatMessage]
         }

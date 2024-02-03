@@ -155,7 +155,6 @@ async def initialize(ls: LanguageServer, params: lsp.InitializeParams):
 
 @server.feature("mentat/createSession")
 async def create_session(ls: LanguageServer, params: lsp.InitializeParams):
-    # await asyncio.sleep(3)
     assert ls.cwd is not None
 
     ls.session = Session(cwd=ls.cwd)
@@ -165,7 +164,7 @@ async def create_session(ls: LanguageServer, params: lsp.InitializeParams):
         if ls.session is None:
             return
         async for message in ls.session.stream.listen():
-            logger.debug(f"Received Session Message: {message.data}")
+            logger.debug(f"Received Session Message: {message.data} {message.extra}")
             ls_message = LanguageServerMessage(type="notification", method="mentat/serverMessage", data=message)
             ls.send_notification("mentat/serverMessage", ls_message.model_dump(mode="json"))
 
@@ -204,7 +203,7 @@ async def shutdown(ls: LanguageServer):
 async def handle_text_document_did_open(ls: LanguageServer, params: lsp.DidOpenTextDocumentParams):
     if ls.session is None:
         return
-    print("Got params:", params)
+    # print("Got params:", params)
 
 
 class Message(NamedTuple):
@@ -240,7 +239,7 @@ def main():
     args = parser.parse_args()
 
     if args.debug:
-        import debugpy  # pyright: ignore[reportMissingImports]
+        import debugpy  # pyright: ignore[reportMissingImports, reportMissingTypeStubs]
 
         print("Waiting for debugger attach")
         debugpy.listen(("localhost", 5678))  # pyright: ignore

@@ -13,6 +13,8 @@ type ChatMessage = {
   id: number
   content: string
   source: "client" | "server"
+  color: string | null
+  style: string | null
 }
 
 type LanguageServerMessage = {

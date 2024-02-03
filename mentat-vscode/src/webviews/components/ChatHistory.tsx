@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { ReactNode, useEffect, useRef } from "react"
 import { VscAccount } from "react-icons/vsc"
 import React from "react"
 
@@ -23,11 +23,6 @@ export default function ChatHistory(props: Props) {
   }, [props.chatMessages])
 
   const chatMessageCards = props.chatMessages.map((chatMessage) => {
-    const backgroundColor =
-      chatMessage.source === "client"
-        ? "bg-[var(--vscode-input-background)]"
-        : ""
-
     const sourceIcon =
       chatMessage.source === "client" ? (
         <VscAccount size={18} />
@@ -47,6 +42,37 @@ export default function ChatHistory(props: Props) {
       )
     })
 
+    let chatMessageContent: ReactNode
+    if (chatMessage.style === "error") {
+      chatMessageContent = (
+        <div className="bg-red-500 p-2 rounded-md flex gap-2 text-white">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            className="w-6 h-6"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+            />
+          </svg>
+          {content}
+        </div>
+      )
+    } else if (chatMessage.style === "code") {
+      chatMessageContent = (
+        <div className="bg-[var(--vscode-textCodeBlock-background)]">
+          {content}
+        </div>
+      )
+    } else {
+      chatMessageContent = content
+    }
+
     return (
       <div
         key={chatMessage.id}
@@ -58,7 +84,7 @@ export default function ChatHistory(props: Props) {
           {sourceIcon}
           <p className="font-bold">{souceName}</p>
         </div>
-        {content}
+        {chatMessageContent}
       </div>
     )
   })
