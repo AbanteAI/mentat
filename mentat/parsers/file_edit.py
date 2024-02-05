@@ -158,7 +158,7 @@ class FileEdit:
             file_features_in_context = [
                 f for f in code_context.auto_features if f.path == self.file_path
             ] + code_context.include_files.get(self.file_path, [])
-            if not all(
+            if not file_features_in_context or not all(
                 any(f.interval.contains(i) for f in file_features_in_context)
                 for r in self.replacements
                 for i in range(r.starting_line + 1, r.ending_line + 1)
@@ -333,8 +333,8 @@ class FileEdit:
                 # Should never happen
                 raise ValueError("Previous file lines not set when undoing file edit")
 
-            with open(self.file_path, "w") as f:
-                f.write("\n".join(self.previous_file_lines))
-
+            ctx.code_file_manager.write_to_file(
+                self.file_path, self.previous_file_lines
+            )
             self._display_replacements(self.previous_file_lines, prefix=prefix)
             ctx.stream.send(f"Edits to file {self.file_path} undone", style="success")

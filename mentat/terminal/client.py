@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import asyncio
 import json
@@ -5,6 +7,8 @@ import logging
 from asyncio import Event
 from pathlib import Path
 from typing import Any, Coroutine, List, Set
+
+from textual.app import AutopilotCallbackType
 
 from mentat.code_context import ContextStreamMessage
 from mentat.config import Config
@@ -24,6 +28,9 @@ class TerminalClient:
         diff: str | None = None,
         pr_diff: str | None = None,
         config: Config = Config(),
+        # Used for testing
+        headless: bool = False,
+        auto_pilot: AutopilotCallbackType | None = None,
     ):
         self.cwd = cwd
         self.paths = [Path(path) for path in paths]
@@ -32,6 +39,8 @@ class TerminalClient:
         self.diff = diff
         self.pr_diff = pr_diff
         self.config = config
+        self.headless = headless
+        self.auto_pilot = auto_pilot
 
         self._tasks: Set[asyncio.Task[None]] = set()
         self._should_exit = Event()
@@ -57,7 +66,7 @@ class TerminalClient:
 
     async def _run_terminal_app(self):
         self.app = TerminalApp(self)
-        await self.app.run_async()
+        await self.app.run_async(headless=self.headless, auto_pilot=self.auto_pilot)
         self._should_exit.set()
         asyncio.create_task(self._shutdown())
 

@@ -69,6 +69,8 @@ class ContentContainer(Static):
     @override
     def compose(self) -> ComposeResult:
         yield ContentDisplay()
+        # TODO: Use the progress sent over the stream and the message sent over the stream
+        # to make this more similar to the TQDM bar it used to be
         loading_bar = ProgressBar(
             id="loading-display", show_percentage=False, show_eta=False
         )
@@ -167,7 +169,6 @@ class ContextContainer(Static):
         self._build_sub_tree(cwd, tree.root, path_tree, git_diff_paths)
         return tree
 
-    # TODO: Add total cost, tokens in context, etc.
     def update_context(
         self,
         cwd: Path,
@@ -222,7 +223,6 @@ class TerminalApp(App[None]):
     def __init__(self, client: TerminalClient, **kwargs: Any):
         self.client = client
         self.command_autocomplete = False
-        self.dark = client.config.theme == "dark"
         super().__init__(**kwargs)
 
     @override

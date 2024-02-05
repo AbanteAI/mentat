@@ -1,53 +1,40 @@
-import os
+from __future__ import annotations
+
 import subprocess
 from textwrap import dedent
-from unittest.mock import AsyncMock
+from typing import List
 
-import pytest
-from prompt_toolkit import PromptSession
+from textual.pilot import Pilot
 
 from mentat.terminal.client import TerminalClient
 
 
-def mock_init(self, *args, **kwargs):
-    return None
+def pilot(values: List[str]):
+    async def auto_pilot(pilot: Pilot):
+        for value in values:
+            await pilot.press(*value)
+            await pilot.press("enter")
 
-
-@pytest.fixture
-def mock_prompt_session_prompt(mocker):
-    # On Github Actions Windows runners (not on actual Windows!) just instantiating a PromptToolkit instance
-    # causes a crash, so we have to completely mock the PromptSession
-    if os.name == "nt":
-        mocker.patch.object(PromptSession, "__init__", new=mock_init)
-
-    mock_method = AsyncMock()
-    mocker.patch.object(PromptSession, "prompt_async", new=mock_method)
-    return mock_method
+    return auto_pilot
 
 
 def test_empty_prompt(
     temp_testbed,
     mocker,
-    mock_prompt_session_prompt,
 ):
-    mock_prompt_session_prompt.side_effect = ["", "q"]
-    terminal_client = TerminalClient(cwd=temp_testbed, paths=["."])
+    terminal_client = TerminalClient(
+        cwd=temp_testbed, paths=["."], headless=True, auto_pilot=pilot(["", "q"])
+    )
     terminal_client.run()
 
 
 def test_editing_file(
     temp_testbed,
-    mock_prompt_session_prompt,
     mock_call_llm_api,
 ):
     file_name = "test.py"
     with open(file_name, "w") as f:
         f.write("# Line 1")
-    mock_prompt_session_prompt.side_effect = [
-        "Edit the file",
-        "y",
-        "q",
-    ]
 
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         Conversation
@@ -63,7 +50,18 @@ def test_editing_file(
         # Line 2
         @@end""")])
 
-    terminal_client = TerminalClient(cwd=temp_testbed, paths=["."])
+    terminal_client = TerminalClient(
+        cwd=temp_testbed,
+        paths=["."],
+        headless=True,
+        auto_pilot=pilot(
+            [
+                "Edit the file",
+                "y",
+                "q",
+            ]
+        ),
+    )
     terminal_client.run()
     with open(file_name, "r") as f:
         content = f.read()
@@ -73,17 +71,9 @@ def test_editing_file(
 
 def test_request_and_command(
     temp_testbed,
-    mock_prompt_session_prompt,
     mock_call_llm_api,
 ):
     file_name = "test.py"
-    mock_prompt_session_prompt.side_effect = [
-        f"Create a file called {file_name}",
-        "y",
-        "/commit",
-        "q",
-    ]
-
     mock_call_llm_api.set_streamed_values([dedent(f"""\
         I will create a new file called temp.py
 
@@ -98,7 +88,19 @@ def test_request_and_command(
         # I created this file
         @@end""")])
 
-    terminal_client = TerminalClient(cwd=temp_testbed, paths=["."])
+    terminal_client = TerminalClient(
+        cwd=temp_testbed,
+        paths=["."],
+        headless=True,
+        auto_pilot=pilot(
+            [
+                f"Create a file called {file_name}",
+                "y",
+                "/commit",
+                "q",
+            ]
+        ),
+    )
     terminal_client.run()
 
     with open(file_name, "r") as f:

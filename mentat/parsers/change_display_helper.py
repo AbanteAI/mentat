@@ -138,11 +138,27 @@ def display_full_change(display_information: DisplayInformation, prefix: str = "
         ),
     ]
     for line in full_change:
-        if (isinstance(line, str) and line.strip()) or (
-            isinstance(line, Tuple) and line[0].strip()
-        ):
+        if isinstance(line, str):
+            if not line.strip():
+                continue
             ctx.stream.send(prefix, end="")
-            ctx.stream.send(line)
+            ctx.stream.send(f"\n{prefix}".join(line.split("\n")))
+        elif isinstance(line, Tuple):
+            if not line[0].strip():
+                continue
+            for sub_line in line[0].split("\n"):
+                ctx.stream.send(prefix, end="")
+                ctx.stream.send(sub_line, **line[1])
+        else:
+            ctx.stream.send(prefix, end="")
+            for text in line:
+                for i, sub_line in enumerate(text[0].split("\n")):
+                    if i != 0:
+                        ctx.stream.send(prefix, end="")
+                    ctx.stream.send(sub_line, **text[1], end="")
+                    if i != len(text[0].split("\n")) - 1:
+                        ctx.stream.send("")
+            ctx.stream.send("")
 
 
 def get_file_name(
