@@ -12,8 +12,8 @@ from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.benchmark_result import BenchmarkResult
 from benchmarks.benchmark_result_summary import BenchmarkResultSummary
 from benchmarks.exercise_runners.exercise_runner_factory import ExerciseRunnerFactory
+from mentat import Mentat
 from mentat.config import Config
-from mentat.python_client.client import PythonClient
 from mentat.sampler.utils import clone_repo
 from mentat.session_context import SESSION_CONTEXT
 
@@ -81,7 +81,7 @@ async def failure_analysis(exercise_runner, language):
 
 async def run_exercise(problem_dir, language="python", max_iterations=2):
     exercise_runner = ExerciseRunnerFactory.create(language, problem_dir)
-    client = PythonClient(
+    client = Mentat(
         cwd=Path("."),
         paths=exercise_runner.include_files(),
         exclude_paths=exercise_runner.exclude_files(),

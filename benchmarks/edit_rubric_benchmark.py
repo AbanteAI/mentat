@@ -11,7 +11,7 @@ from git import Repo
 from openai import OpenAI
 
 from benchmarks.arg_parser import common_benchmark_parser
-from mentat.python_client.client import PythonClient
+from mentat import Mentat
 from mentat.sampler.utils import clone_repo
 
 
@@ -103,7 +103,7 @@ async def test_edit_quality(
         start_commit = repo.commit()
         repo.git.checkout(test["commit"] + "^1")
 
-        client = PythonClient(
+        client = Mentat(
             paths=test["expected_features"],
         )
 
