@@ -111,8 +111,9 @@ class PythonClient:
         self.exit_task: Task[None] = asyncio.create_task(self._listen_for_client_exit())
 
     async def shutdown(self):
-        """Initiates shutdown of the client, ensuring all tasks are cancelled and the session is properly closed."""
-        """Sends the stop signal to the session and returns when client is fully shutdown."""
+        """Initiates shutdown of the client, ensuring all tasks are cancelled and the session is properly closed.
+        Sends the stop signal to the session and returns when client is fully shutdown.
+        """
         self.session.stream.send(None, channel="session_exit")
         await self.stopped.wait()
 
