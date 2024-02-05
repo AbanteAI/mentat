@@ -11,7 +11,7 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.message import Message
 from textual.reactive import reactive
-from textual.widgets import Header, Input, ProgressBar, Static, Tree
+from textual.widgets import Input, ProgressBar, Static, Tree
 from textual.widgets._tree import TreeNode
 from typing_extensions import override
 
@@ -63,19 +63,13 @@ class ContentContainer(Static):
         self.input_event = Event()
         self.last_user_input = ""
         self.suggester = HistorySuggester(history_file=history_file_location)
+        self.loading_bar = None
 
         super().__init__(renderable, **kwargs)
 
     @override
     def compose(self) -> ComposeResult:
         yield ContentDisplay()
-        # TODO: Use the progress sent over the stream and the message sent over the stream
-        # to make this more similar to the TQDM bar it used to be
-        loading_bar = ProgressBar(
-            id="loading-display", show_percentage=False, show_eta=False
-        )
-        loading_bar.visible = False
-        yield loading_bar
         yield PatchedAutoComplete(
             Input(
                 classes="user-input",
@@ -123,6 +117,18 @@ class ContentContainer(Static):
             user_input = self.query_one(Input)
             user_input.value = history
             user_input.cursor_position = len(history)
+
+    def start_loading(self):
+        # TODO: Use the progress sent over the stream and the message sent over the stream
+        # to make this more similar to the TQDM bar it used to be
+        self.loading_bar = ProgressBar(
+            id="loading-display", show_percentage=False, show_eta=False
+        )
+        self.mount(self.loading_bar)
+
+    def end_loading(self):
+        if self.loading_bar is not None:
+            self.loading_bar.remove()
 
 
 class ContextContainer(Static):
@@ -227,7 +233,6 @@ class TerminalApp(App[None]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield Header()
         yield ContentContainer(self.client.session.stream)
         yield ContextContainer()
 
@@ -289,7 +294,7 @@ class TerminalApp(App[None]):
         self.query_one(Input).disabled = True
 
     def start_loading(self):
-        self.query_one("#loading-display").visible = True
+        self.query_one(ContentContainer).start_loading()
 
     def end_loading(self):
-        self.query_one("#loading-display").visible = False
+        self.query_one(ContentContainer).end_loading()

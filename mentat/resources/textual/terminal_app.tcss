@@ -6,6 +6,7 @@ ContentContainer {
     height: 100%;
     width: 75%;
     overflow-y: auto;
+    scrollbar-size-vertical: 1;
 }
 
 PatchedAutoComplete {
@@ -22,11 +23,13 @@ ContextContainer {
     height: 100%;
     overflow: auto;
     width: 25%;
+    scrollbar-size: 1 1;
 }
 
 ContextContainer > Tree {
     width: auto;
     height: auto;
+    background: transparent;
 }
 
 .autocomplete--main-column {
