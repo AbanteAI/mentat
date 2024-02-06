@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Benchmark Results</title>
+        <style>
+            {% include 'css/benchmark.css' %}
+            {% include 'css/transcript.css' %}
+            {% include 'css/benchmark_list.css' %}
+        </style>
+        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+        <meta charset="UTF-8">
+    </head>
+    <body>
+    <div id="plot">
+    {{ plot|safe }}</div>
+    <ul>
+        {% for summary in summary_list|sort(attribute='metadata.date', reverse=true) %}
+            <li>
+            <a href={{summary.metadata["file"].replace('json', 'html')}} class='benchmark-link'>
+                <p>{{ summary.metadata["language"] if summary.metadata["type"] == "exercism" }} {{summary.metadata["type"]}} run on {{summary.metadata["date"]}}</p>
+                <p>{{summary.summary_string}}</p>
+            </a>
+            </li>
+        {% endfor %}
+    </ul>
+    </body>
+</html>
+

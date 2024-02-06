@@ -14,7 +14,7 @@ def mock_webbrowser():
         yield mock
 
 
-def test_run_exercism_benchmark(mock_webbrowser, mock_call_llm_api):
+def test_run_real_world_benchmark(mock_webbrowser, mock_call_llm_api):
     cwd = os.getcwd()
     mock_call_llm_api.set_return_values(
         [
@@ -88,7 +88,8 @@ def test_run_exercism_benchmark(mock_webbrowser, mock_call_llm_api):
     assert os.getcwd() == cwd
     with open("results.json") as f:
         results = json.load(f)
-    summary = results["summary"]
-    assert summary["tokens (avg)"] == "0.00 "
-    assert summary["cost"] == "$0 "
-    assert summary["referenced_format"] == "100.00% "
+    assert results["results"][0]["response_grade"]["referenced_format"]
+    with open("summary/results.json") as f:
+        summary = json.load(f)
+    summary = summary["summary"]
+    assert summary["cost"] == [0, 1]
