@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
+from mentat import Mentat
 from mentat.diff_context import DiffContext
-from mentat.python_client.client import PythonClient
 from mentat.session_context import SESSION_CONTEXT
 
 
@@ -186,8 +186,8 @@ async def test_diff_context_end_to_end(temp_testbed, git_history, mock_call_llm_
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     mock_call_llm_api.set_streamed_values([""])
-    python_client = PythonClient(cwd=temp_testbed, paths=[], diff="HEAD~2")
-    await python_client.startup()
+    client = Mentat(cwd=temp_testbed, paths=[], diff="HEAD~2")
+    await client.startup()
 
     session_context = SESSION_CONTEXT.get()
     code_context = session_context.code_context
@@ -200,4 +200,4 @@ async def test_diff_context_end_to_end(temp_testbed, git_history, mock_call_llm_
     assert diff_context.diff_files() == [abs_path]
 
     assert "multifile_calculator" in code_message
-    await python_client.shutdown()
+    await client.shutdown()

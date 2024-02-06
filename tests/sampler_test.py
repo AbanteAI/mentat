@@ -10,13 +10,13 @@ from openai.types.chat import (
 )
 
 from benchmarks.run_sample import run_sample
+from mentat import Mentat
 from mentat.conversation import MentatAssistantMessageParam
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.git_parser import GitParser
 from mentat.parsers.parser import ParsedLLMResponse
-from mentat.python_client.client import PythonClient
 from mentat.sampler import __version__
 from mentat.sampler.sample import Sample
 from mentat.sampler.sampler import Sampler
@@ -381,10 +381,10 @@ async def test_sampler_integration(
     )
 
     # Generate a sample using Mentat
-    python_client = PythonClient(cwd=temp_testbed, paths=["."])
-    await python_client.startup()
-    python_client.session.ctx.config.sampler = True
-    await python_client.call_mentat_auto_accept(dedent("""\
+    client = Mentat(cwd=temp_testbed, paths=["."])
+    await client.startup()
+    client.session.ctx.config.sampler = True
+    await client.call_mentat_auto_accept(dedent("""\
         Make the following changes to "multifile_calculator/operations.py":
         1. Add "# Inserted line 2" as the first line
         2. Add "# Replaced Line 2" to the end of the 5th line
@@ -396,15 +396,15 @@ async def test_sampler_integration(
         """))
 
     # Remove all included files; rely on the diff to include them
-    python_client.session.ctx.code_context.include_files = {}
-    await python_client.call_mentat(f"/sample {temp_testbed.as_posix()}")
-    await python_client.call_mentat(merge_base)
-    await python_client.call_mentat("test_url")
-    await python_client.call_mentat("test_title")
-    await python_client.call_mentat("test_description")
-    await python_client.call_mentat("test_test_command")
-    await python_client.call_mentat("q")
-    await python_client.shutdown()
+    client.session.ctx.code_context.include_files = {}
+    await client.call_mentat(f"/sample {temp_testbed.as_posix()}")
+    await client.call_mentat(merge_base)
+    await client.call_mentat("test_url")
+    await client.call_mentat("test_title")
+    await client.call_mentat("test_description")
+    await client.call_mentat("test_test_command")
+    await client.call_mentat("q")
+    await client.shutdown()
 
     # Evaluate the sample using Mentat
     sample_files = list(temp_testbed.glob("sample_*.json"))
