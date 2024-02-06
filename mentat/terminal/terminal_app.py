@@ -18,6 +18,7 @@ from typing_extensions import override
 from mentat.session_stream import SessionStream, StreamMessage
 from mentat.terminal.history_suggester import HistorySuggester
 from mentat.terminal.patched_autocomplete import PatchedAutoComplete, PatchedDropdown
+from mentat.terminal.themes import themes
 from mentat.utils import fetch_resource, mentat_dir_path
 
 if TYPE_CHECKING:
@@ -57,9 +58,14 @@ class ContentContainer(Static):
     ]
 
     def __init__(
-        self, stream: SessionStream, renderable: RenderableType = "", **kwargs: Any
+        self,
+        stream: SessionStream,
+        theme: dict[str, str],
+        renderable: RenderableType = "",
+        **kwargs: Any,
     ):
         self.stream = stream
+        self.theme = theme
         self.input_event = Event()
         self.last_user_input = ""
         self.suggester = HistorySuggester(history_file=history_file_location)
@@ -101,7 +107,9 @@ class ContentContainer(Static):
         user_input.disabled = True
 
         content_display = self.query_one(ContentDisplay)
-        content_display.add_content(f">>> {self.last_user_input}\n", color="white")
+        content_display.add_content(
+            f">>> {self.last_user_input}\n", color=self.theme["prompt"]
+        )
         return self.last_user_input
 
     def action_history_up(self):
@@ -233,12 +241,12 @@ class TerminalApp(App[None]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield ContentContainer(self.client.session.stream)
+        self.dark = self.client.config.theme == "dark"
+        self.theme = themes[self.client.config.theme]
+        yield ContentContainer(self.client.session.stream, self.theme)
         yield ContextContainer()
 
-    def display_stream_message(
-        self, message: StreamMessage, theme: dict[str, str] | None
-    ):
+    def display_stream_message(self, message: StreamMessage):
         end = "\n"
         color = None
         if message.extra:
@@ -248,8 +256,7 @@ class TerminalApp(App[None]):
                 color = message.extra["color"]
             if isinstance(message.extra.get("style"), str):
                 style = message.extra["style"]
-                if theme is not None:
-                    color = theme[style]
+                color = self.theme[style]
 
         content_display = self.query_one(ContentDisplay)
         content = str(message.data) + end

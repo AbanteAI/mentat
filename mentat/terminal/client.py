@@ -15,7 +15,6 @@ from mentat.config import Config
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
 from mentat.terminal.terminal_app import TerminalApp
-from mentat.terminal.themes import themes
 
 
 class TerminalClient:
@@ -72,7 +71,7 @@ class TerminalClient:
 
     async def _default_channel_stream(self):
         async for message in self.session.stream.listen():
-            self.app.display_stream_message(message, themes[self.config.theme])
+            self.app.display_stream_message(message)
 
     async def _default_prompt_stream(self):
         self._default_prompt = ""

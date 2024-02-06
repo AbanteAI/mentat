@@ -19,7 +19,7 @@ PatchedAutoComplete > Input {
 }
 
 ContextContainer {
-    border-left: solid white;
+    border-left: solid $secondary-background;
     height: 100%;
     overflow: auto;
     width: 25%;
