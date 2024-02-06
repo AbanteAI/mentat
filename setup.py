@@ -4,8 +4,6 @@ from pathlib import Path
 import pkg_resources
 from setuptools import find_packages, setup
 
-from mentat import __version__
-
 readme_path = os.path.join(Path(__file__).parent, "README.md")
 with open(readme_path, "r", encoding="utf-8") as f:
     long_description = f.read()
@@ -13,7 +11,7 @@ with open(readme_path, "r", encoding="utf-8") as f:
 
 setup(
     name="mentat",
-    version=__version__,
+    version="1.0.9",
     python_requires=">=3.10",
     packages=find_packages(
         include=["mentat", "mentat.*", "benchmarks", "benchmarks.*"]
@@ -27,6 +25,7 @@ setup(
     entry_points={
         "console_scripts": [
             "mentat=mentat.terminal.client:run_cli",
+            "mentat-daemon=mentat.daemon:main",
         ],
     },
     description="AI coding assistant on your command line",
@@ -40,6 +39,6 @@ setup(
             for r in pkg_resources.parse_requirements(
                 open(os.path.join(os.path.dirname(__file__), "dev-requirements.txt"))
             )
-        ]
+        ],
     },
 )

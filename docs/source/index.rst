@@ -11,6 +11,7 @@ Welcome to Mentat's documentation!
    :caption: Contents:
 
    user/guides
+   sdk/index
    developer/modules
 
 

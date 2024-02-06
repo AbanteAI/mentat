@@ -10,7 +10,7 @@ from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
     change_delimiter,
-    get_full_change,
+    display_full_change,
 )
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
@@ -74,19 +74,15 @@ class FileEdit:
             raise ValueError(f"File_path must be an absolute path, got {value}")
 
     def _display_creation(self, prefix: str = ""):
-        ctx = SESSION_CONTEXT.get()
-
         added_lines = list[str]()
         for replacement in self.replacements:
             added_lines.extend(replacement.new_lines)
         display_information = DisplayInformation(
             self.file_path, [], added_lines, [], FileActionType.CreateFile
         )
-        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+        display_full_change(display_information, prefix=prefix)
 
     def _display_deletion(self, file_lines: list[str], prefix: str = ""):
-        ctx = SESSION_CONTEXT.get()
-
         display_information = DisplayInformation(
             self.file_path,
             [],
@@ -94,11 +90,9 @@ class FileEdit:
             file_lines,
             FileActionType.DeleteFile,
         )
-        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+        display_full_change(display_information, prefix=prefix)
 
     def _display_rename(self, prefix: str = ""):
-        ctx = SESSION_CONTEXT.get()
-
         display_information = DisplayInformation(
             self.file_path,
             [],
@@ -107,13 +101,11 @@ class FileEdit:
             FileActionType.RenameFile,
             new_name=self.rename_file_path,
         )
-        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+        display_full_change(display_information, prefix=prefix)
 
     def _display_replacement(
         self, replacement: Replacement, file_lines: list[str], prefix: str = ""
     ):
-        ctx = SESSION_CONTEXT.get()
-
         removed_block = file_lines[replacement.starting_line : replacement.ending_line]
         display_information = DisplayInformation(
             self.file_path,
@@ -125,7 +117,7 @@ class FileEdit:
             replacement.ending_line,
             self.rename_file_path,
         )
-        ctx.stream.send(get_full_change(display_information, prefix=prefix))
+        display_full_change(display_information, prefix=prefix)
 
     def _display_replacements(self, file_lines: list[str], prefix: str = ""):
         for replacement in self.replacements:

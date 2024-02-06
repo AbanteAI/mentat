@@ -1,10 +1,10 @@
 from pathlib import Path
 from typing import Any
 
+from mentat import Mentat
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.git_parser import GitParser
-from mentat.python_client.client import PythonClient
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import get_active_snapshot_commit, setup_repo
 from mentat.session_context import SESSION_CONTEXT
@@ -30,8 +30,8 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
     paths = list[Path]()
     for a in sample.context:
         paths.append(Path(a))
-    python_client = PythonClient(cwd=cwd, paths=paths)
-    await python_client.startup()
+    mentat = Mentat(cwd=cwd, paths=paths)
+    await mentat.startup()
     session_context = SESSION_CONTEXT.get()
     conversation = session_context.conversation
     cost_tracker = session_context.cost_tracker
@@ -49,8 +49,8 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
             conversation.add_model_message(content, [], parsed_llm_response)
         else:
             raise SampleError(f"Invalid role found in message_history: {msg['role']}")
-    await python_client.call_mentat_auto_accept(sample.message_prompt)
-    await python_client.shutdown()
+    await mentat.call_mentat_auto_accept(sample.message_prompt)
+    await mentat.shutdown()
 
     # Get the diff between pre- and post-edit
     transcript_messages = conversation.literal_messages.copy()

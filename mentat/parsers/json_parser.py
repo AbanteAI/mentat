@@ -8,16 +8,15 @@ from typing import AsyncIterator, Dict
 from jsonschema import ValidationError, validate
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.completion_create_params import ResponseFormat
-from termcolor import colored
 from typing_extensions import override
 
 from mentat.errors import ModelError
 from mentat.llm_api_handler import chunk_to_lines
 from mentat.parsers.file_edit import FileEdit, Replacement
 from mentat.parsers.parser import ParsedLLMResponse, Parser
+from mentat.parsers.streaming_printer import StreamingPrinter
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
-from mentat.streaming_printer import StreamingPrinter
 
 json_parser_prompt_filename = Path("json_parser_prompt.txt")
 
@@ -111,8 +110,7 @@ class JsonParser(Parser):
                 printer.shutdown_printer()
                 await printer_task
                 stream.send(
-                    colored("")  # Reset ANSI codes
-                    + "\n\nInterrupted by user. Using the response up to this point."
+                    "\n\nInterrupted by user. Using the response up to this point."
                 )
                 break
 

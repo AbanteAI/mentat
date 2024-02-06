@@ -9,12 +9,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator, List, Literal, Optional, Union
 
 import packaging.version
+import pkg_resources
 import requests
 from jinja2 import Environment, PackageLoader, select_autoescape
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
 
-from mentat import __version__
 from mentat.session_context import SESSION_CONTEXT
 
 if TYPE_CHECKING:
@@ -102,7 +102,7 @@ def check_version():
         response = requests.get("https://pypi.org/pypi/mentat/json")
         data = response.json()
         latest_version = data["info"]["version"]
-        current_version = __version__
+        current_version = pkg_resources.require("mentat")[0].version
 
         if packaging.version.parse(current_version) < packaging.version.parse(
             latest_version

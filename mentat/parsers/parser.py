@@ -11,7 +11,6 @@ from typing import AsyncIterator
 import attr
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.completion_create_params import ResponseFormat
-from termcolor import colored
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
@@ -26,8 +25,8 @@ from mentat.parsers.change_display_helper import (
     get_removed_lines,
 )
 from mentat.parsers.file_edit import FileEdit
+from mentat.parsers.streaming_printer import FormattedString, StreamingPrinter
 from mentat.session_context import SESSION_CONTEXT
-from mentat.streaming_printer import StreamingPrinter
 from mentat.utils import convert_string_to_asynciter
 
 
@@ -116,8 +115,7 @@ class Parser(ABC):
                 if printer_task is not None:
                     await printer_task
                 stream.send(
-                    colored("")  # Reset ANSI codes
-                    + "\n\nInterrupted by user. Using the response up to this point."
+                    "\n\nInterrupted by user. Using the response up to this point."
                 )
                 break
 
@@ -132,30 +130,36 @@ class Parser(ABC):
                     if not line_printed:
                         if not self._could_be_special(cur_line):
                             line_printed = True
-                            to_print = (
-                                cur_line
-                                if not in_code_lines or display_information is None
-                                else self._code_line_beginning(
-                                    display_information, cur_block
-                                )
-                                + self._code_line_content(
-                                    display_information, cur_line, cur_line, cur_block
-                                )
-                            )
-                            printer.add_string(to_print, end="")
                             if not in_code_lines or display_information is None:
-                                conversation += to_print
+                                printer.add_string(cur_line, end="")
+                                conversation += cur_line
+                            else:
+                                printer.add_string(
+                                    self._code_line_beginning(
+                                        display_information, cur_block
+                                    ),
+                                    end="",
+                                )
+                                printer.add_string(
+                                    self._code_line_content(
+                                        display_information,
+                                        cur_line,
+                                        cur_line,
+                                        cur_block,
+                                    ),
+                                    end="",
+                                )
                     else:
-                        to_print = (
-                            content
-                            if not in_code_lines or display_information is None
-                            else self._code_line_content(
-                                display_information, content, cur_line, cur_block
-                            )
-                        )
-                        printer.add_string(to_print, end="")
                         if not in_code_lines or display_information is None:
-                            conversation += to_print
+                            printer.add_string(content, end="")
+                            conversation += content
+                        else:
+                            printer.add_string(
+                                self._code_line_content(
+                                    display_information, content, cur_line, cur_block
+                                ),
+                                end="",
+                            )
 
                 # If we print non code lines, we want to reprint the file name of the next change,
                 # even if it's the same file as the last change
@@ -171,17 +175,21 @@ class Parser(ABC):
                         and not line_printed
                         and not self._could_be_special(cur_line)
                     ):
-                        to_print = (
-                            cur_line
-                            if not in_code_lines or display_information is None
-                            else self._code_line_beginning(
-                                display_information, cur_block
+                        if not in_code_lines or display_information is None:
+                            printer.add_string(cur_line, end="")
+                        else:
+                            printer.add_string(
+                                self._code_line_beginning(
+                                    display_information, cur_block
+                                ),
+                                end="",
                             )
-                            + self._code_line_content(
-                                display_information, cur_line, cur_line, cur_block
+                            printer.add_string(
+                                self._code_line_content(
+                                    display_information, cur_line, cur_line, cur_block
+                                ),
+                                end="",
                             )
-                        )
-                        printer.add_string(to_print, end="")
                         line_printed = True
 
                     if self._starts_special(cur_line.strip()):
@@ -207,7 +215,7 @@ class Parser(ABC):
                                 cur_block,
                             )
                         except ModelError as e:
-                            printer.add_string(str(e), color="red")
+                            printer.add_string((str(e), {"color": "red"}))
                             printer.add_string("Using existing changes.")
                             printer.wrap_it_up()
                             if printer_task is not None:
@@ -354,12 +362,13 @@ class Parser(ABC):
 
     def _code_line_beginning(
         self, display_information: DisplayInformation, cur_block: str
-    ) -> str:
+    ) -> FormattedString:
         """
         The beginning of a code line; normally this means printing the + prefix
         """
-        return colored(
-            "+" + " " * (display_information.line_number_buffer - 1), color="green"
+        return (
+            "+" + " " * (display_information.line_number_buffer - 1),
+            {"color": "green"},
         )
 
     def _code_line_content(
@@ -368,11 +377,11 @@ class Parser(ABC):
         content: str,
         cur_line: str,
         cur_block: str,
-    ) -> str:
+    ) -> FormattedString:
         """
         Part of a code line; normally this means printing in green
         """
-        return colored(content, color="green")
+        return (content, {"color": "green"})
 
     # These methods must be overriden if using the default stream and parse function
     def _could_be_special(self, cur_line: str) -> bool:
@@ -421,7 +430,7 @@ class Parser(ABC):
         code_block: str,
         display_information: DisplayInformation,
         file_edit: FileEdit,
-    ) -> str:
+    ) -> FormattedString:
         """
         Using the special block, code block and display_information, edits the FileEdit to add the new code block.
         Can return a message to print after this change is finished.
