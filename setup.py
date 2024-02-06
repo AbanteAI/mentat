@@ -25,6 +25,7 @@ setup(
     entry_points={
         "console_scripts": [
             "mentat=mentat.terminal.client:run_cli",
+            "mentat-daemon=mentat.daemon:main",
         ],
     },
     description="AI coding assistant on your command line",
@@ -38,6 +39,6 @@ setup(
             for r in pkg_resources.parse_requirements(
                 open(os.path.join(os.path.dirname(__file__), "dev-requirements.txt"))
             )
-        ]
+        ],
     },
 )
