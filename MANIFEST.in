@@ -3,3 +3,4 @@ include dev-requirements.txt
 include README.md
 include LICENSE
 graft mentat/resources
+graft benchmarks/resources

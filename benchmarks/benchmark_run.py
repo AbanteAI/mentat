@@ -86,7 +86,7 @@ class BenchmarkRun:
                     os.path.join(
                         os.path.dirname(__file__), "../mentat/resources/templates"
                     ),
-                    os.path.join(os.path.dirname(__file__), "templates"),
+                    os.path.join(os.path.dirname(__file__), "resources/templates"),
                 ]
             ),
             autoescape=select_autoescape(["html", "xml"]),
