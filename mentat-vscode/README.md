@@ -19,7 +19,7 @@ These instructions will run through the workflow of running the project locally 
 2. Run the Mentat Server
 
 ```shell
-mentat-server
+mentat-language-server
 ```
 
 #### Extension
@@ -93,3 +93,5 @@ The Mentat VSCode Extension code is broken up into 2 main sections:
 The code style follows the
 [Airbnb Javascript Style Guide](https://airbnb.io/javascript/) and the
 [Airbnb React/JSX Style Guide](https://airbnb.io/javascript/react/).
+
+## Publishing
