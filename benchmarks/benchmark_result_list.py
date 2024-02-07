@@ -19,7 +19,7 @@ def generate_list(path: Path, output: Path):
     env = Environment(
         loader=FileSystemLoader(
             [
-                Path(__file__).parent / "templates",
+                Path(__file__).parent / "resourcs/templates",
                 Path(__file__).parent.parent / "mentat/resources/templates",
             ]
         ),
