@@ -6,7 +6,7 @@ In this changelog focus on user facing highlights and stick to the format. This 
 `1.0.9 <https://pypi.org/project/mentat/1.0.9/>`__
 --------------------------------------------------
 
-- Adds `/ammend` command: clear last message and prefill with last prompt.
+- Adds `/amend` command: clear last message and prefill with last prompt.
 - Experimental feature revisor. Turn on with `--revisor` flag. Attempts to fix edits that fail to conform to parser format.
 - Switch to ChromaDB for embeddings.
 
