@@ -233,7 +233,7 @@ class Config:
         for field in attr.fields(Config):
             if field.name in args and field.name != "_errors":
                 value = getattr(args, field.name)
-                if value is not None and value != field.default:
+                if value is not None:
                     try:
                         setattr(self, field.name, value)
                     except (ValueError, TypeError) as e:
