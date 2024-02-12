@@ -127,16 +127,16 @@ class ContentContainer(Static):
             user_input.cursor_position = len(history)
 
     def start_loading(self):
-        # TODO: Use the progress sent over the stream and the message sent over the stream
-        # to make this more similar to the TQDM bar it used to be
-        self.loading_bar = ProgressBar(
-            id="loading-display", show_percentage=False, show_eta=False
-        )
-        self.mount(self.loading_bar)
+        if not self.loading_bar:
+            self.loading_bar = ProgressBar(
+                id="loading-display", show_percentage=False, show_eta=False
+            )
+            self.mount(self.loading_bar)
 
     def end_loading(self):
         if self.loading_bar is not None:
             self.loading_bar.remove()
+            self.loading_bar = None
 
 
 class ContextContainer(Static):

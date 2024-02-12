@@ -53,30 +53,6 @@ List of `glob patterns <https://docs.python.org/3/library/glob.html>`_ to exclud
         "file-exclude-glob-list": ["**/.*, **/.*/**"]
     }
 
-input_style
-^^^^^^^^^^^
-
-A list of key-value pairs defining a custom `Pygment Style <https://pygments.org/docs/styledevelopment/>`_ to style the Mentat prompt.
-
-.. code-block:: json
-
-    {
-        "input-style": [
-            [
-                "",
-                "#9835bd"
-            ],
-            [
-                "prompt",
-                "#ffffff bold"
-            ],
-            [
-                "continuation",
-                "#ffffff bold"
-            ]
-        ]
-    }
-
 parser
 ^^^^^^
 

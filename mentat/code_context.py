@@ -134,7 +134,6 @@ class CodeContext:
         prompt_tokens: int,
         prompt: Optional[str] = None,
         expected_edits: Optional[list[str]] = None,  # for training/benchmarking
-        loading_multiplier: float = 0.0,
         suppress_context_check: bool = False,
     ) -> str:
         """
@@ -191,7 +190,6 @@ class CodeContext:
                 auto_tokens,
                 prompt,
                 expected_edits,
-                loading_multiplier=loading_multiplier,
             )
             self.auto_features = list(
                 set(self.auto_features) | set(await feature_filter.filter(features))

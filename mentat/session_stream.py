@@ -37,7 +37,7 @@ class SessionStream:
     client_exit: Sent by the server, client should shut down when recieved.
     session_stopped: Sent by the server directly before server shuts down. Server can't be contacted after recieved.
 
-    loading: Used to tell the client to display a loading bar. Valid kwargs: progress, terminate
+    loading: Used to tell the client to display a loading bar. Valid kwargs: terminate
 
     input_request: Used to request input from the client (data unused). Valid kwargs: command_autocomplete
     *input_request:<message_id>: Sent by the client. The channel the response to an input_request is sent over.
