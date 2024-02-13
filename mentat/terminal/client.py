@@ -1,24 +1,20 @@
+from __future__ import annotations
+
 import argparse
 import asyncio
+import json
 import logging
-import signal
 from asyncio import Event
 from pathlib import Path
-from types import FrameType
 from typing import Any, Coroutine, List, Set
 
-from prompt_toolkit import PromptSession
-from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
-from prompt_toolkit.styles import Style
+from textual.app import AutopilotCallbackType
 
+from mentat.code_context import ContextStreamMessage
 from mentat.config import Config
 from mentat.session import Session
 from mentat.session_stream import StreamMessageSource
-from mentat.terminal.loading import LoadingHandler
-from mentat.terminal.output import print_stream_message
-from mentat.terminal.prompt_completer import MentatCompleter
-from mentat.terminal.prompt_session import MentatPromptSession
-from mentat.terminal.themes import themes
+from mentat.terminal.terminal_app import TerminalApp
 
 
 class TerminalClient:
@@ -31,6 +27,9 @@ class TerminalClient:
         diff: str | None = None,
         pr_diff: str | None = None,
         config: Config = Config(),
+        # Used for testing
+        headless: bool = False,
+        auto_pilot: AutopilotCallbackType | None = None,
     ):
         self.cwd = cwd
         self.paths = [Path(path) for path in paths]
@@ -39,6 +38,8 @@ class TerminalClient:
         self.diff = diff
         self.pr_diff = pr_diff
         self.config = config
+        self.headless = headless
+        self.auto_pilot = auto_pilot
 
         self._tasks: Set[asyncio.Task[None]] = set()
         self._should_exit = Event()
@@ -48,6 +49,12 @@ class TerminalClient:
         """Utility method for running a Task in the background"""
 
         def task_cleanup(task: asyncio.Task[None]):
+            if task.exception() is not None:
+                self.session.stream.send(
+                    f"Error in task {task.get_coro()}: {str(task.exception())}",
+                    style="error",
+                )
+                self._should_exit.set()
             self._tasks.remove(task)
 
         task = asyncio.create_task(coro)
@@ -56,41 +63,76 @@ class TerminalClient:
 
         return task
 
-    async def _cprint_session_stream(self):
+    async def _run_terminal_app(self):
+        self.app = TerminalApp(self)
+        await self.app.run_async(headless=self.headless, auto_pilot=self.auto_pilot)
+        self._should_exit.set()
+        asyncio.create_task(self._shutdown())
+
+    async def _default_channel_stream(self):
         async for message in self.session.stream.listen():
-            print_stream_message(message, themes[self.config.theme])
+            self.app.display_stream_message(message)
 
     async def _default_prompt_stream(self):
         self._default_prompt = ""
         async for message in self.session.stream.listen("default_prompt"):
             self._default_prompt += message.data
 
+    async def _listen_for_context_updates(self):
+        async for message in self.session.stream.listen("context_update"):
+            data: ContextStreamMessage = json.loads(message.data)
+            (
+                cwd,
+                diff_context_display,
+                auto_context_tokens,
+                features,
+                auto_features,
+                git_diff_paths,
+                total_tokens,
+                total_cost,
+            ) = (
+                Path(data["cwd"]),
+                data["diff_context_display"],
+                data["auto_context_tokens"],
+                data["features"],
+                data["auto_features"],
+                set(Path(path) for path in data["git_diff_paths"]),
+                data["total_tokens"],
+                data["total_cost"],
+            )
+            self.app.update_context(
+                cwd,
+                diff_context_display,
+                auto_context_tokens,
+                features,
+                auto_features,
+                git_diff_paths,
+                total_tokens,
+                total_cost,
+            )
+
     async def _handle_loading_messages(self):
-        loading_handler = LoadingHandler()
         async for message in self.session.stream.listen("loading"):
-            loading_handler.update(message)
+            if message.extra.get("terminate", False):
+                self.app.end_loading()
+            else:
+                self.app.start_loading()
 
     async def _handle_input_requests(self):
         while True:
             input_request_message = await self.session.stream.recv("input_request")
-            # TODO: Make extra kwargs like plain constants
-            if input_request_message.extra.get("plain"):
-                prompt_session = self._plain_session
-            else:
-                prompt_session = self._prompt_session
-            self.mentat_completer.command_autocomplete = (
-                input_request_message.extra.get("command_autocomplete", False)
-            )
 
             default_prompt = self._default_prompt.strip()
             self._default_prompt = ""
 
-            user_input = await prompt_session.prompt_async(
-                handle_sigint=False, default=default_prompt
+            command_autocomplete = input_request_message.extra.get(
+                "command_autocomplete", False
             )
-            if user_input == "q":
-                self._should_exit.set()
-                return
+
+            user_input = await self.app.get_user_input(
+                default_prompt=default_prompt,
+                command_autocomplete=command_autocomplete,
+            )
 
             self.session.stream.send(
                 user_input,
@@ -98,48 +140,45 @@ class TerminalClient:
                 channel=f"input_request:{input_request_message.id}",
             )
 
+    async def _listen_for_session_stopped(self):
+        await self.session.stream.recv(channel="session_stopped")
+        self.app.disable_app()
+
     async def _listen_for_client_exit(self):
-        """When the Session shuts down, it will send the client_exit signal for the client to shutdown."""
         await self.session.stream.recv(channel="client_exit")
         asyncio.create_task(self._shutdown())
 
     async def _listen_for_should_exit(self):
-        """This listens for a user event signaling shutdown (like SigInt), and tells the session to shutdown."""
+        """
+        This listens for a user event signaling session shutdown (like an error), and tells the session to shutdown.
+        Does *NOT* shut down the client, only disables it.
+        """
         await self._should_exit.wait()
         self.session.stream.send(
             None, source=StreamMessageSource.CLIENT, channel="session_exit"
         )
 
-    async def _send_session_stream_interrupt(self):
-        logging.debug("Sending interrupt to session stream")
-        self.session.stream.send(
-            "", source=StreamMessageSource.CLIENT, channel="interrupt"
-        )
-
-    # Be careful editing this function; since we use signal.signal instead of asyncio's
-    # add signal handler (which isn't available on Windows), this function can interrupt
-    # asyncio coroutines, potentially causing race conditions.
-    def _handle_sig_int(self, sig: int, frame: FrameType | None):
+    def send_interrupt(self):
         if (
             # If session is still starting up we want to quit without an error
             not self.session
             or self.session.stream.interrupt_lock.locked() is False
+            or self.session.stopped.is_set()
         ):
             if self._should_exit.is_set():
                 logging.debug("Force exiting client...")
                 exit(0)
             else:
                 logging.debug("Should exit client...")
+                asyncio.create_task(self._shutdown())
                 self._should_exit.set()
         else:
-            # We create a task here in order to avoid race conditions
-            self._create_task(self._send_session_stream_interrupt())
-
-    def _init_signal_handlers(self):
-        signal.signal(signal.SIGINT, self._handle_sig_int)
+            logging.debug("Sending interrupt to session stream")
+            self.session.stream.send(
+                None, source=StreamMessageSource.CLIENT, channel="interrupt"
+            )
 
     async def _run(self):
-        self._init_signal_handlers()
         self.session = Session(
             self.cwd,
             self.paths,
@@ -151,36 +190,14 @@ class TerminalClient:
         )
         self.session.start()
 
-        self.mentat_completer = MentatCompleter(self.session.stream)
-        self._prompt_session = MentatPromptSession(
-            completer=self.mentat_completer,
-            style=Style(self.config.input_style),
-            enable_suspend=True,
-        )
-
-        plain_bindings = KeyBindings()
-
-        @plain_bindings.add("c-c")
-        @plain_bindings.add("c-d")
-        def _(event: KeyPressEvent):
-            if event.current_buffer.text != "":
-                event.current_buffer.reset()
-            else:
-                event.app.exit(result="q")
-
-        self._plain_session = PromptSession[str](
-            message=[("class:prompt", ">>> ")],
-            style=Style(self.config.input_style),
-            completer=None,
-            key_bindings=plain_bindings,
-            enable_suspend=True,
-        )
-
-        self._create_task(self._cprint_session_stream())
+        self._create_task(self._run_terminal_app())
+        self._create_task(self._default_channel_stream())
         self._create_task(self._handle_input_requests())
+        self._create_task(self._listen_for_context_updates())
         self._create_task(self._handle_loading_messages())
         self._create_task(self._default_prompt_stream())
         self._create_task(self._listen_for_client_exit())
+        self._create_task(self._listen_for_session_stopped())
         self._create_task(self._listen_for_should_exit())
 
         logging.debug("Completed startup")
@@ -188,6 +205,7 @@ class TerminalClient:
 
     async def _shutdown(self):
         logging.debug("Running shutdown")
+        await self.session.stopped.wait()
 
         # Stop all background tasks
         for task in self._tasks:

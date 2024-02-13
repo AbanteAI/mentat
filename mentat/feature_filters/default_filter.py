@@ -15,29 +15,24 @@ class DefaultFilter(FeatureFilter):
         max_tokens: int,
         user_prompt: Optional[str] = None,
         expected_edits: Optional[list[str]] = None,
-        loading_multiplier: float = 0.0,
     ):
         self.max_tokens = max_tokens
         self.user_prompt = user_prompt or ""
         self.expected_edits = expected_edits
-        self.loading_multiplier = loading_multiplier
 
     async def filter(self, features: list[CodeFeature]) -> list[CodeFeature]:
         ctx = SESSION_CONTEXT.get()
         use_llm = bool(ctx.config.llm_feature_filter)
 
         if ctx.config.auto_context_tokens > 0 and self.user_prompt != "":
-            features = await EmbeddingSimilarityFilter(
-                self.user_prompt, (0.5 if use_llm else 1) * self.loading_multiplier
-            ).filter(features)
+            features = await EmbeddingSimilarityFilter(self.user_prompt).filter(
+                features
+            )
 
         if use_llm:
             try:
                 features = await LLMFeatureFilter(
-                    self.max_tokens,
-                    self.user_prompt,
-                    self.expected_edits,
-                    (0.5 if self.user_prompt != "" else 1) * self.loading_multiplier,
+                    self.max_tokens, self.user_prompt, self.expected_edits
                 ).filter(features)
             except (ModelError, ReturnToUser):
                 ctx.stream.send(

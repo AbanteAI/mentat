@@ -4,9 +4,8 @@ from mentat.feature_filters.feature_filter import FeatureFilter
 
 
 class EmbeddingSimilarityFilter(FeatureFilter):
-    def __init__(self, query: str, loading_multiplier: float = 0.0):
+    def __init__(self, query: str):
         self.query = query
-        self.loading_multiplier = loading_multiplier
 
     async def score(
         self,
@@ -15,9 +14,7 @@ class EmbeddingSimilarityFilter(FeatureFilter):
         if self.query == "":
             return [(f, 0.0) for f in features]
 
-        sim_scores = await get_feature_similarity_scores(
-            self.query, features, self.loading_multiplier
-        )
+        sim_scores = await get_feature_similarity_scores(self.query, features)
         features_scored = zip(features, sim_scores)
         return sorted(features_scored, key=lambda x: x[1])
 

@@ -7,7 +7,6 @@ from .amend import AmendCommand
 from .clear import ClearCommand
 from .commit import CommitCommand
 from .config import ConfigCommand
-from .context import ContextCommand
 from .exclude import ExcludeCommand
 from .help import HelpCommand
 from .include import IncludeCommand

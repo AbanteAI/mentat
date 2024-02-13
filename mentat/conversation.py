@@ -187,7 +187,6 @@ class Conversation:
     async def _stream_model_response(
         self,
         messages: list[ChatCompletionMessageParam],
-        loading_multiplier: float = 0.0,
     ) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
@@ -197,25 +196,21 @@ class Conversation:
         llm_api_handler = session_context.llm_api_handler
         cost_tracker = session_context.cost_tracker
 
-        if loading_multiplier:
-            stream.send(
-                "Sending query and context to LLM",
-                channel="loading",
-                progress=50 * loading_multiplier,
-            )
+        stream.send(
+            None,
+            channel="loading",
+        )
         response = await llm_api_handler.call_llm_api(
             messages,
             config.model,
             stream=True,
             response_format=parser.response_format(),
         )
-        if loading_multiplier:
-            stream.send(
-                None,
-                channel="loading",
-                progress=50 * loading_multiplier,
-                terminate=True,
-            )
+        stream.send(
+            None,
+            channel="loading",
+            terminate=True,
+        )
 
         num_prompt_tokens = prompt_tokens(messages, config.model)
         stream.send(f"Total token count: {num_prompt_tokens}", style="info")
@@ -270,7 +265,6 @@ class Conversation:
         messages_snapshot = self.get_messages()
 
         # Get current code message
-        loading_multiplier = 1.0 if config.auto_context_tokens > 0 else 0.0
         prompt = messages_snapshot[-1].get("content")
         if isinstance(prompt, list):
             text_prompts = [
@@ -284,7 +278,6 @@ class Conversation:
                 if isinstance(prompt, str)
                 else ""
             ),
-            loading_multiplier=0.5 * loading_multiplier,
         )
         messages_snapshot.insert(
             0 if config.no_parser_prompt else 1,
@@ -292,10 +285,7 @@ class Conversation:
         )
 
         try:
-            response = await self._stream_model_response(
-                messages_snapshot,
-                loading_multiplier=0.5 * loading_multiplier,
-            )
+            response = await self._stream_model_response(messages_snapshot)
         except RateLimitError:
             stream.send(
                 "Rate limit error received from OpenAI's servers using model"
@@ -304,9 +294,6 @@ class Conversation:
                 style="error",
             )
             return ParsedLLMResponse("", "", list[FileEdit]())
-        finally:
-            if loading_multiplier:
-                stream.send(None, channel="loading", terminate=True)
         return response
 
     def remaining_context(self) -> int | None:

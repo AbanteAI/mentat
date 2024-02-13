@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, cast
 
 import attr
 from pygments import lex
@@ -138,11 +138,27 @@ def display_full_change(display_information: DisplayInformation, prefix: str = "
         ),
     ]
     for line in full_change:
-        if (isinstance(line, str) and line.strip()) or (
-            isinstance(line, Tuple) and line[0].strip()
-        ):
+        if isinstance(line, str):
+            if not line.strip():
+                continue
             ctx.stream.send(prefix, end="")
-            ctx.stream.send(line)
+            ctx.stream.send(f"\n{prefix}".join(line.split("\n")))
+        elif isinstance(line, Tuple):
+            if not line[0].strip():
+                continue
+            for sub_line in line[0].split("\n"):
+                ctx.stream.send(prefix, end="")
+                ctx.stream.send(sub_line, **line[1])
+        else:
+            ctx.stream.send(prefix, end="")
+            for text in line:
+                for i, sub_line in enumerate(text[0].split("\n")):
+                    if i != 0:
+                        ctx.stream.send(prefix, end="")
+                    ctx.stream.send(sub_line, **text[1], end="")
+                    if i != len(text[0].split("\n")) - 1:
+                        ctx.stream.send("")
+            ctx.stream.send("")
 
 
 def get_file_name(
@@ -150,11 +166,11 @@ def get_file_name(
 ) -> FormattedString:
     match display_information.file_action_type:
         case FileActionType.CreateFile:
-            return (f"\n{display_information.file_name}*", {"color": "light_green"})
+            return (f"\n{display_information.file_name}*", {"color": "bright_green"})
         case FileActionType.DeleteFile:
             return (
                 f"\nDeletion: {display_information.file_name}",
-                {"color": "light_red"},
+                {"color": "bright_red"},
             )
         case FileActionType.RenameFile:
             return (
@@ -165,7 +181,7 @@ def get_file_name(
                 {"color": "yellow"},
             )
         case FileActionType.UpdateFile:
-            return (f"\n{display_information.file_name}", {"color": "light_blue"})
+            return (f"\n{display_information.file_name}", {"color": "bright_blue"})
 
 
 def get_added_lines(
@@ -199,7 +215,21 @@ def highlight_text(text: str, lexer: Lexer) -> FormattedString:
     string: FormattedString = []
     for ttype, value in lex(text, lexer):
         # We use TerminalFormatter's color scheme; TODO: Hook this up to our style themes instead
-        color = formatter._get_color(ttype)  # type: ignore
+        color = cast(str, formatter._get_color(ttype))  # type: ignore
+
+        # Convert Pygment styles to Rich styles
+        if color.startswith("*"):
+            # TODO: Send bold style
+            color = color[1:-1]
+        if color.startswith("_"):
+            # TODO: Send italic style
+            color = color[1:-1]
+        if color.startswith("bright"):
+            color = color.replace("bright", "bright_")
+
+        if not color:
+            color = None
+
         string.append((value, {"color": color}))
     return string
 

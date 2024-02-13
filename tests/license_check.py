@@ -9,8 +9,10 @@ library_exceptions = [
     "tiktoken",
     # openai as Apache 2.0; for some reason, after updating to 1.0, pip-licenses thinks it's UNKNOWN
     "openai",
-    # is UNKOWN
+    # Is Apache 2.0 but shows up as UNKNOWN
     "chroma-hnswlib",
+    # textual-autocomplete is MIT but shows up as UNKNOWN
+    "textual-autocomplete",
 ]
 accepted_licenses = [
     "BSD License",
@@ -28,6 +30,7 @@ accepted_licenses = [
     "The Unlicense (Unlicense)",
     "Apache License, Version 2.0",
     "Apache License v2.0",
+    "DFSG approved",
 ]
 
 

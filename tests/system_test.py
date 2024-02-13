@@ -60,7 +60,7 @@ async def test_system_exits_on_exception(mock_collect_user_input):
 
     session = Session(cwd=Path.cwd())
     session.start()
-    await session.stream.recv(channel="client_exit")
+    await session.stream.recv(channel="session_stopped")
 
 
 @pytest.mark.asyncio

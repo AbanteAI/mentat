@@ -34,11 +34,12 @@ class SessionStream:
     default: Any data sent to the client over this channel should be displayed. Valid kwargs: color, style
 
     *session_exit: Sent by the client, suggesting that the session should exit whenever possible.
-    client_exit: Sent by the server directly before shutting down. Client should shut down when received.
+    client_exit: Sent by the server, client should shut down when recieved.
+    session_stopped: Sent by the server directly before server shuts down. Server can't be contacted after recieved.
 
-    loading: Used to tell the client to display a loading bar. Valid kwargs: progress, terminate
+    loading: Used to tell the client to display a loading bar. Valid kwargs: terminate
 
-    input_request: Used to request input from the client (data unused). Valid kwargs: plain, command_autocomplete
+    input_request: Used to request input from the client (data unused). Valid kwargs: command_autocomplete
     *input_request:<message_id>: Sent by the client. The channel the response to an input_request is sent over.
 
     edits_complete: A boolean sent when edits have been completed. True if any edits were accepted.
@@ -50,6 +51,18 @@ class SessionStream:
     after every input request. See TerminalClient for exact implementation.
 
     *interrupt: Sent by the client. Sent whenever client interrupts current work. Equivalent to ctrl-C
+
+    context_update: A JSON object describing the context sent whenever the context changes. JSON Schema:
+    {
+        "cwd": "Mentat's cwd",
+        "diff_context_display": "The display for the diff context",
+        "auto_context_tokens": The number of auto context tokens,
+        "features": ["List of user included features"],
+        "auto_features": ["List of auto included features"],
+        "git_diff_paths": ["List of all paths with git diffs; used to color the changed included features"],
+        "total_tokens": Total tokens in context,
+        "total_cost": Total cost so far
+    }
     """
 
     def __init__(self):

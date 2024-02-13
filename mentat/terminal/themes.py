@@ -1,19 +1,21 @@
-themes: dict[str | None, dict[str, str]] = {
+themes: dict[str, dict[str, str]] = {
     "light": {
+        "prompt": "gray",
         "code": "blue",
         "info": "cyan",
         "failure": "dark_red",
         "success": "green",
-        "input": "light_blue",
+        "input": "bright_blue",
         "error": "red",
         "warning": "yellow",
     },
     "dark": {
+        "prompt": "white",
         "code": "blue",
         "info": "cyan",
-        "failure": "light_red",
+        "failure": "bright_red",
         "success": "green",
-        "input": "light_blue",
+        "input": "bright_blue",
         "error": "red",
         "warning": "yellow",
     },
