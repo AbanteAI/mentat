@@ -13,6 +13,7 @@ Welcome to Mentat's documentation!
    user/guides
    sdk/index
    developer/modules
+   changelog
 
 
 Indices and tables
