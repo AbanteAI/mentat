@@ -187,7 +187,7 @@ class CodeContext:
         split_intervals: bool = True,
     ) -> list[CodeFeature]:
         """
-        Retrieves every CodeFeature under the cwd. If files_only is True the features won't be split into intervals
+        Retrieves every CodeFeature under the cwd. If split_intervals is False the features won't be split
         """
         session_context = SESSION_CONTEXT.get()
 

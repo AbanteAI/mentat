@@ -17,6 +17,7 @@ from .sample import SampleCommand
 from .screenshot import ScreenshotCommand
 from .search import SearchCommand
 from .talk import TalkCommand
+from .test import TestCommand
 from .undo import UndoCommand
 from .undoall import UndoAllCommand
 from .viewer import ViewerCommand

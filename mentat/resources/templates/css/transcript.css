@@ -90,6 +90,10 @@ pre {
     background-color: rgb(243, 246, 196);
 }
 
+.test {
+    background-color: rgb(246, 196, 234);
+}
+
 .button-group {
     position: absolute;
     top: 20px;

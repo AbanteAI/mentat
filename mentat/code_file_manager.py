@@ -143,6 +143,11 @@ class CodeFileManager:
             self.history.add_edit(applied_edit)
         if not agent_handler.agent_enabled:
             self.history.push_edits()
+
+        stream.send(
+            "Changes applied." if applied_edits else "No changes applied.",
+            style="input",
+        )
         return applied_edits
 
     def get_file_checksum(self, path: Path, interval: Interval | None = None) -> str:
