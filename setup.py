@@ -11,7 +11,7 @@ with open(readme_path, "r", encoding="utf-8") as f:
 
 setup(
     name="mentat",
-    version="1.0.9",
+    version="1.0.10",
     python_requires=">=3.10",
     packages=find_packages(
         include=["mentat", "mentat.*", "benchmarks", "benchmarks.*"]
