@@ -6,6 +6,7 @@ import pkg_resources
 import requests
 
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import mentat_dir_path
 
 
 def get_changelog() -> Optional[str]:
@@ -57,5 +58,23 @@ def check_version():
                     "Upgrade for the following features/improvements:", style="warning"
                 )
                 ctx.stream.send(changelog, style="warning")
+
+        else:
+            last_version_check_file = mentat_dir_path / "last_version_check"
+            if last_version_check_file.exists():
+                with open(last_version_check_file, "r") as f:
+                    last_version_check = f.read()
+                if packaging.version.parse(
+                    last_version_check
+                ) < packaging.version.parse(current_version):
+                    changelog = get_latest_changelog()
+                    if changelog:
+                        ctx.stream.send(
+                            f"Thanks for upgrading to v{current_version}.", style="info"
+                        )
+                        ctx.stream.send("Changes in this version:", style="info")
+                        ctx.stream.send(changelog, style="info")
+            with open(last_version_check_file, "w") as f:
+                f.write(current_version)
     except Exception as err:
         ctx.stream.send(f"Error checking for most recent version: {err}", style="error")
