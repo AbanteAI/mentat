@@ -2,10 +2,10 @@ import re
 from typing import Optional
 
 import packaging.version
-import pkg_resources
 import requests
 
 from mentat.session_context import SESSION_CONTEXT
+from mentat.version import __version__
 
 
 def get_changelog() -> Optional[str]:
@@ -40,9 +40,8 @@ def check_version():
         response = requests.get("https://pypi.org/pypi/mentat/json")
         data = response.json()
         latest_version = data["info"]["version"]
-        current_version = pkg_resources.require("mentat")[0].version
 
-        if packaging.version.parse(current_version) < packaging.version.parse(
+        if packaging.version.parse(__version__) < packaging.version.parse(
             latest_version
         ):
             ctx.stream.send(
