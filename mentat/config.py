@@ -169,7 +169,7 @@ class Config:
     )
 
     theme: str = attr.field(  # pyright: ignore
-        default="light",
+        default="dark",
         metadata={
             "description": "Theme for interaction possible choices are light or dark.",
             "no_midsession_change": True,
