@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.abspath("../.."))
 
 with open(
-    os.path.join(os.path.dirname(__file__), "..", "..", "VERSION"),
+    os.path.join(os.path.dirname(__file__), "..", "..", "mentat/VERSION"),
     "r",
     encoding="utf-8",
 ) as f:

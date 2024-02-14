@@ -9,7 +9,8 @@ with open(readme_path, "r", encoding="utf-8") as f:
     long_description = f.read()
 
 
-with open("VERSION", "r", encoding="utf-8") as f:
+version_path = os.path.join(Path(__file__).parent, "mentat/VERSION")
+with open(version_path, "r", encoding="utf-8") as f:
     VERSION = f.read().strip()
 
 setup(
