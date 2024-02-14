@@ -2,10 +2,11 @@ import re
 from typing import Optional
 
 import packaging.version
-import pkg_resources
 import requests
 
 from mentat.session_context import SESSION_CONTEXT
+from mentat.utils import mentat_dir_path
+from mentat.version import __version__
 
 
 def get_changelog() -> Optional[str]:
@@ -40,9 +41,8 @@ def check_version():
         response = requests.get("https://pypi.org/pypi/mentat/json")
         data = response.json()
         latest_version = data["info"]["version"]
-        current_version = pkg_resources.require("mentat")[0].version
 
-        if packaging.version.parse(current_version) < packaging.version.parse(
+        if packaging.version.parse(__version__) < packaging.version.parse(
             latest_version
         ):
             ctx.stream.send(
@@ -57,5 +57,23 @@ def check_version():
                     "Upgrade for the following features/improvements:", style="warning"
                 )
                 ctx.stream.send(changelog, style="warning")
+
+        else:
+            last_version_check_file = mentat_dir_path / "last_version_check"
+            if last_version_check_file.exists():
+                with open(last_version_check_file, "r") as f:
+                    last_version_check = f.read()
+                if packaging.version.parse(
+                    last_version_check
+                ) < packaging.version.parse(__version__):
+                    changelog = get_latest_changelog()
+                    if changelog:
+                        ctx.stream.send(
+                            f"Thanks for upgrading to v{__version__}.", style="info"
+                        )
+                        ctx.stream.send("Changes in this version:", style="info")
+                        ctx.stream.send(changelog, style="info")
+            with open(last_version_check_file, "w") as f:
+                f.write(__version__)
     except Exception as err:
         ctx.stream.send(f"Error checking for most recent version: {err}", style="error")
