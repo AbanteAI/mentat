@@ -9,7 +9,11 @@ import sys
 # AXJ, Version
 sys.path.insert(0, os.path.abspath("../.."))
 
-with open(os.path.join(os.path.dirname(__file__), "..", "..", "VERSION"), "r", encoding="utf-8") as f:
+with open(
+    os.path.join(os.path.dirname(__file__), "..", "..", "VERSION"),
+    "r",
+    encoding="utf-8",
+) as f:
     VERSION = f.read().strip()
 
 # -- Project information -----------------------------------------------------
