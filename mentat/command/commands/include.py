@@ -23,6 +23,7 @@ class IncludeCommand(Command, command_name="include"):
             for included_path in included_paths:
                 rel_path = get_relative_path(included_path, session_context.cwd)
                 stream.send(f"{rel_path} added to context", style="success")
+        code_context.refresh_context_display()
 
     @override
     @classmethod

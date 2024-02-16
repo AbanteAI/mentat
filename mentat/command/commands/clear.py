@@ -16,6 +16,7 @@ class ClearCommand(Command, command_name="clear"):
 
         conversation.clear_messages()
         code_context.clear_auto_context()
+        code_context.refresh_context_display()
         message = "Message history cleared"
         stream.send(message, style="success")
 
