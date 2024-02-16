@@ -44,3 +44,15 @@ ContextContainer > Tree {
     align-horizontal: center;
     width: 100%;
 }
+
+ContentContainer > RichLog {
+    height: auto;
+    overflow: hidden;
+}
+
+.content-piece {
+    margin: 0;
+    padding: 0;
+    height: auto;
+    width: 100%;
+}
