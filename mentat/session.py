@@ -9,7 +9,12 @@ from uuid import uuid4
 
 import attr
 import sentry_sdk
-from openai import APITimeoutError, BadRequestError, RateLimitError
+from openai import (
+    APITimeoutError,
+    BadRequestError,
+    PermissionDeniedError,
+    RateLimitError,
+)
 
 from mentat.agent_handler import AgentHandler
 from mentat.auto_completer import AutoCompleter
@@ -211,7 +216,12 @@ class Session:
             except ReturnToUser:
                 need_user_request = True
                 continue
-            except (APITimeoutError, RateLimitError, BadRequestError) as e:
+            except (
+                APITimeoutError,
+                RateLimitError,
+                BadRequestError,
+                PermissionDeniedError,
+            ) as e:
                 stream.send(f"Error accessing OpenAI API: {e.message}", style="error")
                 break
 

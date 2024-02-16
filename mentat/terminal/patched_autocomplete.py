@@ -166,7 +166,7 @@ class PatchedDropdown(Dropdown):
             return
 
         if input_cursor_position is None:
-            input_cursor_position = self.input_widget.cursor_position
+            input_cursor_position = self.input_widget.cursor_position  # pyright: ignore
 
         top, right, bottom, left = self.styles.margin  # pyright: ignore
         x, y, width, height = self.input_widget.content_region  # pyright: ignore

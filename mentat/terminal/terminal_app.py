@@ -9,9 +9,7 @@ from rich.console import RenderableType
 from rich.markup import escape
 from textual import on
 from textual.app import App, ComposeResult
-from textual.message import Message
-from textual.reactive import reactive
-from textual.widgets import Input, ProgressBar, Static, Tree
+from textual.widgets import Input, ProgressBar, RichLog, Static, Tree
 from textual.widgets._tree import TreeNode
 from typing_extensions import override
 
@@ -26,29 +24,6 @@ if TYPE_CHECKING:
 
 css_path = Path("textual/terminal_app.tcss")
 history_file_location = mentat_dir_path / "prompt_history"
-
-
-class ContentDisplay(Static):
-    content = reactive("")
-
-    def add_content(self, new_content: str, color: Optional[str] = None):
-        """
-        Using any sort of outside text renderer / colorer (like termcolor.colored or pygments.formatted)
-        will lead to strange artifacts appearing on the ContentDisplay. Do *NOT* use anything other than
-        the SessionStream's style/color kwargs!
-        """
-
-        new_content = escape(new_content)
-        if color is not None and color:
-            new_content = f"[{color}]{new_content}[/{color}]"
-        self.content += new_content
-
-    def watch_content(self, content: str):
-        self.update(content)
-        self.post_message(self.ContentAdded())
-
-    class ContentAdded(Message):
-        pass
 
 
 class ContentContainer(Static):
@@ -70,12 +45,17 @@ class ContentContainer(Static):
         self.last_user_input = ""
         self.suggester = HistorySuggester(history_file=history_file_location)
         self.loading_bar = None
+        self.cur_line = ""
 
         super().__init__(renderable, **kwargs)
 
     @override
     def compose(self) -> ComposeResult:
-        yield ContentDisplay()
+        self.content = RichLog(wrap=True, markup=True, auto_scroll=True)
+        yield self.content
+        # RichLogs can't edit existing lines, only add new ones, so we have a 'buffer' widget until we reach a new line.
+        self.last_content = Static(self.cur_line, classes="content-piece")
+        yield self.last_content
         yield PatchedAutoComplete(
             Input(
                 classes="user-input",
@@ -91,10 +71,6 @@ class ContentContainer(Static):
         self.suggester.append_to_history(event.value)
         self.input_event.set()
 
-    @on(ContentDisplay.ContentAdded)
-    def on_content_added(self, event: ContentDisplay.ContentAdded):
-        self.scroll_end(animate=False)
-
     async def collect_user_input(self, default_prompt: str) -> str:
         self.input_event.clear()
 
@@ -106,10 +82,7 @@ class ContentContainer(Static):
         user_input.value = ""
         user_input.disabled = True
 
-        content_display = self.query_one(ContentDisplay)
-        content_display.add_content(
-            f">>> {self.last_user_input}\n", color=self.theme["prompt"]
-        )
+        self.add_content(f">>> {self.last_user_input}\n", color=self.theme["prompt"])
         return self.last_user_input
 
     def action_history_up(self):
@@ -137,6 +110,20 @@ class ContentContainer(Static):
         if self.loading_bar is not None:
             self.loading_bar.remove()
             self.loading_bar = None
+
+    def add_content(self, new_content: str, color: str | None):
+        new_content = escape(new_content)
+        lines = [
+            f"[{color}]{line}[/{color}]" if color else line
+            for line in new_content.split("\n")
+        ]
+        for line in lines[:-1]:
+            line = self.cur_line + line
+            self.cur_line = ""
+            self.content.write(line)
+        self.cur_line += lines[-1]
+        self.last_content.update(self.cur_line)
+        self.scroll_end(animate=False)
 
 
 class ContextContainer(Static):
@@ -258,9 +245,9 @@ class TerminalApp(App[None]):
                 style = message.extra["style"]
                 color = self.theme[style]
 
-        content_display = self.query_one(ContentDisplay)
+        content_container = self.query_one(ContentContainer)
         content = str(message.data) + end
-        content_display.add_content(content, color)
+        content_container.add_content(content, color)
 
     async def get_user_input(
         self, default_prompt: str, command_autocomplete: bool
@@ -299,6 +286,7 @@ class TerminalApp(App[None]):
 
     def disable_app(self):
         self.query_one(Input).disabled = True
+        self.end_loading()
 
     def start_loading(self):
         self.query_one(ContentContainer).start_loading()
