@@ -169,7 +169,6 @@ class DiffContext:
                 (session_context.cwd / f).resolve()
                 for f in get_files_in_diff(self.target)
             ]
-        session_context.code_context.refresh_context_display()
 
     def get_annotations(self, rel_path: Path) -> list[DiffAnnotation]:
         diff = get_diff_for_file(self.target, rel_path)

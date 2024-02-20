@@ -75,8 +75,7 @@ class CodeContext:
 
     def refresh_context_display(self):
         """
-        Sends a message to the client with the new updated code context
-        Must be called whenever the context changes!
+        Sends a message to the client with the code context. It is called in the main loop.
         """
         ctx = SESSION_CONTEXT.get()
 
@@ -194,7 +193,6 @@ class CodeContext:
             self.auto_features = list(
                 set(self.auto_features) | set(await feature_filter.filter(features))
             )
-            self.refresh_context_display()
 
         # Merge include file features and auto features and add to code message
         code_message += get_code_message_from_features(
@@ -244,7 +242,6 @@ class CodeContext:
         Clears all auto-features added to the conversation so far.
         """
         self._auto_features = []
-        self.refresh_context_display()
 
     def include_features(self, code_features: Iterable[CodeFeature]):
         """
@@ -272,7 +269,6 @@ class CodeContext:
                         self.include_files[code_feature.path] = []
                     self.include_files[code_feature.path].append(code_feature)
                     included_paths.add(Path(str(code_feature)))
-        self.refresh_context_display()
         return included_paths
 
     def include(
@@ -428,7 +424,6 @@ class CodeContext:
         except PathValidationError as e:
             session_context.stream.send(str(e), style="error")
 
-        self.refresh_context_display()
         return excluded_paths
 
     async def search(

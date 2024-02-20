@@ -51,8 +51,7 @@ async def ask_yes_no(default_yes: bool) -> bool:
 
 
 async def collect_input_with_commands() -> StreamMessage:
-    session_context = SESSION_CONTEXT.get()
-    stream = session_context.stream
+    ctx = SESSION_CONTEXT.get()
 
     response = await collect_user_input(command_autocomplete=True)
     while isinstance(response.data, str) and response.data.startswith("/"):
@@ -61,8 +60,9 @@ async def collect_input_with_commands() -> StreamMessage:
             arguments = shlex.split(" ".join(response.data.split(" ")[1:]))
             command = Command.create_command(response.data[1:].split(" ")[0])
             await command.apply(*arguments)
+            ctx.code_context.refresh_context_display()
         except ValueError as e:
-            stream.send(f"Error processing command arguments: {e}", style="error")
+            ctx.stream.send(f"Error processing command arguments: {e}", style="error")
         response = await collect_user_input(command_autocomplete=True)
     return response
 
