@@ -75,8 +75,7 @@ class CodeContext:
 
     def refresh_context_display(self):
         """
-        Sends a message to the client with the new updated code context
-        Must be called whenever the context changes!
+        Sends a message to the client with the code context. It is called in the main loop.
         """
         ctx = SESSION_CONTEXT.get()
 
