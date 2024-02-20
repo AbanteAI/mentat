@@ -50,7 +50,6 @@ class CostTracker:
         costs_logger = logging.getLogger("costs")
         costs_logger.info(speed_and_cost_string)
         self.last_api_call = speed_and_cost_string
-        session_context.code_context.refresh_context_display()
 
     def display_last_api_call(self):
         """

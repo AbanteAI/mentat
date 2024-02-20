@@ -24,7 +24,6 @@ class ExcludeCommand(Command, command_name="exclude"):
             for excluded_path in excluded_paths:
                 rel_path = get_relative_path(excluded_path, session_context.cwd)
                 stream.send(f"{rel_path} removed from context", style="error")
-        code_context.refresh_context_display()
 
     @override
     @classmethod
