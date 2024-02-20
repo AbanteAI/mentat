@@ -3,6 +3,13 @@ Changelog
 
 In this changelog focus on user facing highlights and stick to the format. This information will be used to motivate users to upgrade or after upgrading to inform them of features that might otherwise not be very discoverable.
 
+`1.0.10 <https://pypi.org/project/mentat/1.0.10/>`__
+--------------------------------------------------
+
+- Mentat is now a full terminal app which displays the context and running cost in the sidebar.
+- Mentat now has a python sdk. Try `from mentat import Mentat` to get started. See the docs for more details.
+- New openai models added to the model list.
+
 `1.0.9 <https://pypi.org/project/mentat/1.0.9/>`__
 --------------------------------------------------
 
