@@ -17,7 +17,6 @@ from mentat.diff_context import DiffContext
 from mentat.errors import PathValidationError
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
-from mentat.git_handler import get_paths_with_git_diffs
 from mentat.include_files import (
     PathType,
     get_code_features_for_path,
@@ -45,6 +44,7 @@ class ContextStreamMessage(TypedDict):
     features: List[str]
     auto_features: List[str]
     git_diff_paths: List[str]
+    git_untracked_paths: List[str]
     total_tokens: int
     total_cost: float
 
@@ -91,10 +91,12 @@ class CodeContext:
             ]
         )
         auto_features = get_consolidated_feature_refs(self.auto_features)
-        git_diff_paths = (
-            list(get_paths_with_git_diffs(self.git_root)) if self.git_root else []
-        )
-
+        if self.diff_context:
+            git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
+            git_untracked_paths = [str(p) for p in self.diff_context.untracked_files()]
+        else:
+            git_diff_paths = []
+            git_untracked_paths = []
         messages = ctx.conversation.get_messages()
         code_message = get_code_message_from_features(
             [
@@ -122,7 +124,8 @@ class CodeContext:
             auto_context_tokens=ctx.config.auto_context_tokens,
             features=features,
             auto_features=auto_features,
-            git_diff_paths=[str(p) for p in git_diff_paths],
+            git_diff_paths=git_diff_paths,
+            git_untracked_paths=git_untracked_paths,
             total_tokens=total_tokens,
             total_cost=total_cost,
         )
@@ -151,7 +154,7 @@ class CodeContext:
         if self.diff_context:
             # Since there is no way of knowing when the git diff changes,
             # we just refresh the cache every time get_code_message is called
-            self.diff_context.refresh_diff_files()
+            self.diff_context.refresh()
             if self.diff_context.diff_files():
                 code_message += [
                     "Diff References:",

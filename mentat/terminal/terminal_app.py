@@ -146,28 +146,42 @@ class ContextContainer(Static):
         root: TreeNode[Any],
         children: Dict[str, Any],
         git_diff_paths: Set[Path],
+        untracked_paths: Set[Path],
+        untracked: bool = False,
     ):
         for child, grandchildren in children.items():
             new_path = cur_path / child
+            path_untracked = new_path in untracked_paths or untracked
+            if path_untracked:
+                label = f"[red]! {child}[/red]"
+            else:
+                label = child
             if not grandchildren:
                 if new_path in git_diff_paths:
                     label = f"[green]* {child}[/green]"
-                else:
-                    label = child
                 root.add_leaf(label)
             else:
-                child_node = root.add(child, expand=True)
+                child_node = root.add(label, expand=True)
                 self._build_sub_tree(
-                    new_path, child_node, grandchildren, git_diff_paths
+                    new_path,
+                    child_node,
+                    grandchildren,
+                    git_diff_paths,
+                    untracked_paths,
+                    path_untracked,
                 )
 
     def _build_tree_widget(
-        self, files: list[str], cwd: Path, git_diff_paths: Set[Path]
+        self,
+        files: list[str],
+        cwd: Path,
+        git_diff_paths: Set[Path],
+        untracked_paths: Set[Path],
     ) -> Tree[Any]:
         path_tree = self._build_path_tree(files, cwd)
         tree: Tree[Any] = Tree(f"[blue]{cwd.name}[/blue]")
         tree.root.expand()
-        self._build_sub_tree(cwd, tree.root, path_tree, git_diff_paths)
+        self._build_sub_tree(cwd, tree.root, path_tree, git_diff_paths, untracked_paths)
         return tree
 
     def update_context(
@@ -178,11 +192,16 @@ class ContextContainer(Static):
         features: List[str],
         auto_features: List[str],
         git_diff_paths: Set[Path],
+        git_untracked_paths: Set[Path],
         total_tokens: int,
         total_cost: float,
     ):
-        feature_tree = self._build_tree_widget(features, cwd, git_diff_paths)
-        auto_feature_tree = self._build_tree_widget(auto_features, cwd, git_diff_paths)
+        feature_tree = self._build_tree_widget(
+            features, cwd, git_diff_paths, git_untracked_paths
+        )
+        auto_feature_tree = self._build_tree_widget(
+            auto_features, cwd, git_diff_paths, git_untracked_paths
+        )
 
         context_header = ""
         context_header += "[blue bold]Code Context:[/blue bold]"
@@ -266,6 +285,7 @@ class TerminalApp(App[None]):
         features: List[str],
         auto_features: List[str],
         git_diff_paths: Set[Path],
+        git_untracked_paths: Set[Path],
         total_tokens: int,
         total_cost: float,
     ):
@@ -277,6 +297,7 @@ class TerminalApp(App[None]):
             features,
             auto_features,
             git_diff_paths,
+            git_untracked_paths,
             total_tokens,
             total_cost,
         )
