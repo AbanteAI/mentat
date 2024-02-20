@@ -13,9 +13,9 @@ from mentat.utils import is_file_text_encoded
 
 
 def get_untracked_files(root: Path, paths: list[Path] = []) -> list[str]:
-    """Returns all untracked files."""
-    """ --directory flag is used to show only directories and not files in the output.
-    A significant performance improvement when things like node_modules are present."""
+    """Returns untracked files. --directory flag is used to show only directories
+    and not files in the output. A significant performance improvement when things
+    like node_modules are present."""
     command = [
         "git",
         "ls-files",
