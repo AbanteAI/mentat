@@ -96,10 +96,12 @@ def _remove_extra_empty_lines(lines: list[str]) -> list[str]:
 
 
 def _prefixed_lines(line_number_buffer: int, lines: list[str], prefix: str) -> str:
-    return "\n".join([
-        prefix + " " * (line_number_buffer - len(prefix)) + line.strip("\n")
-        for line in lines
-    ])
+    return "\n".join(
+        [
+            prefix + " " * (line_number_buffer - len(prefix)) + line.strip("\n")
+            for line in lines
+        ]
+    )
 
 
 def _get_code_block(
@@ -208,16 +210,18 @@ def get_previous_lines(
 ) -> FormattedString:
     if display_information.first_changed_line < 0:
         return ""
-    lines = _remove_extra_empty_lines([
-        display_information.file_lines[i]
-        for i in range(
-            max(0, display_information.first_changed_line - num),
-            min(
-                display_information.first_changed_line,
-                len(display_information.file_lines),
-            ),
-        )
-    ])
+    lines = _remove_extra_empty_lines(
+        [
+            display_information.file_lines[i]
+            for i in range(
+                max(0, display_information.first_changed_line - num),
+                min(
+                    display_information.first_changed_line,
+                    len(display_information.file_lines),
+                ),
+            )
+        ]
+    )
     numbered = [
         (str(display_information.first_changed_line - len(lines) + i + 1) + ":").ljust(
             display_information.line_number_buffer
@@ -236,16 +240,18 @@ def get_later_lines(
 ) -> FormattedString:
     if display_information.last_changed_line < 0:
         return ""
-    lines = _remove_extra_empty_lines([
-        display_information.file_lines[i]
-        for i in range(
-            max(0, display_information.last_changed_line),
-            min(
-                display_information.last_changed_line + num,
-                len(display_information.file_lines),
-            ),
-        )
-    ])
+    lines = _remove_extra_empty_lines(
+        [
+            display_information.file_lines[i]
+            for i in range(
+                max(0, display_information.last_changed_line),
+                min(
+                    display_information.last_changed_line + num,
+                    len(display_information.file_lines),
+                ),
+            )
+        ]
+    )
     numbered = [
         (str(display_information.last_changed_line + 1 + i) + ":").ljust(
             display_information.line_number_buffer

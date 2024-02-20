@@ -207,25 +207,27 @@ class ModelsIndex(Dict[str, Model]):
         return super().__contains__(self._validate_key(str(key)))
 
 
-known_models = ModelsIndex({
-    "gpt-4-0125-preview": Model("gpt-4-0125-preview", 128000, 0.01, 0.03),
-    "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
-    "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
-    "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
-    "gpt-4-32k": Model("gpt-4-32k", 32768, 0.06, 0.12),
-    "gpt-4-0613": Model("gpt-4-0613", 8192, 0.03, 0.06),
-    "gpt-4-32k-0613": Model("gpt-4-32k-0613", 32768, 0.06, 0.12),
-    "gpt-4-0314": Model("gpt-4-0314", 8192, 0.03, 0.06),
-    "gpt-4-32k-0314": Model("gpt-4-32k-0314", 32768, 0.06, 0.12),
-    "gpt-3.5-turbo-1106": Model("gpt-3.5-turbo-1106", 16385, 0.001, 0.002),
-    "gpt-3.5-turbo": Model("gpt-3.5-turbo", 16385, 0.001, 0.002),
-    "gpt-3.5-turbo-0613": Model("gpt-3.5-turbo-0613", 4096, 0.0015, 0.002),
-    "gpt-3.5-turbo-16k-0613": Model("gpt-3.5-turbo-16k-0613", 16385, 0.003, 0.004),
-    "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
-    "text-embedding-ada-002": Model(
-        "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
-    ),
-})
+known_models = ModelsIndex(
+    {
+        "gpt-4-0125-preview": Model("gpt-4-0125-preview", 128000, 0.01, 0.03),
+        "gpt-4-1106-preview": Model("gpt-4-1106-preview", 128000, 0.01, 0.03),
+        "gpt-4-vision-preview": Model("gpt-4-vision-preview", 128000, 0.01, 0.03),
+        "gpt-4": Model("gpt-4", 8192, 0.03, 0.06),
+        "gpt-4-32k": Model("gpt-4-32k", 32768, 0.06, 0.12),
+        "gpt-4-0613": Model("gpt-4-0613", 8192, 0.03, 0.06),
+        "gpt-4-32k-0613": Model("gpt-4-32k-0613", 32768, 0.06, 0.12),
+        "gpt-4-0314": Model("gpt-4-0314", 8192, 0.03, 0.06),
+        "gpt-4-32k-0314": Model("gpt-4-32k-0314", 32768, 0.06, 0.12),
+        "gpt-3.5-turbo-1106": Model("gpt-3.5-turbo-1106", 16385, 0.001, 0.002),
+        "gpt-3.5-turbo": Model("gpt-3.5-turbo", 16385, 0.001, 0.002),
+        "gpt-3.5-turbo-0613": Model("gpt-3.5-turbo-0613", 4096, 0.0015, 0.002),
+        "gpt-3.5-turbo-16k-0613": Model("gpt-3.5-turbo-16k-0613", 16385, 0.003, 0.004),
+        "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
+        "text-embedding-ada-002": Model(
+            "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
+        ),
+    }
+)
 
 
 def model_context_size(model: str) -> Optional[int]:

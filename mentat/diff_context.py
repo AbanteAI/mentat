@@ -187,9 +187,9 @@ class DiffContext:
         for file in diff_files:
             diff = get_diff_for_file(self.target, file)
             diff_lines = diff.splitlines()
-            num_lines += len([
-                line for line in diff_lines if line.startswith(("+ ", "- "))
-            ])
+            num_lines += len(
+                [line for line in diff_lines if line.startswith(("+ ", "- "))]
+            )
         return f" {self.name} | {num_files} files | {num_lines} lines"
 
     def annotate_file_message(
