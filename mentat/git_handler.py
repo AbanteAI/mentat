@@ -12,6 +12,25 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import is_file_text_encoded
 
 
+def get_untracked_files(root: Path, paths: list[Path] = []) -> list[str]:
+    """Returns untracked files. --directory flag is used to show only directories
+    and not files in the output. A significant performance improvement when things
+    like node_modules are present."""
+    command = [
+        "git",
+        "ls-files",
+        "--exclude-standard",
+        "--others",
+        "--directory",
+    ] + paths
+    result = subprocess.run(command, cwd=root, stdout=subprocess.PIPE)
+    untracked = result.stdout.decode("utf-8").strip()
+    if untracked != "":
+        return untracked.split("\n")
+    else:
+        return []
+
+
 def get_non_gitignored_files(root: Path, visited: set[Path] = set()) -> Set[Path]:
     paths = set(
         # git returns / separated paths even on windows, convert so we can remove
@@ -47,27 +66,6 @@ def get_non_gitignored_files(root: Path, visited: set[Path] = set()) -> Set[Path
         else:
             file_paths.add(path)
     return file_paths
-
-
-def get_paths_with_git_diffs(git_root: Path) -> set[Path]:
-    changed = subprocess.check_output(
-        ["git", "diff", "--name-only"],
-        cwd=git_root,
-        text=True,
-        stderr=subprocess.DEVNULL,
-    ).split("\n")
-    new = subprocess.check_output(
-        ["git", "ls-files", "-o", "--exclude-standard"],
-        cwd=git_root,
-        text=True,
-        stderr=subprocess.DEVNULL,
-    ).split("\n")
-    return set(
-        map(
-            lambda path: Path(os.path.realpath(os.path.join(git_root, Path(path)))),
-            changed + new,
-        )
-    )
 
 
 def get_git_root_for_path(path: Path, raise_error: bool = True) -> Optional[Path]:

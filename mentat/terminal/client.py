@@ -88,6 +88,7 @@ class TerminalClient:
                 features,
                 auto_features,
                 git_diff_paths,
+                git_untracked_paths,
                 total_tokens,
                 total_cost,
             ) = (
@@ -97,6 +98,7 @@ class TerminalClient:
                 data["features"],
                 data["auto_features"],
                 set(Path(path) for path in data["git_diff_paths"]),
+                set(Path(path) for path in data["git_untracked_paths"]),
                 data["total_tokens"],
                 data["total_cost"],
             )
@@ -107,6 +109,7 @@ class TerminalClient:
                 features,
                 auto_features,
                 git_diff_paths,
+                git_untracked_paths,
                 total_tokens,
                 total_cost,
             )
