@@ -1,151 +1,137 @@
-import { exec } from "child_process"
-import { spawn } from "child_process"
-import * as fs from "fs"
-import * as net from "net"
-import * as os from "os"
-import * as path from "path"
-import * as semver from "semver"
-import * as util from "util"
-import * as vscode from "vscode"
-import { ServerOptions, StreamInfo } from "vscode-languageclient/node"
+import { exec } from "child_process";
+import { spawn } from "child_process";
+import * as fs from "fs";
+import * as net from "net";
+import * as os from "os";
+import * as path from "path";
+import * as semver from "semver";
+import * as util from "util";
+import * as vscode from "vscode";
+import { ServerOptions, StreamInfo } from "vscode-languageclient/node";
 
-import { waitForPortToBeInUse } from "./tcp"
+import { waitForPortToBeInUse } from "./tcp";
 
-const aexec = util.promisify(exec)
+const aexec = util.promisify(exec);
 
 async function installMentat(
-  progress: vscode.Progress<{ message?: string; increment?: number }>
-) {
-  console.log(
-    "Executing: const mentatDir = path.join(os.homedir(), '.mentat');"
-  )
-  const mentatDir = path.join(os.homedir(), ".mentat")
-  console.log("Executing: if (!fs.existsSync(mentatDir))...")
-  if (!fs.existsSync(mentatDir)) {
-    console.log("Executing: fs.mkdirSync(mentatDir);")
-    fs.mkdirSync(mentatDir)
-  }
-  progress.report({ message: "Mentat: Detecting Python version..." })
-  const pythonCommands =
-    process.platform === "win32"
-      ? ["py -3.10", "py -3", "py"]
-      : ["python3.10", "python3", "python"]
-  console.log("Executing: let pythonCommand: string | null = null;")
-  let pythonCommand: string | null = null
-  console.log("Executing: for... loop over pythonCommands")
-  for (const command of pythonCommands) {
-    console.log(`Command: ${command}`)
-    try {
-      const { stdout } = await aexec(`${command} --version`)
-      const versionMatch = stdout.match(/Python (\d+\.\d+)(?:\.\d+)?/)
-      if (versionMatch) {
-        // Coerce the matched version to a semver object
-        const version = semver.coerce(versionMatch[1])
-        // Compare the coerced version with the desired version
-        if (
-          semver.gte(
-            version || new semver.SemVer("3.10.0"),
-            new semver.SemVer("3.10.0")
-          )
-        ) {
-          pythonCommand = command
-          break
-        }
-      }
-    } catch (error) {
-      continue
+    progress: vscode.Progress<{ message?: string; increment?: number }>
+): Promise<string> {
+    // Check mentat dir
+    const mentatDir = path.join(os.homedir(), ".mentat");
+    if (!fs.existsSync(mentatDir)) {
+        fs.mkdirSync(mentatDir);
     }
-  }
 
-  if (pythonCommand === null) {
-    throw new Error(
-      "Python 3.10 or above is not found on your system. Please install it and try again."
-    )
-  }
-  progress.report({ message: "Mentat: Creating Python environment..." })
-  const createVenvCommand = `${pythonCommand} -m venv ${mentatDir}/venv`
-  console.log(`Executing: ${createVenvCommand}`)
-  await aexec(createVenvCommand)
+    // Check python version
+    progress.report({ message: "Mentat: Detecting Python version..." });
+    const pythonCommands =
+        process.platform === "win32"
+            ? ["py -3.10", "py -3", "py"]
+            : ["python3.10", "python3", "python"];
+    let pythonCommand: string | null = null;
+    for (const command of pythonCommands) {
+        try {
+            const { stdout } = await aexec(`${command} --version`);
+            const versionMatch = stdout.match(/Python (\d+\.\d+)(?:\.\d+)?/);
+            if (versionMatch) {
+                const version = semver.coerce(versionMatch[1]);
+                if (
+                    semver.gte(
+                        version || new semver.SemVer("3.10.0"),
+                        new semver.SemVer("3.10.0")
+                    )
+                ) {
+                    pythonCommand = command;
+                    break;
+                }
+            }
+        } catch (error) {
+            continue;
+        }
+    }
+    if (pythonCommand === null) {
+        throw new Error(
+            "Python 3.10 or above is not found on your system. Please install it and try again."
+        );
+    }
 
-  progress.report({ message: "Mentat: Installing..." })
-  const venvPath =
-    process.platform === "win32"
-      ? `${mentatDir}\\venv\\Scripts\\`
-      : `${mentatDir}/venv/bin/`
+    // Check if venv exists
+    const venvPath = path.join(mentatDir, ".venv");
+    if (!fs.existsSync(venvPath)) {
+        progress.report({ message: "Mentat: Creating Python environment..." });
+        const createVenvCommand = `${pythonCommand} -m venv ${venvPath}`;
+        await aexec(createVenvCommand);
+    }
+    const binFolder = path.join(
+        venvPath,
+        process.platform === "win32" ? "Scripts" : "bin"
+    );
+    const pythonLocation = path.join(binFolder, "python");
 
-  const pipInstallArgs: string = vscode.workspace
-    .getConfiguration("mentat")
-    .get("pipInstallArgs")!
-  const activateVenvAndInstallMentatCommand = venvPath + `pip ${pipInstallArgs}`
-  console.log(`Executing: ${activateVenvAndInstallMentatCommand}`)
-  await aexec(activateVenvAndInstallMentatCommand)
-  await vscode.workspace
-    .getConfiguration("mentat")
-    .update("executable", venvPath + "mentat-language-server", true)
-
-  console.log("Installed Mentat")
+    // If mentat is already installed, this doesn't do much and is pretty fast
+    progress.report({ message: "Mentat: Installing..." });
+    const mentatVersion: string = vscode.workspace
+        .getConfiguration("mentat")
+        .get("mentatVersion")!;
+    const versionString = mentatVersion ? `==${mentatVersion}` : "";
+    await aexec(`${pythonLocation} -m pip install -U mentat${versionString}`);
+    console.log("Installed Mentat");
+    return binFolder;
 }
 
-async function createMentatProcess(port: number) {
-  const mentatExecutable: string = await vscode.workspace
-    .getConfiguration("mentat")
-    .get("executable")!
+async function createMentatProcess(binFolder: string) {
+    const mentatExecutable: string = `${binFolder} mentat-server`;
+    const server = spawn(mentatExecutable);
 
-  const ls = spawn(mentatExecutable)
-
-  ls.stdout.on("data", (data: any) => {
-    console.log(`stdout: ${data}`)
-  })
-
-  ls.stderr.on("data", (data: any) => {
-    console.error(`stderr: ${data}`)
-  })
-
-  ls.on("close", (code: number) => {
-    console.log(`child process exited with code ${code}`)
-  })
+    server.stdout.on("data", (data: any) => {
+        console.log(`Server Output: ${data}`);
+    });
+    server.stderr.on("data", (data: any) => {
+        console.error(`Server Error: ${data}`);
+    });
+    server.on("close", (code: number) => {
+        console.log(`Server exited with code ${code}`);
+    });
 }
 
 async function createMentatSocket(args: {
-  host: string
-  port: number
+    host: string;
+    port: number;
 }): Promise<ServerOptions> {
-  const socket = net.connect({
-    host: args.host,
-    port: args.port,
-  })
-  const streamInfo: StreamInfo = {
-    reader: socket,
-    writer: socket,
-  }
+    const socket = net.connect({
+        host: args.host,
+        port: args.port,
+    });
+    const streamInfo: StreamInfo = {
+        reader: socket,
+        writer: socket,
+    };
 
-  return () => {
-    return Promise.resolve(streamInfo)
-  }
+    return () => {
+        return Promise.resolve(streamInfo);
+    };
 }
 
 async function getLanguageServerOptions(): Promise<ServerOptions> {
-  const workspaceConfig = vscode.workspace.getConfiguration("mentat")
-  const languageServerHost: string = workspaceConfig.get("languageServerHost")!
-  const languageServerPort: number = workspaceConfig.get("languageServerPort")!
+    const serverHost: string = "127.0.0.1";
+    const serverPort: number = 7798;
 
-  if (!workspaceConfig.get("useExternalLanguageServer")) {
-    await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification },
-      async (progress) => {
-        await installMentat(progress)
-      }
-    )
-    await createMentatProcess(languageServerPort)
-    await waitForPortToBeInUse({ port: languageServerPort, timeout: 5000 })
-  }
+    const binFolder = await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification },
+        async (progress) => {
+            return await installMentat(progress);
+        }
+    );
+    await createMentatProcess(binFolder);
+    // TODO: What does this do??? Do we need it???
+    await waitForPortToBeInUse({ port: serverPort, timeout: 5000 });
 
-  const serverOptions = await createMentatSocket({
-    host: languageServerHost,
-    port: languageServerPort,
-  })
+    const serverOptions = await createMentatSocket({
+        host: serverHost,
+        port: serverPort,
+    });
 
-  return serverOptions
+    return serverOptions;
 }
 
-export { installMentat, getLanguageServerOptions }
+export { installMentat, getLanguageServerOptions };

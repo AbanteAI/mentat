@@ -7,22 +7,10 @@ These instructions will run through the workflow of running the project locally 
 
 ### Prerequisites
 
-- VSCode
-- Node v18.16.0
+-   VSCode
+-   Node v18.16.0
 
 ### Steps
-
-#### Mentat (Server)
-
-1. Create a virtual environment and install mentat
-
-2. Run the Mentat Server
-
-```shell
-mentat-language-server
-```
-
-#### Extension
 
 1. Install the project
 
@@ -30,7 +18,11 @@ mentat-language-server
 npm install
 ```
 
-2. Open VSCode
+2. Build the project
+
+```shell
+npm run build
+```
 
 **Without the VSCode Debugger**
 
@@ -60,10 +52,10 @@ at the top of the menu. The "Run Extension" launch configuration should be selec
 
 If everything runs correctly you should see:
 
-- a second VSCode window opened with the Mentat extension logo in the sidebar
-- the VSCode debugger active and attached in the original VSCode window
-- two "[watch] build finished" log messages in the terminal (one for the extension and
-  one for the webview)
+-   a second VSCode window opened with the Mentat extension logo in the sidebar
+-   the VSCode debugger active and attached in the original VSCode window
+-   two "[watch] build finished" log messages in the terminal (one for the extension and
+    one for the webview)
 
 4. Click on the Mentat extension menu on the sidebar
 
@@ -83,15 +75,13 @@ R" for macos).
 
 ## Code structure
 
-The Mentat VSCode Extension code is broken up into 2 main sections:
+We use prettier as our linter. The extension code is broken up into 2 main sections:
 
-- The exension. This is all the code need to mount/unstop the extension, interact with
-  VSCode resources, and run any background processes managed by VSCode.
-- The webview. This is all all the React code thats rendered and injected into VSCode
-  "webviews".
-
-The code style follows the
-[Airbnb Javascript Style Guide](https://airbnb.io/javascript/) and the
-[Airbnb React/JSX Style Guide](https://airbnb.io/javascript/react/).
+-   The extension. This is all the code need to mount/unstop the extension, interact with
+    VSCode resources, and run any background processes managed by VSCode.
+-   The webview. This is all all the React code thats rendered and injected into VSCode
+    "webviews".
 
 ## Publishing
+
+TODO

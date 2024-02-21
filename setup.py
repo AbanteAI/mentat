@@ -15,15 +15,19 @@ setup(
     name="mentat",
     version=__version__,
     python_requires=">=3.10",
-    packages=find_packages(include=["mentat", "mentat.*", "benchmarks", "benchmarks.*"]),
+    packages=find_packages(
+        include=["mentat", "mentat.*", "benchmarks", "benchmarks.*"]
+    ),
     install_requires=[
         str(r)
-        for r in pkg_resources.parse_requirements(open(os.path.join(os.path.dirname(__file__), "requirements.txt")))
+        for r in pkg_resources.parse_requirements(
+            open(os.path.join(os.path.dirname(__file__), "requirements.txt"))
+        )
     ],
     entry_points={
         "console_scripts": [
             "mentat=mentat.terminal.client:run_cli",
-            "mentat-language-server=mentat.language_server:main",
+            "mentat-server=mentat.language_server:main",
             "mentat-daemon=mentat.daemon:main",
         ],
     },

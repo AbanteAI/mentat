@@ -1,106 +1,80 @@
 {
-  "name": "mentat",
-  "displayName": "Mentat",
-  "description": "Mentat - The AI Coding Assistant",
-  "version": "0.0.1",
-  "private": true,
-  "publisher": "AbanteAI",
-  "license": "Apache-2.0",
-  "repository": "https://github.com/AbanteAI/mentat/mentat-vscode",
-  "engines": {
-    "vscode": "^1.74.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onView"
-  ],
-  "main": "./build/extension.js",
-  "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "Mentat",
-          "title": "Mentat",
-          "icon": "assets/icon.svg"
-        }
-      ]
+    "name": "mentat",
+    "displayName": "Mentat",
+    "description": "Mentat - The AI Coding Assistant",
+    "version": "0.0.1",
+    "private": true,
+    "publisher": "AbanteAI",
+    "license": "Apache-2.0",
+    "repository": "https://github.com/AbanteAI/mentat/mentat-vscode",
+    "engines": {
+        "vscode": "^1.74.0"
     },
-    "views": {
-      "Mentat": [
-        {
-          "type": "webview",
-          "id": "MentatChat",
-          "name": "Chat"
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onView"
+    ],
+    "main": "./build/extension.js",
+    "contributes": {
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "Mentat",
+                    "title": "Mentat",
+                    "icon": "assets/icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "Mentat": [
+                {
+                    "type": "webview",
+                    "id": "MentatChat",
+                    "name": "Chat"
+                }
+            ]
+        },
+        "configuration": {
+            "title": "Mentat",
+            "properties": {
+                "mentat.mentatVersion": {
+                    "type": "string",
+                    "default": "",
+                    "scope": "machine",
+                    "markdownDescription": "The version of mentat that will be installed. Leave blank for the most recent version."
+                }
+            }
         }
-      ]
     },
-    "configuration": {
-      "title": "Mentat",
-      "properties": {
-        "mentat.languageServerHost": {
-          "type": "string",
-          "default": "127.0.0.1",
-          "scope": "machine",
-          "markdownDescription": "Host for Mentat Language Server."
-        },
-        "mentat.languageServerPort": {
-          "type": "number",
-          "default": 7798,
-          "scope": "machine",
-          "markdownDescription": "Port for Mentat Language Server."
-        },
-        "mentat.pipInstallArgs": {
-          "type": "string",
-          "default": "install git+https://github.com/AbanteAI/mentat.git@vscode-0",
-          "scope": "machine",
-          "markdownDescription": "Arugments pip will use to install Mentat."
-        },
-        "mentat.executable": {
-          "type": "string",
-          "default": "",
-          "scope": "machine",
-          "markdownDescription": "Path to Mentat executable, if built locally.\n\nFor a virtual env named `venv`, this should be set to:\n - `{path-to-venv}/bin/mentat` on Mac or Linux \n\n - `{path-to-venv}\\Scripts\\mentat` on Windows."
-        },
-        "mentat.useExternalLanguageServer": {
-          "type": "boolean",
-          "default": false,
-          "scope": "machine",
-          "markdownDescription": "Use an external language server instead of the one bundled with the extension."
-        }
-      }
+    "scripts": {
+        "clean": "node ./scripts/clean.mjs",
+        "build-js": "node ./scripts/build.mjs",
+        "build-css": "tailwindcss -i ./src/webviews/main.css -o ./build/webviews/main.css",
+        "build": "npm run clean && npm run build-js -- --sourcemap & npm run build-css",
+        "watch-js": "npm run build-js -- --sourcemap --watch",
+        "watch-css": "tailwindcss -i ./src/webviews/main.css -o ./build/webviews/main.css --watch",
+        "watch": "npm run clean && npm run watch-js & npm run watch-css",
+        "vscode": "code --extensionDevelopmentPath=$PWD .",
+        "vscode:prepublish": "npm run clean && npm run build-js -- --minify && npm run build-css",
+        "vscode:vsce": "npm run vscode:prepublish && vsce package -o mentat.vsix"
+    },
+    "devDependencies": {
+        "@types/node": "20.8.3",
+        "@types/react": "18.2.25",
+        "@types/react-dom": "18.2.11",
+        "@types/semver": "^7.5.7",
+        "@types/vscode": "1.74.0",
+        "@types/vscode-webview": "1.57.2",
+        "@vscode/vsce": "2.22.0",
+        "esbuild": "0.19.4",
+        "eslint": "8.51.0",
+        "react": "18.2.0",
+        "react-dom": "18.2.0",
+        "react-icons": "4.11.0",
+        "tailwindcss": "3.3.3",
+        "typescript": "5.2.2",
+        "vscode-languageclient": "9.0.1"
     }
-  },
-  "scripts": {
-    "clean": "node ./scripts/clean.mjs",
-    "build-js": "node ./scripts/build.mjs",
-    "build-css": "tailwindcss -i ./src/webviews/main.css -o ./build/webviews/main.css",
-    "build": "npm run clean && npm run build-js -- --sourcemap & npm run build-css",
-    "watch-js": "npm run build-js -- --sourcemap --watch",
-    "watch-css": "tailwindcss -i ./src/webviews/main.css -o ./build/webviews/main.css --watch",
-    "watch": "npm run clean && npm run watch-js & npm run watch-css",
-    "vscode": "code --extensionDevelopmentPath=$PWD .",
-    "vscode:prepublish": "npm run clean && npm run build-js -- --minify && npm run build-css",
-    "vscode:vsce": "npm run vscode:prepublish && vsce package -o mentat.vsix"
-  },
-  "devDependencies": {
-    "@types/node": "20.8.3",
-    "@types/react": "18.2.25",
-    "@types/react-dom": "18.2.11",
-    "@types/vscode": "1.74.0",
-    "@types/vscode-webview": "1.57.2",
-    "@typescript-eslint/eslint-plugin": "6.7.4",
-    "@typescript-eslint/parser": "6.7.4",
-    "esbuild": "0.19.4",
-    "eslint": "8.51.0",
-    "eslint-plugin-react": "7.33.2",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "react-icons": "4.11.0",
-    "tailwindcss": "3.3.3",
-    "typescript": "5.2.2",
-    "vscode-languageclient": "9.0.1",
-    "@vscode/vsce": "2.22.0"
-  }
 }
