@@ -1,5 +1,4 @@
 from mentat.code_feature import CodeFeature
-from mentat.embeddings import get_feature_similarity_scores
 from mentat.feature_filters.feature_filter import FeatureFilter
 
 
@@ -11,6 +10,10 @@ class EmbeddingSimilarityFilter(FeatureFilter):
         self,
         features: list[CodeFeature],
     ) -> list[tuple[CodeFeature, float]]:
+        from mentat.embeddings import (  # dynamic import to improve startup time.
+            get_feature_similarity_scores,
+        )
+
         if self.query == "":
             return [(f, 0.0) for f in features]
 

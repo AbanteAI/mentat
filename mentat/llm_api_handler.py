@@ -8,6 +8,7 @@ from inspect import iscoroutinefunction
 from pathlib import Path
 from timeit import default_timer
 from typing import (
+    TYPE_CHECKING,
     Any,
     AsyncIterator,
     Callable,
@@ -22,7 +23,6 @@ from typing import (
 import attr
 import sentry_sdk
 import tiktoken
-from chromadb.api.types import Embeddings
 from dotenv import load_dotenv
 from openai import (
     APIConnectionError,
@@ -47,6 +47,10 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
 TOKEN_COUNT_WARNING = 32000
+
+if TYPE_CHECKING:
+    # This import is slow
+    from chromadb.api.types import Embeddings
 
 
 def is_test_environment():
