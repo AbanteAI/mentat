@@ -1,66 +1,17 @@
 import WebviewProvider from "lib/WebviewProvider";
-import { getLanguageServerOptions } from "utils/setup";
+import { setupServer } from "utils/setup";
 import * as vscode from "vscode";
-import { LanguageServerMessage } from "types";
-import {
-    LanguageClient,
-    LanguageClientOptions,
-    ServerOptions,
-} from "vscode-languageclient/node";
-import emitter from "utils/emitter";
 
-async function createLanguageClient(args: {
-    languageServerOptions: ServerOptions;
-}) {
-    const languageClientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: "file" }],
-    };
-    const languageClient = new LanguageClient(
-        "mentat-server",
-        "mentat-server",
-        args.languageServerOptions,
-        languageClientOptions
-    );
-
-    languageClient.onNotification(
-        "mentat/serverMessage",
-        async (message: LanguageServerMessage) => {
-            console.log("Emitting serverMessage");
-            emitter.emit("mentat/serverMessage", message);
-        }
-    );
-    languageClient.onNotification(
-        "mentat/inputRequest",
-        async (message: LanguageServerMessage) => {
-            emitter.emit("mentat/inputRequest", message);
-        }
-    );
-
-    await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification },
-        async (progress) => {
-            progress.report({ message: "Mentat: Starting Language Client..." });
-            await languageClient.start();
-        }
-    );
-
-    return languageClient;
-}
-
-async function startServer(context: vscode.ExtensionContext) {
+async function activateClient(context: vscode.ExtensionContext) {
     try {
-        const languageServerOptions = await getLanguageServerOptions();
-        const languageClient = await createLanguageClient({
-            languageServerOptions,
-        });
-
+        const server = await setupServer();
         const chatWebviewProvider = new WebviewProvider(
             context.extensionUri,
-            languageClient
+            server
         );
         context.subscriptions.push(
             vscode.window.registerWebviewViewProvider(
-                "MentatChat",
+                "Mentat",
                 chatWebviewProvider,
                 {
                     webviewOptions: { retainContextWhenHidden: true },
@@ -71,7 +22,7 @@ async function startServer(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage(
             `${
                 (e as any).message
-            }\nEnsure that python3.10 is available and try installing Mentat manually: https://github.com/AbanteAI/mentat`,
+            }\nEnsure that python 3.10 or higher is available on your machine.`,
             "Close"
         );
         throw e;
@@ -79,7 +30,7 @@ async function startServer(context: vscode.ExtensionContext) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    startServer(context);
+    activateClient(context);
 }
 
 export function deactivate() {

@@ -27,7 +27,7 @@ setup(
     entry_points={
         "console_scripts": [
             "mentat=mentat.terminal.client:run_cli",
-            "mentat-server=mentat.language_server:main",
+            "mentat-server=mentat.server.mentat_server:main",
             "mentat-daemon=mentat.daemon:main",
         ],
     },

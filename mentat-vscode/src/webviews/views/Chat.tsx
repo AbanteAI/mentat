@@ -1,99 +1,108 @@
-import { ReactNode, useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react";
 
-import { ChatMessage, StreamMessage, LanguageServerMessage } from "../../types"
-import { vscode } from "../utils/vscode"
-import ChatHistory from "../components/ChatHistory"
+import { Message, StreamMessage } from "../../types";
 
-import ChatInput from "../components/ChatInput"
+import ChatInput from "../components/ChatInput";
+import ChatMessage from "webviews/components/ChatMessage";
 
-function Chat() {
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
-  const [inputRequestId, setInputRequestId] = useState<string | null>(null)
+export default function Chat() {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [inputRequestId, setInputRequestId] = useState<string | null>(null);
+    const chatLogRef = useRef<HTMLDivElement>(null);
 
-  function handleStreamMessage(message: StreamMessage) {
-    const messageEnd: string =
-      message.extra?.end === undefined ? "\n" : message.extra?.end
-    const messageColor: string =
-      message.extra?.color === undefined ? null : message.extra?.color
-    const messageStyle: string =
-      message.extra?.style === undefined ? null : message.extra?.style
-
-    setChatMessages((prevChatMessages) => {
-      // Create first message
-      if (prevChatMessages.length === 0) {
-        const newChatMessage: ChatMessage = {
-          id: 0,
-          content: message.data + messageEnd,
-          source: message.source,
-          color: messageColor,
-          style: messageStyle,
+    const scrollToBottom = () => {
+        if (chatLogRef.current) {
+            chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;
         }
-        return [newChatMessage]
-      }
-      // Update or Create message
-      else {
-        const lastIndex = prevChatMessages.length - 1
-        const lastMessage = { ...prevChatMessages[lastIndex] }
-        // Update last message content if the last message is from the server
-        if (lastMessage.source === "server") {
-          lastMessage.content = lastMessage.content + message.data + messageEnd
-          const updatedChatMessages = [...prevChatMessages]
-          updatedChatMessages[lastIndex] = lastMessage
-          return updatedChatMessages
-        }
-        // Create new message if the last message is from the client
-        else {
-          const newChatMessage: ChatMessage = {
-            id: lastMessage.id + 1,
-            content: message.data + messageEnd,
-            source: message.source,
-            color: messageColor,
-            style: messageStyle,
-          }
-          return [...prevChatMessages, newChatMessage]
-        }
-      }
-    })
-  }
+    };
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
 
-  function handleLanguageServerMessage(
-    event: MessageEvent<LanguageServerMessage>
-  ) {
-    const message = event.data
-    console.log(`Webview got message from LanguageServer: ${message}`)
-
-    switch (message.method) {
-      case "mentat/serverMessage":
-        handleStreamMessage(message.data)
-        break
-      case "mentat/inputRequest":
-        setInputRequestId(message.data.id)
-        break
-      default:
-        console.log(`Unhandled LanguageServerMessage method ${message.method}`)
-        break
+    function addMessage(message: Message) {
+        setMessages((prevMessages) => {
+            // If the last message was from the same source, merge the messages
+            // TODO: Merge same color contents as well (so that additions and removals don't add hundreds of spans)
+            const lastMessage = prevMessages.at(-1);
+            if (message.source === lastMessage?.source) {
+                return [
+                    ...prevMessages.slice(0, -1),
+                    {
+                        ...lastMessage,
+                        content: [...lastMessage.content, ...message.content],
+                    },
+                ];
+            } else {
+                return [...prevMessages, message];
+            }
+        });
     }
-  }
 
-  useEffect(() => {
-    window.addEventListener("message", handleLanguageServerMessage)
-    return () => {
-      window.removeEventListener("message", handleLanguageServerMessage)
+    function handleDefaultMessage(message: StreamMessage) {
+        const messageEnd: string =
+            message.extra?.end === undefined ? "\n" : message.extra?.end;
+        const messageColor: string =
+            message.extra?.color === undefined
+                ? undefined
+                : message.extra?.color;
+        // TODO: Use style (make a map somewhere like we have in the client)
+        const messageStyle: string =
+            message.extra?.style === undefined
+                ? undefined
+                : message.extra?.style;
+
+        addMessage({
+            content: [{ text: message.data + messageEnd, color: messageColor }],
+            source: "mentat",
+        });
     }
-  }, [])
 
-  return (
-    <div className="h-screen">
-      <div className="flex flex-col justify-between h-full">
-        <ChatHistory chatMessages={chatMessages} />
-        <ChatInput
-          chatMessages={chatMessages}
-          setChatMessages={setChatMessages}
-          inputRequestId={inputRequestId}
-        />
-      </div>
-    </div>
-  )
+    function handleServerMessage(event: MessageEvent<StreamMessage>) {
+        const message = event.data;
+        switch (message.channel) {
+            case "default": {
+                handleDefaultMessage(message);
+                break;
+            }
+            default: {
+                console.error(`Unknown message channel ${message.channel}.`);
+                break;
+            }
+        }
+    }
+
+    useEffect(() => {
+        window.addEventListener("message", handleServerMessage);
+        return () => {
+            window.removeEventListener("message", handleServerMessage);
+        };
+    }, []);
+
+    function onUserInput(input: string) {
+        addMessage({
+            content: [{ text: input, color: undefined }],
+            source: "user",
+        });
+    }
+
+    // Using index as key should be fine since we never insert, delete, or re-order chat messages
+    const chatMessageElements = messages.map((message, index) => (
+        <React.Fragment key={index}>{ChatMessage({ message })}</React.Fragment>
+    ));
+    return (
+        <div className="h-screen">
+            <div className="flex flex-col justify-between h-full">
+                <div
+                    ref={chatLogRef}
+                    className="flex flex-col gap-2 overflow-y-scroll hide-scrollbar"
+                >
+                    {chatMessageElements}
+                </div>
+                <ChatInput
+                    onUserInput={onUserInput}
+                    inputRequestId={inputRequestId}
+                />
+            </div>
+        </div>
+    );
 }
-
-export default Chat

@@ -7,21 +7,14 @@ type StreamMessage = {
     created_at: string;
 };
 
-type ChatMessage = {
-    id: number;
-    content: string;
-    source: "client" | "server";
-    color: string | null;
-    style: string | null;
+type MessageContent = {
+    text: string;
+    color: string | undefined;
 };
 
-type LanguageServerMessage = {
-    type: "notification" | "request" | "command";
-    method:
-        | "mentat/serverMessage"
-        | "mentat/clientMessage"
-        | "mentat/inputRequest";
-    data: any;
+type Message = {
+    content: MessageContent[];
+    source: "user" | "mentat";
 };
 
-export { ChatMessage, StreamMessage, LanguageServerMessage };
+export { Message, MessageContent, StreamMessage };

@@ -7,7 +7,6 @@ import * as path from "path";
 import * as semver from "semver";
 import * as util from "util";
 import * as vscode from "vscode";
-import { ServerOptions, StreamInfo } from "vscode-languageclient/node";
 
 import { waitForPortToBeInUse } from "./tcp";
 
@@ -79,9 +78,15 @@ async function installMentat(
     return binFolder;
 }
 
-async function createMentatProcess(binFolder: string) {
-    const mentatExecutable: string = `${binFolder} mentat-server`;
-    const server = spawn(mentatExecutable);
+async function startMentat(binFolder: string) {
+    const mentatExecutable: string = path.join(binFolder, "mentat-server");
+    const cwd = vscode.workspace.workspaceFolders?.at(0)?.uri?.path;
+    if (cwd === undefined) {
+        throw new Error("Unable to determine workspace directory.");
+    }
+    // TODO: Pass config options to mentat here
+    // TODO: I don't think this will work on Windows (check to make sure)
+    const server = spawn(mentatExecutable, [cwd]);
 
     server.stdout.on("data", (data: any) => {
         console.log(`Server Output: ${data}`);
@@ -92,27 +97,10 @@ async function createMentatProcess(binFolder: string) {
     server.on("close", (code: number) => {
         console.log(`Server exited with code ${code}`);
     });
+    // TODO: pass the subprocess up to kill?
 }
 
-async function createMentatSocket(args: {
-    host: string;
-    port: number;
-}): Promise<ServerOptions> {
-    const socket = net.connect({
-        host: args.host,
-        port: args.port,
-    });
-    const streamInfo: StreamInfo = {
-        reader: socket,
-        writer: socket,
-    };
-
-    return () => {
-        return Promise.resolve(streamInfo);
-    };
-}
-
-async function getLanguageServerOptions(): Promise<ServerOptions> {
+export async function setupServer(): Promise<net.Socket> {
     const serverHost: string = "127.0.0.1";
     const serverPort: number = 7798;
 
@@ -122,16 +110,13 @@ async function getLanguageServerOptions(): Promise<ServerOptions> {
             return await installMentat(progress);
         }
     );
-    await createMentatProcess(binFolder);
+    await startMentat(binFolder);
     // TODO: What does this do??? Do we need it???
     await waitForPortToBeInUse({ port: serverPort, timeout: 5000 });
 
-    const serverOptions = await createMentatSocket({
+    const socket = net.connect({
         host: serverHost,
         port: serverPort,
     });
-
-    return serverOptions;
+    return socket;
 }
-
-export { installMentat, getLanguageServerOptions };
