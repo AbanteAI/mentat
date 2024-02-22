@@ -26,7 +26,6 @@ from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
 from mentat.errors import MentatError, ReturnToUser, SessionExit, UserError
-from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
 from mentat.revisor.revisor import revise_edits
@@ -69,8 +68,6 @@ class Session:
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
-        git_root = get_git_root_for_path(cwd, raise_error=False)
-
         llm_api_handler = LlmApiHandler()
 
         stream = SessionStream()
@@ -79,7 +76,7 @@ class Session:
 
         cost_tracker = CostTracker()
 
-        code_context = CodeContext(stream, git_root, diff, pr_diff, ignore_paths)
+        code_context = CodeContext(stream, cwd, diff, pr_diff, ignore_paths)
 
         code_file_manager = CodeFileManager()
 
@@ -116,11 +113,7 @@ class Session:
         config.send_errors_to_stream()
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)
-        if (
-            code_context.diff_context is not None
-            and len(code_context.include_files) == 0
-            and (diff or pr_diff)
-        ):
+        if len(code_context.include_files) == 0 and (diff or pr_diff):
             for file in code_context.diff_context.diff_files():
                 code_context.include(file)
         if config.sampler:

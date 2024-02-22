@@ -68,7 +68,8 @@ def test_diff_context_default(temp_testbed, git_history, mock_session_context):
 
     # DiffContext.__init__() (default): active code vs last commit
     diff_context = DiffContext(
-        mock_session_context.stream, mock_session_context.code_context.git_root
+        mock_session_context.stream,
+        temp_testbed,
     )
     assert diff_context.target == "HEAD"
     assert diff_context.name == "HEAD (last commit)"
@@ -99,7 +100,7 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
     ).strip()
     diff_context = DiffContext(
         mock_session_context.stream,
-        mock_session_context.code_context.git_root,
+        temp_testbed,
         diff=last_commit,
     )
     assert diff_context.target == last_commit
@@ -119,7 +120,7 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
 async def test_diff_context_branch(temp_testbed, git_history, mock_session_context):
     diff_context = DiffContext(
         mock_session_context.stream,
-        mock_session_context.code_context.git_root,
+        temp_testbed,
         diff="test_branch",
     )
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
@@ -142,7 +143,7 @@ async def test_diff_context_branch(temp_testbed, git_history, mock_session_conte
 async def test_diff_context_relative(temp_testbed, git_history, mock_session_context):
     diff_context = DiffContext(
         mock_session_context.stream,
-        mock_session_context.code_context.git_root,
+        temp_testbed,
         diff="HEAD~2",
     )
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
@@ -168,7 +169,7 @@ async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
     subprocess.run(["git", "checkout", "test_branch"], cwd=temp_testbed)
     diff_context = DiffContext(
         mock_session_context.stream,
-        mock_session_context.code_context.git_root,
+        temp_testbed,
         pr_diff="master",
     )
 

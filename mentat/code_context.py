@@ -53,21 +53,16 @@ class CodeContext:
     def __init__(
         self,
         stream: SessionStream,
-        git_root: Optional[Path] = None,
+        cwd: Path,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
         ignore_patterns: Iterable[Path | str] = [],
     ):
-        self.git_root = git_root
         self.diff = diff
         self.pr_diff = pr_diff
         self.ignore_patterns = set(Path(p) for p in ignore_patterns)
 
-        self.diff_context = None
-        if self.git_root:
-            self.diff_context = DiffContext(
-                stream, self.git_root, self.diff, self.pr_diff
-            )
+        self.diff_context = DiffContext(stream, cwd, self.diff, self.pr_diff)
 
         self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
@@ -79,9 +74,7 @@ class CodeContext:
         """
         ctx = SESSION_CONTEXT.get()
 
-        diff_context_display = None
-        if self.diff_context and self.diff_context.name:
-            diff_context_display = self.diff_context.get_display_context()
+        diff_context_display = self.diff_context.get_display_context()
 
         features = get_consolidated_feature_refs(
             [
@@ -91,12 +84,9 @@ class CodeContext:
             ]
         )
         auto_features = get_consolidated_feature_refs(self.auto_features)
-        if self.diff_context:
-            git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
-            git_untracked_paths = [str(p) for p in self.diff_context.untracked_files()]
-        else:
-            git_diff_paths = []
-            git_untracked_paths = []
+        git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
+        git_untracked_paths = [str(p) for p in self.diff_context.untracked_files()]
+
         messages = ctx.conversation.get_messages()
         code_message = get_code_message_from_features(
             [
@@ -151,17 +141,17 @@ class CodeContext:
 
         # Setup code message metadata
         code_message = list[str]()
-        if self.diff_context:
-            # Since there is no way of knowing when the git diff changes,
-            # we just refresh the cache every time get_code_message is called
-            self.diff_context.refresh()
-            if self.diff_context.diff_files():
-                code_message += [
-                    "Diff References:",
-                    f' "-" = {self.diff_context.name}',
-                    ' "+" = Active Changes',
-                    "",
-                ]
+
+        # Since there is no way of knowing when the git diff changes,
+        # we just refresh the cache every time get_code_message is called
+        self.diff_context.refresh()
+        if self.diff_context.diff_files():
+            code_message += [
+                "Diff References:",
+                f' "-" = {self.diff_context.name}',
+                ' "+" = Active Changes',
+                "",
+            ]
 
         code_message += ["Code Files:\n"]
         meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)

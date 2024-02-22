@@ -210,7 +210,7 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
 
     code_context = CodeContext(
         mock_session_context.stream,
-        mock_session_context.code_context.git_root,
+        mock_session_context.code_context.diff_context.git_root,
     )
     code_context.include("file_1.py")
     mock_session_context.config.auto_context_tokens = 8000
