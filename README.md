@@ -79,6 +79,10 @@ List the files you would like Mentat to read and edit as arguments. Mentat will 
 
 For more information on commands, configuration or using other models see [the documentation](https://docs.mentat.ai/en/latest/user/guides.html).
 
+## MacOS Visual Artifacts
+
+Mentat uses [Textual](https://textual.textualize.io/). On MacOS, Textual may not render the TUI correctly; if you run into this problem, use the fix [here](https://textual.textualize.io/FAQ/#why-doesnt-textual-look-good-on-macos).
+
 # 👩‍💻 Roadmap and Contributing
 
 We welcome contributions! To coordinate, make sure to join the Discord server: [![Discord Follow](https://dcbadge.vercel.app/api/server/XbPdxAMJte?style=flat)](https://discord.gg/zbvd9qx9Pb)

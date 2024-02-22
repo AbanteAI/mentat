@@ -23,11 +23,6 @@ Commit all unstaged and staged changes to git.
 
 Show or set a config option's value.
 
-/context
---------
-
-Show all files currently in context.
-
 /exclude <path|glob pattern> ...
 --------------------------------
 

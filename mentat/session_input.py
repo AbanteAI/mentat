@@ -19,9 +19,7 @@ async def _get_input_request(**kwargs: Any) -> StreamMessage:
     return response
 
 
-async def collect_user_input(
-    plain: bool = False, command_autocomplete: bool = False
-) -> StreamMessage:
+async def collect_user_input(command_autocomplete: bool = False) -> StreamMessage:
     """
     Listens for user input on a new channel
 
@@ -30,9 +28,7 @@ async def collect_user_input(
     close the channel after receiving the input
     """
 
-    response = await _get_input_request(
-        plain=plain, command_autocomplete=command_autocomplete
-    )
+    response = await _get_input_request(command_autocomplete=command_autocomplete)
     # Quit on q
     if isinstance(response.data, str) and response.data.strip() == "q":
         raise SessionExit
@@ -47,7 +43,7 @@ async def ask_yes_no(default_yes: bool) -> bool:
     while True:
         # TODO: combine this into a single message (include content)
         stream.send("(Y/n)" if default_yes else "(y/N)")
-        response = await collect_user_input(plain=True)
+        response = await collect_user_input()
         content = response.data.strip().lower()
         if content in ["y", "n", ""]:
             break
@@ -55,8 +51,7 @@ async def ask_yes_no(default_yes: bool) -> bool:
 
 
 async def collect_input_with_commands() -> StreamMessage:
-    session_context = SESSION_CONTEXT.get()
-    stream = session_context.stream
+    ctx = SESSION_CONTEXT.get()
 
     response = await collect_user_input(command_autocomplete=True)
     while isinstance(response.data, str) and response.data.startswith("/"):
@@ -65,8 +60,9 @@ async def collect_input_with_commands() -> StreamMessage:
             arguments = shlex.split(" ".join(response.data.split(" ")[1:]))
             command = Command.create_command(response.data[1:].split(" ")[0])
             await command.apply(*arguments)
+            ctx.code_context.refresh_context_display()
         except ValueError as e:
-            stream.send(f"Error processing command arguments: {e}", style="error")
+            ctx.stream.send(f"Error processing command arguments: {e}", style="error")
         response = await collect_user_input(command_autocomplete=True)
     return response
 

@@ -6,7 +6,6 @@ import pytest
 
 from mentat.code_feature import CodeFeature
 from mentat.command.command import Command, InvalidCommand
-from mentat.command.commands.context import ContextCommand
 from mentat.command.commands.help import HelpCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
@@ -276,15 +275,10 @@ async def test_search_command(
     await session.stream.recv(channel="client_exit")
 
     rel_path = mock_feature.path.relative_to(Path(temp_testbed))
-    assert str(rel_path) in session.stream.messages[-6].data
+    assert str(rel_path) in "\n".join(
+        str(message.data) for message in session.stream.messages
+    )
     assert "cost" in session.stream.messages[-2].data
-
-
-@pytest.mark.asyncio
-async def test_context_command(temp_testbed, mock_call_llm_api):
-    command = Command.create_command("context")
-    await command.apply()
-    assert isinstance(command, ContextCommand)
 
 
 @pytest.mark.asyncio

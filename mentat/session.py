@@ -2,14 +2,19 @@ import asyncio
 import logging
 import os
 import traceback
-from asyncio import CancelledError, Task
+from asyncio import CancelledError, Event, Task
 from pathlib import Path
 from typing import Any, Coroutine, List, Optional, Set
 from uuid import uuid4
 
 import attr
 import sentry_sdk
-from openai import APITimeoutError, BadRequestError, RateLimitError
+from openai import (
+    APITimeoutError,
+    BadRequestError,
+    PermissionDeniedError,
+    RateLimitError,
+)
 
 from mentat.agent_handler import AgentHandler
 from mentat.auto_completer import AutoCompleter
@@ -30,7 +35,8 @@ from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_input import collect_input_with_commands
 from mentat.session_stream import SessionStream
-from mentat.utils import check_version, mentat_dir_path
+from mentat.splash_messages import check_version
+from mentat.utils import mentat_dir_path
 from mentat.vision.vision_manager import VisionManager
 
 
@@ -52,7 +58,7 @@ class Session:
         config: Config = Config(),
     ):
         # All errors thrown here need to be caught here
-        self.stopped = False
+        self.stopped = Event()
 
         if not mentat_dir_path.exists():
             os.mkdir(mentat_dir_path)
@@ -145,12 +151,12 @@ class Session:
             ensure_ctags_installed()
 
         session_context.llm_api_handler.initialize_client()
-        code_context.display_context()
         await conversation.display_token_count()
 
         stream.send("Type 'q' or use Ctrl-C to quit at any time.")
         need_user_request = True
         while True:
+            code_context.refresh_context_display()
             try:
                 if need_user_request:
                     # Normally, the code_file_manager pushes the edits; but when agent mode is on, we want all
@@ -205,11 +211,17 @@ class Session:
                     need_user_request = True
                 stream.send(bool(file_edits), channel="edits_complete")
             except SessionExit:
+                stream.send(None, channel="client_exit")
                 break
             except ReturnToUser:
                 need_user_request = True
                 continue
-            except (APITimeoutError, RateLimitError, BadRequestError) as e:
+            except (
+                APITimeoutError,
+                RateLimitError,
+                BadRequestError,
+                PermissionDeniedError,
+            ) as e:
                 stream.send(f"Error accessing OpenAI API: {e.message}", style="error")
                 break
 
@@ -252,6 +264,7 @@ class Session:
             except Exception as e:
                 # All unhandled exceptions end up here
                 error = f"Unhandled Exception: {traceback.format_exc()}"
+                logging.error(error)
                 # Helps us handle errors in tests
                 if is_test_environment():
                     print(error)
@@ -268,9 +281,9 @@ class Session:
         self._create_task(self.listen_for_completion_requests())
 
     async def _stop(self):
-        if self.stopped:
+        if self.stopped.is_set():
             return
-        self.stopped = True
+        self.stopped.set()
 
         session_context = SESSION_CONTEXT.get()
         cost_tracker = session_context.cost_tracker
@@ -289,6 +302,6 @@ class Session:
         except CancelledError:
             pass
 
-        self.stream.send(None, channel="client_exit")
+        self.stream.send(None, channel="session_stopped")
         await self.stream.join()
         self.stream.stop()

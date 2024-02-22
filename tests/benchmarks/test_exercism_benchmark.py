@@ -107,8 +107,8 @@ def test_run_exercism_benchmark(mock_pool, mock_webbrowser, mock_call_llm_api):
     assert os.getcwd() == cwd
     with open("results.json") as f:
         results = json.load(f)
-    summary = results["summary"]
-    assert summary["reason"] == "logic: 1  (1/2)"
-    assert summary["cost"] == "$0 "
-    assert summary["iterations"] == "1: 1, 2: 1 "
-    assert summary["passed"] == "50.00% "
+    assert len(results["results"]) == 2
+    with open("summary/results.json") as f:
+        summary = json.load(f)
+    summary = summary["summary"]
+    assert summary["passed"] == [50.0, 2]

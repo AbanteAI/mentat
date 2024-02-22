@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 from mentat.edit_history import EditHistory
 from mentat.errors import MentatError
@@ -66,6 +66,11 @@ class CodeFileManager:
         os.rename(abs_path, new_abs_path)
         if new_abs_path not in code_context.include_files:
             code_context.include(new_abs_path)
+
+    def write_to_file(self, abs_path: Path, new_lines: List[str]):
+        with open(abs_path, "w") as f:
+            f.write("\n".join(new_lines))
+        self.file_lines[abs_path] = new_lines
 
     # Mainly does checks on if file is in context, file exists, file is unchanged, etc.
     async def write_changes_to_files(
@@ -135,8 +140,7 @@ class CodeFileManager:
                 file_path = file_edit.rename_file_path or file_edit.file_path
                 # We use the current lines rather than the stored lines for undo
                 file_edit.previous_file_lines = self.read_file(file_path)
-                with open(file_path, "w") as f:
-                    f.write("\n".join(new_lines))
+                self.write_to_file(file_path, new_lines)
             applied_edits.append(file_edit)
 
         for applied_edit in applied_edits:

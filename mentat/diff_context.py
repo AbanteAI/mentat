@@ -10,6 +10,7 @@ from mentat.git_handler import (
     get_diff_for_file,
     get_files_in_diff,
     get_treeish_metadata,
+    get_untracked_files,
 )
 from mentat.interval import Interval
 from mentat.session_context import SESSION_CONTEXT
@@ -153,26 +154,31 @@ class DiffContext:
         self.name = name
 
     _diff_files: List[Path] | None = None
+    _untracked_files: List[Path] | None = None
 
     def diff_files(self) -> List[Path]:
-        session_context = SESSION_CONTEXT.get()
-
         if self._diff_files is None:
-            if self.target == "HEAD" and not check_head_exists():
-                self._diff_files = []  # A new repo without any commits
-            else:
-                self._diff_files = [
-                    (session_context.cwd / f).resolve()
-                    for f in get_files_in_diff(self.target)
-                ]
-        return self._diff_files
+            self.refresh()
+        return self._diff_files  # pyright: ignore
 
-    def clear_cache(self):
-        """
-        Since there is no way of knowing when the git diff changes,
-        we just clear the cache every time get_code_message is called
-        """
-        self._diff_files = None
+    def untracked_files(self) -> List[Path]:
+        if self._untracked_files is None:
+            self.refresh()
+        return self._untracked_files  # pyright: ignore
+
+    def refresh(self):
+        ctx = SESSION_CONTEXT.get()
+
+        if self.target == "HEAD" and not check_head_exists():
+            self._diff_files = []  # A new repo without any commits
+            self._untracked_files = []
+        else:
+            self._diff_files = [
+                (ctx.cwd / f).resolve() for f in get_files_in_diff(self.target)
+            ]
+            self._untracked_files = [
+                (ctx.cwd / f).resolve() for f in get_untracked_files(ctx.cwd)
+            ]
 
     def get_annotations(self, rel_path: Path) -> list[DiffAnnotation]:
         diff = get_diff_for_file(self.target, rel_path)

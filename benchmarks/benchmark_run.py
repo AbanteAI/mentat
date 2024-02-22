@@ -1,22 +1,27 @@
 import json
 import os
 import webbrowser
-from typing import Tuple
+from pathlib import Path
+from typing import Optional, Tuple
 
 import attr
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from benchmarks.benchmark_result import BenchmarkResult
+from benchmarks.benchmark_run_summary import BenchmarkRunSummary
 
 
-class BenchmarkResultSummary:
-    def __init__(self, results: list[BenchmarkResult]):
+class BenchmarkRun:
+    def __init__(
+        self,
+        results: list[BenchmarkResult],
+        metadata: Optional[dict] = None,
+    ):
         self.results = results
+        self.metadata = metadata or {}
         self.results_map = {result.name: result for result in results}
         self.result_groups = self.group_results()
-        self.summary: dict[str, Tuple[int | float | str, float]] = (
-            self.aggregate_results()
-        )
+        self.summary: BenchmarkRunSummary = self.aggregate_results()
 
     def group_results(self) -> dict[str, list[BenchmarkResult]]:
         groups = {}
@@ -29,8 +34,8 @@ class BenchmarkResultSummary:
                 groups[result.family].append(result)
         return groups
 
-    def aggregate_results(self) -> dict[str, Tuple[int | float | str, float]]:
-        summary = {}
+    def aggregate_results(self) -> BenchmarkRunSummary:
+        summary: dict[str, Tuple[int | float | str, float]] = {}
         for field in attr.fields(BenchmarkResult):
             if "aggregation" in field.metadata:
                 name = field.name
@@ -55,49 +60,7 @@ class BenchmarkResultSummary:
                         summary[name] = (histogram, len(values))
                     elif aggregation_type == "none":
                         summary[name] = (values, len(values))
-        return summary
-
-    def formatted_summary(self) -> dict[str, str]:
-        formatted = {}
-        total = len(self.results)
-        for field in attr.fields(BenchmarkResult):
-            if "aggregation" in field.metadata:
-                name = field.name
-                value, total_set = self.summary[name]
-                if total_set == 0:
-                    continue
-                percent_set_display = ""
-                if total_set < total:
-                    percent_set_display = f" ({total_set}/{total})"
-                formatted_value = ""
-                aggregation_type = field.metadata["aggregation"]
-                if aggregation_type == "average":
-                    formatted_name = f"{name} (avg)"
-                else:
-                    formatted_name = name
-
-                if isinstance(value, float):
-                    formatted_value = f"{value:.2f}"
-                elif isinstance(value, dict):
-                    formatted_value = ", ".join(f"{k}: {v}" for k, v in value.items())
-                else:
-                    formatted_value = str(value)
-
-                # Add units based on aggregation type
-                if aggregation_type == "sum" and "cost" in formatted_name:
-                    formatted[formatted_name] = (
-                        f"${formatted_value} {percent_set_display}"
-                    )
-                elif aggregation_type == "percent":
-                    formatted[formatted_name] = (
-                        f"{formatted_value}% {percent_set_display}"
-                    )
-                else:
-                    formatted[formatted_name] = (
-                        f"{formatted_value} {percent_set_display}"
-                    )
-
-        return formatted
+        return BenchmarkRunSummary(summary, self.metadata)
 
     def formatted_results(self) -> list[dict[str, str]]:
         formatted = {}
@@ -116,31 +79,65 @@ class BenchmarkResultSummary:
             formatted[result.name] = formatted_result
         return formatted
 
-    def summary_string(self) -> str:
-        return ", ".join(
-            f"{name}: {value}" for name, value in self.formatted_summary().items()
-        )
-
-    def render_results(self):
+    def make_html_report(self, output_path: Path = Path("results.html")):
         env = Environment(
             loader=FileSystemLoader(
-                os.path.join(os.path.dirname(__file__), "../mentat/resources/templates")
+                [
+                    os.path.join(
+                        os.path.dirname(__file__), "../mentat/resources/templates"
+                    ),
+                    os.path.join(os.path.dirname(__file__), "resources/templates"),
+                ]
             ),
             autoescape=select_autoescape(["html", "xml"]),
         )
         template = env.get_template("benchmark.jinja")
-        rendered_html = template.render(summary=self)
+        rendered_html = template.render(benchmark_run=self)
 
-        with open("results.html", "w") as f:
+        with open(output_path, "w") as f:
             f.write(rendered_html)
+
+    def render_results(self):
+        self.make_html_report()
+
         webbrowser.open("file://" + os.path.realpath("results.html"))
 
     def to_json(self) -> str:
         return json.dumps(
             {
                 "results": [result.to_dict() for result in self.results],
-                "summary": self.formatted_summary(),
-                "summary_string": self.summary_string(),
+                "metadata": self.metadata,
             },
             indent=4,
         )
+
+    def save(
+        self,
+        folder: Path = Path("."),
+        name: str = "results.json",
+        summary_dir: str = "summary",
+    ):
+        folder.mkdir(parents=True, exist_ok=True)
+        summary_dir = folder / summary_dir
+        summary_dir.mkdir(parents=True, exist_ok=True)
+        file_path = folder / name
+        summary_path = summary_dir / name
+        with open(file_path, "w") as f:
+            f.write(self.to_json())
+        with open(summary_path, "w") as f:
+            f.write(self.summary.to_json())
+
+    @classmethod
+    def load_json(cls, json_str: str) -> "BenchmarkRun":
+        data = json.loads(json_str)
+        results = [BenchmarkResult.from_dict(result) for result in data["results"]]
+        metadata = data.get("metadata")
+        return cls(results, metadata=metadata)
+
+    @classmethod
+    def load_file(cls, file: Path) -> "BenchmarkRun":
+        file_name = os.path.basename(file)
+        with open(file, "r") as f:
+            run = cls.load_json(f.read())
+        run.metadata["file"] = file_name  # Used for links
+        return run

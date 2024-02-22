@@ -8,7 +8,13 @@ import sys
 
 # AXJ, Version
 sys.path.insert(0, os.path.abspath("../.."))
-from mentat import __version__  # noqa: E402
+
+with open(
+    os.path.join(os.path.dirname(__file__), "..", "..", "mentat/VERSION"),
+    "r",
+    encoding="utf-8",
+) as f:
+    VERSION = f.read().strip()
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -16,7 +22,7 @@ from mentat import __version__  # noqa: E402
 project = "Mentat"
 copyright = "2024, Abante AI"
 author = "Multiple Authors"
-release = __version__
+release = VERSION
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

@@ -14,6 +14,7 @@ class BenchmarkResult:
     family: Optional[str] = attr.ib(default=None)
     cost: Optional[float] = attr.ib(default=None, metadata={"aggregation": "sum"})
     tokens: Optional[int] = attr.ib(default=None, metadata={"aggregation": "average"})
+    count: int = attr.ib(default=1, metadata={"aggregation": "sum"})
     iterations: Optional[int] = attr.ib(
         default=None, metadata={"aggregation": "histogram"}
     )
@@ -88,5 +89,9 @@ class BenchmarkResult:
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_json(cls, json_str: str) -> BenchmarkResult:
-        return cls(**json.loads(json_str))
+    def from_dict(cls, d) -> BenchmarkResult:
+        return cls(**d)
+
+    @classmethod
+    def load_json(cls, json_str):
+        return cls.from_dict(json.loads(json_str))

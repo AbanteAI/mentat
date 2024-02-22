@@ -43,7 +43,7 @@ class AbstractExerciseRunner:
         with open("results.txt", "r") as f:
             for line in f.readlines():
                 if f'"{self.name}"' in line:
-                    return BenchmarkResult.from_json(line)
+                    return BenchmarkResult.load_json(line)
 
     def get_error_message(self):
         with open(self.test_output_file, "r") as f:

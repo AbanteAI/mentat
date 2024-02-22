@@ -44,7 +44,7 @@ async def test_config_creation():
     with open(config_file_name, "w") as project_config_file:
         project_config_file.write(dedent("""\
         {
-            "input_style": [[ "project", "yes" ]]
+            "embedding_model": "project"
         }"""))
 
     mentat.config.user_config_path = Path(str(config_file_name) + "1")
@@ -53,7 +53,7 @@ async def test_config_creation():
         {
             "model": "test",
             "parser": "replacement",
-            "input_style": [[ "user", "yes" ]]
+            "embedding_model": "user"
         }"""))
 
     config = Config.create(Path.cwd(), args)
@@ -63,7 +63,7 @@ async def test_config_creation():
     assert config.maximum_context == 1
     assert type(config.parser) == ReplacementParser
     assert config.auto_context_tokens == 2000
-    assert config.input_style == [["project", "yes"]]
+    assert config.embedding_model == "project"
 
 
 @pytest.mark.asyncio

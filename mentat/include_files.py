@@ -4,13 +4,12 @@ import os
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Any, List, Set
+from typing import List, Set
 
 from mentat.code_feature import CodeFeature
 from mentat.errors import PathValidationError
 from mentat.git_handler import get_git_root_for_path, get_non_gitignored_files
 from mentat.interval import parse_intervals, split_intervals_from_path
-from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import is_file_text_encoded
 
 
@@ -295,41 +294,3 @@ def get_code_features_for_path(
             code_features = set(CodeFeature(p) for p in paths)
 
     return code_features
-
-
-def build_path_tree(files: list[Path], cwd: Path):
-    """Builds a tree of paths from a list of CodeFiles."""
-    tree = dict[str, Any]()
-    for file in files:
-        path = os.path.relpath(file, cwd)
-        parts = Path(path).parts
-        current_level = tree
-        for part in parts:
-            if part not in current_level:
-                current_level[part] = {}
-            current_level = current_level[part]
-    return tree
-
-
-def print_path_tree(
-    tree: dict[str, Any], changed_files: set[Path], cur_path: Path, prefix: str = ""
-):
-    """Prints a tree of paths, with changed files highlighted."""
-    session_context = SESSION_CONTEXT.get()
-    stream = session_context.stream
-
-    keys = list(tree.keys())
-    for i, key in enumerate(sorted(keys)):
-        if i < len(keys) - 1:
-            new_prefix = prefix + "│   "
-            stream.send(f"{prefix}├── ", end="")
-        else:
-            new_prefix = prefix + "    "
-            stream.send(f"{prefix}└── ", end="")
-
-        cur = cur_path / key
-        star = "* " if cur in changed_files else ""
-        color = "green" if star else ("blue" if tree[key] else None)
-        stream.send(f"{star}{key}", color=color)
-        if tree[key]:
-            print_path_tree(tree[key], changed_files, cur, new_prefix)

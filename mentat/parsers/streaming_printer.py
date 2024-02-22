@@ -67,7 +67,7 @@ class StreamingPrinter:
         while not self.shutdown:
             if self.strings_to_print:
                 next_string = self.strings_to_print.popleft()
-                stream.send(next_string[0], end="", flush=True, **next_string[1])
+                stream.send(next_string[0], end="", **next_string[1])
             elif self.finishing:
                 break
             await asyncio.sleep(self.sleep_time())

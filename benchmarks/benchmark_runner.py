@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,10 +14,10 @@ from openai.types.chat.completion_create_params import ResponseFormat
 
 from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.benchmark_result import BenchmarkResult
-from benchmarks.benchmark_result_summary import BenchmarkResultSummary
+from benchmarks.benchmark_run import BenchmarkRun
 from benchmarks.run_sample import run_sample
 from mentat.config import Config
-from mentat.git_handler import get_git_diff
+from mentat.git_handler import get_git_diff, get_mentat_branch, get_mentat_hexsha
 from mentat.llm_api_handler import model_context_size, prompt_tokens
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import setup_repo
@@ -302,12 +303,20 @@ def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1)
     # Summarize results
     print(f"Total cost: {total_cost}")
     with open(results_cache, "r") as f:
-        results = [BenchmarkResult.from_json(line) for line in f.readlines()]
-    summary = BenchmarkResultSummary(results)
-    with open("results.json", "w") as f:
-        f.write(summary.to_json())
+        results = [BenchmarkResult.load_json(line) for line in f.readlines()]
+    benchmark_run = BenchmarkRun(
+        results,
+        metadata={
+            "type": "Sampled",
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "commit": get_mentat_hexsha(),
+            "branch": get_mentat_branch(),
+        },
+    )
+    benchmark_run.save()
+
     results_cache.unlink()  # Delete cache
-    summary.render_results()
+    benchmark_run.render_results()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,58 @@
+Screen {
+    layout: horizontal;
+}
+
+ContentContainer {
+    height: 100%;
+    width: 75%;
+    overflow-y: auto;
+    scrollbar-size-vertical: 1;
+}
+
+PatchedAutoComplete {
+    height: auto;
+    dock: bottom;
+}
+
+PatchedAutoComplete > Input {
+    height: auto;
+}
+
+ContextContainer {
+    border-left: solid $secondary-background;
+    height: 100%;
+    overflow: auto;
+    width: 25%;
+    scrollbar-size: 1 1;
+}
+
+ContextContainer > Tree {
+    width: auto;
+    height: auto;
+    background: transparent;
+}
+
+.autocomplete--main-column {
+
+}
+
+.autocomplete--selected-column {
+
+}
+
+#loading-display {
+    align-horizontal: center;
+    width: 100%;
+}
+
+ContentContainer > RichLog {
+    height: auto;
+    overflow: hidden;
+}
+
+.content-piece {
+    margin: 0;
+    padding: 0;
+    height: auto;
+    width: 100%;
+}

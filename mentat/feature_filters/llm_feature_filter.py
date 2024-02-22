@@ -29,12 +29,10 @@ class LLMFeatureFilter(FeatureFilter):
         max_tokens: int,
         user_prompt: Optional[str] = None,
         expected_edits: Optional[list[str]] = None,
-        loading_multiplier: float = 0.0,
     ):
         self.max_tokens = max_tokens
         self.user_prompt = user_prompt or ""
         self.expected_edits = expected_edits
-        self.loading_multiplier = loading_multiplier
 
     async def filter(
         self,
@@ -46,12 +44,7 @@ class LLMFeatureFilter(FeatureFilter):
         cost_tracker = session_context.cost_tracker
         llm_api_handler = session_context.llm_api_handler
 
-        if self.loading_multiplier:
-            stream.send(
-                "Asking LLM to filter out irrelevant context...",
-                channel="loading",
-                progress=50 * self.loading_multiplier,
-            )
+        stream.send(None, channel="loading")
 
         # Preselect as many features as fit in the context window
         model = config.feature_selection_model
@@ -130,12 +123,7 @@ class LLMFeatureFilter(FeatureFilter):
             model,
             default_timer() - start_time,
         )
-        if self.loading_multiplier:
-            stream.send(
-                "Parsing LLM response...",
-                channel="loading",
-                progress=50 * self.loading_multiplier,
-            )
+        stream.send(None, channel="loading")
 
         # Parse response into features
         try:

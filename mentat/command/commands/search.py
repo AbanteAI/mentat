@@ -58,7 +58,7 @@ class SearchCommand(Command, command_name="search"):
             file_name = feature.rel_path(session_context.cwd)
             stream.send(file_name, color="blue", end="")
             file_interval = feature.interval_string()
-            stream.send(file_interval, color="light_cyan", end="")
+            stream.send(file_interval, color="bright_cyan", end="")
 
             tokens = feature.count_tokens(config.model)
             cumulative_tokens += tokens
@@ -81,7 +81,7 @@ class SearchCommand(Command, command_name="search"):
                     "(Y/n) for more results or to exit search mode.\nResults to"
                     ' include in context: (eg: "1 3 4" or "1-4")'
                 )
-                user_input: str = (await collect_user_input(plain=True)).data.strip()
+                user_input: str = (await collect_user_input()).data.strip()
                 while user_input.lower() not in "yn":
                     to_include = _parse_include_input(user_input, i)
                     if to_include is not None:
@@ -94,9 +94,7 @@ class SearchCommand(Command, command_name="search"):
                             stream.send(f"{rel_path} added to context", style="success")
                     else:
                         stream.send("(Y/n)", style="input")
-                    user_input: str = (
-                        await collect_user_input(plain=True)
-                    ).data.strip()
+                    user_input: str = (await collect_user_input()).data.strip()
                 if user_input.lower() == "n":
                     stream.send("Exiting search mode...", style="input")
                     break

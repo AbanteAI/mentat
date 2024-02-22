@@ -42,13 +42,13 @@
     </head>
     <body>
         <div id="header">
-            {% for field, data in summary.formatted_summary().items() %}
+            {% for field, data in benchmark_run.summary.formatted_summary().items() %}
                 <p>{{ field|capitalize }}: {{ data }}</p>
             {% endfor %}
         </div>
         <div id="container">
             <div id="selector">
-                {% for family, results in summary.result_groups.items() %}
+                {% for family, results in benchmark_run.result_groups.items() %}
                     {% if results|length == 1 %}
                         <button class="{{ results[0].display_color() }}" onclick="window.location.hash='{{ results[0].name }}'">{{ results[0].name }}</button>
                     {% else %}
@@ -60,7 +60,7 @@
                 {% endfor %}
             </div>
             <div id="viewer">
-                {% for test, formatted_result in summary.formatted_results().items() %}
+                {% for test, formatted_result in benchmark_run.formatted_results().items() %}
                     <div id="{{ test }}" class="result-section">
                         {% for display_name, section in formatted_result.items() %}
                         <h1>{{ display_name|capitalize }}</h1>

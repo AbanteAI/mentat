@@ -168,28 +168,13 @@ class Config:
         },
     )
 
-    theme: str | None = attr.field(  # pyright: ignore
-        default="light",
+    theme: str = attr.field(  # pyright: ignore
+        default="dark",
         metadata={
-            "description": (
-                "Theme for interaction possible choices are light, dark or none."
-            )
-        },
-        validator=validators.in_(themes.keys()),  # pyright: ignore
-    )
-
-    # Only settable by config file
-    input_style: list[tuple[str, str]] = attr.field(
-        factory=lambda: [
-            ["", "#9835bd"],
-            ["prompt", "#ffffff bold"],
-            ["continuation", "#ffffff bold"],
-        ],
-        metadata={
-            "description": "Styling information for the terminal.",
-            "no_flag": True,
+            "description": "Theme for interaction possible choices are light or dark.",
             "no_midsession_change": True,
         },
+        validator=validators.in_(themes.keys()),  # pyright: ignore
     )
 
     @classmethod
@@ -248,7 +233,7 @@ class Config:
         for field in attr.fields(Config):
             if field.name in args and field.name != "_errors":
                 value = getattr(args, field.name)
-                if value is not None and value != field.default:
+                if value is not None:
                     try:
                         setattr(self, field.name, value)
                     except (ValueError, TypeError) as e:

@@ -8,14 +8,9 @@ from importlib.abc import Traversable
 from pathlib import Path
 from typing import TYPE_CHECKING, AsyncIterator, List, Literal, Optional, Union
 
-import packaging.version
-import requests
 from jinja2 import Environment, PackageLoader, select_autoescape
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
-
-from mentat import __version__
-from mentat.session_context import SESSION_CONTEXT
 
 if TYPE_CHECKING:
     from mentat.transcripts import Transcript
@@ -93,28 +88,6 @@ def create_viewer(transcripts: list[Transcript]) -> Path:
     with viewer_path.open("w") as viewer_file:
         viewer_file.write(html)
     return viewer_path
-
-
-def check_version():
-    ctx = SESSION_CONTEXT.get()
-
-    try:
-        response = requests.get("https://pypi.org/pypi/mentat/json")
-        data = response.json()
-        latest_version = data["info"]["version"]
-        current_version = __version__
-
-        if packaging.version.parse(current_version) < packaging.version.parse(
-            latest_version
-        ):
-            ctx.stream.send(
-                f"Version v{latest_version} of Mentat is available. If pip was used to"
-                " install Mentat, upgrade with:",
-                style="error",
-            )
-            ctx.stream.send("pip install --upgrade mentat", style="warning")
-    except Exception as err:
-        ctx.stream.send(f"Error checking for most recent version: {err}", style="error")
 
 
 async def add_newline(

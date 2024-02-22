@@ -81,7 +81,6 @@ class Collection:
 async def get_feature_similarity_scores(
     prompt: str,
     features: list[CodeFeature],
-    loading_multiplier: float = 0.0,
 ) -> list[float]:
     """Return the similarity scores for a given prompt and list of features."""
     session_context = SESSION_CONTEXT.get()
@@ -137,12 +136,7 @@ async def get_feature_similarity_scores(
     # Load embeddings
     if embed_texts:
         start_time = default_timer()
-        if loading_multiplier:
-            stream.send(
-                f"Fetching embeddings for {len(embed_texts)} documents",
-                channel="loading",
-                progress=50 * loading_multiplier,
-            )
+        stream.send(None, channel="loading")
         collection.add(embed_checksums, embed_texts)
         cost_tracker.log_api_call_stats(
             sum(embed_tokens),
@@ -152,12 +146,7 @@ async def get_feature_similarity_scores(
         )
 
     # Get similarity scores
-    if loading_multiplier:
-        stream.send(
-            "Matching relevant documents based on embedding similarity",
-            channel="loading",
-            progress=(50 if embed_texts else 100) * loading_multiplier,
-        )
+    stream.send(None, channel="loading")
     _checksums = list(set(checksums))
     scores = collection.query(prompt, _checksums)
     return [scores.get(f.get_checksum(), 0) for f in features]

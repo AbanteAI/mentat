@@ -1,0 +1,17 @@
+.benchmark-link {
+    text-decoration: none;
+    color: #000;
+    padding: 0.5em;
+    display: block;
+    border-bottom: 1px solid #ccc;
+
+}
+
+.benchmark-link:hover {
+    text-decoration: underline;
+    background-color: #eee;
+}
+
+li {
+    list-style-type: none;
+}

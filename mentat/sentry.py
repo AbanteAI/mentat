@@ -4,9 +4,9 @@ from uuid import UUID, uuid4
 
 import sentry_sdk
 
-from mentat import __version__
 from mentat.app_conf import IS_DEV
 from mentat.utils import mentat_dir_path
+from mentat.version import __version__
 
 user_id_path = mentat_dir_path / ".user"
 

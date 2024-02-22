@@ -2,9 +2,9 @@ import os
 from timeit import default_timer as timer
 
 import fire
-import openai
 import tiktoken
 from dotenv import load_dotenv
+from openai import OpenAI
 
 
 def get_tokens_from_message(message: str) -> int:
@@ -12,18 +12,18 @@ def get_tokens_from_message(message: str) -> int:
 
 
 # Set up the OpenAI API
-load_dotenv("mentat/.env")
-openai.api_key = os.getenv("OPENAI_API_KEY")
+load_dotenv()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-def run(prompt, model: str = "gpt-4-0314") -> None:
+def run(prompt, model: str = "gpt-4-1106-preview") -> None:
     messages = [
         {"role": "system", "content": "be a helpful assistant"},
         {"role": "user", "content": prompt},
     ]
 
     start = timer()
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model=model,
         messages=messages,
         temperature=0.5,
@@ -37,7 +37,7 @@ def run(prompt, model: str = "gpt-4-0314") -> None:
             time_to_first_token = timer() - start
             started = True
         delta = chunk.choices[0].delta
-        content = delta.get("content", None)
+        content = delta.content
         if content is not None:
             message.append(content)
             print(content, end="", flush=True)
