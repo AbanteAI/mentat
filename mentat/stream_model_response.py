@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from json import JSONDecodeError
 from pathlib import Path
 from typing import AsyncIterator
 
-from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
+from openai.types.chat import (
+    ChatCompletionChunk,
+    ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+)
+from openai.types.chat.completion_create_params import ResponseFormat
 
 from mentat.llm_api_handler import TOKEN_COUNT_WARNING, count_tokens, prompt_tokens
 from mentat.parsers.parser import ParsedLLMResponse
@@ -15,6 +22,7 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import add_newline
 
 two_step_edit_prompt_filename = Path("two_step_edit_prompt.txt")
+two_step_edit_prompt_list_files_filename = Path("two_step_edit_prompt_list_files.txt")
 
 
 async def stream_model_response(
@@ -84,6 +92,10 @@ def get_two_step_system_prompt() -> str:
     return read_prompt(two_step_edit_prompt_filename)
 
 
+def get_two_step_list_files_prompt() -> str:
+    return read_prompt(two_step_edit_prompt_list_files_filename)
+
+
 async def stream_model_response_two_step(
     messages: list[ChatCompletionMessageParam],
 ) -> ParsedLLMResponse:
@@ -126,6 +138,36 @@ async def stream_model_response_two_step(
     # TODO: make sure to track costs of all calls and log api calls
     stream.send("Streaming... use control-c to interrupt the model at any point\n")
     first_message = await stream_and_parse_llm_response_two_step(response)
+
+    stream.send(
+        "\n\n### Initial Response Complete - parsing edits: ###\n", style="info"
+    )
+
+    list_files_messages: list[ChatCompletionMessageParam] = [
+        ChatCompletionSystemMessageParam(
+            role="system",
+            content=get_two_step_list_files_prompt(),
+        ),
+        ChatCompletionSystemMessageParam(
+            role="system",
+            content=first_message,
+        ),
+    ]
+
+    list_files_response = await llm_api_handler.call_llm_api(
+        list_files_messages,
+        model="gpt-3.5-turbo-0125",  # TODO add config for secondary model
+        stream=False,
+        response_format=ResponseFormat(type="json_object"),
+    )
+
+    try:
+        response_json = json.loads(list_files_response.choices[0].message.content)
+    except JSONDecodeError:
+        stream.send("Error processing model response: Invalid JSON", style="error")
+        # TODO: handle error
+
+    stream.send(f"\n\n{response_json}\n\n")
 
     # async with parser.interrupt_catcher():
     #     parsed_llm_response = await parser.stream_and_parse_llm_response(
