@@ -246,7 +246,8 @@ async def test_clear_command(temp_testbed, mock_collect_user_input, mock_call_ll
     await session.stream.recv(channel="client_exit")
 
     conversation = SESSION_CONTEXT.get().conversation
-    assert len(conversation.get_messages()) == 1
+    messages = await conversation.get_messages()
+    assert len(messages) == 1
 
 
 # TODO: test without git

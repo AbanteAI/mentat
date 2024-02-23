@@ -151,7 +151,7 @@ class Session:
         stream.send("Type 'q' or use Ctrl-C to quit at any time.")
         need_user_request = True
         while True:
-            code_context.refresh_context_display()
+            await code_context.refresh_context_display()
             try:
                 if need_user_request:
                     # Normally, the code_file_manager pushes the edits; but when agent mode is on, we want all

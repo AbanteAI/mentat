@@ -5,8 +5,6 @@ import os
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, TypedDict, Union
 
-from openai.types.chat import ChatCompletionSystemMessageParam
-
 from mentat.code_feature import (
     CodeFeature,
     get_code_message_from_features,
@@ -68,7 +66,7 @@ class CodeContext:
         self.ignore_files: Set[Path] = set()
         self.auto_features: List[CodeFeature] = []
 
-    def refresh_context_display(self):
+    async def refresh_context_display(self):
         """
         Sends a message to the client with the code context. It is called in the main loop.
         """
@@ -87,24 +85,8 @@ class CodeContext:
         git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
         git_untracked_paths = [str(p) for p in self.diff_context.untracked_files()]
 
-        messages = ctx.conversation.get_messages()
-        code_message = get_code_message_from_features(
-            [
-                feature
-                for file_features in self.include_files.values()
-                for feature in file_features
-            ]
-            + self.auto_features
-        )
-        total_tokens = prompt_tokens(
-            messages
-            + [
-                ChatCompletionSystemMessageParam(
-                    role="system", content="\n".join(code_message)
-                )
-            ],
-            ctx.config.model,
-        )
+        messages = await ctx.conversation.get_messages(include_code_message=True)
+        total_tokens = prompt_tokens(messages, ctx.config.model)
 
         total_cost = ctx.cost_tracker.total_cost
 

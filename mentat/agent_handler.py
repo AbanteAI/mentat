@@ -92,7 +92,7 @@ class AgentHandler:
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_file_message
             ),
-        ] + ctx.conversation.get_messages(include_system_prompt=False)
+        ] + await ctx.conversation.get_messages(include_system_prompt=False)
         code_message = await ctx.code_context.get_code_message(
             prompt_tokens=prompt_tokens(messages, model)
         )
