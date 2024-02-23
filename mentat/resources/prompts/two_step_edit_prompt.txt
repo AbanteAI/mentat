@@ -11,4 +11,4 @@ In your response:
     - try not to rewrite long sections of code that are mostly unchanged. Instead attempt to just write the changed lines, if possible to do so clearly
     - our users value brevity. Once you've specified edits in enough detail that an intelligent actor could easily make them, do not elaborate or reiterate how they would look in the code
     - after listing the edits, do not say something like "the code or file should now look like..."
-    - mention full file paths as you see them in context at least once when you suggest edits to that file
+    - for any file you suggest edits to, use the full file path the first time you mention it. After that refer to it with a shorter name as long as it's unambiguous
