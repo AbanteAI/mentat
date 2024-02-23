@@ -9,6 +9,7 @@ from mentat.git_handler import (
     check_head_exists,
     get_diff_for_file,
     get_files_in_diff,
+    get_git_root_for_path,
     get_treeish_metadata,
     get_untracked_files,
 )
@@ -96,10 +97,14 @@ class DiffContext:
     def __init__(
         self,
         stream: SessionStream,
-        git_root: Path,
+        cwd: Path,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
     ):
+        self.git_root = get_git_root_for_path(cwd, raise_error=False)
+        if not self.git_root:
+            return
+
         if diff and pr_diff:
             # TODO: Once broadcast queue's unread messages and/or config is moved to client,
             # determine if this should quit or not
@@ -118,7 +123,7 @@ class DiffContext:
             return
 
         name = ""
-        treeish_type = _get_treeish_type(git_root, target)
+        treeish_type = _get_treeish_type(self.git_root, target)
         if treeish_type is None:
             stream.send(f"Invalid treeish: {target}", style="failure")
             stream.send("Disabling diff and pr-diff.", style="warning")
@@ -133,7 +138,7 @@ class DiffContext:
 
         if pr_diff:
             name = f"Merge-base {name}"
-            target = _git_command(git_root, "merge-base", "HEAD", pr_diff)
+            target = _git_command(self.git_root, "merge-base", "HEAD", pr_diff)
             if not target:
                 # TODO: Same as above todo
                 stream.send(
@@ -145,7 +150,7 @@ class DiffContext:
                 self.name = "HEAD (last commit)"
                 return
 
-        meta = get_treeish_metadata(git_root, target)
+        meta = get_treeish_metadata(self.git_root, target)
         name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
         if target == "HEAD":
             name = "HEAD (last commit)"
@@ -157,16 +162,22 @@ class DiffContext:
     _untracked_files: List[Path] | None = None
 
     def diff_files(self) -> List[Path]:
+        if not self.git_root:
+            return []
         if self._diff_files is None:
             self.refresh()
         return self._diff_files  # pyright: ignore
 
     def untracked_files(self) -> List[Path]:
+        if not self.git_root:
+            return []
         if self._untracked_files is None:
             self.refresh()
         return self._untracked_files  # pyright: ignore
 
     def refresh(self):
+        if not self.git_root:
+            return
         ctx = SESSION_CONTEXT.get()
 
         if self.target == "HEAD" and not check_head_exists():
@@ -181,10 +192,14 @@ class DiffContext:
             ]
 
     def get_annotations(self, rel_path: Path) -> list[DiffAnnotation]:
+        if not self.git_root:
+            return []
         diff = get_diff_for_file(self.target, rel_path)
         return parse_diff(diff)
 
-    def get_display_context(self) -> str:
+    def get_display_context(self) -> Optional[str]:
+        if not self.git_root:
+            return None
         diff_files = self.diff_files()
         if not diff_files:
             return ""
@@ -202,6 +217,8 @@ class DiffContext:
         self, rel_path: Path, file_message: list[str]
     ) -> list[str]:
         """Return file_message annotated with active diff."""
+        if not self.git_root:
+            return []
         annotations = self.get_annotations(rel_path)
         return annotate_file_message(file_message, annotations)
 
