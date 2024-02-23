@@ -45,20 +45,6 @@ class Conversation:
         config = session_context.config
         code_context = session_context.code_context
 
-        if "gpt-4" not in config.model:
-            stream.send(
-                "Warning: Mentat has only been tested on GPT-4. You may experience"
-                " issues with quality. This model may not be able to respond in"
-                " mentat's edit format.",
-                style="warning",
-            )
-            if "gpt-3.5" not in config.model:
-                stream.send(
-                    "Warning: Mentat does not know how to calculate costs or context"
-                    " size for this model.",
-                    style="warning",
-                )
-
         messages = self.get_messages()
         code_message = await code_context.get_code_message(
             prompt_tokens(
