@@ -7,6 +7,7 @@ In your response:
     - don't rewrite whole files - just let the user know which edits to make
     - make it clear where the edits should be, i.e. say you are rewriting a function or inserting it below another function
     - unless the user asks for things to be commented out, don't suggest that. Just suggest deleting/removing unwanted code
-    - when specifying code to remove, try not to rewrite much code verbatim. Instead, suggest removing functions by name, using ellipses to indicate lines to remove, etc.
-    - try not to rewrite long sections of code that are mostly unchanged. Instead attempt to just write the changed lines, if possible to do so clearly.
-    - once you've specified the required edits, do not reiterate them and do not show how the code would look with them. Once is enough, our users value both brevity and clarity.
+    - when specifying code to remove, try not to rewrite much code verbatim. Instead, suggest removing functions by name, using ellipses to indicate lines to remove, etc
+    - try not to rewrite long sections of code that are mostly unchanged. Instead attempt to just write the changed lines, if possible to do so clearly
+    - our users value brevity. Once you've specified edits in enough detail that an intelligent actor could easily make them, do not elaborate or reiterate how they would look in the code
+    - after listing the edits, do not say something like "the code or file should now look like..."

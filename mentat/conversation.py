@@ -19,7 +19,11 @@ from mentat.llm_api_handler import count_tokens, get_max_tokens, prompt_tokens
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
-from mentat.stream_model_response import stream_model_response
+from mentat.stream_model_response import (
+    get_two_step_system_prompt,
+    stream_model_response,
+    stream_model_response_two_step,
+)
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 
 
@@ -166,7 +170,10 @@ class Conversation:
             return _messages
         else:
             parser = config.parser
-            prompt = parser.get_system_prompt()
+            if session_context.config.two_step_edits:
+                prompt = get_two_step_system_prompt()
+            else:
+                prompt = parser.get_system_prompt()
             prompt_message: ChatCompletionMessageParam = (
                 ChatCompletionSystemMessageParam(
                     role="system",
@@ -208,7 +215,10 @@ class Conversation:
         )
 
         try:
-            response = await stream_model_response(messages_snapshot)
+            if session_context.config.two_step_edits:
+                response = await stream_model_response_two_step(messages_snapshot)
+            else:
+                response = await stream_model_response(messages_snapshot)
         except RateLimitError:
             stream.send(
                 "Rate limit error received from OpenAI's servers using model"
