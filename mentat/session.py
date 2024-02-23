@@ -34,7 +34,7 @@ from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_input import collect_input_with_commands
 from mentat.session_stream import SessionStream
-from mentat.splash_messages import check_version
+from mentat.splash_messages import check_model, check_version
 from mentat.utils import mentat_dir_path
 from mentat.vision.vision_manager import VisionManager
 
@@ -144,6 +144,8 @@ class Session:
             ensure_ctags_installed()
 
         session_context.llm_api_handler.initialize_client()
+
+        check_model()
         await conversation.display_token_count()
 
         stream.send("Type 'q' or use Ctrl-C to quit at any time.")

@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mentat import Mentat
+from mentat.config import Config
 
 
 @pytest.mark.asyncio
@@ -62,6 +63,49 @@ async def test_not_display_new_version_splash_message(mock_get):
     assert "of Mentat is available" not in mentat._accumulated_message
     assert (
         "Upgrade for the following features/improvements:"
+        not in mentat._accumulated_message
+    )
+    await mentat.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_check_model():
+    mentat = Mentat(config=Config(model="test"))
+
+    await mentat.startup()
+    await asyncio.sleep(0.01)
+    assert (
+        "Warning: Mentat has only been tested on GPT-4" in mentat._accumulated_message
+    )
+    assert (
+        "Warning: Mentat does not know how to calculate costs or context"
+        in mentat._accumulated_message
+    )
+    await mentat.shutdown()
+
+    mentat = Mentat(config=Config(model="gpt-3.5"))
+
+    await mentat.startup()
+    await asyncio.sleep(0.01)
+    assert (
+        "Warning: Mentat has only been tested on GPT-4" in mentat._accumulated_message
+    )
+    assert (
+        "Warning: Mentat does not know how to calculate costs or context"
+        not in mentat._accumulated_message
+    )
+    await mentat.shutdown()
+
+    mentat = Mentat(config=Config(model="gpt-4"))
+
+    await mentat.startup()
+    await asyncio.sleep(0.01)
+    assert (
+        "Warning: Mentat has only been tested on GPT-4"
+        not in mentat._accumulated_message
+    )
+    assert (
+        "Warning: Mentat does not know how to calculate costs or context"
         not in mentat._accumulated_message
     )
     await mentat.shutdown()
