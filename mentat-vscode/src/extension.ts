@@ -1,17 +1,22 @@
+import { ChildProcess } from "child_process";
 import WebviewProvider from "lib/WebviewProvider";
+import { Socket } from "net";
 import { setupServer } from "utils/setup";
 import * as vscode from "vscode";
 
+var serverSocket: Socket | undefined = undefined;
+var serverProcess: ChildProcess | undefined = undefined;
+
 async function activateClient(context: vscode.ExtensionContext) {
     try {
-        const server = await setupServer();
+        [serverSocket, serverProcess] = await setupServer();
         const chatWebviewProvider = new WebviewProvider(
             context.extensionUri,
-            server
+            serverSocket
         );
         context.subscriptions.push(
             vscode.window.registerWebviewViewProvider(
-                "Mentat",
+                "MentatChat",
                 chatWebviewProvider,
                 {
                     webviewOptions: { retainContextWhenHidden: true },
@@ -19,12 +24,7 @@ async function activateClient(context: vscode.ExtensionContext) {
             )
         );
     } catch (e) {
-        vscode.window.showErrorMessage(
-            `${
-                (e as any).message
-            }\nEnsure that python 3.10 or higher is available on your machine.`,
-            "Close"
-        );
+        vscode.window.showErrorMessage((e as any).message, "Close");
         throw e;
     }
 }
@@ -34,5 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-    // TODO: Stop mentat language server
+    if (serverProcess !== undefined) {
+        serverProcess.kill();
+    }
 }

@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { ChildProcess, exec } from "child_process";
 import { spawn } from "child_process";
 import * as fs from "fs";
 import * as net from "net";
@@ -22,7 +22,6 @@ async function installMentat(
     }
 
     // Check python version
-    progress.report({ message: "Mentat: Detecting Python version..." });
     const pythonCommands =
         process.platform === "win32"
             ? ["py -3.10", "py -3", "py"]
@@ -67,40 +66,39 @@ async function installMentat(
     );
     const pythonLocation = path.join(binFolder, "python");
 
-    // If mentat is already installed, this doesn't do much and is pretty fast
-    progress.report({ message: "Mentat: Installing..." });
-    const mentatVersion: string = vscode.workspace
-        .getConfiguration("mentat")
-        .get("mentatVersion")!;
-    const versionString = mentatVersion ? `==${mentatVersion}` : "";
-    await aexec(`${pythonLocation} -m pip install -U mentat${versionString}`);
-    console.log("Installed Mentat");
+    // TODO: Auto update mentat if wrong version
+    const { stdout } = await aexec(`${pythonLocation} -m pip show mentat`);
+    const mentatVersion = stdout.split("\n").at(1)?.split("Version: ")?.at(1);
+    if (mentatVersion === undefined) {
+        progress.report({ message: "Mentat: Installing..." });
+        await aexec(`${pythonLocation} -m pip install mentat`);
+        console.log("Installed Mentat");
+    }
+
     return binFolder;
 }
 
 async function startMentat(binFolder: string) {
     const mentatExecutable: string = path.join(binFolder, "mentat-server");
-    const cwd = vscode.workspace.workspaceFolders?.at(0)?.uri?.path;
-    if (cwd === undefined) {
-        throw new Error("Unable to determine workspace directory.");
-    }
+    const cwd =
+        vscode.workspace.workspaceFolders?.at(0)?.uri?.path ?? os.homedir();
+
     // TODO: Pass config options to mentat here
     // TODO: I don't think this will work on Windows (check to make sure)
-    const server = spawn(mentatExecutable, [cwd]);
-
-    server.stdout.on("data", (data: any) => {
+    const serverProcess = spawn(mentatExecutable, [cwd]);
+    serverProcess.stdout.on("data", (data: any) => {
         console.log(`Server Output: ${data}`);
     });
-    server.stderr.on("data", (data: any) => {
+    serverProcess.stderr.on("data", (data: any) => {
         console.error(`Server Error: ${data}`);
     });
-    server.on("close", (code: number) => {
+    serverProcess.on("close", (code: number) => {
         console.log(`Server exited with code ${code}`);
     });
-    // TODO: pass the subprocess up to kill?
+    return serverProcess;
 }
 
-export async function setupServer(): Promise<net.Socket> {
+export async function setupServer(): Promise<[net.Socket, ChildProcess]> {
     const serverHost: string = "127.0.0.1";
     const serverPort: number = 7798;
 
@@ -110,7 +108,7 @@ export async function setupServer(): Promise<net.Socket> {
             return await installMentat(progress);
         }
     );
-    await startMentat(binFolder);
+    const serverProcess = await startMentat(binFolder);
     // TODO: What does this do??? Do we need it???
     await waitForPortToBeInUse({ port: serverPort, timeout: 5000 });
 
@@ -118,5 +116,5 @@ export async function setupServer(): Promise<net.Socket> {
         host: serverHost,
         port: serverPort,
     });
-    return socket;
+    return [socket, serverProcess];
 }

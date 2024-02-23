@@ -85,6 +85,7 @@ class Unsubscribed(Exception):
 class Broadcast:
     def __init__(self):
         self._subscribers: Dict[str, set[Queue[Event | None]]] = {}
+        self._universal_subscribers: set[Queue[Event | None]] = set()
         self._backend = MemoryBackend()
 
     def __enter__(self) -> Broadcast:
@@ -115,7 +116,9 @@ class Broadcast:
     async def _listener(self) -> None:
         while True:
             event = await self._backend.next_published()
-            for queue in list(self._subscribers.get(event.channel, set())):
+            for queue in self._subscribers.get(event.channel, set()):
+                queue.put_nowait(event)
+            for queue in self._universal_subscribers:
                 queue.put_nowait(event)
 
     # Since there is no maximum queue size, use the synchronous version of this function instead
@@ -129,17 +132,22 @@ class Broadcast:
     def subscribe(self, channel: str) -> Iterator[Subscriber]:
         queue: Queue[Event | None] = Queue()
 
-        try:
-            if not self._subscribers.get(channel):
-                self._backend.subscribe(channel)
-                self._subscribers[channel] = set()
+        if not self._subscribers.get(channel):
+            self._backend.subscribe(channel)
+            self._subscribers[channel] = set()
 
-            self._subscribers[channel].add(queue)
-            yield Subscriber(queue)
-            self._subscribers[channel].remove(queue)
+        self._subscribers[channel].add(queue)
+        yield Subscriber(queue)
+        self._subscribers[channel].remove(queue)
 
-            if not self._subscribers.get(channel):
-                del self._subscribers[channel]
-                self._backend.unsubscribe(channel)
-        finally:
-            queue.put_nowait(None)
+        if not self._subscribers.get(channel):
+            del self._subscribers[channel]
+            self._backend.unsubscribe(channel)
+
+    @contextmanager
+    def universal_subscribe(self) -> Iterator[Subscriber]:
+        queue: Queue[Event | None] = Queue()
+
+        self._universal_subscribers.add(queue)
+        yield Subscriber(queue)
+        self._universal_subscribers.remove(queue)

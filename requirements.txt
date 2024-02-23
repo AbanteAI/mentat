@@ -3,6 +3,7 @@ backoff==2.2.1
 chromadb==0.4.22
 fire==0.5.0
 gitpython==3.1.41
+httpx==0.25.1
 jinja2==3.1.2
 jsonschema>=4.17.0
 numpy==1.26.0
@@ -27,6 +28,4 @@ tiktoken==0.4.0
 typing_extensions==4.8.0
 tqdm==4.66.1
 webdriver_manager==4.0.1
-pygls==1.2.1
-pydantic==2.5.3
 watchfiles==0.21.0

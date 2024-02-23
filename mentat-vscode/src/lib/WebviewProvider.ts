@@ -36,7 +36,7 @@ class WebviewProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    private setHtmlForWebview() {
+    private getHtmlForWebview() {
         if (this.view === undefined) {
             throw Error("Webview View is undefined");
         }
@@ -71,8 +71,7 @@ class WebviewProvider implements vscode.WebviewViewProvider {
             </body>
           </html>
         `;
-
-        this.view.webview.html = html;
+        return html;
     }
 
     public resolveWebviewView(
@@ -86,12 +85,12 @@ class WebviewProvider implements vscode.WebviewViewProvider {
             enableScripts: true,
             localResourceRoots: [this.extensionUri],
         };
-        this.setHtmlForWebview();
+        this.view.webview.html = this.getHtmlForWebview();
 
         // Send messages from webview to server
         this.view.webview.onDidReceiveMessage(
             async (message: StreamMessage) => {
-                this.server.write(JSON.stringify(message));
+                this.server.write(JSON.stringify(message) + "\n");
             }
         );
 

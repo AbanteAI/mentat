@@ -52,7 +52,7 @@ class SessionStream:
 
     *interrupt: Sent by the client. Sent whenever client interrupts current work. Equivalent to ctrl-C
 
-    context_update: A JSON object describing the context sent whenever the context changes. JSON Schema:
+    context_update: An object describing the context sent whenever the context changes. Schema:
     {
         "cwd": "Mentat's cwd",
         "diff_context_display": "The display for the diff context",
@@ -119,6 +119,10 @@ class SessionStream:
 
         return message
 
+    def send_stream_message(self, message: StreamMessage):
+        self.messages.append(message)
+        self._broadcast.publish(channel=message.channel, message=message)
+
     async def recv(self, channel: str = "default") -> StreamMessage:
         """Listen for a single event on a channel"""
         with self._broadcast.subscribe(channel) as subscriber:
@@ -132,6 +136,11 @@ class SessionStream:
     ) -> AsyncGenerator[StreamMessage, None]:
         """Listen to all messages on a channel indefinitely"""
         with self._broadcast.subscribe(channel) as subscriber:
+            async for event in subscriber:
+                yield event.message
+
+    async def universal_listen(self) -> AsyncGenerator[StreamMessage, None]:
+        with self._broadcast.universal_subscribe() as subscriber:
             async for event in subscriber:
                 yield event.message
 

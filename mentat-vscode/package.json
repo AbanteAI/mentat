@@ -38,14 +38,7 @@
         },
         "configuration": {
             "title": "Mentat",
-            "properties": {
-                "mentat.mentatVersion": {
-                    "type": "string",
-                    "default": "",
-                    "scope": "machine",
-                    "markdownDescription": "The version of mentat that will be installed. Leave blank for the most recent version."
-                }
-            }
+            "properties": {}
         }
     },
     "scripts": {

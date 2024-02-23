@@ -18,11 +18,14 @@ These instructions will run through the workflow of running the project locally 
 npm install
 ```
 
-2. Build the project
+2. Build the project (if you are getting the error `Cannot find module extension.js...` you probably need to run this!)
 
 ```shell
 npm run build
 ```
+
+3. If you want to test changes to Mentat on a branch, you need to egg install (`pip install -3 path/to/repo`)
+   your branch of mentat into a venv at `~/mentat/.venv`; otherwise, the extension will automatically pip install mentat for you.
 
 **Without the VSCode Debugger**
 
