@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from difflib import ndiff
 from json import JSONDecodeError
 from pathlib import Path
 from typing import AsyncIterator
@@ -101,6 +102,20 @@ def get_two_step_list_files_prompt() -> str:
 
 def get_two_step_rewrite_file_prompt() -> str:
     return read_prompt(two_step_edit_prompt_rewrite_file_filename)
+
+
+def print_colored_diff(str1, str2, stream):
+    diff = ndiff(str1.splitlines(), str2.splitlines())
+
+    for line in diff:
+        if line.startswith("-"):
+            stream.send(line, color="red")
+        elif line.startswith("+"):
+            stream.send(line, color="green")
+        elif line.startswith("?"):
+            pass  # skip printing the ? lines ndiff produces
+        else:
+            stream.send(line)
 
 
 async def stream_model_response_two_step(
@@ -208,7 +223,9 @@ async def stream_model_response_two_step(
         rewrite_file_response = rewrite_file_response.choices[0].message.content
 
         stream.send(f"\n### File Rewrite Response: {file_path} ###\n")
-        stream.send(rewrite_file_response)
+        # stream.send(rewrite_file_response)
+
+        print_colored_diff(code_file_string, rewrite_file_response, stream)
 
     # async with parser.interrupt_catcher():
     #     parsed_llm_response = await parser.stream_and_parse_llm_response(
