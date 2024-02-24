@@ -113,6 +113,7 @@ async def stream_model_response_two_step(
     parser = config.parser
     llm_api_handler = session_context.llm_api_handler
     cost_tracker = session_context.cost_tracker
+    cwd = session_context.cwd
 
     num_prompt_tokens = prompt_tokens(messages, config.model)
     stream.send(f"Total token count: {num_prompt_tokens}", style="info")
@@ -176,8 +177,38 @@ async def stream_model_response_two_step(
 
     stream.send(f"\n{response_json}\n")
 
-    # for file_path in response_json["files"]:
-    # rewrite_file_messages: list[ChatCompletionMessageParam] = [
+    # TODO remove line numbers when running two step edit
+    # TODO handle creating new files - including update prompt to know that's possible
+
+    for file_path in response_json["files"]:
+        full_path = (cwd / Path(file_path)).resolve()
+        code_file_lines = code_file_manager.file_lines.get(full_path, [])
+        code_file_string = "\n".join(code_file_lines)
+
+        rewrite_file_messages: list[ChatCompletionMessageParam] = [
+            ChatCompletionSystemMessageParam(
+                role="system",
+                content=get_two_step_rewrite_file_prompt(),
+            ),
+            ChatCompletionSystemMessageParam(
+                role="system",
+                content=code_file_string,
+            ),
+            ChatCompletionSystemMessageParam(
+                role="system",  # TODO: change to user? not sure
+                content=first_message,
+            ),
+        ]
+
+        rewrite_file_response = await llm_api_handler.call_llm_api(
+            rewrite_file_messages,
+            model="gpt-3.5-turbo-0125",  # TODO add config for secondary model
+            stream=False,
+        )
+        rewrite_file_response = rewrite_file_response.choices[0].message.content
+
+        stream.send(f"\n### File Rewrite Response: {file_path} ###\n")
+        stream.send(rewrite_file_response)
 
     # async with parser.interrupt_catcher():
     #     parsed_llm_response = await parser.stream_and_parse_llm_response(
