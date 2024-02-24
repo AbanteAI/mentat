@@ -6,7 +6,7 @@ from typing_extensions import override
 from mentat.auto_completer import get_command_filename_completions
 from mentat.command.command import Command, CommandArgument
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import get_relative_path
+from mentat.errors import PathValidationError
 
 import json
 
@@ -28,20 +28,20 @@ class LoadCommand(Command, command_name="load"):
             )
             return
 
-        # Load the context file
-        context_file = Path(args[0]).expanduser().resolve()
+        try:
+            context_file = Path(args[0]).expanduser().resolve()
+        except RuntimeError as e:
+            raise PathValidationError(
+                f"Invalid context file path provided: {args[0]}: {e}"
+            )
 
-        # Parse the context file
         with open(context_file, "r") as file:
-            parsed_new_context = json.load(file)  # should be array of strings
+            parsed_include_files = json.load(file)
 
-        for file_path in parsed_new_context:
-            included_paths = code_context.include(file_path)
-            for included_path in included_paths:
-                rel_path = get_relative_path(included_path, session_context.cwd)
-                stream.send(f"{rel_path} added to context", style="success")
+        # TODO: Do we remove included files when loading new context file?
+        code_context.include_files = parsed_include_files
 
-        # TODO: Ask if we remove included files when loading new context file
+        stream.send(f"Context loaded from {context_file}", style="success")
 
     @override
     @classmethod
