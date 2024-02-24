@@ -23,6 +23,9 @@ from mentat.utils import add_newline
 
 two_step_edit_prompt_filename = Path("two_step_edit_prompt.txt")
 two_step_edit_prompt_list_files_filename = Path("two_step_edit_prompt_list_files.txt")
+two_step_edit_prompt_rewrite_file_filename = Path(
+    "two_step_edit_prompt_rewrite_file.txt"
+)
 
 
 async def stream_model_response(
@@ -96,6 +99,10 @@ def get_two_step_list_files_prompt() -> str:
     return read_prompt(two_step_edit_prompt_list_files_filename)
 
 
+def get_two_step_rewrite_file_prompt() -> str:
+    return read_prompt(two_step_edit_prompt_rewrite_file_filename)
+
+
 async def stream_model_response_two_step(
     messages: list[ChatCompletionMessageParam],
 ) -> ParsedLLMResponse:
@@ -167,7 +174,10 @@ async def stream_model_response_two_step(
         stream.send("Error processing model response: Invalid JSON", style="error")
         # TODO: handle error
 
-    stream.send(f"\n\n{response_json}\n\n")
+    stream.send(f"\n{response_json}\n")
+
+    # for file_path in response_json["files"]:
+    # rewrite_file_messages: list[ChatCompletionMessageParam] = [
 
     # async with parser.interrupt_catcher():
     #     parsed_llm_response = await parser.stream_and_parse_llm_response(
