@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List
+import json
 
 from typing_extensions import override
 
@@ -8,8 +9,6 @@ from mentat.command.command import Command, CommandArgument
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 from mentat.errors import PathValidationError
-
-import json
 
 
 class SaveCommand(Command, command_name="save"):

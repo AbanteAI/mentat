@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List
+import json
 
 from typing_extensions import override
 
@@ -7,8 +8,6 @@ from mentat.auto_completer import get_command_filename_completions
 from mentat.command.command import Command, CommandArgument
 from mentat.session_context import SESSION_CONTEXT
 from mentat.errors import PathValidationError
-
-import json
 
 
 class LoadCommand(Command, command_name="load"):
@@ -38,7 +37,7 @@ class LoadCommand(Command, command_name="load"):
         with open(context_file, "r") as file:
             parsed_include_files = json.load(file)
 
-        # TODO: Do we remove included files when loading new context file?
+        # TODO: Do we remove already included files when loading new context file?
         code_context.include_files = parsed_include_files
 
         stream.send(f"Context loaded from {context_file}", style="success")

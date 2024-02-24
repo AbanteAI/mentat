@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 from textwrap import dedent
+import json
 
 import pytest
 
@@ -81,12 +82,55 @@ async def test_exclude_command(temp_testbed, mock_collect_user_input):
 
 
 @pytest.mark.asyncio
+async def test_save_command(temp_testbed, mock_collect_user_input):
+    mock_collect_user_input.set_stream_messages(
+        [
+            "/include scripts",
+            "/save",
+            "q",
+        ]
+    )
+
+    session = Session(cwd=temp_testbed)
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    code_context = SESSION_CONTEXT.get().code_context
+    saved_code_context = json.load(open(Path(temp_testbed) / "context.json", "r"))
+    assert (Path(temp_testbed) / "context.json").exists()
+    assert code_context.include_files == saved_code_context
+
+
+@pytest.mark.asyncio
+async def test_load_command(temp_testbed, mock_collect_user_input):
+    mock_collect_user_input.set_stream_messages(
+        [
+            "/load",
+            "q",
+        ]
+    )
+
+    session = Session(cwd=temp_testbed)
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    code_context = SESSION_CONTEXT.get().code_context
+    saved_code_context = json.load(open(Path(temp_testbed) / "context.json", "r"))
+    assert (Path(temp_testbed) / "context.json").exists()
+    assert code_context.include_files == saved_code_context
+
+
+@pytest.mark.asyncio
 async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -97,7 +141,10 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         ]
     )
 
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -109,7 +156,10 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         }}
         @@code
         # I inserted this comment
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
     session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
@@ -117,9 +167,11 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
 
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
 
@@ -127,9 +179,13 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
 async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -142,7 +198,10 @@ async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm
     )
 
     new_file_name = "new_temp.py"
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -163,7 +222,10 @@ async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         @@code
         # I created this file
         @@end
-        """)])
+        """
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
@@ -171,16 +233,20 @@ async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm
 
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
             # I inserted this comment
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
     with open(new_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
-            # I created this file""")
+        expected_content = dedent(
+            """\
+            # I created this file"""
+        )
     assert content == expected_content
 
 
@@ -190,9 +256,13 @@ async def test_undo_all_command(
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -204,7 +274,10 @@ async def test_undo_all_command(
     )
 
     # TODO: Make a way to set multiple return values for call_llm_api and reset multiple edits at once
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -216,7 +289,10 @@ async def test_undo_all_command(
         }}
         @@code
         # I inserted this comment
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
     session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
@@ -224,9 +300,11 @@ async def test_undo_all_command(
 
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
 
