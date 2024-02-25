@@ -63,3 +63,18 @@ class Interval:
             return f"{self.start}"
         else:
             return f"{self.start}-{self.end}"
+
+    @staticmethod
+    def from_string(interval_string: str) -> Interval:
+        print("interval_string:", interval_string)
+        try:
+            interval_parts = interval_string.split("-")
+        except ValueError:
+            return Interval(1, INTERVAL_FILE_END)
+
+        if len(interval_parts) != 2:
+            # corrupt interval string, make it whole file
+            return Interval(1, INTERVAL_FILE_END)
+
+        start, end = interval_parts
+        return Interval(int(start), int(end))
