@@ -435,7 +435,7 @@ class CodeContext:
         else:
             return all_features_sorted[:max_results]
 
-    def to_simple_dict(self) -> dict[str, list[str]]:
+    def to_simple_context_dict(self) -> dict[str, list[str]]:
         """Return a simple dictionary representation of the code context"""
         simple_dict: dict[str, list[str]] = {}
         for path, features in self.include_files.items():
@@ -444,11 +444,13 @@ class CodeContext:
             ]
         return simple_dict
 
-    def from_simple_dict(self, simple_dict: dict[str, list[str]]):
+    def from_simple_context_dict(self, simple_dict: dict[str, list[str]]):
         """Load the code context from a simple dictionary representation"""
+
         self.include_files = {}
-        for path, features in simple_dict.items():
-            self.include_files[Path(path)] = [
-                CodeFeature(Path(feature)) for feature in features
-            ]
+        for path_str, features_str in simple_dict.items():
+            path = Path(path_str)
+            code_features = [CodeFeature.from_string(f_str) for f_str in features_str]
+            self.include_files[path] = code_features
+
         self.refresh_context_display()

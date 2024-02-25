@@ -40,8 +40,8 @@ class LoadCommand(Command, command_name="load"):
         with open(context_file_path, "r") as file:
             parsed_include_files = json.load(file)
 
-        # TODO: Do we remove already included files when loading new context file?
-        code_context.include_files = parsed_include_files
+        # TODO: Do we remove already-included files when loading new context file?
+        code_context.from_simple_context_dict(parsed_include_files)
 
         stream.send(f"Context loaded from {context_file_path}", style="success")
 

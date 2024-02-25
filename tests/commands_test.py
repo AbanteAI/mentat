@@ -10,6 +10,7 @@ from mentat.command.command import Command, InvalidCommand
 from mentat.command.commands.help import HelpCommand
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
+from mentat.interval import Interval
 
 
 def test_invalid_command():
@@ -83,10 +84,11 @@ async def test_exclude_command(temp_testbed, mock_collect_user_input):
 
 @pytest.mark.asyncio
 async def test_save_command(temp_testbed, mock_collect_user_input):
+    default_context_path = Path(temp_testbed) / "context.json"
     mock_collect_user_input.set_stream_messages(
         [
             "/include scripts",
-            "/save",
+            f"/save {default_context_path}",
             "q",
         ]
     )
@@ -95,17 +97,30 @@ async def test_save_command(temp_testbed, mock_collect_user_input):
     session.start()
     await session.stream.recv(channel="client_exit")
 
-    code_context = SESSION_CONTEXT.get().code_context
-    saved_code_context = json.load(open(Path(temp_testbed) / "context.json", "r"))
-    assert (Path(temp_testbed) / "context.json").exists()
-    assert code_context.include_files == saved_code_context
+    saved_code_context = json.load(open(default_context_path))
+    assert (Path(temp_testbed) / "scripts" / "calculator.py").absolute().as_posix() in (
+        saved_code_context.keys()
+    )
 
 
 @pytest.mark.asyncio
 async def test_load_command(temp_testbed, mock_collect_user_input):
+    scripts_dir = temp_testbed / "scripts"
+    features = [
+        CodeFeature(scripts_dir / "calculator.py", Interval(1, 10)),
+        CodeFeature(scripts_dir / "echo.py"),
+    ]
+    context_file_path = Path(temp_testbed) / "context.json"
+
+    with open(context_file_path, "w") as f:
+        to_dump = {}
+        for feature in features:
+            to_dump[feature.path.absolute().as_posix()] = [str(feature)]
+        json.dump(to_dump, f)
+
     mock_collect_user_input.set_stream_messages(
         [
-            "/load",
+            f"/load {context_file_path}",
             "q",
         ]
     )
@@ -115,9 +130,17 @@ async def test_load_command(temp_testbed, mock_collect_user_input):
     await session.stream.recv(channel="client_exit")
 
     code_context = SESSION_CONTEXT.get().code_context
-    saved_code_context = json.load(open(Path(temp_testbed) / "context.json", "r"))
-    assert (Path(temp_testbed) / "context.json").exists()
-    assert code_context.include_files == saved_code_context
+
+    print("code_context.include_files.keys()", code_context.include_files.keys())
+
+    assert scripts_dir / "calculator.py" in code_context.include_files.keys()
+    assert code_context.include_files[scripts_dir / "calculator.py"] == [
+        CodeFeature(scripts_dir / "calculator.py", Interval(1, 10)),
+    ]
+    assert scripts_dir / "echo.py" in code_context.include_files.keys()
+    assert code_context.include_files[scripts_dir / "echo.py"] == [
+        CodeFeature(scripts_dir / "echo.py"),
+    ]
 
 
 @pytest.mark.asyncio

@@ -36,7 +36,7 @@ class SaveCommand(Command, command_name="save"):
                 "No context file specified. Defaulting to context.json", style="warning"
             )
 
-        serializable_context = code_context.to_simple_dict()
+        serializable_context = code_context.to_simple_context_dict()
 
         with open(context_file_path, "w") as file:
             json.dump(serializable_context, file)
