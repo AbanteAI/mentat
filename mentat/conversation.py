@@ -119,7 +119,7 @@ class Conversation:
 
     async def get_messages(
         self,
-        include_system_prompt: bool = True,
+        system_prompt: Optional[list[ChatCompletionMessageParam]] = None,
         include_parsed_llm_responses: bool = False,
         include_code_message: bool = False,
     ) -> list[ChatCompletionMessageParam]:
@@ -166,17 +166,19 @@ class Conversation:
                 )
             ] + _messages
 
-        if ctx.config.no_parser_prompt or not include_system_prompt:
-            return _messages
-        else:
-            parser = ctx.config.parser
-            system_prompt: ChatCompletionMessageParam = (
-                ChatCompletionSystemMessageParam(
-                    role="system",
-                    content=parser.get_system_prompt(),
-                )
-            )
-            return [system_prompt] + _messages
+        if system_prompt is None:
+            if ctx.config.no_parser_prompt:
+                system_prompt = []
+            else:
+                parser = ctx.config.parser
+                system_prompt = [
+                    ChatCompletionSystemMessageParam(
+                        role="system",
+                        content=parser.get_system_prompt(),
+                    )
+                ]
+
+        return system_prompt + _messages
 
     def clear_messages(self) -> None:
         """Clears the messages in the conversation"""
