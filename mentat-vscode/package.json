@@ -58,6 +58,7 @@
         "@types/react": "18.2.25",
         "@types/react-dom": "18.2.11",
         "@types/semver": "^7.5.7",
+        "@types/uuid": "^9.0.8",
         "@types/vscode": "1.74.0",
         "@types/vscode-webview": "1.57.2",
         "@vscode/vsce": "2.22.0",
@@ -68,5 +69,8 @@
         "react-icons": "4.11.0",
         "tailwindcss": "3.3.3",
         "typescript": "5.2.2"
+    },
+    "dependencies": {
+        "uuid": "^9.0.1"
     }
 }

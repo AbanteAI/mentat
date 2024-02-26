@@ -4,7 +4,6 @@ type StreamMessage = {
     source: "server" | "client";
     data: any;
     extra: { [key: string]: any };
-    created_at: string;
 };
 
 type MessageContent = {

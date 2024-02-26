@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
-from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, cast
+from typing import Any, AsyncGenerator, Dict, List, Literal, cast
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
@@ -11,7 +9,9 @@ from pydantic import BaseModel
 from mentat.broadcast import Broadcast
 
 
-class StreamMessageSource(Enum):
+class StreamMessageSource:
+    # Enums can't be serialized or deserialized, since technically Enum.value is an instance of Enum, not the actual value
+    TYPE = Literal["server", "client"]
     SERVER = "server"
     CLIENT = "client"
 
@@ -19,10 +19,9 @@ class StreamMessageSource(Enum):
 class StreamMessage(BaseModel):
     id: UUID
     channel: str
-    source: StreamMessageSource
+    source: StreamMessageSource.TYPE
     data: Any
     extra: Dict[str, Any]
-    created_at: datetime
 
 
 class SessionStream:
@@ -80,7 +79,7 @@ class SessionStream:
     async def send_async(
         self,
         data: Any,
-        source: StreamMessageSource = StreamMessageSource.SERVER,
+        source: StreamMessageSource.TYPE = StreamMessageSource.SERVER,
         channel: str = "default",
         **kwargs: Any,
     ):
@@ -89,7 +88,6 @@ class SessionStream:
             source=source,
             channel=channel,
             data=data,
-            created_at=datetime.utcnow(),
             extra=kwargs,
         )
 
@@ -101,7 +99,7 @@ class SessionStream:
     def send(
         self,
         data: Any,
-        source: StreamMessageSource = StreamMessageSource.SERVER,
+        source: StreamMessageSource.TYPE = StreamMessageSource.SERVER,
         channel: str = "default",
         **kwargs: Any,
     ):
@@ -110,7 +108,6 @@ class SessionStream:
             source=source,
             channel=channel,
             data=data,
-            created_at=datetime.utcnow(),
             extra=kwargs,
         )
 

@@ -94,7 +94,6 @@ def mock_collect_user_input(mocker):
                 source=StreamMessageSource.CLIENT,
                 data=value,
                 extra={},
-                created_at=datetime.utcnow(),
             )
             for value in values
         ]

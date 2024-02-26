@@ -1,33 +1,20 @@
-import {
-    Dispatch,
-    KeyboardEvent,
-    SetStateAction,
-    useEffect,
-    useRef,
-    useState,
-} from "react";
+import { KeyboardEvent, useEffect, useRef, useState } from "react";
 import { VscSend } from "react-icons/vsc";
-import { vscode } from "webviews/utils/vscode";
 
 type Props = {
     onUserInput: (input: string) => void;
-    inputRequestId: string | null;
+    inputRequestId: string | undefined;
 };
 
 export default function ChatInput(props: Props) {
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
     const [textAreaValue, setTextAreaValue] = useState<string>("");
-    const [textAreaHeight, setTextAreaHeight] = useState<number | string>(
-        "auto"
-    );
     const [submitDisabled, setSubmitDisabled] = useState(true);
 
     useEffect(() => {
-        if (textAreaValue === "") {
-            setSubmitDisabled(true);
-        } else {
-            setSubmitDisabled(false);
-        }
+        setSubmitDisabled(
+            textAreaValue === "" || props.inputRequestId === undefined
+        );
 
         if (textAreaRef.current) {
             textAreaRef.current.style.height = "auto";
@@ -63,7 +50,7 @@ export default function ChatInput(props: Props) {
                     className="flex-1 focus:outline-[var(--vscode-focusBorder)] rounded-md resize-none bg-[var(--vscode-input-background)] p-2"
                     placeholder="What can I do for you?"
                     style={{
-                        height: textAreaHeight,
+                        height: "auto",
                         overflow: "hidden",
                         scrollbarWidth: "none",
                     }}

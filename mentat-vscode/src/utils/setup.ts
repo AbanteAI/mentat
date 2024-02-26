@@ -1,15 +1,11 @@
-import { ChildProcess, exec } from "child_process";
+import { ChildProcessWithoutNullStreams, exec } from "child_process";
 import { spawn } from "child_process";
 import * as fs from "fs";
-import * as net from "net";
 import * as os from "os";
 import * as path from "path";
 import * as semver from "semver";
 import * as util from "util";
 import * as vscode from "vscode";
-
-import { waitForPortToBeInUse } from "./tcp";
-
 const aexec = util.promisify(exec);
 
 async function installMentat(
@@ -26,7 +22,7 @@ async function installMentat(
         process.platform === "win32"
             ? ["py -3.10", "py -3", "py"]
             : ["python3.10", "python3", "python"];
-    let pythonCommand: string | null = null;
+    let pythonCommand: string | undefined = undefined;
     for (const command of pythonCommands) {
         try {
             const { stdout } = await aexec(`${command} --version`);
@@ -47,7 +43,7 @@ async function installMentat(
             continue;
         }
     }
-    if (pythonCommand === null) {
+    if (pythonCommand === undefined) {
         throw new Error(
             "Python 3.10 or above is not found on your system. Please install it and try again."
         );
@@ -86,8 +82,9 @@ async function startMentat(binFolder: string) {
     // TODO: Pass config options to mentat here
     // TODO: I don't think this will work on Windows (check to make sure)
     const serverProcess = spawn(mentatExecutable, [cwd]);
+    serverProcess.stdout.setEncoding("utf-8");
     serverProcess.stdout.on("data", (data: any) => {
-        console.log(`Server Output: ${data}`);
+        // console.log(`Server Output: ${data}`);
     });
     serverProcess.stderr.on("data", (data: any) => {
         console.error(`Server Error: ${data}`);
@@ -98,10 +95,7 @@ async function startMentat(binFolder: string) {
     return serverProcess;
 }
 
-export async function setupServer(): Promise<[net.Socket, ChildProcess]> {
-    const serverHost: string = "127.0.0.1";
-    const serverPort: number = 7798;
-
+export async function setupServer(): Promise<ChildProcessWithoutNullStreams> {
     const binFolder = await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification },
         async (progress) => {
@@ -109,12 +103,5 @@ export async function setupServer(): Promise<[net.Socket, ChildProcess]> {
         }
     );
     const serverProcess = await startMentat(binFolder);
-    // TODO: What does this do??? Do we need it???
-    await waitForPortToBeInUse({ port: serverPort, timeout: 5000 });
-
-    const socket = net.connect({
-        host: serverHost,
-        port: serverPort,
-    });
-    return [socket, serverProcess];
+    return serverProcess;
 }

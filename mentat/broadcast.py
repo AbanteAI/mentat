@@ -10,6 +10,7 @@ from typing import Any, AsyncGenerator, Dict, Iterator, Set
 import attr
 
 
+# TODO: This entire file is way overengineered and overcomplicated, and vastly needs to be simplified and improved
 @attr.define
 class Event:
     channel: str = attr.field()
@@ -37,6 +38,7 @@ class Subscriber:
 class MemoryBackend:
     def __init__(self):
         self._subscribed: Set[str] = set()
+        self._universally_subscribed: bool = False
         self._missed_events: defaultdict[str, list[Event]] = defaultdict(list)
 
     def connect(self) -> None:
@@ -57,17 +59,27 @@ class MemoryBackend:
     def unsubscribe(self, channel: str) -> None:
         self._subscribed.remove(channel)
 
+    def universal_subscribe(self) -> None:
+        self._universally_subscribed = True
+        for events in self._missed_events.values():
+            for event in events:
+                self.publish(event.channel, event.message)
+        self._missed_events.clear()
+
+    def universal_unsubscribe(self) -> None:
+        self._universally_subscribed = False
+
     # Since there is no maximum queue size, use the synchronous version of this function instead
     async def publish_async(self, channel: str, message: Any) -> None:
         event = Event(channel=channel, message=message)
-        if channel in self._subscribed:
+        if channel in self._subscribed or self._universally_subscribed:
             await self._published.put(event)
         else:
             self._missed_events[channel].append(event)
 
     def publish(self, channel: str, message: Any) -> None:
         event = Event(channel=channel, message=message)
-        if channel in self._subscribed:
+        if channel in self._subscribed or self._universally_subscribed:
             self._published.put_nowait(event)
         else:
             self._missed_events[channel].append(event)
@@ -148,6 +160,12 @@ class Broadcast:
     def universal_subscribe(self) -> Iterator[Subscriber]:
         queue: Queue[Event | None] = Queue()
 
+        if not self._universal_subscribers:
+            self._backend.universal_subscribe()
+
         self._universal_subscribers.add(queue)
         yield Subscriber(queue)
         self._universal_subscribers.remove(queue)
+
+        if not self._universal_subscribers:
+            self._backend.universal_unsubscribe()

@@ -4,10 +4,14 @@ import { Message, StreamMessage } from "../../types";
 
 import ChatInput from "../components/ChatInput";
 import ChatMessage from "webviews/components/ChatMessage";
+import { vscode } from "webviews/utils/vscode";
+import { v4 } from "uuid";
 
 export default function Chat() {
     const [messages, setMessages] = useState<Message[]>([]);
-    const [inputRequestId, setInputRequestId] = useState<string | null>(null);
+    const [inputRequestId, setInputRequestId] = useState<string | undefined>(
+        undefined
+    );
     const chatLogRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -58,10 +62,15 @@ export default function Chat() {
     }
 
     function handleServerMessage(event: MessageEvent<StreamMessage>) {
+        console.log("HEY", event.data);
         const message = event.data;
         switch (message.channel) {
             case "default": {
                 handleDefaultMessage(message);
+                break;
+            }
+            case "input_request": {
+                setInputRequestId(message.id);
                 break;
             }
             default: {
@@ -83,6 +92,16 @@ export default function Chat() {
             content: [{ text: input, color: undefined }],
             source: "user",
         });
+
+        // Send message to webview
+        const message: StreamMessage = {
+            id: v4(),
+            channel: `input_request:${inputRequestId}`,
+            source: "client",
+            data: input,
+            extra: {},
+        };
+        vscode.postMessage(message);
     }
 
     // Using index as key should be fine since we never insert, delete, or re-order chat messages

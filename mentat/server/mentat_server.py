@@ -1,61 +1,62 @@
 import argparse
 import asyncio
-import json
 import logging
+from asyncio import CancelledError, Event
 from pathlib import Path
+
+import aioconsole
 
 from mentat.session import Session
 from mentat.session_stream import StreamMessage, StreamMessageSource
 
-HOST = "127.0.0.1"
-PORT = "7798"
 
-
-# TODO: Look into if we want to use HTTP
 class MentatServer:
     def __init__(self, cwd: Path) -> None:
         self.cwd = cwd
-        self.stopped = asyncio.Event()
+        self.stopped = Event()
         self.session = Session(self.cwd)
 
-    async def _client_listener(self, reader: asyncio.StreamReader):
+    async def _client_listener(self):
         while not self.stopped.is_set():
-            message: StreamMessage = json.loads(await reader.readuntil("\n".encode()))
+            line = await aioconsole.ainput()  # pyright: ignore
+            try:
+                message = StreamMessage.model_validate_json(line)  # pyright: ignore
+            except ValueError:
+                logging.error("Invalid StreamMessage recieved")
+                break
             self.session.stream.send_stream_message(message)
 
-    async def _client_connected(
-        self,
-        reader: asyncio.StreamReader,
-        writer: asyncio.StreamWriter,
-    ):
-        listener_task = asyncio.create_task(self._client_listener(reader))
+    async def _stream_listener(self):
         async for message in self.session.stream.universal_listen():
             if message.source == StreamMessageSource.SERVER:
-                message_json = json.dumps(message) + "\n"
-                writer.write(message_json.encode())
+                message_json = StreamMessage.model_dump_json(message)
+                print(message_json, flush=True)
             elif message.channel == "session_exit":
                 self.stopped.set()
-                try:
-                    listener_task.cancel()
-                except asyncio.CancelledError:
-                    pass
-            break
+                break
 
     async def run(self):
         self.session.start()
         logging.debug("Completed startup")
 
-        server = await asyncio.start_server(
-            self._client_connected, host=HOST, port=PORT
-        )
+        stream_listener_task = asyncio.create_task(self._stream_listener())
+        client_listener_task = asyncio.create_task(self._client_listener())
         await self.stopped.wait()
-        server.close()
+
+        try:
+            stream_listener_task.cancel()
+            client_listener_task.cancel()
+        except CancelledError:
+            pass
 
 
 async def run(args: argparse.Namespace):
-    cwd = Path(args.cwd).expanduser().resolve()
-    mentat_server = MentatServer(cwd)
-    await mentat_server.run()
+    try:
+        cwd = Path(args.cwd).expanduser().resolve()
+        mentat_server = MentatServer(cwd)
+        await mentat_server.run()
+    except Exception as e:
+        logging.error(f"Exception: {e}")
 
 
 def main():

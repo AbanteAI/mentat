@@ -1,4 +1,4 @@
-import { Socket } from "net";
+import { ChildProcessWithoutNullStreams } from "child_process";
 import { StreamMessage } from "types";
 import * as vscode from "vscode";
 import { Uri, Webview } from "vscode";
@@ -19,12 +19,15 @@ function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
 
 class WebviewProvider implements vscode.WebviewViewProvider {
     private extensionUri: vscode.Uri;
-    private server: Socket;
+    private serverProcess: ChildProcessWithoutNullStreams;
     private view?: vscode.WebviewView;
 
-    constructor(extensionUri: vscode.Uri, server: Socket) {
+    constructor(
+        extensionUri: vscode.Uri,
+        serverProcess: ChildProcessWithoutNullStreams
+    ) {
         this.extensionUri = extensionUri;
-        this.server = server;
+        this.serverProcess = serverProcess;
     }
 
     // Send LS Messages to the WebView
@@ -87,16 +90,24 @@ class WebviewProvider implements vscode.WebviewViewProvider {
         };
         this.view.webview.html = this.getHtmlForWebview();
 
-        // Send messages from webview to server
-        this.view.webview.onDidReceiveMessage(
-            async (message: StreamMessage) => {
-                this.server.write(JSON.stringify(message) + "\n");
-            }
-        );
+        // Send messages from React app to server
+        this.view.webview.onDidReceiveMessage((message: StreamMessage) => {
+            console.log("Server sent", JSON.stringify(message));
+            this.serverProcess.stdin.write(JSON.stringify(message) + "\n");
+        });
 
-        // Send messages from the server to Webview
-        this.server.on("data", (message: StreamMessage) => {
-            this.postMessage(message);
+        // Send messages from the server to React app
+        this.serverProcess.stdout.on("data", (output: string) => {
+            for (const serializedMessage of output.trim().split("\n")) {
+                try {
+                    const message: StreamMessage = JSON.parse(
+                        serializedMessage.trim()
+                    );
+                    this.postMessage(message);
+                } catch (error) {
+                    console.error("Error reading StreamMessage:", error);
+                }
+            }
         });
     }
 }
