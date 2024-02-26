@@ -28,7 +28,6 @@ from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import (
     count_tokens,
     get_max_tokens,
-    prompt_tokens,
     raise_if_context_exceeds_max,
 )
 from mentat.session_context import SESSION_CONTEXT
@@ -85,8 +84,7 @@ class CodeContext:
         git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
         git_untracked_paths = [str(p) for p in self.diff_context.untracked_files()]
 
-        messages = await ctx.conversation.get_messages(include_code_message=True)
-        total_tokens = prompt_tokens(messages, ctx.config.model)
+        total_tokens = await ctx.conversation.count_tokens(include_code_message=True)
 
         total_cost = ctx.cost_tracker.total_cost
 

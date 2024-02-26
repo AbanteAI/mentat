@@ -45,8 +45,7 @@ class Conversation:
         config = session_context.config
         code_context = session_context.code_context
 
-        messages = await self.get_messages(include_code_message=True)
-        tokens = prompt_tokens(messages, config.model)
+        tokens = await self.count_tokens(include_code_message=True)
 
         context_size = get_max_tokens()
         if tokens + config.token_buffer > context_size:
@@ -116,6 +115,17 @@ class Conversation:
     def add_message(self, message: ChatCompletionMessageParam):
         """Used for adding messages to the models conversation. Does not add a left-side message to the transcript!"""
         self._messages.append(message)
+
+    async def count_tokens(
+        self,
+        system_prompt: Optional[list[ChatCompletionMessageParam]] = None,
+        include_code_message: bool = False,
+    ) -> int:
+        _messages = await self.get_messages(
+            system_prompt=system_prompt, include_code_message=include_code_message
+        )
+        model = SESSION_CONTEXT.get().config.model
+        return prompt_tokens(_messages, model)
 
     async def get_messages(
         self,
