@@ -20,6 +20,7 @@ from mentat.llm_api_handler import (
     count_tokens,
     get_max_tokens,
     prompt_tokens,
+    raise_if_context_exceeds_max,
 )
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import ParsedLLMResponse
@@ -272,6 +273,8 @@ class Conversation:
         config = session_context.config
 
         messages_snapshot = await self.get_messages(include_code_message=True)
+        tokens_used = prompt_tokens(messages_snapshot, config.model)
+        raise_if_context_exceeds_max(tokens_used)
 
         try:
             response = await self._stream_model_response(messages_snapshot)

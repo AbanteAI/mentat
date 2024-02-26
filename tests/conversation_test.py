@@ -1,5 +1,6 @@
 import pytest
 
+from mentat.errors import ReturnToUser
 from mentat.parsers.block_parser import BlockParser
 from mentat.parsers.replacement_parser import ReplacementParser
 from mentat.session_context import SESSION_CONTEXT
@@ -60,3 +61,13 @@ async def test_add_user_message_with_and_without_image(mock_call_llm_api):
     assert len(messages_without_image) == 2  # System prompt + user message
     user_message_content_without_image = messages_without_image[-1]["content"]
     assert user_message_content_without_image == test_message
+
+
+@pytest.mark.asyncio
+async def test_raise_if_context_exceeded():
+    session_context = SESSION_CONTEXT.get()
+    config = session_context.config
+    config.maximum_context = 0
+    conversation = session_context.conversation
+    with pytest.raises(ReturnToUser):
+        await conversation.get_model_response()

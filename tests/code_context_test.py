@@ -8,7 +8,6 @@ import pytest
 
 from mentat.code_context import CodeContext
 from mentat.config import Config
-from mentat.errors import ReturnToUser
 from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
@@ -222,8 +221,6 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
         return count_tokens(code_message, "gpt-4", full_message=True)
 
     assert await _count_max_tokens_where(0) == 89  # Code
-    with pytest.raises(ReturnToUser):
-        await _count_max_tokens_where(1e6)
 
 
 @pytest.mark.clear_testbed
