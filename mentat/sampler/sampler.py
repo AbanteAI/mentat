@@ -118,7 +118,8 @@ class Sampler:
         message_history: list[dict[str, str]] = []
         message_prompt = ""
         response_edit: None | ParsedLLMResponse = None
-        for m in conversation.get_messages(include_parsed_llm_responses=True)[::-1]:
+        messages = await conversation.get_messages(include_parsed_llm_responses=True)
+        for m in messages[::-1]:
             response: str | ParsedLLMResponse | None = None
             role, content = m["role"], m.get("content")
             if role == "user":
