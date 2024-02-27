@@ -11,6 +11,7 @@ from .exclude import ExcludeCommand
 from .help import HelpCommand
 from .include import IncludeCommand
 from .redo import RedoCommand
+from .paste import PasteCommand
 from .run import RunCommand
 from .sample import SampleCommand
 from .screenshot import ScreenshotCommand
