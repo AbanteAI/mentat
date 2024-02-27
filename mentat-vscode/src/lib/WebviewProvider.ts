@@ -92,7 +92,6 @@ class WebviewProvider implements vscode.WebviewViewProvider {
 
         // Send messages from React app to server
         this.view.webview.onDidReceiveMessage((message: StreamMessage) => {
-            console.log("Server sent", JSON.stringify(message));
             this.serverProcess.stdin.write(JSON.stringify(message) + "\n");
         });
 

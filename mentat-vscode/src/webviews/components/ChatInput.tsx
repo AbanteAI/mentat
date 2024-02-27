@@ -4,35 +4,38 @@ import { VscSend } from "react-icons/vsc";
 type Props = {
     onUserInput: (input: string) => void;
     inputRequestId: string | undefined;
+    sessionActive: boolean;
+    textAreaValue: string;
+    setTextAreaValue: (input: string) => void;
 };
 
 export default function ChatInput(props: Props) {
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
-    const [textAreaValue, setTextAreaValue] = useState<string>("");
     const [submitDisabled, setSubmitDisabled] = useState(true);
 
     useEffect(() => {
         setSubmitDisabled(
-            textAreaValue === "" || props.inputRequestId === undefined
+            props.textAreaValue === "" ||
+                props.inputRequestId === undefined ||
+                !props.sessionActive
         );
 
         if (textAreaRef.current) {
             textAreaRef.current.style.height = "auto";
             textAreaRef.current.style.height = `${textAreaRef.current.scrollHeight}px`;
         }
-    }, [textAreaValue]);
+    }, [props.textAreaValue]);
 
     function handleChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
-        setTextAreaValue(event.target.value);
+        props.setTextAreaValue(event.target.value);
     }
 
     function handleSubmit() {
         if (submitDisabled) {
             return;
         }
-        props.onUserInput(textAreaValue);
-
-        setTextAreaValue("");
+        props.onUserInput(props.textAreaValue);
+        props.setTextAreaValue("");
     }
 
     function handleKeyPress(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -55,9 +58,10 @@ export default function ChatInput(props: Props) {
                         scrollbarWidth: "none",
                     }}
                     rows={1}
-                    value={textAreaValue}
+                    value={props.textAreaValue}
                     onKeyDown={handleKeyPress}
                     onChange={handleChange}
+                    disabled={!props.sessionActive}
                 />
                 <button
                     className={`${

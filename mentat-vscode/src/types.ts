@@ -8,6 +8,7 @@ type StreamMessage = {
 
 type MessageContent = {
     text: string;
+    style: string | undefined;
     color: string | undefined;
 };
 

@@ -6,6 +6,27 @@ type Props = {
     message: Message;
 };
 
+const light_theme: { [id: string]: string } = {
+    prompt: "gray",
+    code: "blue",
+    info: "cyan",
+    failure: "dark_red",
+    success: "green",
+    input: "bright_blue",
+    error: "red",
+    warning: "yellow",
+};
+const dark_theme: { [id: string]: string } = {
+    prompt: "white",
+    code: "blue",
+    info: "cyan",
+    failure: "bright_red",
+    success: "green",
+    input: "bright_blue",
+    error: "red",
+    warning: "yellow",
+};
+
 // TODO: Once everything is working, make sure to memoize!!!
 export default function ChatMessage(props: Props) {
     const sourceIcon =
@@ -18,25 +39,28 @@ export default function ChatMessage(props: Props) {
 
     // Using index as key should be fine since we never insert, delete, or re-order chat messages
     const messageContent = (
-        <pre>
+        <pre className="whitespace-pre-wrap">
             {props.message.content.map((contentPiece, index) => (
-                <span className={contentPiece.color} key={index}>
+                <span
+                    style={{
+                        color:
+                            contentPiece.color ||
+                            (contentPiece.style &&
+                                dark_theme[contentPiece.style]),
+                    }}
+                    key={index}
+                >
                     {contentPiece.text}
                 </span>
             ))}
         </pre>
     );
 
+    // TODO: Once we auto merge same color/style fragments, we can put a warning or error box around specific styles
     /*
     chatMessageContent = (
         <div className="bg-red-500 p-2 rounded-md flex gap-2 text-white">
             <WarningIcon />
-            {content}
-        </div>
-    );
-
-    chatMessageContent = (
-        <div className="bg-[var(--vscode-textCodeBlock-background)]">
             {content}
         </div>
     );

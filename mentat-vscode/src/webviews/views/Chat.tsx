@@ -12,6 +12,8 @@ export default function Chat() {
     const [inputRequestId, setInputRequestId] = useState<string | undefined>(
         undefined
     );
+    const [sessionActive, setSessionActive] = useState<boolean>(true);
+    const [textAreaValue, setTextAreaValue] = useState<string>("");
     const chatLogRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -26,7 +28,7 @@ export default function Chat() {
     function addMessage(message: Message) {
         setMessages((prevMessages) => {
             // If the last message was from the same source, merge the messages
-            // TODO: Merge same color contents as well (so that additions and removals don't add hundreds of spans)
+            // TODO: Merge same color/style contents as well (so that additions and removals don't add hundreds of spans)
             const lastMessage = prevMessages.at(-1);
             if (message.source === lastMessage?.source) {
                 return [
@@ -49,28 +51,59 @@ export default function Chat() {
             message.extra?.color === undefined
                 ? undefined
                 : message.extra?.color;
-        // TODO: Use style (make a map somewhere like we have in the client)
         const messageStyle: string =
             message.extra?.style === undefined
                 ? undefined
                 : message.extra?.style;
 
         addMessage({
-            content: [{ text: message.data + messageEnd, color: messageColor }],
+            content: [
+                {
+                    text: message.data + messageEnd,
+                    style: messageStyle,
+                    color: messageColor,
+                },
+            ],
             source: "mentat",
         });
     }
 
     function handleServerMessage(event: MessageEvent<StreamMessage>) {
-        console.log("HEY", event.data);
         const message = event.data;
-        switch (message.channel) {
+        switch (message.channel.split(":").at(0)) {
             case "default": {
                 handleDefaultMessage(message);
                 break;
             }
+            case "client_exit": {
+                // In other clients, this would mean quit; in VSCode, we obviously don't want to shut off VSCode so we don't actually do anything.
+                break;
+            }
+            case "session_stopped": {
+                setSessionActive(false);
+                break;
+            }
+            case "loading": {
+                // TODO: Add loading bar
+                break;
+            }
             case "input_request": {
                 setInputRequestId(message.id);
+                break;
+            }
+            case "edits_complete": {
+                // Not needed for this client
+                break;
+            }
+            case "completion_request": {
+                const message_id = message.channel.split(":").at(1);
+                break;
+            }
+            case "default_prompt": {
+                setTextAreaValue(message.data);
+                break;
+            }
+            case "context_update": {
                 break;
             }
             default: {
@@ -89,7 +122,7 @@ export default function Chat() {
 
     function onUserInput(input: string) {
         addMessage({
-            content: [{ text: input, color: undefined }],
+            content: [{ text: input, style: undefined, color: undefined }],
             source: "user",
         });
 
@@ -120,6 +153,9 @@ export default function Chat() {
                 <ChatInput
                     onUserInput={onUserInput}
                     inputRequestId={inputRequestId}
+                    sessionActive={sessionActive}
+                    textAreaValue={textAreaValue}
+                    setTextAreaValue={setTextAreaValue}
                 />
             </div>
         </div>
