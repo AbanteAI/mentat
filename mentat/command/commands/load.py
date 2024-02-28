@@ -25,9 +25,8 @@ class LoadCommand(Command, command_name="load"):
             )
             return
 
-        path_arg = args[0]
-
-        if path_arg:
+        if args:
+            path_arg = args[0]
             try:
                 context_file_path = Path(path_arg).expanduser().resolve()
             except RuntimeError as e:

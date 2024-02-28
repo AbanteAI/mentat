@@ -84,7 +84,7 @@ async def test_exclude_command(temp_testbed, mock_collect_user_input):
 
 @pytest.mark.asyncio
 async def test_save_command(temp_testbed, mock_collect_user_input):
-    default_context_path = Path(temp_testbed) / "context.json"
+    default_context_path = "context.json"
     mock_collect_user_input.set_stream_messages(
         [
             "/include scripts",
@@ -105,12 +105,12 @@ async def test_save_command(temp_testbed, mock_collect_user_input):
 
 @pytest.mark.asyncio
 async def test_load_command(temp_testbed, mock_collect_user_input):
-    scripts_dir = temp_testbed / "scripts"
+    scripts_dir = Path(temp_testbed) / "scripts"
     features = [
         CodeFeature(scripts_dir / "calculator.py", Interval(1, 10)),
         CodeFeature(scripts_dir / "echo.py"),
     ]
-    context_file_path = Path(temp_testbed) / "context.json"
+    context_file_path = "context.json"
 
     context_file_data = {}
     with open(context_file_path, "w") as f:
