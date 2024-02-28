@@ -31,11 +31,6 @@ class SaveCommand(Command, command_name="save"):
                     f"Invalid context file path provided: {args[0]}: {e}"
                 )
 
-        if len(args) == 0:
-            stream.send(
-                "No context file specified. Defaulting to context.json", style="warning"
-            )
-
         serializable_context = code_context.to_simple_context_dict()
 
         with open(context_file_path, "w") as file:

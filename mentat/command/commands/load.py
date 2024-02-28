@@ -25,22 +25,19 @@ class LoadCommand(Command, command_name="load"):
             )
             return
 
-        if not args:
-            stream.send(
-                "No context file specified. Defaulting to context.json", style="warning"
-            )
-        else:
+        path_arg = args[0]
+
+        if path_arg:
             try:
-                context_file_path = Path(args[0]).expanduser().resolve()
+                context_file_path = Path(path_arg).expanduser().resolve()
             except RuntimeError as e:
                 raise PathValidationError(
-                    f"Invalid context file path provided: {args[0]}: {e}"
+                    f"Invalid context file path provided: {path_arg}: {e}"
                 )
 
         with open(context_file_path, "r") as file:
             parsed_include_files = json.load(file)
 
-        # TODO: Do we remove already-included files when loading new context file?
         code_context.from_simple_context_dict(parsed_include_files)
 
         stream.send(f"Context loaded from {context_file_path}", style="success")
