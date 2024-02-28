@@ -112,11 +112,12 @@ async def test_load_command(temp_testbed, mock_collect_user_input):
     ]
     context_file_path = Path(temp_testbed) / "context.json"
 
+    context_file_data = {}
     with open(context_file_path, "w") as f:
-        to_dump = {}
         for feature in features:
-            to_dump[feature.path.absolute().as_posix()] = [str(feature)]
-        json.dump(to_dump, f)
+            context_file_data[feature.path.absolute().as_posix()] = [str(feature)]
+
+        json.dump(context_file_data, f)
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -130,8 +131,6 @@ async def test_load_command(temp_testbed, mock_collect_user_input):
     await session.stream.recv(channel="client_exit")
 
     code_context = SESSION_CONTEXT.get().code_context
-
-    print("code_context.include_files.keys()", code_context.include_files.keys())
 
     assert scripts_dir / "calculator.py" in code_context.include_files.keys()
     assert code_context.include_files[scripts_dir / "calculator.py"] == [

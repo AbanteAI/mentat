@@ -180,28 +180,6 @@ class CodeFeature:
         code_message = self.get_code_message()
         return count_tokens("\n".join(code_message), model, full_message=False)
 
-    @staticmethod
-    def from_string(string: str) -> CodeFeature:
-        """
-        Create a CodeFeature from a string.
-        """
-
-        print("in CodeFeature.from_string", string)
-
-        # find last colon
-        colon_index = string.rfind(":")
-        if colon_index == -1:
-            path_string = string
-            interval_string = ""
-        else:
-            path_string = string[:colon_index]
-            interval_string = string[colon_index + 1 :]
-
-        path = Path(path_string)
-        interval = Interval.from_string(interval_string)
-
-        return CodeFeature(path, interval)
-
 
 async def count_feature_tokens(features: list[CodeFeature], model: str) -> list[int]:
     """Return the number of tokens in each feature."""
