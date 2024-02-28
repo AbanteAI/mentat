@@ -1,16 +1,16 @@
+import json
 import subprocess
 from pathlib import Path
 from textwrap import dedent
-import json
 
 import pytest
 
 from mentat.code_feature import CodeFeature
 from mentat.command.command import Command, InvalidCommand
 from mentat.command.commands.help import HelpCommand
+from mentat.interval import Interval
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
-from mentat.interval import Interval
 
 
 def test_invalid_command():

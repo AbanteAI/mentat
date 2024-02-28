@@ -1,14 +1,14 @@
+import json
 from pathlib import Path
 from typing import List
-import json
 
 from typing_extensions import override
 
 from mentat.auto_completer import get_command_filename_completions
 from mentat.command.command import Command, CommandArgument
+from mentat.errors import PathValidationError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
-from mentat.errors import PathValidationError
 
 
 class LoadCommand(Command, command_name="load"):
