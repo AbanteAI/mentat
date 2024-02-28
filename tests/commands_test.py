@@ -97,10 +97,10 @@ async def test_save_command(temp_testbed, mock_collect_user_input):
     session.start()
     await session.stream.recv(channel="client_exit")
 
-    saved_code_context = json.load(open(default_context_path))
-    assert (Path(temp_testbed) / "scripts" / "calculator.py").absolute().as_posix() in (
-        saved_code_context.keys()
-    )
+    saved_code_context: dict[str, list[str]] = json.load(open(default_context_path))
+    calculator_script_path = Path(temp_testbed) / "scripts" / "calculator.py"
+    assert str(calculator_script_path.absolute()) in (saved_code_context.keys())
+    assert [str(calculator_script_path.absolute())] in (saved_code_context.values())
 
 
 @pytest.mark.asyncio
@@ -115,7 +115,7 @@ async def test_load_command(temp_testbed, mock_collect_user_input):
     context_file_data = {}
     with open(context_file_path, "w") as f:
         for feature in features:
-            context_file_data[feature.path.absolute().as_posix()] = [str(feature)]
+            context_file_data[str(feature.path.absolute())] = [str(feature)]
 
         json.dump(context_file_data, f)
 
