@@ -68,7 +68,7 @@ class WebviewProvider implements vscode.WebviewViewProvider {
               <link nonce="${nonce}" rel="stylesheet" type="text/css" href="${styleUri}">
               <title>Mentat</title>
             </head>
-            <body>
+            <body class="webview-body">
               <div id="root"></div>
               <script nonce="${nonce}" src="${scriptUri}"></script>
             </body>

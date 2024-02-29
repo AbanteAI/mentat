@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Dict, List, Literal, cast
 from uuid import UUID, uuid4
 
@@ -49,7 +51,8 @@ class SessionStream:
     default_prompt: The prefilled prompt to show on next user input request. Should be additive and reset
     after every input request. See TerminalClient for exact implementation.
 
-    *interrupt: Sent by the client. Sent whenever client interrupts current work. Equivalent to ctrl-C
+    interruptable: A boolean sent to enable or disable an 'interrupt' button. If an interrupt is sent while interruptability is false, the server will shut down.
+    *interrupt: Sent by the client. Sent whenever client interrupts current work. Sent by things like Ctrl-C.
 
     context_update: An object describing the context sent whenever the context changes. Schema:
     {
@@ -66,7 +69,7 @@ class SessionStream:
 
     def __init__(self):
         self.messages: List[StreamMessage] = []
-        self.interrupt_lock = asyncio.Lock()
+        self._interrupt_lock = asyncio.Lock()
         self._broadcast = Broadcast()
 
     def start(self):
@@ -144,3 +147,33 @@ class SessionStream:
     async def join(self) -> None:
         """Blocks until all sent events have been processed"""
         await self._broadcast.join()
+
+    @asynccontextmanager
+    async def interrupt_catcher(self, event: asyncio.Event):
+        """
+        Will start a task listening for an interrupt, set the given event when one is received, and clear it at the end
+        """
+
+        interrupt_task = asyncio.create_task(self._listen_for_interrupt(event))
+        self.send(True, channel="interruptable")
+        yield
+        self.send(False, channel="interruptable")
+        interrupt_task.cancel()
+        try:
+            await interrupt_task
+        except asyncio.CancelledError:
+            pass
+        event.clear()
+
+    async def _listen_for_interrupt(self, event: asyncio.Event):
+        """
+        Listens for an interrupt message from the client. Set the event given when an intterupt is received.
+        """
+
+        async with self._interrupt_lock:
+            await self.recv("interrupt")
+            logging.info("User sent interrupt.")
+            event.set()
+
+    def is_interrupt_locked(self) -> bool:
+        return self._interrupt_lock.locked()

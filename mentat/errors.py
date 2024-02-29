@@ -5,10 +5,6 @@ class ModelError(Exception):
     """
 
 
-class RemoteKeyboardInterrupt(Exception):
-    """Used to indicate a KeyboardInterupt thrown by a remote client"""
-
-
 # TODO: Combine MentatError and UserError into just MentatError
 class MentatError(Exception):
     """

@@ -1,4 +1,5 @@
 import { StreamMessage } from "types";
+import { v4 } from "uuid";
 import type { WebviewApi } from "vscode-webview";
 
 /**
@@ -19,6 +20,24 @@ class VSCodeAPIWrapper {
         if (typeof acquireVsCodeApi === "function") {
             this.vsCodeApi = acquireVsCodeApi();
         }
+    }
+
+    /**
+     * Convenience method for sending data over a specific channel
+     */
+    public sendMessage(
+        data: any,
+        channel: string,
+        extra: { [key: string]: any } = {}
+    ) {
+        const message: StreamMessage = {
+            id: v4(),
+            channel: channel,
+            source: "client",
+            data: data,
+            extra: extra,
+        };
+        this.postMessage(message);
     }
 
     /**

@@ -1,10 +1,9 @@
-import asyncio
 import logging
 import shlex
-from typing import Any, Coroutine
+from typing import Any
 
 from mentat.command.command import Command
-from mentat.errors import RemoteKeyboardInterrupt, SessionExit
+from mentat.errors import SessionExit
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import StreamMessage
 
@@ -65,48 +64,3 @@ async def collect_input_with_commands() -> StreamMessage:
             ctx.stream.send(f"Error processing command arguments: {e}", style="error")
         response = await collect_user_input(command_autocomplete=True)
     return response
-
-
-async def listen_for_interrupt(
-    coro: Coroutine[None, None, Any], raise_exception_on_interrupt: bool = True
-):
-    """Listens for an 'interrupt' message from a client
-
-    This function is used to cancel long-running coroutines from a remote client. If a
-    message is received on the "interrupt" channel for the current session stream, the
-    asyncio.Task created from `coro` will be canceled.
-
-    TODO:
-      - make sure task cancellation actually cancels the tasks
-      - Is there any kind of delay, or a possiblity of one?
-      - make sure there's no race conditions
-
-    The `.result()` call for `wrapped_task` will re-raise any exceptions thrown
-    inside of that Task.
-    """
-    session_context = SESSION_CONTEXT.get()
-    stream = session_context.stream
-
-    async with stream.interrupt_lock:
-        interrupt_task = asyncio.create_task(stream.recv("interrupt"))
-        wrapped_task = asyncio.create_task(coro)
-
-        done, pending = await asyncio.wait(
-            {interrupt_task, wrapped_task}, return_when=asyncio.FIRST_COMPLETED
-        )
-
-        for task in pending:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-
-        if wrapped_task in done:
-            return wrapped_task.result()
-        else:
-            # Send a newline for terminal clients (remove later)
-            stream.send("\n")
-
-            if raise_exception_on_interrupt:
-                raise RemoteKeyboardInterrupt

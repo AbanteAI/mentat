@@ -164,7 +164,7 @@ class TerminalClient:
         if (
             # If session is still starting up we want to quit without an error
             not self.session
-            or self.session.stream.interrupt_lock.locked() is False
+            or self.session.stream.is_interrupt_locked() is False
             or self.session.stopped.is_set()
         ):
             if self._should_exit.is_set():

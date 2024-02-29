@@ -1,8 +1,6 @@
 import asyncio
-import logging
 import queue
 from asyncio import Event
-from contextlib import asynccontextmanager
 from timeit import default_timer
 from typing import Any, List
 
@@ -28,19 +26,9 @@ RATE = 16000
 class Recorder:
     def __init__(self):
         self.shutdown = Event()
-        self._interrupt_task = None
         (logs_path / "audio").mkdir(parents=True, exist_ok=True)
 
         self.file = logs_path / "audio/talk_transcription.wav"
-
-    async def listen_for_interrupt(self):
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-
-        async with stream.interrupt_lock:
-            await stream.recv("interrupt")
-            logging.info("User interrupted response.")
-            self.shutdown.set()
 
     def callback(
         self,
@@ -67,19 +55,6 @@ class Recorder:
 
         self.recording_time = default_timer() - self.start_time
 
-    @asynccontextmanager
-    async def interrupt_catcher(self):
-        self._interrupt_task = asyncio.create_task(self.listen_for_interrupt())
-        yield
-        if self._interrupt_task is not None:  # type: ignore
-            self._interrupt_task.cancel()
-            try:
-                await self._interrupt_task
-            except asyncio.CancelledError:
-                pass
-        self._interrupt_task = None
-        self.shutdown.clear()
-
 
 class TalkCommand(Command, command_name="talk"):
     @override
@@ -93,11 +68,12 @@ class TalkCommand(Command, command_name="talk"):
                 style="error",
             )
         else:
+            # TODO: Ctrl+C doesn't make sense for VSCode client. Send this info in a client agnostic way
             ctx.stream.send(
                 "Listening on your default microphone. Press Ctrl+C to end."
             )
             recorder = Recorder()
-            async with recorder.interrupt_catcher():
+            async with ctx.stream.interrupt_catcher(recorder.shutdown):
                 await recorder.record()
             ctx.stream.send("Processing audio with whisper...")
             await asyncio.sleep(0.01)

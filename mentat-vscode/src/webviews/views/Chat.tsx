@@ -14,6 +14,7 @@ export default function Chat() {
     );
     const [sessionActive, setSessionActive] = useState<boolean>(true);
     const [textAreaValue, setTextAreaValue] = useState<string>("");
+    const [interruptable, setInterruptable] = useState<boolean>(false);
     const chatLogRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -103,6 +104,10 @@ export default function Chat() {
                 setTextAreaValue(message.data);
                 break;
             }
+            case "interruptable": {
+                setInterruptable(message.data);
+                break;
+            }
             case "context_update": {
                 break;
             }
@@ -125,16 +130,12 @@ export default function Chat() {
             content: [{ text: input, style: undefined, color: undefined }],
             source: "user",
         });
-
         // Send message to webview
-        const message: StreamMessage = {
-            id: v4(),
-            channel: `input_request:${inputRequestId}`,
-            source: "client",
-            data: input,
-            extra: {},
-        };
-        vscode.postMessage(message);
+        vscode.sendMessage(input, `input_request:${inputRequestId}`);
+    }
+
+    function onCancel() {
+        vscode.sendMessage(null, "interrupt");
     }
 
     // Using index as key should be fine since we never insert, delete, or re-order chat messages
@@ -156,6 +157,8 @@ export default function Chat() {
                     sessionActive={sessionActive}
                     textAreaValue={textAreaValue}
                     setTextAreaValue={setTextAreaValue}
+                    cancelEnabled={interruptable}
+                    onCancel={onCancel}
                 />
             </div>
         </div>

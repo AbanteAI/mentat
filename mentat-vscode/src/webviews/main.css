@@ -2,11 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+.webview-body {
+    padding: 0 10px;
+}
+
 .hide-scrollbar::-webkit-scrollbar {
-  display: none;
+    display: none;
 }
 
 .hide-scrollbar {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
 }

@@ -1,5 +1,5 @@
 import { KeyboardEvent, useEffect, useRef, useState } from "react";
-import { VscSend } from "react-icons/vsc";
+import { VscError, VscSend } from "react-icons/vsc";
 
 type Props = {
     onUserInput: (input: string) => void;
@@ -7,6 +7,8 @@ type Props = {
     sessionActive: boolean;
     textAreaValue: string;
     setTextAreaValue: (input: string) => void;
+    cancelEnabled: boolean;
+    onCancel: () => void;
 };
 
 export default function ChatInput(props: Props) {
@@ -46,14 +48,13 @@ export default function ChatInput(props: Props) {
     }
 
     return (
-        <div className="pb-4">
-            <div className="relative flex bg-[var(--vscode-input-background)] rounded-md">
+        <div className="flex flex-row items-center pb-4">
+            <div className="relative flex-1 bg-[var(--vscode-input-background)] rounded-md">
                 <textarea
                     ref={textAreaRef}
-                    className="flex-1 focus:outline-[var(--vscode-focusBorder)] rounded-md resize-none bg-[var(--vscode-input-background)] p-2"
+                    className="w-full h-full block flex-1 focus:outline-[var(--vscode-focusBorder)] rounded-md resize-none bg-[var(--vscode-input-background)] p-2"
                     placeholder="What can I do for you?"
                     style={{
-                        height: "auto",
                         overflow: "hidden",
                         scrollbarWidth: "none",
                     }}
@@ -63,24 +64,41 @@ export default function ChatInput(props: Props) {
                     onChange={handleChange}
                     disabled={!props.sessionActive}
                 />
-                <button
-                    className={`${
-                        !submitDisabled &&
-                        "hover:bg-[var(--vscode-button-secondaryHoverBackground)]"
-                    } w-6 h-6 flex justify-center items-center rounded-md fixed bottom-0 right-0 mr-6 mb-[22px]`}
-                    onClick={handleSubmit}
-                    disabled={submitDisabled}
-                >
-                    <VscSend
-                        color={
-                            submitDisabled
-                                ? "var(--vscode-disabledForeground)"
-                                : "var(--vscode-button-foreground)"
-                        }
-                        size={18}
-                    />
-                </button>
             </div>
+            <button
+                className={`${
+                    !submitDisabled &&
+                    "hover:bg-[var(--vscode-button-secondaryHoverBackground)]"
+                } w-6 h-6 flex justify-center items-center rounded-md fixed bottom-[22px] right-12`}
+                onClick={handleSubmit}
+                disabled={submitDisabled}
+            >
+                <VscSend
+                    color={
+                        submitDisabled
+                            ? "var(--vscode-disabledForeground)"
+                            : "var(--vscode-button-foreground)"
+                    }
+                    size={18}
+                />
+            </button>
+            <button
+                className={`${
+                    props.cancelEnabled &&
+                    "hover:bg-[var(--vscode-button-secondaryHoverBackground)]"
+                } w-6 h-6 flex justify-center items-center rounded-md ml-2`}
+                onClick={props.onCancel}
+                disabled={!props.cancelEnabled}
+            >
+                <VscError
+                    color={
+                        props.cancelEnabled
+                            ? "var(--vscode-errorForeground)"
+                            : "var(--vscode-disabledForeground)"
+                    }
+                    size={22}
+                />
+            </button>
         </div>
     );
 }
