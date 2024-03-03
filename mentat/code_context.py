@@ -440,9 +440,7 @@ class CodeContext:
 
         simple_dict: dict[str, list[str]] = {}
         for path, features in self.include_files.items():
-            simple_dict[path.absolute().as_posix()] = [
-                str(feature) for feature in features
-            ]
+            simple_dict[str(path.absolute())] = [str(feature) for feature in features]
         return simple_dict
 
     def from_simple_context_dict(self, simple_dict: dict[str, list[str]]):
