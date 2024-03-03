@@ -34,8 +34,18 @@ class LoadCommand(Command, command_name="load"):
                     f"Invalid context file path provided: {path_arg}: {e}"
                 )
 
-        with open(context_file_path, "r") as file:
-            parsed_include_files = json.load(file)
+        try:
+            with open(context_file_path, "r") as file:
+                parsed_include_files = json.load(file)
+        except FileNotFoundError:
+            stream.send(f"Context file not found at {context_file_path}", style="error")
+            return
+        except json.JSONDecodeError as e:
+            stream.send(
+                f"Failed to parse context file at {context_file_path}: {e}",
+                style="error",
+            )
+            return
 
         code_context.from_simple_context_dict(parsed_include_files)
 
@@ -44,7 +54,7 @@ class LoadCommand(Command, command_name="load"):
     @override
     @classmethod
     def arguments(cls) -> List[CommandArgument]:
-        return [CommandArgument("required", ["path"])]
+        return [CommandArgument("optional", ["path"])]
 
     @override
     @classmethod

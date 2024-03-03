@@ -104,7 +104,7 @@ async def test_save_command(temp_testbed, mock_collect_user_input):
 
 
 @pytest.mark.asyncio
-async def test_load_command(temp_testbed, mock_collect_user_input):
+async def test_load_command_success(temp_testbed, mock_collect_user_input):
     scripts_dir = Path(temp_testbed) / "scripts"
     features = [
         CodeFeature(scripts_dir / "calculator.py", Interval(1, 10)),
@@ -140,6 +140,44 @@ async def test_load_command(temp_testbed, mock_collect_user_input):
     assert code_context.include_files[scripts_dir / "echo.py"] == [
         CodeFeature(scripts_dir / "echo.py"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_load_command_file_not_found(temp_testbed, mock_collect_user_input):
+    context_file_path = "context-f47e7a1c-84a2-40a9-9e40-255f976d3223.json"
+
+    mock_collect_user_input.set_stream_messages(
+        [
+            f"/load {context_file_path}",
+            "q",
+        ]
+    )
+
+    session = Session(cwd=temp_testbed)
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    assert "Context file not found" in session.stream.messages[4].data
+
+
+@pytest.mark.asyncio
+async def test_load_command_invalid_json(temp_testbed, mock_collect_user_input):
+    context_file_path = "context.json"
+    with open(context_file_path, "w") as f:
+        f.write("invalid json")
+
+    mock_collect_user_input.set_stream_messages(
+        [
+            f"/load {context_file_path}",
+            "q",
+        ]
+    )
+
+    session = Session(cwd=temp_testbed)
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    assert "Failed to parse context file" in session.stream.messages[4].data
 
 
 @pytest.mark.asyncio
