@@ -409,3 +409,29 @@ class CodeContext:
             return all_features_sorted
         else:
             return all_features_sorted[:max_results]
+
+    def to_simple_context_dict(self) -> dict[str, list[str]]:
+        """Return a simple dictionary representation of the code context"""
+
+        simple_dict: dict[str, list[str]] = {}
+        for path, features in self.include_files.items():
+            simple_dict[str(path.absolute())] = [str(feature) for feature in features]
+        return simple_dict
+
+    def from_simple_context_dict(self, simple_dict: dict[str, list[str]]):
+        """Load the code context from a simple dictionary representation"""
+
+        for path_str, features_str in simple_dict.items():
+            path = Path(path_str)
+            features_for_path: List[CodeFeature] = []
+
+            for feature_str in features_str:
+                feature_path = Path(feature_str)
+
+                # feature_path is already absolute, so cwd doesn't matter
+                current_features = get_code_features_for_path(
+                    feature_path, cwd=Path("/")
+                )
+                features_for_path += list(current_features)
+
+            self.include_files[path] = features_for_path
