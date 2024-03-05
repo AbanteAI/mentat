@@ -156,7 +156,9 @@ async def stream_model_response_two_step(
         terminate=True,
     )
 
+    # TODO: if using two step, don't add line numbers to context - might help
     # TODO: identify files mentioned, rewrite them with new calls
+    # TODO: instead of FileEdit objects, return new rewritten files?
     # TODO: add interrupt ability
     # TODO: make sure to track costs of all calls and log api calls
     stream.send("Streaming... use control-c to interrupt the model at any point\n")
@@ -195,6 +197,7 @@ async def stream_model_response_two_step(
     # TODO remove line numbers when running two step edit
     # TODO handle creating new files - including update prompt to know that's possible
 
+    rewritten_files = []
     for file_path in response_json["files"]:
         full_path = (cwd / Path(file_path)).resolve()
         code_file_lines = code_file_manager.file_lines.get(full_path, [])
@@ -221,10 +224,19 @@ async def stream_model_response_two_step(
             stream=False,
         )
         rewrite_file_response = rewrite_file_response.choices[0].message.content
+        lines = rewrite_file_response.splitlines()
+        # TODO remove asserts
+        assert "```" in lines[0]
+        assert "```" in lines[-1]
+        lines = lines[1:-1]
+        rewrite_file_response = "\n".join(lines)
+
+        rewritten_files.append((full_path, rewrite_file_response))
 
         stream.send(f"\n### File Rewrite Response: {file_path} ###\n")
         # stream.send(rewrite_file_response)
 
+        # TODO stream colored diff, skipping unchanged lines (except some for context)
         print_colored_diff(code_file_string, rewrite_file_response, stream)
 
     # async with parser.interrupt_catcher():
@@ -255,6 +267,7 @@ async def stream_model_response_two_step(
         conversation=first_message,
         # [file_edit for file_edit in file_edits.values()],
         file_edits=[],
+        rewritten_files=rewritten_files,
         interrupted=False,
     )
 

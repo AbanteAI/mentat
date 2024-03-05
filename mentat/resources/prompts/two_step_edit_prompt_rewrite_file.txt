@@ -4,8 +4,8 @@ In the next message you will be given the contents of a code file. The user will
 
 Your response should:
     - rewrite the entire file, including all the requested edits
-    - wrap your entire response in ```python ... ``` to format it as Python code
-    - do not include anything else in your response other than the wrapped code
-    - do not make any other changes to the code other than the requested edits
+    - wrap your entire response in ```
+    - do not include anything else in your response other than the code
+    - do not make any other changes to the code other than the requested edits, even to standardize formatting
     - even formatting changes should not be made unless explicitly requested by the user
     - if a change is not fully specified, do your best to follow the spirit of what was asked
