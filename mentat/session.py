@@ -240,6 +240,20 @@ class Session:
             # Will intermediary client for vscode serialize/deserialize all messages automatically?
             self.stream.send(completions, channel=f"completion_request:{message.id}")
 
+    async def listen_for_include(self):
+        ctx = SESSION_CONTEXT.get()
+
+        async for message in self.stream.listen(channel="include"):
+            ctx.code_context.include(message.data)
+            ctx.code_context.refresh_context_display()
+
+    async def listen_for_exclude(self):
+        ctx = SESSION_CONTEXT.get()
+
+        async for message in self.stream.listen(channel="exclude"):
+            ctx.code_context.exclude(message.data)
+            ctx.code_context.refresh_context_display()
+
     ### lifecycle
 
     def start(self):
@@ -279,6 +293,8 @@ class Session:
 
         self._create_task(self.listen_for_session_exit())
         self._create_task(self.listen_for_completion_requests())
+        self._create_task(self.listen_for_include())
+        self._create_task(self.listen_for_exclude())
 
     async def _stop(self):
         if self.stopped.is_set():

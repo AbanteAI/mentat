@@ -1,5 +1,6 @@
 import { ChildProcessWithoutNullStreams } from "child_process";
 import { StreamMessage } from "types";
+import { server } from "utils/server";
 import * as vscode from "vscode";
 import { Uri, Webview } from "vscode";
 
@@ -19,19 +20,14 @@ function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
 
 class WebviewProvider implements vscode.WebviewViewProvider {
     private extensionUri: vscode.Uri;
-    private serverProcess: ChildProcessWithoutNullStreams;
     private view?: vscode.WebviewView;
 
-    constructor(
-        extensionUri: vscode.Uri,
-        serverProcess: ChildProcessWithoutNullStreams
-    ) {
+    constructor(extensionUri: vscode.Uri) {
         this.extensionUri = extensionUri;
-        this.serverProcess = serverProcess;
     }
 
     // Send LS Messages to the WebView
-    private postMessage(message: StreamMessage) {
+    public postMessage(message: StreamMessage) {
         if (!this.view) {
             console.error(`No view available. It has possibly collapsed`);
         } else {
@@ -91,23 +87,14 @@ class WebviewProvider implements vscode.WebviewViewProvider {
         this.view.webview.html = this.getHtmlForWebview();
 
         // Send messages from React app to server
-        this.view.webview.onDidReceiveMessage((message: StreamMessage) => {
-            this.serverProcess.stdin.write(JSON.stringify(message) + "\n");
-        });
+        this.view.webview.onDidReceiveMessage((message: StreamMessage) =>
+            server.sendMessage(message)
+        );
 
-        // Send messages from the server to React app
-        this.serverProcess.stdout.on("data", (output: string) => {
-            for (const serializedMessage of output.trim().split("\n")) {
-                try {
-                    const message: StreamMessage = JSON.parse(
-                        serializedMessage.trim()
-                    );
-                    this.postMessage(message);
-                } catch (error) {
-                    console.error("Error reading StreamMessage:", error);
-                }
-            }
-        });
+        // Send messages from server to React app
+        server.messageEmitter.on("message", (message: StreamMessage) =>
+            this.postMessage(message)
+        );
     }
 }
 

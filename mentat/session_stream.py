@@ -65,6 +65,9 @@ class SessionStream:
         "total_tokens": Total tokens in context,
         "total_cost": Total cost so far
     }
+
+    *include: Sent by the client. Gives a path to include in context.
+    *exclude: Sent by the client. Gives a path to exclude from context.
     """
 
     def __init__(self):

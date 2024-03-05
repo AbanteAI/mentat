@@ -21,17 +21,17 @@
         "viewsContainers": {
             "activitybar": [
                 {
-                    "id": "Mentat",
+                    "id": "mentat-activitybar",
                     "title": "Mentat",
                     "icon": "assets/icon.svg"
                 }
             ]
         },
         "views": {
-            "Mentat": [
+            "mentat-activitybar": [
                 {
                     "type": "webview",
-                    "id": "MentatChat",
+                    "id": "mentat-webview",
                     "name": "Chat"
                 }
             ]
@@ -39,6 +39,52 @@
         "configuration": {
             "title": "Mentat",
             "properties": {}
+        },
+        "commands": [
+            {
+                "command": "mentat.includeFile",
+                "title": "Mentat: Include File",
+                "enablement": "resourceSet"
+            },
+            {
+                "command": "mentat.excludeFile",
+                "title": "Mentat: Exclude File",
+                "enablement": "resourceSet"
+            },
+            {
+                "command": "mentat.includeFolder",
+                "title": "Mentat: Include Folder",
+                "enablement": "explorerResourceIsFolder"
+            },
+            {
+                "command": "mentat.excludeFolder",
+                "title": "Mentat: Exclude Folder",
+                "enablement": "explorerResourceIsFolder"
+            }
+        ],
+        "menus": {
+            "explorer/context": [
+                {
+                    "when": "!explorerResourceIsFolder && resourcePath not in mentat.includedFiles",
+                    "command": "mentat.includeFile",
+                    "group": "8_mentat"
+                },
+                {
+                    "when": "!explorerResourceIsFolder && resourcePath in mentat.includedFiles",
+                    "command": "mentat.excludeFile",
+                    "group": "8_mentat"
+                },
+                {
+                    "when": "explorerResourceIsFolder",
+                    "command": "mentat.includeFolder",
+                    "group": "8_mentat"
+                },
+                {
+                    "when": "explorerResourceIsFolder && resourcePath not in mentat.includedFolders",
+                    "command": "mentat.excludeFolder",
+                    "group": "8_mentat"
+                }
+            ]
         }
     },
     "scripts": {

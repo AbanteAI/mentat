@@ -17,4 +17,15 @@ type Message = {
     source: "user" | "mentat";
 };
 
-export { Message, MessageContent, StreamMessage };
+type ContextUpdateData = {
+    cwd: string;
+    diff_context_display: string;
+    auto_context_tokens: number;
+    features: string[];
+    auto_features: string[];
+    git_diff_paths: string[];
+    total_tokens: number;
+    total_cost: number;
+};
+
+export { Message, MessageContent, StreamMessage, ContextUpdateData };
