@@ -18,6 +18,16 @@
     ],
     "main": "./build/extension.js",
     "contributes": {
+        "colors": [
+            {
+                "id": "mentat.fileInContext",
+                "description": "Color for files in the explorer that are in Mentat's context.",
+                "defaults": {
+                    "dark": "#f0deff",
+                    "light": "#2c173d"
+                }
+            }
+        ],
         "viewsContainers": {
             "activitybar": [
                 {
@@ -80,7 +90,7 @@
                     "group": "8_mentat"
                 },
                 {
-                    "when": "explorerResourceIsFolder && resourcePath not in mentat.includedFolders",
+                    "when": "explorerResourceIsFolder && resourcePath in mentat.includedFolders",
                     "command": "mentat.excludeFolder",
                     "group": "8_mentat"
                 }

@@ -5,14 +5,13 @@ import { excludeResource, includeResource } from "utils/commands";
 import { ContextUpdateData, StreamMessage } from "types";
 import path from "path";
 import { server } from "utils/server";
+import { ContextFileDecorationProvider } from "lib/ContextFileDecorationProvider";
 
-function contextUpdate(data: ContextUpdateData) {
+function contextUpdate(
+    data: ContextUpdateData,
+    contextFileDecorationProvider: ContextFileDecorationProvider
+) {
     const features = [...data.features, ...data.auto_features];
-    vscode.commands.executeCommand(
-        "setContext",
-        "mentat.includedFiles",
-        features
-    );
     const folders: string[] = [];
     for (const feature of features) {
         var dir = feature;
@@ -21,17 +20,25 @@ function contextUpdate(data: ContextUpdateData) {
             folders.push(dir);
         }
     }
+
+    // Update context (needed for context menu commands)
+    vscode.commands.executeCommand(
+        "setContext",
+        "mentat.includedFiles",
+        features
+    );
     vscode.commands.executeCommand(
         "setContext",
         "mentat.includedFolders",
         folders
     );
+
+    // Update file decorations
+    contextFileDecorationProvider.refresh([...features, ...folders]);
 }
 
 async function activateClient(context: vscode.ExtensionContext) {
     try {
-        // vscode.window.registerFileDecorationProvider()
-
         // In package.json:
         // {
         //    "id": "context-view",
@@ -39,6 +46,14 @@ async function activateClient(context: vscode.ExtensionContext) {
         // },
         // const contextProvider = new ContextProvider(workspaceRoot);
         // context.subscriptions.push(vscode.window.registerTreeDataProvider("context-view", contextProvider));
+
+        const contextFileDecorationProvider =
+            new ContextFileDecorationProvider();
+        context.subscriptions.push(
+            vscode.window.registerFileDecorationProvider(
+                contextFileDecorationProvider
+            )
+        );
 
         const chatWebviewProvider = new WebviewProvider(context.extensionUri);
         context.subscriptions.push(
@@ -83,7 +98,7 @@ async function activateClient(context: vscode.ExtensionContext) {
         server.messageEmitter.on("message", (message: StreamMessage) => {
             switch (message.channel) {
                 case "context_update": {
-                    contextUpdate(message.data);
+                    contextUpdate(message.data, contextFileDecorationProvider);
                     break;
                 }
             }
