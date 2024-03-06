@@ -16,7 +16,6 @@ from openai.types.chat import (
 )
 
 from mentat.llm_api_handler import (
-    TOKEN_COUNT_WARNING,
     count_tokens,
     get_max_tokens,
     prompt_tokens,
