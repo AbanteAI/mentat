@@ -17,7 +17,7 @@ from openai.types.chat.completion_create_params import ResponseFormat
 
 from mentat.llm_api_handler import TOKEN_COUNT_WARNING, count_tokens, prompt_tokens
 from mentat.parsers.parser import ParsedLLMResponse
-from mentat.parsers.streaming_printer import FormattedString, StreamingPrinter
+from mentat.parsers.streaming_printer import StreamingPrinter
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import add_newline
@@ -127,7 +127,6 @@ async def stream_model_response_two_step(
     config = session_context.config
     parser = config.parser
     llm_api_handler = session_context.llm_api_handler
-    cost_tracker = session_context.cost_tracker
     cwd = session_context.cwd
 
     num_prompt_tokens = prompt_tokens(messages, config.model)
@@ -275,8 +274,6 @@ async def stream_model_response_two_step(
 async def stream_and_parse_llm_response_two_step(
     response: AsyncIterator[ChatCompletionChunk],
 ) -> str:
-    session_context = SESSION_CONTEXT.get()
-    stream = session_context.stream
     printer = StreamingPrinter()
     printer_task = asyncio.create_task(printer.print_lines())
 
