@@ -12,8 +12,10 @@ import * as vscode from "vscode";
 const aexec = util.promisify(exec);
 
 class Server {
+    private binFolder: string | undefined = undefined;
     private serverProcess: ChildProcessWithoutNullStreams | undefined;
     public messageEmitter: EventEmitter = new EventEmitter();
+    private backlog: StreamMessage[] = [];
 
     constructor() {}
 
@@ -111,13 +113,22 @@ class Server {
     }
 
     public async startServer(workspaceRoot: string) {
-        const binFolder = await vscode.window.withProgress(
-            { location: vscode.ProgressLocation.Notification },
-            async (progress) => {
-                return await this.installMentat(progress);
-            }
+        if (this.binFolder === undefined) {
+            this.binFolder = await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification },
+                async (progress) => {
+                    return await this.installMentat(progress);
+                }
+            );
+        }
+        if (this.serverProcess !== undefined) {
+            this.backlog = [];
+            this.serverProcess.kill();
+        }
+        this.serverProcess = await this.startMentat(
+            workspaceRoot,
+            this.binFolder
         );
-        this.serverProcess = await this.startMentat(workspaceRoot, binFolder);
         this.serverProcess.stdout.on("data", (output: string) => {
             for (const serializedMessage of output.trim().split("\n")) {
                 try {
@@ -155,8 +166,6 @@ class Server {
         };
         this.sendMessage(message);
     }
-
-    private backlog: StreamMessage[] = [];
 
     public sendMessage(message: StreamMessage) {
         if (this.serverProcess === undefined) {

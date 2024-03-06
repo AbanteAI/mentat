@@ -41,10 +41,6 @@
         "views": {
             "mentat-activitybar": [
                 {
-                    "id": "mentat-context-view",
-                    "name": "Context"
-                },
-                {
                     "type": "webview",
                     "id": "mentat-webview",
                     "name": "Chat"

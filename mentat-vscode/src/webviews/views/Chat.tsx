@@ -16,6 +16,31 @@ export default function Chat() {
     const [interruptable, setInterruptable] = useState<boolean>(false);
     const chatLogRef = useRef<HTMLDivElement>(null);
 
+    // TODO: Rarely, if you move fast during model output, some bugs can occur when reloading webview view;
+    // figure out why and fix it (easiest to see if you turn off retainContextWhenHidden), and then turn off retainContextWhenHidden.
+
+    // Whenever you add more state, make certain to update both of these effects!!!
+    useEffect(() => {
+        const state: any = vscode.getState();
+        if (state !== undefined) {
+            setMessages(state.messages);
+            setInputRequestId(state.inputRequestId);
+            setSessionActive(state.sessionActive);
+            setTextAreaValue(state.textAreaValue);
+            setInterruptable(state.interruptable);
+        }
+    }, []);
+    useEffect(() => {
+        const state = {
+            messages,
+            inputRequestId,
+            sessionActive,
+            textAreaValue,
+            interruptable,
+        };
+        vscode.setState(state);
+    }, [messages, inputRequestId, sessionActive, textAreaValue, interruptable]);
+
     const scrollToBottom = () => {
         if (chatLogRef.current) {
             chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;

@@ -6,12 +6,10 @@ import { ContextUpdateData, StreamMessage } from "types";
 import path from "path";
 import { server } from "utils/server";
 import { ContextFileDecorationProvider } from "lib/ContextFileDecorationProvider";
-import { ContextTreeProvider } from "lib/ContextTreeProvider";
 
 function contextUpdate(
     data: ContextUpdateData,
-    contextFileDecorationProvider: ContextFileDecorationProvider,
-    contextTreeProvider: ContextTreeProvider
+    contextFileDecorationProvider: ContextFileDecorationProvider
 ) {
     const features = [...data.features, ...data.auto_features];
     const folders: string[] = [];
@@ -37,9 +35,6 @@ function contextUpdate(
 
     // Update file decorations
     contextFileDecorationProvider.refresh([...features, ...folders]);
-
-    // Update context file tree
-    contextTreeProvider.updateContext(data.features, data.auto_features);
 }
 
 async function activateClient(context: vscode.ExtensionContext) {
@@ -85,6 +80,17 @@ async function activateClient(context: vscode.ExtensionContext) {
         );
 
         // Activity bar views
+        /*
+        Under "mentat-activitybar" in package.json:
+        {
+            "id": "mentat-context-view",
+            "name": "Context"
+        },
+
+        In contextUpdate:
+        contextTreeProvider.updateContext(data.features, data.auto_features);
+
+        Here:
         const contextTreeProvider = new ContextTreeProvider(workspaceRoot);
         context.subscriptions.push(
             vscode.window.registerTreeDataProvider(
@@ -92,6 +98,7 @@ async function activateClient(context: vscode.ExtensionContext) {
                 contextTreeProvider
             )
         );
+        */
 
         const chatWebviewProvider = new WebviewProvider(context.extensionUri);
         context.subscriptions.push(
@@ -110,11 +117,7 @@ async function activateClient(context: vscode.ExtensionContext) {
             chatWebviewProvider.postMessage(message);
             switch (message.channel) {
                 case "context_update": {
-                    contextUpdate(
-                        message.data,
-                        contextFileDecorationProvider,
-                        contextTreeProvider
-                    );
+                    contextUpdate(message.data, contextFileDecorationProvider);
                     break;
                 }
             }

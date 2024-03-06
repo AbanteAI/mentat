@@ -6,6 +6,7 @@ import {
     TreeDataProvider,
     TreeItem,
     TreeItemCollapsibleState,
+    Uri,
 } from "vscode";
 import fs from "fs";
 
@@ -70,8 +71,6 @@ export class ContextTreeProvider implements TreeDataProvider<ContextFile> {
 }
 
 class ContextFile extends TreeItem {
-    isDir: boolean;
-
     constructor(public absPath: string, workspaceRoot: string) {
         const isDir = fs.lstatSync(absPath).isDirectory();
         super(
@@ -80,7 +79,7 @@ class ContextFile extends TreeItem {
                 ? TreeItemCollapsibleState.Expanded
                 : TreeItemCollapsibleState.None
         );
-        this.isDir = isDir;
-        this.tooltip = path.relative(workspaceRoot, absPath);
+        this.resourceUri = Uri.file(absPath);
+        this.iconPath = undefined;
     }
 }
