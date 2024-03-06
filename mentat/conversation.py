@@ -15,7 +15,13 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-from mentat.llm_api_handler import count_tokens, get_max_tokens, prompt_tokens
+from mentat.llm_api_handler import (
+    TOKEN_COUNT_WARNING,
+    count_tokens,
+    get_max_tokens,
+    prompt_tokens,
+    raise_if_context_exceeds_max,
+)
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.parser import ParsedLLMResponse
 from mentat.session_context import SESSION_CONTEXT
@@ -44,35 +50,7 @@ class Conversation:
         config = session_context.config
         code_context = session_context.code_context
 
-        if "gpt-4" not in config.model:
-            stream.send(
-                "Warning: Mentat has only been tested on GPT-4. You may experience"
-                " issues with quality. This model may not be able to respond in"
-                " mentat's edit format.",
-                style="warning",
-            )
-            if "gpt-3.5" not in config.model:
-                stream.send(
-                    "Warning: Mentat does not know how to calculate costs or context"
-                    " size for this model.",
-                    style="warning",
-                )
-
-        messages = self.get_messages()
-        code_message = await code_context.get_code_message(
-            prompt_tokens(
-                messages,
-                config.model,
-            ),
-            suppress_context_check=True,
-        )
-        messages.append(
-            ChatCompletionSystemMessageParam(
-                role="system",
-                content=code_message,
-            )
-        )
-        tokens = prompt_tokens(messages, config.model)
+        tokens = await self.count_tokens(include_code_message=True)
 
         context_size = get_max_tokens()
         if tokens + config.token_buffer > context_size:
@@ -143,17 +121,28 @@ class Conversation:
         """Used for adding messages to the models conversation. Does not add a left-side message to the transcript!"""
         self._messages.append(message)
 
-    def get_messages(
+    async def count_tokens(
         self,
-        include_system_prompt: bool = True,
+        system_prompt: Optional[list[ChatCompletionMessageParam]] = None,
+        include_code_message: bool = False,
+    ) -> int:
+        _messages = await self.get_messages(
+            system_prompt=system_prompt, include_code_message=include_code_message
+        )
+        model = SESSION_CONTEXT.get().config.model
+        return prompt_tokens(_messages, model)
+
+    async def get_messages(
+        self,
+        system_prompt: Optional[list[ChatCompletionMessageParam]] = None,
         include_parsed_llm_responses: bool = False,
+        include_code_message: bool = False,
     ) -> list[ChatCompletionMessageParam]:
         """Returns the messages in the conversation. The system message may change throughout
         the conversation and messages may contain additional metadata not supported by the API,
         so it is important to access the messages through this method.
         """
-        session_context = SESSION_CONTEXT.get()
-        config = session_context.config
+        ctx = SESSION_CONTEXT.get()
 
         _messages = [
             (  # Remove metadata from messages by default
@@ -166,21 +155,53 @@ class Conversation:
             for msg in self._messages.copy()
         ]
 
-        if config.no_parser_prompt or not include_system_prompt:
-            return _messages
+        if len(_messages) > 0 and _messages[-1].get("role") == "user":
+            prompt = _messages[-1].get("content")
+            if isinstance(prompt, list):
+                text_prompts = [
+                    p.get("text", "") for p in prompt if p.get("type") == "text"
+                ]
+                prompt = " ".join(text_prompts)
         else:
-            parser = config.parser
-            if session_context.config.two_step_edits:
-                prompt = get_two_step_system_prompt()
-            else:
-                prompt = parser.get_system_prompt()
-            prompt_message: ChatCompletionMessageParam = (
+            prompt = ""
+
+        if include_code_message:
+            code_message = await ctx.code_context.get_code_message(
+                prompt_tokens(_messages, ctx.config.model),
+                prompt=(
+                    prompt  # Prompt can be image as well as text
+                    if isinstance(prompt, str)
+                    else ""
+                ),
+            )
+            _messages = [
                 ChatCompletionSystemMessageParam(
                     role="system",
-                    content=prompt,
+                    content=code_message,
                 )
-            )
-            return [prompt_message] + _messages
+            ] + _messages
+
+        if system_prompt is None:
+            if ctx.config.no_parser_prompt:
+                system_prompt = []
+            else:
+                if ctx.config.two_step_edits:
+                    system_prompt = [
+                        ChatCompletionSystemMessageParam(
+                            role="system",
+                            content=get_two_step_system_prompt(),
+                        )
+                    ]
+                else:
+                    parser = ctx.config.parser
+                    system_prompt = [
+                        ChatCompletionSystemMessageParam(
+                            role="system",
+                            content=parser.get_system_prompt(),
+                        )
+                    ]
+
+        return system_prompt + _messages
 
     def clear_messages(self) -> None:
         """Clears the messages in the conversation"""
@@ -190,29 +211,10 @@ class Conversation:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
-        code_context = session_context.code_context
 
-        messages_snapshot = self.get_messages()
-
-        # Get current code message
-        prompt = messages_snapshot[-1].get("content")
-        if isinstance(prompt, list):
-            text_prompts = [
-                p.get("text", "") for p in prompt if p.get("type") == "text"
-            ]
-            prompt = " ".join(text_prompts)
-        code_message = await code_context.get_code_message(
-            prompt_tokens(messages_snapshot, config.model),
-            prompt=(
-                prompt  # Prompt can be image as well as text
-                if isinstance(prompt, str)
-                else ""
-            ),
-        )
-        messages_snapshot.insert(
-            0 if config.no_parser_prompt else 1,
-            ChatCompletionSystemMessageParam(role="system", content=code_message),
-        )
+        messages_snapshot = await self.get_messages(include_code_message=True)
+        tokens_used = prompt_tokens(messages_snapshot, config.model)
+        raise_if_context_exceeds_max(tokens_used)
 
         try:
             if session_context.config.two_step_edits:
@@ -237,18 +239,20 @@ class Conversation:
 
         return response
 
-    def remaining_context(self) -> int | None:
+    async def remaining_context(self) -> int | None:
         ctx = SESSION_CONTEXT.get()
-        return get_max_tokens() - prompt_tokens(self.get_messages(), ctx.config.model)
+        return get_max_tokens() - prompt_tokens(
+            await self.get_messages(), ctx.config.model
+        )
 
-    def can_add_to_context(self, message: str) -> bool:
+    async def can_add_to_context(self, message: str) -> bool:
         """
         Whether or not the model has enough context remaining to add this message.
         Will take token buffer into account and uses full_message=True.
         """
         ctx = SESSION_CONTEXT.get()
 
-        remaining_context = self.remaining_context()
+        remaining_context = await self.remaining_context()
         return (
             remaining_context is not None
             and remaining_context
@@ -294,7 +298,7 @@ class Conversation:
         output = "".join(output)
         message = f"Command ran:\n{' '.join(command)}\nCommand output:\n{output}"
 
-        if self.can_add_to_context(message):
+        if await self.can_add_to_context(message):
             self.add_message(
                 ChatCompletionSystemMessageParam(role="system", content=message)
             )

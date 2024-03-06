@@ -24,7 +24,6 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config, config_file_name
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
-from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler
 from mentat.parsers.streaming_printer import StreamingPrinter
 from mentat.sampler.sampler import Sampler
@@ -205,8 +204,6 @@ def mock_session_context(temp_testbed):
     set by a Session if the test creates a Session.
     If you create a Session or Client in your test, do NOT use this SessionContext!
     """
-    git_root = get_git_root_for_path(temp_testbed, raise_error=False)
-
     stream = SessionStream()
 
     cost_tracker = CostTracker()
@@ -215,7 +212,7 @@ def mock_session_context(temp_testbed):
 
     llm_api_handler = LlmApiHandler()
 
-    code_context = CodeContext(stream, git_root)
+    code_context = CodeContext(stream, temp_testbed)
 
     code_file_manager = CodeFileManager()
     conversation = Conversation()

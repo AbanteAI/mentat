@@ -5,8 +5,6 @@ import os
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, TypedDict, Union
 
-from openai.types.chat import ChatCompletionSystemMessageParam
-
 from mentat.code_feature import (
     CodeFeature,
     get_code_message_from_features,
@@ -27,12 +25,7 @@ from mentat.include_files import (
     validate_and_format_path,
 )
 from mentat.interval import parse_intervals, split_intervals_from_path
-from mentat.llm_api_handler import (
-    count_tokens,
-    get_max_tokens,
-    prompt_tokens,
-    raise_if_context_exceeds_max,
-)
+from mentat.llm_api_handler import count_tokens, get_max_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
@@ -53,35 +46,28 @@ class CodeContext:
     def __init__(
         self,
         stream: SessionStream,
-        git_root: Optional[Path] = None,
+        cwd: Path,
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
         ignore_patterns: Iterable[Path | str] = [],
     ):
-        self.git_root = git_root
         self.diff = diff
         self.pr_diff = pr_diff
         self.ignore_patterns = set(Path(p) for p in ignore_patterns)
 
-        self.diff_context = None
-        if self.git_root:
-            self.diff_context = DiffContext(
-                stream, self.git_root, self.diff, self.pr_diff
-            )
+        self.diff_context = DiffContext(stream, cwd, self.diff, self.pr_diff)
 
         self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
         self.auto_features: List[CodeFeature] = []
 
-    def refresh_context_display(self):
+    async def refresh_context_display(self):
         """
         Sends a message to the client with the code context. It is called in the main loop.
         """
         ctx = SESSION_CONTEXT.get()
 
-        diff_context_display = None
-        if self.diff_context and self.diff_context.name:
-            diff_context_display = self.diff_context.get_display_context()
+        diff_context_display = self.diff_context.get_display_context()
 
         features = get_consolidated_feature_refs(
             [
@@ -91,30 +77,10 @@ class CodeContext:
             ]
         )
         auto_features = get_consolidated_feature_refs(self.auto_features)
-        if self.diff_context:
-            git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
-            git_untracked_paths = [str(p) for p in self.diff_context.untracked_files()]
-        else:
-            git_diff_paths = []
-            git_untracked_paths = []
-        messages = ctx.conversation.get_messages()
-        code_message = get_code_message_from_features(
-            [
-                feature
-                for file_features in self.include_files.values()
-                for feature in file_features
-            ]
-            + self.auto_features
-        )
-        total_tokens = prompt_tokens(
-            messages
-            + [
-                ChatCompletionSystemMessageParam(
-                    role="system", content="\n".join(code_message)
-                )
-            ],
-            ctx.config.model,
-        )
+        git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
+        git_untracked_paths = [str(p) for p in self.diff_context.untracked_files()]
+
+        total_tokens = await ctx.conversation.count_tokens(include_code_message=True)
 
         total_cost = ctx.cost_tracker.total_cost
 
@@ -136,7 +102,6 @@ class CodeContext:
         prompt_tokens: int,
         prompt: Optional[str] = None,
         expected_edits: Optional[list[str]] = None,  # for training/benchmarking
-        suppress_context_check: bool = False,
     ) -> str:
         """
         Retrieves the current code message.
@@ -151,20 +116,19 @@ class CodeContext:
 
         # Setup code message metadata
         code_message = list[str]()
-        if self.diff_context:
-            # Since there is no way of knowing when the git diff changes,
-            # we just refresh the cache every time get_code_message is called
-            self.diff_context.refresh()
-            if self.diff_context.diff_files():
-                code_message += [
-                    "Diff References:",
-                    f' "-" = {self.diff_context.name}',
-                    ' "+" = Active Changes',
-                    "",
-                ]
+
+        # Since there is no way of knowing when the git diff changes,
+        # we just refresh the cache every time get_code_message is called
+        self.diff_context.refresh()
+        if self.diff_context.diff_files():
+            code_message += [
+                "Diff References:",
+                f' "-" = {self.diff_context.name}',
+                ' "+" = Active Changes',
+                "",
+            ]
 
         code_message += ["Code Files:\n"]
-        meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
 
         # Calculate user included features token size
         include_features = [
@@ -172,21 +136,22 @@ class CodeContext:
             for file_features in self.include_files.values()
             for feature in file_features
         ]
-        include_files_message = get_code_message_from_features(include_features)
-        include_files_tokens = count_tokens(
-            "\n".join(include_files_message), model, full_message=False
-        )
-
-        tokens_used = prompt_tokens + meta_tokens + include_files_tokens
-        if not suppress_context_check:
-            raise_if_context_exceeds_max(tokens_used)
-        auto_tokens = min(
-            get_max_tokens() - tokens_used - config.token_buffer,
-            config.auto_context_tokens,
-        )
 
         # Get auto included features
         if config.auto_context_tokens > 0 and prompt:
+            meta_tokens = count_tokens(
+                "\n".join(code_message), model, full_message=True
+            )
+            include_files_message = get_code_message_from_features(include_features)
+            include_files_tokens = count_tokens(
+                "\n".join(include_files_message), model, full_message=False
+            )
+
+            tokens_used = prompt_tokens + meta_tokens + include_files_tokens
+            auto_tokens = min(
+                get_max_tokens() - tokens_used - config.token_buffer,
+                config.auto_context_tokens,
+            )
             features = self.get_all_features()
             feature_filter = DefaultFilter(
                 auto_tokens,
@@ -444,3 +409,29 @@ class CodeContext:
             return all_features_sorted
         else:
             return all_features_sorted[:max_results]
+
+    def to_simple_context_dict(self) -> dict[str, list[str]]:
+        """Return a simple dictionary representation of the code context"""
+
+        simple_dict: dict[str, list[str]] = {}
+        for path, features in self.include_files.items():
+            simple_dict[str(path.absolute())] = [str(feature) for feature in features]
+        return simple_dict
+
+    def from_simple_context_dict(self, simple_dict: dict[str, list[str]]):
+        """Load the code context from a simple dictionary representation"""
+
+        for path_str, features_str in simple_dict.items():
+            path = Path(path_str)
+            features_for_path: List[CodeFeature] = []
+
+            for feature_str in features_str:
+                feature_path = Path(feature_str)
+
+                # feature_path is already absolute, so cwd doesn't matter
+                current_features = get_code_features_for_path(
+                    feature_path, cwd=Path("/")
+                )
+                features_for_path += list(current_features)
+
+            self.include_files[path] = features_for_path

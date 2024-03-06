@@ -54,7 +54,7 @@ async def revise_edit(file_edit: FileEdit):
     user_message = list(
         filter(
             lambda message: message["role"] == "user",
-            ctx.conversation.get_messages(),
+            await ctx.conversation.get_messages(),
         )
     )[-1]
     user_message["content"] = f"User Request:\n{user_message.get('content')}"
