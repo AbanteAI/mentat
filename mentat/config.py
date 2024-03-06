@@ -98,6 +98,16 @@ class Config:
         },
         converter=converters.optional(converters.to_bool),
     )
+    two_step_edits: bool = attr.field(
+        default=False,
+        metadata={
+            "description": (
+                "Experimental feature that uses multiple LLM calls to make and parse"
+                " edits"
+            ),
+            "auto_completions": bool_autocomplete,
+        },
+    )
     revisor: bool = attr.field(
         default=False,
         metadata={
