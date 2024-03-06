@@ -14,7 +14,8 @@
         "Other"
     ],
     "activationEvents": [
-        "onView"
+        "onView",
+        "onStartupFinished"
     ],
     "main": "./build/extension.js",
     "contributes": {
@@ -54,12 +55,12 @@
             {
                 "command": "mentat.includeFile",
                 "title": "Mentat: Include File",
-                "enablement": "resourceSet"
+                "enablement": "resourceSet && resourcePath not in mentat.includedFiles"
             },
             {
                 "command": "mentat.excludeFile",
                 "title": "Mentat: Exclude File",
-                "enablement": "resourceSet"
+                "enablement": "resourceSet && resourcePath in mentat.includedFiles"
             },
             {
                 "command": "mentat.includeFolder",
@@ -69,7 +70,7 @@
             {
                 "command": "mentat.excludeFolder",
                 "title": "Mentat: Exclude Folder",
-                "enablement": "explorerResourceIsFolder"
+                "enablement": "explorerResourceIsFolder && resourcePath in mentat.includedFolders"
             }
         ],
         "menus": {

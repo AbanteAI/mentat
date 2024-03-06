@@ -5,7 +5,6 @@ import { Message, StreamMessage } from "../../types";
 import ChatInput from "../components/ChatInput";
 import ChatMessage from "webviews/components/ChatMessage";
 import { vscode } from "webviews/utils/vscode";
-import { v4 } from "uuid";
 
 export default function Chat() {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -120,6 +119,9 @@ export default function Chat() {
 
     useEffect(() => {
         window.addEventListener("message", handleServerMessage);
+        // If we send messages before the webview loads and we add the listener, they get thrown out,
+        // so we have to signal when we're loaded and can recieve the stored messages.
+        vscode.sendMessage(null, "vscode:webview_loaded");
         return () => {
             window.removeEventListener("message", handleServerMessage);
         };

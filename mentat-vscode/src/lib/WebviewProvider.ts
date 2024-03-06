@@ -26,10 +26,12 @@ class WebviewProvider implements vscode.WebviewViewProvider {
         this.extensionUri = extensionUri;
     }
 
+    private backlog: StreamMessage[] = [];
+
     // Send LS Messages to the WebView
     public postMessage(message: StreamMessage) {
         if (!this.view) {
-            console.error(`No view available. It has possibly collapsed`);
+            this.backlog.push(message);
         } else {
             this.view.webview.postMessage(message);
         }
@@ -87,14 +89,22 @@ class WebviewProvider implements vscode.WebviewViewProvider {
         this.view.webview.html = this.getHtmlForWebview();
 
         // Send messages from React app to server
-        this.view.webview.onDidReceiveMessage((message: StreamMessage) =>
-            server.sendMessage(message)
-        );
-
-        // Send messages from server to React app
-        server.messageEmitter.on("message", (message: StreamMessage) =>
-            this.postMessage(message)
-        );
+        this.view.webview.onDidReceiveMessage((message: StreamMessage) => {
+            if (message.channel.startsWith("vscode")) {
+                switch (message.channel) {
+                    case "vscode:webview_loaded": {
+                        // All messages we get before user first opens view have to be sent once the webview is loaded.
+                        for (const streamMessage of this.backlog) {
+                            this.postMessage(streamMessage);
+                        }
+                        this.backlog = [];
+                        break;
+                    }
+                }
+            } else {
+                server.sendMessage(message);
+            }
+        });
     }
 }
 

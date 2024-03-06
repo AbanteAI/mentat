@@ -156,8 +156,18 @@ class Server {
         this.sendMessage(message);
     }
 
+    private backlog: StreamMessage[] = [];
+
     public sendMessage(message: StreamMessage) {
-        if (this.serverProcess !== undefined) {
+        if (this.serverProcess === undefined) {
+            this.backlog.push(message);
+        } else {
+            for (const streamMessage of this.backlog) {
+                this.serverProcess.stdin.write(
+                    JSON.stringify(streamMessage) + "\n"
+                );
+            }
+            this.backlog = [];
             this.serverProcess.stdin.write(JSON.stringify(message) + "\n");
         }
     }

@@ -55,17 +55,6 @@ async function activateClient(context: vscode.ExtensionContext) {
             )
         );
 
-        const chatWebviewProvider = new WebviewProvider(context.extensionUri);
-        context.subscriptions.push(
-            vscode.window.registerWebviewViewProvider(
-                "mentat-webview",
-                chatWebviewProvider,
-                {
-                    webviewOptions: { retainContextWhenHidden: true },
-                }
-            )
-        );
-
         const workspaceRoot =
             vscode.workspace.workspaceFolders?.at(0)?.uri?.path ?? os.homedir();
         await server.startServer(workspaceRoot);
@@ -95,7 +84,20 @@ async function activateClient(context: vscode.ExtensionContext) {
             )
         );
 
+        const chatWebviewProvider = new WebviewProvider(context.extensionUri);
+        context.subscriptions.push(
+            vscode.window.registerWebviewViewProvider(
+                "mentat-webview",
+                chatWebviewProvider,
+                {
+                    webviewOptions: { retainContextWhenHidden: true },
+                }
+            )
+        );
+
         server.messageEmitter.on("message", (message: StreamMessage) => {
+            // We have to listen for and post the message here or the webview might miss it when not loaded
+            chatWebviewProvider.postMessage(message);
             switch (message.channel) {
                 case "context_update": {
                     contextUpdate(message.data, contextFileDecorationProvider);

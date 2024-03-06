@@ -48,7 +48,7 @@ class VSCodeAPIWrapper {
      *
      * @param message Arbitrary data (must be JSON serializable) to send to the extension context.
      */
-    public postMessage(message: StreamMessage) {
+    public postMessage(message: any) {
         if (this.vsCodeApi) {
             this.vsCodeApi.postMessage(message);
         } else {
