@@ -8,7 +8,6 @@ import {
     TreeItemCollapsibleState,
 } from "vscode";
 import fs from "fs";
-import { features } from "process";
 
 // TODO: Add full on file explorer with checkboxes to add and remove from context;
 // this will take a decent chunk of work to make efficient and update when files are added or removed

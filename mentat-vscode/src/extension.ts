@@ -6,7 +6,7 @@ import { ContextUpdateData, StreamMessage } from "types";
 import path from "path";
 import { server } from "utils/server";
 import { ContextFileDecorationProvider } from "lib/ContextFileDecorationProvider";
-import { ContextTreeProvider } from "lib/ContextProvider";
+import { ContextTreeProvider } from "lib/ContextTreeProvider";
 
 function contextUpdate(
     data: ContextUpdateData,
