@@ -35,7 +35,7 @@ class ParsedLLMResponse:
     full_response: str = attr.field()
     conversation: str = attr.field()
     file_edits: list[FileEdit] = attr.field()
-    rewritten_files: list[tuple[str, str]] = attr.field()
+    rewritten_files: list[tuple[str, str]] = attr.field(default=[])
     interrupted: bool = attr.field(default=False)
 
 

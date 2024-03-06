@@ -143,7 +143,9 @@ class GitParser:
             file_edits.append(file_edit)
 
         return ParsedLLMResponse(
-            f"{conversation}\n\n{git_diff}", conversation, file_edits
+            f"{conversation}\n\n{git_diff}",
+            conversation,
+            file_edits,
         )
 
     def file_edit_to_git_diff(self, file_edit: FileEdit) -> str:
