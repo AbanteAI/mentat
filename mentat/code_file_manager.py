@@ -149,6 +149,18 @@ class CodeFileManager:
             self.history.push_edits()
         return applied_edits
 
+    # TODO handle creation, deletion, rename, undo/redo, check if file was modified, etc.
+    async def write_changes_to_files_two_step(
+        self, rewritten_files: list[tuple[str, str]]
+    ) -> list[tuple[str, str]]:
+        applied_edits: list[tuple[str, str]] = []
+        for abs_path, new_file_str in rewritten_files:
+            new_lines = new_file_str.splitlines()
+            self.write_to_file(abs_path, new_lines)
+            applied_edits.append((abs_path, new_file_str))
+
+        return applied_edits
+
     def get_file_checksum(self, path: Path, interval: Interval | None = None) -> str:
         if path.is_dir():
             return ""  # TODO: Build and maintain a hash tree for git_root

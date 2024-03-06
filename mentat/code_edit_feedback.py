@@ -66,6 +66,50 @@ async def get_user_feedback_on_edits(
     return edits_to_apply, need_user_request
 
 
+async def get_user_feedback_on_edits_two_step(
+    rewritten_files: list[tuple[str, str]],
+) -> tuple[list[tuple[str, str]], bool]:
+    session_context = SESSION_CONTEXT.get()
+    stream = session_context.stream
+    conversation = session_context.conversation
+
+    stream.send(
+        "Apply these changes? 'Y/n' or provide feedback.",
+        style="input",
+    )
+    user_response_message = await collect_user_input()
+    user_response = user_response_message.data
+
+    need_user_request = True
+    match user_response.lower():
+        case "y" | "":
+            rewritten_files_to_apply = rewritten_files
+            conversation.add_message(
+                ChatCompletionSystemMessageParam(
+                    role="system", content="User chose to apply all your changes."
+                )
+            )
+        case "n":
+            rewritten_files_to_apply = []
+            conversation.add_message(
+                ChatCompletionSystemMessageParam(
+                    role="system",
+                    content="User chose not to apply any of your changes.",
+                )
+            )
+        case _:
+            need_user_request = False
+            rewritten_files_to_apply = []
+            conversation.add_message(
+                ChatCompletionSystemMessageParam(
+                    role="system",
+                    content="User chose not to apply any of your changes.",
+                )
+            )
+            conversation.add_user_message(user_response)
+    return rewritten_files_to_apply, need_user_request
+
+
 async def _user_filter_changes(file_edits: list[FileEdit]) -> list[FileEdit]:
     new_edits = list[FileEdit]()
     for file_edit in file_edits:

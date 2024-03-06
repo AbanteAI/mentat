@@ -19,7 +19,10 @@ from openai import (
 from mentat.agent_handler import AgentHandler
 from mentat.auto_completer import AutoCompleter
 from mentat.code_context import CodeContext
-from mentat.code_edit_feedback import get_user_feedback_on_edits
+from mentat.code_edit_feedback import (
+    get_user_feedback_on_edits,
+    get_user_feedback_on_edits_two_step,
+)
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
@@ -175,41 +178,75 @@ class Session:
                     conversation.add_user_message(message.data)
 
                 parsed_llm_response = await conversation.get_model_response()
-                file_edits = [
-                    file_edit
-                    for file_edit in parsed_llm_response.file_edits
-                    if file_edit.is_valid()
-                ]
-                for file_edit in file_edits:
-                    file_edit.resolve_conflicts()
-                if file_edits:
-                    if session_context.config.revisor:
-                        await revise_edits(file_edits)
+                if not session_context.config.two_step_edits:
+                    file_edits = [
+                        file_edit
+                        for file_edit in parsed_llm_response.file_edits
+                        if file_edit.is_valid()
+                    ]
+                    for file_edit in file_edits:
+                        file_edit.resolve_conflicts()
+                    if file_edits:
+                        if session_context.config.revisor:
+                            await revise_edits(file_edits)
 
-                    if not agent_handler.agent_enabled:
-                        file_edits, need_user_request = (
-                            await get_user_feedback_on_edits(file_edits)
+                        if not agent_handler.agent_enabled:
+                            file_edits, need_user_request = (
+                                await get_user_feedback_on_edits(file_edits)
+                            )
+
+                        if session_context.config.sampler:
+                            session_context.sampler.set_active_diff()
+
+                        applied_edits = await code_file_manager.write_changes_to_files(
+                            file_edits
+                        )
+                        stream.send(
+                            (
+                                "Changes applied."
+                                if applied_edits
+                                else "No changes applied."
+                            ),
+                            style="input",
                         )
 
-                    if session_context.config.sampler:
-                        session_context.sampler.set_active_diff()
-
-                    applied_edits = await code_file_manager.write_changes_to_files(
-                        file_edits
-                    )
-                    stream.send(
-                        "Changes applied." if applied_edits else "No changes applied.",
-                        style="input",
-                    )
-
-                    if agent_handler.agent_enabled:
-                        if parsed_llm_response.interrupted:
-                            need_user_request = True
-                        else:
-                            need_user_request = await agent_handler.add_agent_context()
+                        if agent_handler.agent_enabled:
+                            if parsed_llm_response.interrupted:
+                                need_user_request = True
+                            else:
+                                need_user_request = (
+                                    await agent_handler.add_agent_context()
+                                )
+                    else:
+                        need_user_request = True
+                    stream.send(bool(file_edits), channel="edits_complete")
                 else:
-                    need_user_request = True
-                stream.send(bool(file_edits), channel="edits_complete")
+                    rewritten_files = parsed_llm_response.rewritten_files
+                    if rewritten_files:
+                        if not agent_handler.agent_enabled:
+                            rewritten_files, need_user_request = (
+                                await get_user_feedback_on_edits_two_step(
+                                    rewritten_files
+                                )
+                            )
+
+                        if session_context.config.sampler:
+                            session_context.sampler.set_active_diff()
+
+                        applied_rewritten_files = (
+                            await code_file_manager.write_changes_to_files_two_step(
+                                rewritten_files
+                            )
+                        )
+                        stream.send(
+                            (
+                                "Changes applied."
+                                if applied_rewritten_files
+                                else "No changes applied."
+                            ),
+                            style="input",
+                        )
+
             except SessionExit:
                 stream.send(None, channel="client_exit")
                 break
