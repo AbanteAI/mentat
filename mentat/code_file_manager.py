@@ -156,7 +156,7 @@ class CodeFileManager:
         applied_edits: list[tuple[str, str]] = []
         for abs_path, new_file_str in rewritten_files:
             new_lines = new_file_str.splitlines()
-            self.write_to_file(abs_path, new_lines)
+            self.write_to_file(Path(abs_path), new_lines)
             applied_edits.append((abs_path, new_file_str))
 
         return applied_edits
