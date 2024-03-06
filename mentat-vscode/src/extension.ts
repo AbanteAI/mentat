@@ -6,10 +6,12 @@ import { ContextUpdateData, StreamMessage } from "types";
 import path from "path";
 import { server } from "utils/server";
 import { ContextFileDecorationProvider } from "lib/ContextFileDecorationProvider";
+import { ContextTreeProvider } from "lib/ContextProvider";
 
 function contextUpdate(
     data: ContextUpdateData,
-    contextFileDecorationProvider: ContextFileDecorationProvider
+    contextFileDecorationProvider: ContextFileDecorationProvider,
+    contextTreeProvider: ContextTreeProvider
 ) {
     const features = [...data.features, ...data.auto_features];
     const folders: string[] = [];
@@ -35,30 +37,19 @@ function contextUpdate(
 
     // Update file decorations
     contextFileDecorationProvider.refresh([...features, ...folders]);
+
+    // Update context file tree
+    contextTreeProvider.updateContext(data.features, data.auto_features);
 }
 
 async function activateClient(context: vscode.ExtensionContext) {
     try {
-        // In package.json:
-        // {
-        //    "id": "context-view",
-        //    "name": "Context"
-        // },
-        // const contextProvider = new ContextProvider(workspaceRoot);
-        // context.subscriptions.push(vscode.window.registerTreeDataProvider("context-view", contextProvider));
-
-        const contextFileDecorationProvider =
-            new ContextFileDecorationProvider();
-        context.subscriptions.push(
-            vscode.window.registerFileDecorationProvider(
-                contextFileDecorationProvider
-            )
-        );
-
+        // Startup
         const workspaceRoot =
             vscode.workspace.workspaceFolders?.at(0)?.uri?.path ?? os.homedir();
         await server.startServer(workspaceRoot);
 
+        // Commands
         context.subscriptions.push(
             vscode.commands.registerCommand(
                 "mentat.includeFile",
@@ -84,6 +75,24 @@ async function activateClient(context: vscode.ExtensionContext) {
             )
         );
 
+        // File decoration
+        const contextFileDecorationProvider =
+            new ContextFileDecorationProvider();
+        context.subscriptions.push(
+            vscode.window.registerFileDecorationProvider(
+                contextFileDecorationProvider
+            )
+        );
+
+        // Activity bar views
+        const contextTreeProvider = new ContextTreeProvider(workspaceRoot);
+        context.subscriptions.push(
+            vscode.window.registerTreeDataProvider(
+                "mentat-context-view",
+                contextTreeProvider
+            )
+        );
+
         const chatWebviewProvider = new WebviewProvider(context.extensionUri);
         context.subscriptions.push(
             vscode.window.registerWebviewViewProvider(
@@ -95,12 +104,17 @@ async function activateClient(context: vscode.ExtensionContext) {
             )
         );
 
+        // Misc
         server.messageEmitter.on("message", (message: StreamMessage) => {
             // We have to listen for and post the message here or the webview might miss it when not loaded
             chatWebviewProvider.postMessage(message);
             switch (message.channel) {
                 case "context_update": {
-                    contextUpdate(message.data, contextFileDecorationProvider);
+                    contextUpdate(
+                        message.data,
+                        contextFileDecorationProvider,
+                        contextTreeProvider
+                    );
                     break;
                 }
             }

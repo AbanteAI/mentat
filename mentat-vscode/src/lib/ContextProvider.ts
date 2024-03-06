@@ -8,10 +8,11 @@ import {
     TreeItemCollapsibleState,
 } from "vscode";
 import fs from "fs";
+import { features } from "process";
 
 // TODO: Add full on file explorer with checkboxes to add and remove from context;
 // this will take a decent chunk of work to make efficient and update when files are added or removed
-export class ContextProvider implements TreeDataProvider<ContextFile> {
+export class ContextTreeProvider implements TreeDataProvider<ContextFile> {
     constructor(private workspaceRoot: string) {}
 
     private _onDidChangeTreeData: EventEmitter<
@@ -22,11 +23,12 @@ export class ContextProvider implements TreeDataProvider<ContextFile> {
 
     private fileTree: { [key: string]: any } = {};
 
-    private createFileTree(features: string[]) {
+    // TODO: This will stall on symlink loops
+    private async createFileTree(features: string[]) {
+        this.fileTree = {};
         for (const feature of features) {
-            const relPath = path.relative(this.workspaceRoot, feature);
             var curTree: { [key: string]: any } = this.fileTree;
-            for (const segment of relPath.split(path.sep)) {
+            for (const segment of feature.split(path.sep)) {
                 if (!(segment in curTree)) {
                     curTree[segment] = {};
                 }
@@ -35,8 +37,8 @@ export class ContextProvider implements TreeDataProvider<ContextFile> {
         }
     }
 
-    updateContext(features: string[], autoFeatures: string[]) {
-        this.createFileTree([...features, ...autoFeatures]);
+    async updateContext(features: string[], autoFeatures: string[]) {
+        await this.createFileTree([...features, ...autoFeatures]);
         this._onDidChangeTreeData.fire();
     }
 
@@ -49,14 +51,21 @@ export class ContextProvider implements TreeDataProvider<ContextFile> {
     ): ProviderResult<ContextFile[]> {
         if (!element) {
             return [new ContextFile(this.workspaceRoot, this.workspaceRoot)];
-        } else if (!element.isDir) {
-            return [];
         } else {
-            return fs
-                .readdirSync(element.absPath)
-                .map(
-                    (filename) => new ContextFile(filename, this.workspaceRoot)
-                );
+            var curTree = this.fileTree;
+            for (const segment of element.absPath.split(path.sep)) {
+                if (!(segment in curTree)) {
+                    break;
+                }
+                curTree = curTree[segment];
+            }
+            return Object.keys(curTree).map(
+                (filename) =>
+                    new ContextFile(
+                        path.join(element.absPath, filename),
+                        this.workspaceRoot
+                    )
+            );
         }
     }
 }
@@ -75,9 +84,4 @@ class ContextFile extends TreeItem {
         this.isDir = isDir;
         this.tooltip = path.relative(workspaceRoot, absPath);
     }
-
-    iconPath = {
-        light: "",
-        dark: "",
-    };
 }
