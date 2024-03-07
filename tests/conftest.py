@@ -5,7 +5,6 @@ import stat
 import subprocess
 import tempfile
 import time
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock
 from uuid import uuid4
