@@ -12,7 +12,7 @@ from mentat.broadcast import Broadcast
 
 
 class StreamMessageSource:
-    # Enums can't be serialized or deserialized, since technically Enum.value is an instance of Enum, not the actual value
+    # Enums can't be serialized or deserialized, since Enum.value is an instance of Enum, not the actual value
     TYPE = Literal["server", "client"]
     SERVER = "server"
     CLIENT = "client"
@@ -51,7 +51,8 @@ class SessionStream:
     default_prompt: The prefilled prompt to show on next user input request. Should be additive and reset
     after every input request. See TerminalClient for exact implementation.
 
-    interruptable: A boolean sent to enable or disable an 'interrupt' button. If an interrupt is sent while interruptability is false, the server will shut down.
+    interruptable: A boolean sent to enable or disable an 'interrupt' button.
+    If an interrupt is sent while interruptable is false, the server will shut down.
     *interrupt: Sent by the client. Sent whenever client interrupts current work. Sent by things like Ctrl-C.
 
     context_update: An object describing the context sent whenever the context changes. Schema:

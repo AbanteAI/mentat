@@ -1,13 +1,17 @@
 import argparse
 import asyncio
 import logging
+import sys
 from asyncio import CancelledError, Event
 from pathlib import Path
-
-import aioconsole
+from typing import Any
 
 from mentat.session import Session
 from mentat.session_stream import StreamMessage, StreamMessageSource
+
+
+async def ainput(*args: Any, **kwargs: Any):
+    return await asyncio.to_thread(input, *args, **kwargs)
 
 
 class MentatServer:
@@ -18,7 +22,7 @@ class MentatServer:
 
     async def _client_listener(self):
         while not self.stopped.is_set():
-            line = await aioconsole.ainput()  # pyright: ignore
+            line = await ainput()
             try:
                 message = StreamMessage.model_validate_json(line)  # pyright: ignore
             except ValueError:

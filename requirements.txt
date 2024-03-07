@@ -1,4 +1,3 @@
-aioconsole==0.7.0
 attrs==23.1.0
 backoff==2.2.1
 chromadb==0.4.22
