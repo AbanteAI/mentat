@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import logging
-import sys
 from asyncio import CancelledError, Event
 from pathlib import Path
 from typing import Any
