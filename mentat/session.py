@@ -240,14 +240,14 @@ class Session:
 
         async for message in self.stream.listen(channel="include"):
             ctx.code_context.include(message.data)
-            ctx.code_context.refresh_context_display()
+            await ctx.code_context.refresh_context_display()
 
     async def listen_for_exclude(self):
         ctx = SESSION_CONTEXT.get()
 
         async for message in self.stream.listen(channel="exclude"):
             ctx.code_context.exclude(message.data)
-            ctx.code_context.refresh_context_display()
+            await ctx.code_context.refresh_context_display()
 
     ### lifecycle
 
