@@ -77,3 +77,21 @@ def check_version():
                 f.write(__version__)
     except Exception as err:
         ctx.stream.send(f"Error checking for most recent version: {err}", style="error")
+
+
+def check_model():
+    ctx = SESSION_CONTEXT.get()
+    model = ctx.config.model
+    if "gpt-4" not in model:
+        ctx.stream.send(
+            "Warning: Mentat has only been tested on GPT-4. You may experience"
+            " issues with quality. This model may not be able to respond in"
+            " mentat's edit format.",
+            style="warning",
+        )
+        if "gpt-3.5" not in model:
+            ctx.stream.send(
+                "Warning: Mentat does not know how to calculate costs or context"
+                " size for this model.",
+                style="warning",
+            )

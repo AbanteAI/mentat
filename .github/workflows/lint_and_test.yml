@@ -31,6 +31,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Setup node (for pyright)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "16"
       - name: Install universal-ctags (Ubuntu)
         if: runner.os == 'Linux'
         run: sudo apt update && sudo apt install universal-ctags

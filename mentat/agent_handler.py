@@ -9,7 +9,6 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
 )
 
-from mentat.llm_api_handler import prompt_tokens
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no, collect_user_input
@@ -42,7 +41,7 @@ class AgentHandler:
             "Finding files to determine how to test changes...", style="info"
         )
         features = ctx.code_context.get_all_features(split_intervals=False)
-        messages: List[ChatCompletionMessageParam] = [
+        messages: list[ChatCompletionMessageParam] = [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_file_selection_prompt
             ),
@@ -85,21 +84,15 @@ class AgentHandler:
         ctx = SESSION_CONTEXT.get()
 
         model = ctx.config.model
-        messages = [
+        system_prompt: list[ChatCompletionMessageParam] = [
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_command_prompt
             ),
             ChatCompletionSystemMessageParam(
                 role="system", content=self.agent_file_message
             ),
-        ] + ctx.conversation.get_messages(include_system_prompt=False)
-        code_message = await ctx.code_context.get_code_message(
-            prompt_tokens=prompt_tokens(messages, model)
-        )
-        code_message = ChatCompletionSystemMessageParam(
-            role="system", content=code_message
-        )
-        messages.insert(1, code_message)
+        ]
+        messages = await ctx.conversation.get_messages(system_prompt=system_prompt)
 
         try:
             # TODO: Should this even be a separate call or should we collect commands in the edit call?

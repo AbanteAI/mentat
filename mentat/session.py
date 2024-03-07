@@ -26,7 +26,6 @@ from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
 from mentat.errors import MentatError, ReturnToUser, SessionExit, UserError
-from mentat.git_handler import get_git_root_for_path
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
 from mentat.revisor.revisor import revise_edits
@@ -35,7 +34,7 @@ from mentat.sentry import sentry_init
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 from mentat.session_input import collect_input_with_commands
 from mentat.session_stream import SessionStream
-from mentat.splash_messages import check_version
+from mentat.splash_messages import check_model, check_version
 from mentat.utils import mentat_dir_path
 from mentat.vision.vision_manager import VisionManager
 
@@ -69,8 +68,6 @@ class Session:
 
         # Since we can't set the session_context until after all of the singletons are created,
         # any singletons used in the constructor of another singleton must be passed in
-        git_root = get_git_root_for_path(cwd, raise_error=False)
-
         llm_api_handler = LlmApiHandler()
 
         stream = SessionStream()
@@ -79,7 +76,7 @@ class Session:
 
         cost_tracker = CostTracker()
 
-        code_context = CodeContext(stream, git_root, diff, pr_diff, ignore_paths)
+        code_context = CodeContext(stream, cwd, diff, pr_diff, ignore_paths)
 
         code_file_manager = CodeFileManager()
 
@@ -116,11 +113,7 @@ class Session:
         config.send_errors_to_stream()
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)
-        if (
-            code_context.diff_context is not None
-            and len(code_context.include_files) == 0
-            and (diff or pr_diff)
-        ):
+        if len(code_context.include_files) == 0 and (diff or pr_diff):
             for file in code_context.diff_context.diff_files():
                 code_context.include(file)
         if config.sampler:
@@ -151,12 +144,14 @@ class Session:
             ensure_ctags_installed()
 
         session_context.llm_api_handler.initialize_client()
+
+        check_model()
         await conversation.display_token_count()
 
         stream.send("Type 'q' or use Ctrl-C to quit at any time.")
         need_user_request = True
         while True:
-            code_context.refresh_context_display()
+            await code_context.refresh_context_display()
             try:
                 if need_user_request:
                     # Normally, the code_file_manager pushes the edits; but when agent mode is on, we want all

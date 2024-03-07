@@ -154,10 +154,7 @@ class CodeFeature:
         if standalone:
             code_message.append("")
 
-        if (
-            code_context.diff_context is not None
-            and self.path in code_context.diff_context.diff_files()
-        ):
+        if self.path in code_context.diff_context.diff_files():
             diff = get_diff_for_file(code_context.diff_context.target, self.path)
             diff_annotations = parse_diff(diff)
             if self.interval.whole_file():

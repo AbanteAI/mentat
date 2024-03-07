@@ -13,12 +13,36 @@ In addition, Mentat uses the :code:`gpt-4-1106-preview` model by default. When u
 .. warning::
     Due to changes in the OpenAI Python SDK, you can no longer use :code:`OPENAI_API_BASE` to access the Azure API with Mentat.
 
+Anthropic
+---------
+
+Mentat uses the OpenAI SDK to retrieve chat completions. This means that setting the `OPENAI_API_BASE` environment variable is enough to use any model that has the same response schema as OpenAI. To use models with different response schemas, we recommend setting up a litellm proxy as described `here <https://docs.litellm.ai/docs/proxy/quick_start>`__ and pointing `OPENAI_API_BASE` to the proxy. For example with anthropic:
+
+.. code-block:: bash
+
+    pip install 'litellm[proxy]'
+    export ANTHROPIC_API_KEY=sk-*************
+    litellm --model claude-3-opus-2024-0229 --drop_params
+    # Should see: Uvicorn running on http://0.0.0.0:8000
+
+.. code-block:: bash
+
+    # In ~/.mentat/.env
+    OPENAI_API_BASE=http://localhost:8000
+    # In ~/.mentat/.mentat_config.json
+    { "model": "claude" }
+    # or
+    export OPENAI_API_BASE=http://localhost:8000
+    mentat
+
+.. note::
+
+   Anthropic has slightly different requirements for system messages so you must set your model to a string with "claude" in it. Other than that it isn't important as the exact model is set by the litellm proxy server flag.
+
 🦙 Local Models
 ---------------
 
-In our experiments we have not found any non-openai models to be as good as even gpt-3.5-turbo with Mentat. That being said it is possible to use Mentat with other models with just a few steps. Mentat uses the OpenAI SDK to retrieve chat completions. This means that setting the `OPENAI_API_BASE` environment variable is enough to use any model that has the same response schema as OpenAI. To use models with different response schemas, we recommend setting up a litellm proxy as described `here <https://docs.litellm.ai/docs/proxy/quick_start>`__ and pointing `OPENAI_API_BASE` to the proxy. You can use local models run with ollama with the following steps:
-
-First run ollama. Replace mixtral with whichever model you want to use.
+This works the same as in the previous section but you must install ollama first. Replace mixtral with whichever model you want to use.
 
 .. code-block:: bash
 
@@ -36,13 +60,6 @@ Next run the litellm proxy. In another terminal run:
 
 Finally set the OPENAI_API_BASE in the terminal before running mentat.
 
-.. code-block:: bash
-
-    # In ~/.mentat/.env
-    OPENAI_API_BASE=http://localhost:8000
-    # or
-    export OPENAI_API_BASE=http://localhost:8000
-    mentat
 
 .. note::
 

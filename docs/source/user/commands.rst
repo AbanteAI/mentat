@@ -38,6 +38,16 @@ Show information on available commands.
 
 Add files to context.
 
+/load [context file path]
+------------
+
+Load context from a file.
+
+/save [context file path]
+------------
+
+Save context to a file.
+
 /redo
 -----
 

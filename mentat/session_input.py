@@ -59,7 +59,7 @@ async def collect_input_with_commands() -> StreamMessage:
             arguments = shlex.split(" ".join(response.data.split(" ")[1:]))
             command = Command.create_command(response.data[1:].split(" ")[0])
             await command.apply(*arguments)
-            ctx.code_context.refresh_context_display()
+            await ctx.code_context.refresh_context_display()
         except ValueError as e:
             ctx.stream.send(f"Error processing command arguments: {e}", style="error")
         response = await collect_user_input(command_autocomplete=True)

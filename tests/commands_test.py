@@ -1,3 +1,4 @@
+import json
 import subprocess
 from pathlib import Path
 from textwrap import dedent
@@ -7,6 +8,7 @@ import pytest
 from mentat.code_feature import CodeFeature
 from mentat.command.command import Command, InvalidCommand
 from mentat.command.commands.help import HelpCommand
+from mentat.interval import Interval
 from mentat.session import Session
 from mentat.session_context import SESSION_CONTEXT
 
@@ -78,6 +80,104 @@ async def test_exclude_command(temp_testbed, mock_collect_user_input):
 
     code_context = SESSION_CONTEXT.get().code_context
     assert not code_context.include_files
+
+
+@pytest.mark.asyncio
+async def test_save_command(temp_testbed, mock_collect_user_input):
+    default_context_path = "context.json"
+    mock_collect_user_input.set_stream_messages(
+        [
+            "/include scripts",
+            f"/save {default_context_path}",
+            "q",
+        ]
+    )
+
+    session = Session(cwd=temp_testbed)
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    saved_code_context: dict[str, list[str]] = json.load(open(default_context_path))
+    calculator_script_path = Path(temp_testbed) / "scripts" / "calculator.py"
+    assert str(calculator_script_path) in (saved_code_context.keys())
+    assert [str(calculator_script_path)] in (saved_code_context.values())
+
+
+@pytest.mark.asyncio
+async def test_load_command_success(temp_testbed, mock_collect_user_input):
+    scripts_dir = Path(temp_testbed) / "scripts"
+    features = [
+        CodeFeature(scripts_dir / "calculator.py", Interval(1, 10)),
+        CodeFeature(scripts_dir / "echo.py"),
+    ]
+    context_file_path = "context.json"
+
+    context_file_data = {}
+    with open(context_file_path, "w") as f:
+        for feature in features:
+            context_file_data[str(feature.path)] = [str(feature)]
+
+        json.dump(context_file_data, f)
+
+    mock_collect_user_input.set_stream_messages(
+        [
+            f"/load {context_file_path}",
+            "q",
+        ]
+    )
+
+    session = Session(cwd=temp_testbed)
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    code_context = SESSION_CONTEXT.get().code_context
+
+    assert scripts_dir / "calculator.py" in code_context.include_files.keys()
+    assert code_context.include_files[scripts_dir / "calculator.py"] == [
+        CodeFeature(scripts_dir / "calculator.py", Interval(1, 10)),
+    ]
+    assert scripts_dir / "echo.py" in code_context.include_files.keys()
+    assert code_context.include_files[scripts_dir / "echo.py"] == [
+        CodeFeature(scripts_dir / "echo.py"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_load_command_file_not_found(temp_testbed, mock_collect_user_input):
+    context_file_path = "context-f47e7a1c-84a2-40a9-9e40-255f976d3223.json"
+
+    mock_collect_user_input.set_stream_messages(
+        [
+            f"/load {context_file_path}",
+            "q",
+        ]
+    )
+
+    session = Session(cwd=temp_testbed)
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    assert "Context file not found" in session.stream.messages[4].data
+
+
+@pytest.mark.asyncio
+async def test_load_command_invalid_json(temp_testbed, mock_collect_user_input):
+    context_file_path = "context.json"
+    with open(context_file_path, "w") as f:
+        f.write("invalid json")
+
+    mock_collect_user_input.set_stream_messages(
+        [
+            f"/load {context_file_path}",
+            "q",
+        ]
+    )
+
+    session = Session(cwd=temp_testbed)
+    session.start()
+    await session.stream.recv(channel="client_exit")
+
+    assert "Failed to parse context file" in session.stream.messages[4].data
 
 
 @pytest.mark.asyncio
@@ -246,7 +346,8 @@ async def test_clear_command(temp_testbed, mock_collect_user_input, mock_call_ll
     await session.stream.recv(channel="client_exit")
 
     conversation = SESSION_CONTEXT.get().conversation
-    assert len(conversation.get_messages()) == 1
+    messages = await conversation.get_messages()
+    assert len(messages) == 1
 
 
 # TODO: test without git

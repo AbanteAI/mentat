@@ -35,9 +35,12 @@ from openai import (
 )
 from openai.types.chat import (
     ChatCompletion,
+    ChatCompletionAssistantMessageParam,
     ChatCompletionChunk,
     ChatCompletionContentPartParam,
     ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
@@ -132,6 +135,74 @@ def count_tokens(message: str, model: str, full_message: bool) -> int:
     return len(encoding.encode(message, disallowed_special=())) + (
         4 if full_message else 0
     )
+
+
+def normalize_messages_for_anthropic(
+    messages: list[ChatCompletionMessageParam],
+) -> list[ChatCompletionMessageParam]:
+    """Claude expects the chat to start with at most one system message and afterwards user and system messages to
+    alternate. This method consolidates all the system messages at the beginning of the conversation into one system
+    message delimited by "\n"+"-"*80+"\n and turns future system messages into user messages annotated with "System:"
+    and combines adjacent assistant or user messages into one assistant or user message.
+    """
+    replace_non_leading_systems = list[ChatCompletionMessageParam]()
+    for i, message in enumerate(messages):
+        if message["role"] == "system":
+            if i == 0 or messages[i - 1]["role"] == "system":
+                replace_non_leading_systems.append(message)
+            else:
+                content = "SYSTEM: " + (message["content"] or "")
+                replace_non_leading_systems.append(
+                    ChatCompletionUserMessageParam(role="user", content=content)
+                )
+        else:
+            replace_non_leading_systems.append(message)
+
+    concatenate_adjacent = list[ChatCompletionMessageParam]()
+    current_role: str = ""
+    current_content: str = ""
+    delimiter = "\n" + "-" * 80 + "\n"
+    for message in replace_non_leading_systems:
+        if message["role"] == current_role:
+            current_content += delimiter + str(message["content"])
+        else:
+            if current_role == "user":
+                concatenate_adjacent.append(
+                    ChatCompletionUserMessageParam(
+                        role=current_role, content=current_content
+                    )
+                )
+            elif current_role == "system":
+                concatenate_adjacent.append(
+                    ChatCompletionSystemMessageParam(
+                        role=current_role, content=current_content
+                    )
+                )
+            elif current_role == "assistant":
+                concatenate_adjacent.append(
+                    ChatCompletionAssistantMessageParam(
+                        role=current_role, content=current_content
+                    )
+                )
+            current_role = message["role"]
+            current_content = str(message["content"])
+
+    if current_role == "user":
+        concatenate_adjacent.append(
+            ChatCompletionUserMessageParam(role=current_role, content=current_content)
+        )
+    elif current_role == "system":
+        concatenate_adjacent.append(
+            ChatCompletionSystemMessageParam(role=current_role, content=current_content)
+        )
+    elif current_role == "assistant":
+        concatenate_adjacent.append(
+            ChatCompletionAssistantMessageParam(
+                role=current_role, content=current_content
+            )
+        )
+
+    return concatenate_adjacent
 
 
 def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str):
@@ -363,6 +434,10 @@ class LlmApiHandler:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         cost_tracker = session_context.cost_tracker
+        session_context.stream.send("here")
+
+        if "claude" in config.model:
+            messages = normalize_messages_for_anthropic(messages)
 
         # Confirm that model has enough tokens remaining.
         tokens = prompt_tokens(messages, model)
@@ -390,6 +465,7 @@ class LlmApiHandler:
                         messages=messages,
                         temperature=config.temperature,
                         stream=stream,
+                        max_tokens=4096,
                     )
                 else:
                     response = await self.async_client.chat.completions.create(
@@ -398,6 +474,7 @@ class LlmApiHandler:
                         temperature=config.temperature,
                         stream=stream,
                         response_format=response_format,
+                        max_tokens=4096,
                     )
 
         # We have to cast response since pyright isn't smart enough to connect
