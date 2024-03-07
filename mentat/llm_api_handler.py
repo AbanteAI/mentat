@@ -434,7 +434,6 @@ class LlmApiHandler:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         cost_tracker = session_context.cost_tracker
-        session_context.stream.send("here")
 
         if "claude" in config.model:
             messages = normalize_messages_for_anthropic(messages)
