@@ -30,16 +30,16 @@
             }
         ],
         "viewsContainers": {
-            "activitybar": [
+            "panel": [
                 {
-                    "id": "mentat-activitybar",
+                    "id": "mentat-panel",
                     "title": "Mentat",
                     "icon": "assets/icon.svg"
                 }
             ]
         },
         "views": {
-            "mentat-activitybar": [
+            "mentat-panel": [
                 {
                     "type": "webview",
                     "id": "mentat-webview",
@@ -128,6 +128,7 @@
         "typescript": "5.2.2"
     },
     "dependencies": {
+        "react-markdown": "^9.0.1",
         "uuid": "^9.0.1"
     }
 }

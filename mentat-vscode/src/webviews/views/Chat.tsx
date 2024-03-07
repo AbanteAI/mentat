@@ -18,6 +18,7 @@ export default function Chat() {
 
     // TODO: Rarely, if you move fast during model output, some bugs can occur when reloading webview view;
     // figure out why and fix it (easiest to see if you turn off retainContextWhenHidden), and then turn off retainContextWhenHidden.
+    // Also TODO: When restarting vscode during model output, interruptable will be stuck on (along with a few other quirks).
 
     // Whenever you add more state, make certain to update both of these effects!!!
     useEffect(() => {

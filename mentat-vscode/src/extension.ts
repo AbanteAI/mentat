@@ -81,7 +81,7 @@ async function activateClient(context: vscode.ExtensionContext) {
 
         // Activity bar views
         /*
-        Under "mentat-activitybar" in package.json:
+        Under "mentat-panel" in package.json:
         {
             "id": "mentat-context-view",
             "name": "Context"
