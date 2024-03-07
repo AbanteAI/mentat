@@ -1,0 +1,134 @@
+{
+    "name": "mentat",
+    "displayName": "Mentat",
+    "description": "Mentat - The AI Coding Assistant",
+    "version": "0.0.1",
+    "private": true,
+    "publisher": "AbanteAI",
+    "license": "Apache-2.0",
+    "repository": "https://github.com/AbanteAI/mentat/mentat-vscode",
+    "engines": {
+        "vscode": "^1.74.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onView",
+        "onStartupFinished"
+    ],
+    "main": "./build/extension.js",
+    "contributes": {
+        "colors": [
+            {
+                "id": "mentat.fileInContext",
+                "description": "Color for files in the explorer that are in Mentat's context.",
+                "defaults": {
+                    "dark": "#f0deff",
+                    "light": "#2c173d"
+                }
+            }
+        ],
+        "viewsContainers": {
+            "panel": [
+                {
+                    "id": "mentat-panel",
+                    "title": "Mentat",
+                    "icon": "assets/icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "mentat-panel": [
+                {
+                    "type": "webview",
+                    "id": "mentat-webview",
+                    "name": "Chat"
+                }
+            ]
+        },
+        "configuration": {
+            "title": "Mentat",
+            "properties": {}
+        },
+        "commands": [
+            {
+                "command": "mentat.includeFile",
+                "title": "Mentat: Include File",
+                "enablement": "resourceSet && resourcePath not in mentat.includedFiles"
+            },
+            {
+                "command": "mentat.excludeFile",
+                "title": "Mentat: Exclude File",
+                "enablement": "resourceSet && resourcePath in mentat.includedFiles"
+            },
+            {
+                "command": "mentat.includeFolder",
+                "title": "Mentat: Include Folder",
+                "enablement": "explorerResourceIsFolder"
+            },
+            {
+                "command": "mentat.excludeFolder",
+                "title": "Mentat: Exclude Folder",
+                "enablement": "explorerResourceIsFolder && resourcePath in mentat.includedFolders"
+            }
+        ],
+        "menus": {
+            "explorer/context": [
+                {
+                    "when": "!explorerResourceIsFolder && resourcePath not in mentat.includedFiles",
+                    "command": "mentat.includeFile",
+                    "group": "8_mentat"
+                },
+                {
+                    "when": "!explorerResourceIsFolder && resourcePath in mentat.includedFiles",
+                    "command": "mentat.excludeFile",
+                    "group": "8_mentat"
+                },
+                {
+                    "when": "explorerResourceIsFolder",
+                    "command": "mentat.includeFolder",
+                    "group": "8_mentat"
+                },
+                {
+                    "when": "explorerResourceIsFolder && resourcePath in mentat.includedFolders",
+                    "command": "mentat.excludeFolder",
+                    "group": "8_mentat"
+                }
+            ]
+        }
+    },
+    "scripts": {
+        "clean": "node ./scripts/clean.mjs",
+        "build-js": "node ./scripts/build.mjs",
+        "build-css": "tailwindcss -i ./src/webviews/main.css -o ./build/webviews/main.css",
+        "build": "npm run clean && npm run build-js -- --sourcemap & npm run build-css",
+        "watch-js": "npm run build-js -- --sourcemap --watch",
+        "watch-css": "tailwindcss -i ./src/webviews/main.css -o ./build/webviews/main.css --watch",
+        "watch": "npm run clean && npm run watch-js & npm run watch-css",
+        "vscode": "code --extensionDevelopmentPath=$PWD .",
+        "vscode:prepublish": "npm run clean && npm run build-js -- --minify && npm run build-css",
+        "vscode:vsce": "npm run vscode:prepublish && vsce package -o mentat.vsix"
+    },
+    "devDependencies": {
+        "@types/node": "20.8.3",
+        "@types/react": "18.2.25",
+        "@types/react-dom": "18.2.11",
+        "@types/semver": "^7.5.7",
+        "@types/uuid": "^9.0.8",
+        "@types/vscode": "1.74.0",
+        "@types/vscode-webview": "1.57.2",
+        "@vscode/vsce": "2.22.0",
+        "esbuild": "0.19.4",
+        "eslint": "8.51.0",
+        "react": "18.2.0",
+        "react-dom": "18.2.0",
+        "react-icons": "4.11.0",
+        "tailwindcss": "3.3.3",
+        "typescript": "5.2.2"
+    },
+    "dependencies": {
+        "react-markdown": "^9.0.1",
+        "uuid": "^9.0.1"
+    }
+}

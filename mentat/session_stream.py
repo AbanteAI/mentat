@@ -1,28 +1,29 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, cast
+import logging
+from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator, Dict, List, Literal, cast
 from uuid import UUID, uuid4
+
+from pydantic import BaseModel
 
 from mentat.broadcast import Broadcast
 
 
-class StreamMessageSource(Enum):
+class StreamMessageSource:
+    # Enums can't be serialized or deserialized, since Enum.value is an instance of Enum, not the actual value
+    TYPE = Literal["server", "client"]
     SERVER = "server"
     CLIENT = "client"
 
 
-@dataclass(slots=True)
-class StreamMessage:
+class StreamMessage(BaseModel):
     id: UUID
     channel: str
-    source: StreamMessageSource
+    source: StreamMessageSource.TYPE
     data: Any
     extra: Dict[str, Any]
-    created_at: datetime
 
 
 class SessionStream:
@@ -50,9 +51,11 @@ class SessionStream:
     default_prompt: The prefilled prompt to show on next user input request. Should be additive and reset
     after every input request. See TerminalClient for exact implementation.
 
-    *interrupt: Sent by the client. Sent whenever client interrupts current work. Equivalent to ctrl-C
+    interruptable: A boolean sent to enable or disable an 'interrupt' button.
+    If an interrupt is sent while interruptable is false, the server will shut down.
+    *interrupt: Sent by the client. Sent whenever client interrupts current work. Sent by things like Ctrl-C.
 
-    context_update: A JSON object describing the context sent whenever the context changes. JSON Schema:
+    context_update: An object describing the context sent whenever the context changes. Schema:
     {
         "cwd": "Mentat's cwd",
         "diff_context_display": "The display for the diff context",
@@ -63,11 +66,14 @@ class SessionStream:
         "total_tokens": Total tokens in context,
         "total_cost": Total cost so far
     }
+
+    *include: Sent by the client. Gives a path to include in context.
+    *exclude: Sent by the client. Gives a path to exclude from context.
     """
 
     def __init__(self):
         self.messages: List[StreamMessage] = []
-        self.interrupt_lock = asyncio.Lock()
+        self._interrupt_lock = asyncio.Lock()
         self._broadcast = Broadcast()
 
     def start(self):
@@ -80,7 +86,7 @@ class SessionStream:
     async def send_async(
         self,
         data: Any,
-        source: StreamMessageSource = StreamMessageSource.SERVER,
+        source: StreamMessageSource.TYPE = StreamMessageSource.SERVER,
         channel: str = "default",
         **kwargs: Any,
     ):
@@ -89,7 +95,6 @@ class SessionStream:
             source=source,
             channel=channel,
             data=data,
-            created_at=datetime.utcnow(),
             extra=kwargs,
         )
 
@@ -101,7 +106,7 @@ class SessionStream:
     def send(
         self,
         data: Any,
-        source: StreamMessageSource = StreamMessageSource.SERVER,
+        source: StreamMessageSource.TYPE = StreamMessageSource.SERVER,
         channel: str = "default",
         **kwargs: Any,
     ):
@@ -110,7 +115,6 @@ class SessionStream:
             source=source,
             channel=channel,
             data=data,
-            created_at=datetime.utcnow(),
             extra=kwargs,
         )
 
@@ -118,6 +122,10 @@ class SessionStream:
         self._broadcast.publish(channel=channel, message=message)
 
         return message
+
+    def send_stream_message(self, message: StreamMessage):
+        self.messages.append(message)
+        self._broadcast.publish(channel=message.channel, message=message)
 
     async def recv(self, channel: str = "default") -> StreamMessage:
         """Listen for a single event on a channel"""
@@ -135,6 +143,41 @@ class SessionStream:
             async for event in subscriber:
                 yield event.message
 
+    async def universal_listen(self) -> AsyncGenerator[StreamMessage, None]:
+        with self._broadcast.universal_subscribe() as subscriber:
+            async for event in subscriber:
+                yield event.message
+
     async def join(self) -> None:
         """Blocks until all sent events have been processed"""
         await self._broadcast.join()
+
+    @asynccontextmanager
+    async def interrupt_catcher(self, event: asyncio.Event):
+        """
+        Will start a task listening for an interrupt, set the given event when one is received, and clear it at the end
+        """
+
+        interrupt_task = asyncio.create_task(self._listen_for_interrupt(event))
+        self.send(True, channel="interruptable")
+        yield
+        self.send(False, channel="interruptable")
+        interrupt_task.cancel()
+        try:
+            await interrupt_task
+        except asyncio.CancelledError:
+            pass
+        event.clear()
+
+    async def _listen_for_interrupt(self, event: asyncio.Event):
+        """
+        Listens for an interrupt message from the client. Set the event given when an intterupt is received.
+        """
+
+        async with self._interrupt_lock:
+            await self.recv("interrupt")
+            logging.info("User sent interrupt.")
+            event.set()
+
+    def is_interrupt_locked(self) -> bool:
+        return self._interrupt_lock.locked()

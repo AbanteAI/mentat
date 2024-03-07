@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, TypedDict, Union
@@ -95,7 +94,7 @@ class CodeContext:
             total_tokens=total_tokens,
             total_cost=total_cost,
         )
-        ctx.stream.send(json.dumps(data), channel="context_update")
+        ctx.stream.send(data, channel="context_update")
 
     async def get_code_message(
         self,

@@ -4,7 +4,6 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from asyncio import Event
-from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
 
@@ -41,30 +40,7 @@ class ParsedLLMResponse:
 class Parser(ABC):
     def __init__(self):
         self.shutdown = Event()
-        self._interrupt_task = None
         self._silence_printer = False
-
-    async def listen_for_interrupt(self):
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-
-        async with stream.interrupt_lock:
-            await stream.recv("interrupt")
-            logging.info("User interrupted response.")
-            self.shutdown.set()
-
-    @asynccontextmanager
-    async def interrupt_catcher(self):
-        self._interrupt_task = asyncio.create_task(self.listen_for_interrupt())
-        yield
-        if self._interrupt_task is not None:  # type: ignore
-            self._interrupt_task.cancel()
-            try:
-                await self._interrupt_task
-            except asyncio.CancelledError:
-                pass
-        self._interrupt_task = None
-        self.shutdown.clear()
 
     @abstractmethod
     def get_system_prompt(self) -> str:

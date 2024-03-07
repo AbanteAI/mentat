@@ -5,7 +5,6 @@ import stat
 import subprocess
 import tempfile
 import time
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -93,7 +92,6 @@ def mock_collect_user_input(mocker):
                 source=StreamMessageSource.CLIENT,
                 data=value,
                 extra={},
-                created_at=datetime.utcnow(),
             )
             for value in values
         ]
