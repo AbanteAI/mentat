@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { Message, MessageContent, StreamMessage } from "../../types";
 
-import ChatInput from "../components/ChatInput";
+import ChatInput from "webviews/components/ChatInput";
 import ChatMessage from "webviews/components/ChatMessage";
 import { vscode } from "webviews/utils/vscode";
+import { isEqual } from "lodash";
 
 export default function Chat() {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -68,7 +69,7 @@ export default function Chat() {
                 const { text: curText, ...curAttributes } = messageContent;
                 // If the last 2 message contents have the same attributes, merge them to avoid creating hundreds of spans, and also to create specific style/edit 'boxes'
                 let newLastMessage;
-                if (lastAttributes === curAttributes) {
+                if (isEqual(lastAttributes, curAttributes)) {
                     newLastMessage = {
                         ...lastMessage,
                         content: [
@@ -95,14 +96,8 @@ export default function Chat() {
     function handleDefaultMessage(message: StreamMessage) {
         const messageEnd: string =
             message.extra?.end === undefined ? "\n" : message.extra?.end;
-        const messageColor: string =
-            message.extra?.color === undefined
-                ? undefined
-                : message.extra?.color;
-        const messageStyle: string =
-            message.extra?.style === undefined
-                ? undefined
-                : message.extra?.style;
+        const messageColor: string | undefined = message.extra?.color;
+        const messageStyle: string | undefined = message.extra?.style;
 
         addMessageContent(
             {

@@ -10,9 +10,9 @@ const light_theme: { [id: string]: string } = {
     prompt: "gray",
     code: "blue",
     info: "cyan",
-    failure: "dark_red",
+    failure: "darkred",
     success: "green",
-    input: "bright_blue",
+    input: "lightblue",
     error: "red",
     warning: "yellow",
 };
@@ -20,10 +20,10 @@ const dark_theme: { [id: string]: string } = {
     prompt: "white",
     code: "blue",
     info: "cyan",
-    failure: "bright_red",
+    failure: "red",
     success: "green",
-    input: "bright_blue",
-    error: "red",
+    input: "lightblue",
+    error: "darkred",
     warning: "yellow",
 };
 
