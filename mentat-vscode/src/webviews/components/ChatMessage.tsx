@@ -56,7 +56,7 @@ export default function ChatMessage(props: Props) {
         </pre>
     );
 
-    // TODO: Once we auto merge same color/style fragments, we can put a warning or error box around specific styles
+    // TODO: Should we put a warning or error box around specific styles?
     /*
     chatMessageContent = (
         <div className="bg-red-500 p-2 rounded-md flex gap-2 text-white">

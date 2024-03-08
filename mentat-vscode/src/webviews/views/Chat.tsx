@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 
-import { Message, StreamMessage } from "../../types";
+import { Message, MessageContent, StreamMessage } from "../../types";
 
 import ChatInput from "../components/ChatInput";
 import ChatMessage from "webviews/components/ChatMessage";
@@ -17,7 +17,7 @@ export default function Chat() {
     const chatLogRef = useRef<HTMLDivElement>(null);
 
     // TODO: Rarely, if you move fast during model output, some bugs can occur when reloading webview view;
-    // figure out why and fix it (easiest to see if you turn off retainContextWhenHidden), and then turn off retainContextWhenHidden.
+    // figure out why and fix it (easiest to see if you turn off retainContextWhenHidden). Once fixed, turn off retainContextWhenHidden permanently.
     // Also TODO: When restarting vscode during model output, interruptable will be stuck on (along with a few other quirks).
 
     // Whenever you add more state, make certain to update both of these effects!!!
@@ -51,21 +51,43 @@ export default function Chat() {
         scrollToBottom();
     }, [messages]);
 
-    function addMessage(message: Message) {
+    function addMessageContent(
+        messageContent: MessageContent,
+        source: "user" | "mentat"
+    ) {
         setMessages((prevMessages) => {
             // If the last message was from the same source, merge the messages
-            // TODO: Merge same color/style contents as well (so that additions and removals don't add hundreds of spans)
             const lastMessage = prevMessages.at(-1);
-            if (message.source === lastMessage?.source) {
-                return [
-                    ...prevMessages.slice(0, -1),
-                    {
+            if (source === lastMessage?.source) {
+                const { text: lastText, ...lastAttributes } =
+                    lastMessage.content.at(-1) ?? {
+                        text: "",
+                        style: undefined,
+                        color: undefined,
+                    };
+                const { text: curText, ...curAttributes } = messageContent;
+                // If the last 2 message contents have the same attributes, merge them to avoid creating hundreds of spans, and also to create specific style/edit 'boxes'
+                let newLastMessage;
+                if (lastAttributes === curAttributes) {
+                    newLastMessage = {
                         ...lastMessage,
-                        content: [...lastMessage.content, ...message.content],
-                    },
-                ];
+                        content: [
+                            ...lastMessage.content.slice(0, -1),
+                            { text: lastText + curText, ...lastAttributes },
+                        ],
+                    };
+                } else {
+                    newLastMessage = {
+                        ...lastMessage,
+                        content: [...lastMessage.content, messageContent],
+                    };
+                }
+                return [...prevMessages.slice(0, -1), newLastMessage];
             } else {
-                return [...prevMessages, message];
+                return [
+                    ...prevMessages,
+                    { content: [messageContent], source: source },
+                ];
             }
         });
     }
@@ -82,16 +104,14 @@ export default function Chat() {
                 ? undefined
                 : message.extra?.style;
 
-        addMessage({
-            content: [
-                {
-                    text: message.data + messageEnd,
-                    style: messageStyle,
-                    color: messageColor,
-                },
-            ],
-            source: "mentat",
-        });
+        addMessageContent(
+            {
+                text: message.data + messageEnd,
+                style: messageStyle,
+                color: messageColor,
+            },
+            "mentat"
+        );
     }
 
     function handleServerMessage(event: MessageEvent<StreamMessage>) {
@@ -154,10 +174,10 @@ export default function Chat() {
     }, []);
 
     function onUserInput(input: string) {
-        addMessage({
-            content: [{ text: input, style: undefined, color: undefined }],
-            source: "user",
-        });
+        addMessageContent(
+            { text: input, style: undefined, color: undefined },
+            "user"
+        );
         // Send message to webview
         vscode.sendMessage(input, `input_request:${inputRequestId}`);
     }
