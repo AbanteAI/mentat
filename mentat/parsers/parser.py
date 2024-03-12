@@ -204,6 +204,7 @@ class Parser(ABC):
                                 [file_edit for file_edit in file_edits.values()],
                             )
 
+                        printer.cur_file = display_information.file_name
                         in_special_lines = False
                         prev_block = cur_block
                         cur_block = ""

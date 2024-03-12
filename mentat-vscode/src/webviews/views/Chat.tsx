@@ -8,10 +8,9 @@ import { vscode } from "webviews/utils/vscode";
 import { isEqual } from "lodash";
 
 export default function Chat() {
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [inputRequestId, setInputRequestId] = useState<string | undefined>(
-        undefined
-    );
+    // We have to use null instead of undefined everywhere here because vscode.setState serializes into json, so getState turns undefined into null
+    const [messages, setMessages] = useState<(Message | null)[]>([]);
+    const [inputRequestId, setInputRequestId] = useState<string | null>(null);
     const [sessionActive, setSessionActive] = useState<boolean>(true);
     const [textAreaValue, setTextAreaValue] = useState<string>("");
     const [interruptable, setInterruptable] = useState<boolean>(false);
@@ -65,6 +64,7 @@ export default function Chat() {
                         text: "",
                         style: undefined,
                         color: undefined,
+                        filepath: undefined,
                     };
                 const { text: curText, ...curAttributes } = messageContent;
                 // If the last 2 message contents have the same attributes, merge them to avoid creating hundreds of spans, and also to create specific style/edit 'boxes'
@@ -95,15 +95,17 @@ export default function Chat() {
 
     function handleDefaultMessage(message: StreamMessage) {
         const messageEnd: string =
-            message.extra?.end === undefined ? "\n" : message.extra?.end;
-        const messageColor: string | undefined = message.extra?.color;
-        const messageStyle: string | undefined = message.extra?.style;
+            message.extra?.end === undefined ? "\n" : message.extra.end;
+        const messageColor: string | undefined = message.extra.color;
+        const messageStyle: string | undefined = message.extra.style;
+        const messageFilepath: string | undefined = message.extra.filepath;
 
         addMessageContent(
             {
                 text: message.data + messageEnd,
                 style: messageStyle,
                 color: messageColor,
+                filepath: messageFilepath,
             },
             "mentat"
         );
@@ -151,6 +153,15 @@ export default function Chat() {
             case "context_update": {
                 break;
             }
+            case "vscode": {
+                const subchannel = message.channel.split(":").at(1);
+                switch (subchannel) {
+                    case "newSession": {
+                        setMessages((prevMessages) => [...prevMessages, null]);
+                    }
+                }
+                break;
+            }
             default: {
                 console.error(`Unknown message channel ${message.channel}.`);
                 break;
@@ -170,7 +181,12 @@ export default function Chat() {
 
     function onUserInput(input: string) {
         addMessageContent(
-            { text: input, style: undefined, color: undefined },
+            {
+                text: input,
+                style: undefined,
+                color: undefined,
+                filepath: undefined,
+            },
             "user"
         );
         // Send message to webview
@@ -183,7 +199,13 @@ export default function Chat() {
 
     // Using index as key should be fine since we never insert, delete, or re-order chat messages
     const chatMessageElements = messages.map((message, index) => (
-        <React.Fragment key={index}>{ChatMessage({ message })}</React.Fragment>
+        <React.Fragment key={index}>
+            {message === null ? (
+                <div className="border-solid border-b border-[var(--vscode-panel-border)]"></div>
+            ) : (
+                <ChatMessage message={message}></ChatMessage>
+            )}
+        </React.Fragment>
     ));
     return (
         <div className="h-screen">

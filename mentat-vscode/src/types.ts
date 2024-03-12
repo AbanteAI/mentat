@@ -10,6 +10,7 @@ type MessageContent = {
     text: string;
     style: string | undefined;
     color: string | undefined;
+    filepath: string | undefined;
 };
 
 type Message = {

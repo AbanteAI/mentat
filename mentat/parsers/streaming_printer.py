@@ -1,5 +1,6 @@
 import asyncio
 from collections import deque
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from mentat.session_context import SESSION_CONTEXT
@@ -26,6 +27,7 @@ class StreamingPrinter:
         self.strings_to_print: deque[Tuple[str, Dict[str, Any]]] = deque()
         self.finishing = False
         self.shutdown = False
+        self.cur_file: Path | None = None
 
     def add_string(
         self,
@@ -37,8 +39,11 @@ class StreamingPrinter:
 
         if isinstance(formatted_string, List):
             for string in formatted_string:
+                string[1]["filepath"] = self.cur_file
                 self.add_string(string, end="")
-            self.strings_to_print.extend((char, {}) for char in end)
+            self.strings_to_print.extend(
+                (char, {"filepath": self.cur_file}) for char in end
+            )
             return
         if isinstance(formatted_string, str):
             string = formatted_string
@@ -50,8 +55,11 @@ class StreamingPrinter:
         if len(string) == 0:
             return
 
+        styles["filepath"] = self.cur_file
         self.strings_to_print.extend((char, styles) for char in string)
-        self.strings_to_print.extend((char, {}) for char in end)
+        self.strings_to_print.extend(
+            (char, {"filepath": self.cur_file}) for char in end
+        )
 
     def sleep_time(self) -> float:
         max_finish_time = 1.0

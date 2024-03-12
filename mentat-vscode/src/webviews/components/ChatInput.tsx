@@ -3,7 +3,7 @@ import { VscError, VscSend } from "react-icons/vsc";
 
 type Props = {
     onUserInput: (input: string) => void;
-    inputRequestId: string | undefined;
+    inputRequestId: string | null;
     sessionActive: boolean;
     textAreaValue: string;
     setTextAreaValue: (input: string) => void;
@@ -18,7 +18,7 @@ export default function ChatInput(props: Props) {
     useEffect(() => {
         setSubmitDisabled(
             props.textAreaValue === "" ||
-                props.inputRequestId === undefined ||
+                props.inputRequestId === null ||
                 !props.sessionActive
         );
 

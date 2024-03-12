@@ -1,6 +1,7 @@
 import { ChildProcessWithoutNullStreams } from "child_process";
 import { StreamMessage } from "types";
 import { server } from "utils/server";
+import { v4 } from "uuid";
 import * as vscode from "vscode";
 import { Uri, Webview } from "vscode";
 
@@ -24,6 +25,13 @@ class WebviewProvider implements vscode.WebviewViewProvider {
 
     constructor(extensionUri: vscode.Uri) {
         this.extensionUri = extensionUri;
+        this.postMessage({
+            id: v4(),
+            channel: "vscode:newSession",
+            source: "client",
+            data: undefined,
+            extra: {},
+        });
     }
 
     private backlog: StreamMessage[] = [];

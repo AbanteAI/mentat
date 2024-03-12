@@ -27,6 +27,14 @@
                     "dark": "#f0deff",
                     "light": "#2c173d"
                 }
+            },
+            {
+                "id": "mentat.fileEditBubble",
+                "description": "Color for file edit bubbles in Mentat's webview.",
+                "defaults": {
+                    "dark": "#2b2a2c",
+                    "light": "#d7d0ee"
+                }
             }
         ],
         "viewsContainers": {

@@ -32,7 +32,7 @@ class SessionStream:
 
     Channels and their expected behavior (starred channels are sent by the client):
 
-    default: Any data sent to the client over this channel should be displayed. Valid kwargs: color, style
+    default: Any data sent to the client over this channel should be displayed. Valid kwargs: color, style, filepath
 
     *session_exit: Sent by the client, suggesting that the session should exit whenever possible.
     client_exit: Sent by the server, client should shut down when received.
