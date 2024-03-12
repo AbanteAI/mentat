@@ -87,7 +87,9 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
         cwd=Path("."),
         paths=exercise_runner.include_files(),
         exclude_paths=exercise_runner.exclude_files(),
-        config=Config(),
+        config=Config(model="ft:gpt-4-0613:abante:mentat-block:91z42S8L",
+                      no_parser_prompt=True,
+                      ),
     )
     await client.startup()
 
