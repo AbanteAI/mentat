@@ -1,5 +1,6 @@
 import { ChildProcessWithoutNullStreams } from "child_process";
-import { StreamMessage } from "types";
+import { FileEdit, StreamMessage } from "types";
+import { acceptEdit, previewEdit } from "utils/commands";
 import { server } from "utils/server";
 import { v4 } from "uuid";
 import * as vscode from "vscode";
@@ -23,14 +24,14 @@ class WebviewProvider implements vscode.WebviewViewProvider {
     private extensionUri: vscode.Uri;
     private view?: vscode.WebviewView;
 
-    constructor(extensionUri: vscode.Uri) {
+    constructor(extensionUri: vscode.Uri, private workspaceRoot: string) {
         this.extensionUri = extensionUri;
         this.postMessage({
             id: v4(),
             channel: "vscode:newSession",
             source: "client",
             data: undefined,
-            extra: {},
+            extra: { workspaceRoot: workspaceRoot },
         });
     }
 
@@ -100,12 +101,22 @@ class WebviewProvider implements vscode.WebviewViewProvider {
         this.view.webview.onDidReceiveMessage((message: StreamMessage) => {
             if (message.channel.startsWith("vscode")) {
                 switch (message.channel) {
-                    case "vscode:webview_loaded": {
+                    case "vscode:webviewLoaded": {
                         // All messages we get before user first opens view have to be sent once the webview is loaded.
                         for (const streamMessage of this.backlog) {
                             this.postMessage(streamMessage);
                         }
                         this.backlog = [];
+                        break;
+                    }
+                    case "vscode:acceptEdit": {
+                        const fileEdit: FileEdit = message.data;
+                        acceptEdit(fileEdit);
+                        break;
+                    }
+                    case "vscode:previewEdit": {
+                        const fileEdit: FileEdit = message.data;
+                        previewEdit(fileEdit);
                         break;
                     }
                 }

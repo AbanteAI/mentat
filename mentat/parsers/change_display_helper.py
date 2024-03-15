@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Tuple, cast
+from typing import List, Tuple, cast
 
 import attr
 from pygments import lex
@@ -12,8 +12,6 @@ from pygments.util import ClassNotFound
 from mentat.parsers.streaming_printer import FormattedString
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
-
-change_delimiter = 60 * "="
 
 
 def get_lexer(file_path: Path):
@@ -120,10 +118,10 @@ def _get_code_block(
 def display_full_change(display_information: DisplayInformation, prefix: str = ""):
     ctx = SESSION_CONTEXT.get()
 
-    full_change = [
+    full_change: List[FormattedString] = [
         get_file_name(display_information),
         (
-            change_delimiter
+            ("", {"delimiter": True})
             if display_information.added_block or display_information.removed_block
             else ""
         ),
@@ -132,11 +130,12 @@ def display_full_change(display_information: DisplayInformation, prefix: str = "
         get_added_lines(display_information),
         get_later_lines(display_information),
         (
-            change_delimiter
+            ("", {"delimiter": True})
             if display_information.added_block or display_information.removed_block
             else ""
         ),
     ]
+    # TODO: This is called by undo and redo; make sure this stuff looks good before merging!!!
     for line in full_change:
         if isinstance(line, str):
             if not line.strip():

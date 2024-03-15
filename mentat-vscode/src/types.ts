@@ -8,9 +8,11 @@ type StreamMessage = {
 
 type MessageContent = {
     text: string;
-    style: string | undefined;
-    color: string | undefined;
-    filepath: string | undefined;
+    style?: string;
+    color?: string;
+    filepath?: string;
+    filepath_display?: string;
+    delimiter?: boolean;
 };
 
 type Message = {
@@ -29,4 +31,9 @@ type ContextUpdateData = {
     total_cost: number;
 };
 
-export { Message, MessageContent, StreamMessage, ContextUpdateData };
+type FileEdit = {
+    file_path: string;
+    new_content: string;
+};
+
+export { Message, MessageContent, StreamMessage, ContextUpdateData, FileEdit };

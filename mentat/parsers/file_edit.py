@@ -9,7 +9,6 @@ from mentat.errors import HistoryError, MentatError
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
-    change_delimiter,
     display_full_change,
 )
 from mentat.session_context import SESSION_CONTEXT
@@ -220,17 +219,6 @@ class FileEdit:
             or len(self.replacements) > 0
         )
 
-    def _print_resolution(self, first: Replacement, second: Replacement):
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-
-        stream.send("Change overlap detected, auto-merged back to back changes:\n")
-        stream.send(get_relative_path(self.file_path, session_context.cwd))
-        stream.send(change_delimiter)
-        for line in first.new_lines + second.new_lines:
-            stream.send("+ " + line, style="success")
-        stream.send(change_delimiter)
-
     def resolve_conflicts(self):
         self.replacements.sort(reverse=True)
         for index, replacement in enumerate(self.replacements):
@@ -242,15 +230,13 @@ class FileEdit:
                     # Overlap conflict
                     other.ending_line = replacement.starting_line
                     other.starting_line = min(other.starting_line, other.ending_line)
-                    self._print_resolution(other, replacement)
                 elif (
                     other.ending_line == other.starting_line
                     and replacement.ending_line == replacement.starting_line
                     and replacement.starting_line == other.starting_line
                 ):
-                    # Insertion conflict
-                    # This will be a bit wonky if there are more than 2 insertion conflicts on the same line
-                    self._print_resolution(replacement, other)
+                    # Insertion conflict (nothing to do)
+                    pass
 
     def get_updated_file_lines(self, file_lines: list[str]):
         self.replacements.sort(reverse=True)

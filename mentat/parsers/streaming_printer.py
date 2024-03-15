@@ -28,22 +28,22 @@ class StreamingPrinter:
         self.finishing = False
         self.shutdown = False
         self.cur_file: Path | None = None
+        self.cur_file_display: Path | None = None
 
     def add_string(
         self,
         formatted_string: FormattedString,
         end: str = "\n",
+        allow_empty: bool = False,
     ):
         if self.finishing:
             return
 
         if isinstance(formatted_string, List):
             for string in formatted_string:
-                string[1]["filepath"] = self.cur_file
                 self.add_string(string, end="")
-            self.strings_to_print.extend(
-                (char, {"filepath": self.cur_file}) for char in end
-            )
+            if end:
+                self.add_string(end, end="")
             return
         if isinstance(formatted_string, str):
             string = formatted_string
@@ -52,14 +52,19 @@ class StreamingPrinter:
             string = formatted_string[0]
             styles = formatted_string[1]
 
-        if len(string) == 0:
+        styles["filepath"] = self.cur_file
+        styles["filepath_display"] = self.cur_file_display
+        if not string:
+            if allow_empty:
+                self.strings_to_print.append(("", styles))
             return
 
-        styles["filepath"] = self.cur_file
         self.strings_to_print.extend((char, styles) for char in string)
-        self.strings_to_print.extend(
-            (char, {"filepath": self.cur_file}) for char in end
-        )
+        if end:
+            self.add_string(end, end="")
+
+    def add_delimiter(self):
+        self.add_string(("", {"delimiter": True}), end="", allow_empty=True)
 
     def sleep_time(self) -> float:
         max_finish_time = 1.0

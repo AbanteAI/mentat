@@ -6,6 +6,7 @@ import { ContextUpdateData, StreamMessage } from "types";
 import path from "path";
 import { server } from "utils/server";
 import { ContextFileDecorationProvider } from "lib/ContextFileDecorationProvider";
+import { MentatUriProvider } from "lib/MentatUriProvider";
 
 function contextUpdate(
     data: ContextUpdateData,
@@ -43,6 +44,16 @@ async function activateClient(context: vscode.ExtensionContext) {
         const workspaceRoot =
             vscode.workspace.workspaceFolders?.at(0)?.uri?.path ?? os.homedir();
         await server.startServer(workspaceRoot);
+
+        // URI Provider
+        // TODO: Look into FileSystemProvider and see if we could make the preview diffs editable
+        const mentatUriProvider = new MentatUriProvider();
+        context.subscriptions.push(
+            vscode.workspace.registerTextDocumentContentProvider(
+                "mentat",
+                mentatUriProvider
+            )
+        );
 
         // Commands
         context.subscriptions.push(
@@ -100,7 +111,10 @@ async function activateClient(context: vscode.ExtensionContext) {
         );
         */
 
-        const chatWebviewProvider = new WebviewProvider(context.extensionUri);
+        const chatWebviewProvider = new WebviewProvider(
+            context.extensionUri,
+            workspaceRoot
+        );
         context.subscriptions.push(
             vscode.window.registerWebviewViewProvider(
                 "mentat-webview",

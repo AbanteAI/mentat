@@ -1,12 +1,11 @@
 import { VscAccount } from "react-icons/vsc";
-import { Message, MessageContent } from "types";
+import { FileEdit, Message, MessageContent } from "types";
 import MentatIcon from "./MentatIcon";
-import React from "react";
+import React, { useContext } from "react";
+import PillButton from "./PillButton";
+import { WorkspaceRootContext } from "webviews/context/WorkspaceRootContext";
 
-type Props = {
-    message: Message;
-};
-
+// TODO: Change the colors to vscode theme colors
 const light_theme: { [id: string]: string } = {
     prompt: "gray",
     code: "blue",
@@ -28,29 +27,96 @@ const dark_theme: { [id: string]: string } = {
     warning: "yellow",
 };
 
-function renderContentPiece(contentPiece: MessageContent, index: number) {
+function ContentPiece({ contentPiece }: { contentPiece: MessageContent }) {
     return (
         <span
-            // Index as key should be fine here since we never insert reorder or delete elements
-            key={index}
             style={{
                 color:
                     contentPiece.color ||
                     (contentPiece.style && dark_theme[contentPiece.style]),
             }}
+            className={
+                contentPiece.delimiter ? "border-solid border-b block my-2" : ""
+            }
         >
             {contentPiece.text}
         </span>
     );
 }
 
-function renderFileBlock(contentPieces: MessageContent[]) {
+function FileBlock({
+    contentPieces,
+    activeEdits,
+    onAccept,
+    onDecline,
+    onPreview,
+}: {
+    contentPieces: MessageContent[];
+    activeEdits: FileEdit[];
+    onAccept: (fileEdit: FileEdit) => void;
+    onDecline: (fileEdit: FileEdit) => void;
+    onPreview: (fileEdit: FileEdit) => void;
+}) {
+    const filePath = contentPieces.at(0)?.filepath;
+    if (filePath === undefined) {
+        return;
+    }
+    const filePathDisplay = contentPieces.at(0)?.filepath_display ?? filePath;
+
+    const activeEdit = activeEdits.find(
+        (fileEdit) => fileEdit.file_path === filePath
+    );
+
     return (
-        <div className="border-solid rounded-md border-black border w-fit p-2 bg-[var(--vscode-mentat-fileEditBubble)]">
-            {contentPieces.map(renderContentPiece)}
-        </div>
+        // hover:bg-[var(--vscode-inputOption-hoverBackground)] hover:scale-[1.01] transition-all duration-500 ease-out
+        <fieldset className="border-solid rounded-md border min-w-[30%] max-w-[80%] w-fit p-2 bg-[var(--vscode-input-background)]">
+            <legend>{filePathDisplay}</legend>
+            {contentPieces.map((contentPiece, index) => (
+                // Index as key should be fine here since we never insert reorder or delete elements
+                <ContentPiece
+                    contentPiece={contentPiece}
+                    key={index}
+                ></ContentPiece>
+            ))}
+            {
+                // TODO: See if a checkmark, x, and pencil logo would look good on these buttons
+                activeEdit && (
+                    <>
+                        <span className="border-solid border-b block my-2"></span>
+                        <div className="flex flex-row flex-wrap gap-3 mt-2 mr-auto">
+                            <PillButton
+                                className="bg-green-600 hover:bg-green-500"
+                                onClick={() => onAccept(activeEdit)}
+                            >
+                                Accept
+                            </PillButton>
+                            <PillButton
+                                className="bg-red-700 hover:bg-red-500"
+                                onClick={() => onDecline(activeEdit)}
+                            >
+                                Decline
+                            </PillButton>
+                            <PillButton
+                                className="bg-cyan-700 hover:bg-blue-500"
+                                onClick={() => onPreview(activeEdit)}
+                            >
+                                Preview
+                            </PillButton>
+                        </div>
+                    </>
+                )
+            }
+        </fieldset>
     );
 }
+
+type Props = {
+    message: Message;
+    activeEdits: FileEdit[];
+    onAccept: (fileEdit: FileEdit) => void;
+    onDecline: (fileEdit: FileEdit) => void;
+    onPreview: (fileEdit: FileEdit) => void;
+};
 
 // TODO: Once everything is working, make sure to memoize!!!
 export default function ChatMessage(props: Props) {
@@ -73,25 +139,52 @@ export default function ChatMessage(props: Props) {
             ) {
                 curBlock.push(contentPiece);
             } else {
-                messagesPieces.push(renderFileBlock(curBlock));
-                curBlock = [];
+                messagesPieces.push(
+                    <FileBlock
+                        contentPieces={curBlock}
+                        activeEdits={props.activeEdits}
+                        onAccept={props.onAccept}
+                        onDecline={props.onDecline}
+                        onPreview={props.onPreview}
+                    ></FileBlock>
+                );
+                curBlock = [contentPiece];
             }
         } else {
             if (curBlock.length !== 0) {
-                messagesPieces.push(renderFileBlock(curBlock));
+                messagesPieces.push(
+                    <FileBlock
+                        contentPieces={curBlock}
+                        activeEdits={props.activeEdits}
+                        onAccept={props.onAccept}
+                        onDecline={props.onDecline}
+                        onPreview={props.onPreview}
+                    ></FileBlock>
+                );
                 curBlock = [];
             }
             messagesPieces.push(
-                renderContentPiece(contentPiece, messagesPieces.length)
+                <ContentPiece contentPiece={contentPiece}></ContentPiece>
             );
         }
     }
     if (curBlock.length !== 0) {
-        messagesPieces.push(renderFileBlock(curBlock));
+        messagesPieces.push(
+            <FileBlock
+                contentPieces={curBlock}
+                activeEdits={props.activeEdits}
+                onAccept={props.onAccept}
+                onDecline={props.onDecline}
+                onPreview={props.onPreview}
+            ></FileBlock>
+        );
     }
 
     const messageContent = (
-        <pre className="whitespace-pre-wrap">
+        <pre
+            className="whitespace-pre-wrap"
+            style={{ fontFamily: "var(--vscode-editor-fontfamily), monospace" }}
+        >
             {messagesPieces.map((messagePiece, index) => (
                 <React.Fragment key={index}>{messagePiece}</React.Fragment>
             ))}
@@ -115,6 +208,36 @@ export default function ChatMessage(props: Props) {
                 <p className="font-bold">{sourceName}</p>
             </div>
             {messageContent}
+            {props.activeEdits.length > 0 && (
+                <>
+                    <div className="flex flex-row flex-wrap gap-3 mt-2 mr-auto">
+                        <PillButton
+                            className="bg-green-600 hover:bg-green-500"
+                            onClick={() =>
+                                props.activeEdits.map(props.onAccept)
+                            }
+                        >
+                            Accept All
+                        </PillButton>
+                        <PillButton
+                            className="bg-red-700 hover:bg-red-500"
+                            onClick={() =>
+                                props.activeEdits.map(props.onDecline)
+                            }
+                        >
+                            Decline All
+                        </PillButton>
+                        <PillButton
+                            className="bg-cyan-700 hover:bg-blue-500"
+                            onClick={() =>
+                                props.activeEdits.map(props.onPreview)
+                            }
+                        >
+                            Preview All
+                        </PillButton>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

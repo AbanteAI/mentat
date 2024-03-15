@@ -17,7 +17,7 @@ class MentatServer:
     def __init__(self, cwd: Path) -> None:
         self.cwd = cwd
         self.stopped = Event()
-        self.session = Session(self.cwd)
+        self.session = Session(self.cwd, apply_edits=False)
 
     async def _client_listener(self):
         while not self.stopped.is_set():

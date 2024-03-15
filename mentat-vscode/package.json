@@ -27,14 +27,6 @@
                     "dark": "#f0deff",
                     "light": "#2c173d"
                 }
-            },
-            {
-                "id": "mentat.fileEditBubble",
-                "description": "Color for file edit bubbles in Mentat's webview.",
-                "defaults": {
-                    "dark": "#2b2a2c",
-                    "light": "#d7d0ee"
-                }
             }
         ],
         "viewsContainers": {
@@ -101,6 +93,18 @@
                 {
                     "when": "explorerResourceIsFolder && resourcePath in mentat.includedFolders",
                     "command": "mentat.excludeFolder",
+                    "group": "8_mentat"
+                }
+            ],
+            "editor/title/context": [
+                {
+                    "when": "resourcePath not in mentat.includedFiles",
+                    "command": "mentat.includeFile",
+                    "group": "8_mentat"
+                },
+                {
+                    "when": "resourcePath in mentat.includedFiles",
+                    "command": "mentat.excludeFile",
                     "group": "8_mentat"
                 }
             ]

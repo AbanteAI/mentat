@@ -32,7 +32,8 @@ class SessionStream:
 
     Channels and their expected behavior (starred channels are sent by the client):
 
-    default: Any data sent to the client over this channel should be displayed. Valid kwargs: color, style, filepath
+    default: Any data sent to the client over this channel should be displayed.
+    Valid kwargs: color, style, filepath, filepath_display, delimiter
 
     *session_exit: Sent by the client, suggesting that the session should exit whenever possible.
     client_exit: Sent by the server, client should shut down when received.
@@ -42,6 +43,15 @@ class SessionStream:
 
     input_request: Used to request input from the client (data unused). Valid kwargs: command_autocomplete
     *input_request:<message_id>: Sent by the client. The channel the response to an input_request is sent over.
+
+    model_file_edits: Once the model fully completes its response, sends a list of the file edits. Schema:
+    [
+        {
+            "file_path": "/absolute/path/to/file",
+            "new_content": "The new file text after edits are applied"
+        },
+        ...
+    ]
 
     edits_complete: A boolean sent when edits have been completed. True if any edits were accepted.
 
