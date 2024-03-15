@@ -172,11 +172,6 @@ class Parser(ABC):
                         cur_block += cur_line
 
                     if in_special_lines and self._ends_special(cur_line.strip()):
-                        # Add a delimiter directly before a new file edit, unless it's the first file edit.
-                        # This way, we get delimiters between every edit but not before or after the whole thing.
-                        if file_edit is not None:
-                            printer.add_delimiter()
-
                         previous_file = (
                             None if file_edit is None else file_edit.file_path
                         )
@@ -205,6 +200,11 @@ class Parser(ABC):
                                 conversation,
                                 [file_edit for file_edit in file_edits.values()],
                             )
+
+                        # Add a delimiter directly before a new file edit if it's the same file as before
+                        # This way, we get delimiters between every edit but not before or after the whole thing.
+                        if previous_file == file_edit.file_path:
+                            printer.add_delimiter()
 
                         printer.cur_file = file_edit.file_path
                         printer.cur_file_display = display_information.file_name

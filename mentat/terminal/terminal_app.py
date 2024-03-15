@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 css_path = Path("textual/terminal_app.tcss")
 history_file_location = mentat_dir_path / "prompt_history"
 
+change_delimiter = "=" * 60
+
 
 class ContentContainer(Static):
     BINDINGS = [
@@ -111,7 +113,7 @@ class ContentContainer(Static):
             self.loading_bar.remove()
             self.loading_bar = None
 
-    def add_content(self, new_content: str, color: str | None):
+    def add_content(self, new_content: str, color: str | None = None):
         new_content = escape(new_content)
         lines = [
             f"[{color}]{line}[/{color}]" if color else line
@@ -243,6 +245,7 @@ class TerminalApp(App[None]):
     def __init__(self, client: TerminalClient, **kwargs: Any):
         self.client = client
         self.command_autocomplete = False
+        self.last_filepath = None
         super().__init__(**kwargs)
 
     @override
@@ -255,6 +258,7 @@ class TerminalApp(App[None]):
     def display_stream_message(self, message: StreamMessage):
         end = "\n"
         color = None
+        content_container = self.query_one(ContentContainer)
         if message.extra:
             if isinstance(message.extra.get("end"), str):
                 end = message.extra["end"]
@@ -263,8 +267,19 @@ class TerminalApp(App[None]):
             if isinstance(message.extra.get("style"), str):
                 style = message.extra["style"]
                 color = self.theme[style]
+            if message.extra.get("delimiter", False):
+                content_container.add_content(f"{change_delimiter}\n")
+            filepath = message.extra.get("filepath")
+            if filepath != self.last_filepath:
+                if self.last_filepath:
+                    content_container.add_content(f"{change_delimiter}\n\n")
+                if filepath:
+                    filepath_display = message.extra.get("filepath_display", filepath)
+                    content_container.add_content(
+                        f"{filepath_display}\n{change_delimiter}\n"
+                    )
+                self.last_filepath = filepath
 
-        content_container = self.query_one(ContentContainer)
         content = str(message.data) + end
         content_container.add_content(content, color)
 
