@@ -64,6 +64,9 @@ def pytest_configure(config):
         "markers", "clear_testbed: create a testbed without any existing files"
     )
     config.addinivalue_line("markers", "no_git_testbed: create a testbed without git")
+    config.addinivalue_line(
+        "markers", "ragdaemon: DON'T mock the daemon in the testbed"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
@@ -280,7 +283,7 @@ def add_permissions(func, path, exc_info):
 
 
 @pytest.fixture(autouse=True)
-def temp_testbed(monkeypatch, get_marks):
+def temp_testbed(mocker, monkeypatch, get_marks):
     # Allow us to run tests from any directory
     base_dir = Path(__file__).parent.parent
 
@@ -309,10 +312,21 @@ def temp_testbed(monkeypatch, get_marks):
             run_git_command(temp_testbed, "add", ".")
             run_git_command(temp_testbed, "commit", "-m", "add testbed")
 
+    if "ragdaemon" not in get_marks:
+        mocker.patch("ragdaemon.daemon.Daemon.update", side_effect=AsyncMock())
+
     # necessary to undo chdir before calling rmtree, or it fails on windows
     with monkeypatch.context() as m:
         m.chdir(temp_testbed)
         yield Path(temp_testbed)
+
+    # Cache the embeddings for tests
+    temp_db = Path(temp_testbed) / ".ragdaemon" / "chroma"
+    if temp_db.exists():
+        base_db = base_dir / "testbed" / ".ragdaemon" / "chroma"
+        if base_db.exists():
+            shutil.rmtree(base_db)
+        shutil.move(temp_db, base_dir / "testbed" / ".ragdaemon")
 
     shutil.rmtree(temp_dir, onerror=add_permissions)
 

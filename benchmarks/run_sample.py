@@ -23,6 +23,15 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
     )
     cwd = Path(repo.working_dir)
 
+    # Make sure there's a .gitignore file, and that '.ragdaemon/*' is in it
+    gitignore_path = cwd / ".gitignore"
+    if not gitignore_path.exists():
+        gitignore_path.write_text(".ragdaemon/*\n")
+    else:
+        gitignore_contents = gitignore_path.read_text()
+        if ".ragdaemon/*" not in gitignore_contents:
+            gitignore_path.write_text(gitignore_contents + ".ragdaemon/*\n")
+
     # Make a commit from the pre-edited state (should match diff_active)
     commit_active = get_active_snapshot_commit(repo)
 

@@ -198,6 +198,7 @@ test_sample = {
 }
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_sample_eval(mock_call_llm_api):
     parsedLLMResponse = GitParser().parse_llm_response(test_sample["diff_edit"])
