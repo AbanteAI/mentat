@@ -164,7 +164,7 @@ def normalize_messages_for_anthropic(
     delimiter = "\n" + "-" * 80 + "\n"
     for message in replace_non_leading_systems:
         if message["role"] == current_role:
-            current_content += delimiter + str(message["content"])
+            current_content += delimiter + str(message["content"])  # type: ignore
         else:
             if current_role == "user":
                 concatenate_adjacent.append(
@@ -185,7 +185,7 @@ def normalize_messages_for_anthropic(
                     )
                 )
             current_role = message["role"]
-            current_content = str(message["content"])
+            current_content = str(message["content"])  # type: ignore
 
     if current_role == "user":
         concatenate_adjacent.append(
