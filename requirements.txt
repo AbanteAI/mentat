@@ -1,13 +1,13 @@
 attrs==23.1.0
 backoff==2.2.1
-chromadb==0.4.22
+chromadb==0.4.24
 fire==0.5.0
 gitpython==3.1.41
 httpx==0.25.1
-jinja2==3.1.2
+jinja2==3.1.3
 jsonschema>=4.17.0
 numpy==1.26.0
-openai==1.3.0
+openai==1.13.3
 pillow==10.1.0
 prompt-toolkit==3.0.39
 Pygments==2.15.1
@@ -24,9 +24,9 @@ soundfile==0.12.1
 termcolor==2.3.0
 textual==0.47.1
 textual-autocomplete==2.1.0b0
-tiktoken==0.4.0
+tiktoken==0.6.0
 typing_extensions==4.8.0
-tqdm==4.66.1
+tqdm>=4.66.1
 webdriver_manager==4.0.1
 watchfiles==0.21.0
-git+https://github.com/AbanteAI/ragdaemon.git#egg=ragdaemon
+ragdaemon @ git+https://github.com/AbanteAI/ragdaemon@main
