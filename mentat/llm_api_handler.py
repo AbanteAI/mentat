@@ -412,8 +412,7 @@ class LlmApiHandler:
         model: str,
         stream: Literal[True],
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> AsyncIterator[ChatCompletionChunk]:
-        ...
+    ) -> AsyncIterator[ChatCompletionChunk]: ...
 
     @overload
     async def call_llm_api(
@@ -422,8 +421,7 @@ class LlmApiHandler:
         model: str,
         stream: Literal[False],
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> ChatCompletion:
-        ...
+    ) -> ChatCompletion: ...
 
     @api_guard
     async def call_llm_api(
