@@ -19,6 +19,7 @@ from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import count_tokens, get_max_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
+from mentat.utils import get_relative_path
 
 
 class ContextStreamMessage(TypedDict):
@@ -50,7 +51,7 @@ class CodeContext:
 
         annotators: dict[str, dict[str, Any]] = {
             "hierarchy": {"ignore_patterns": [str(p) for p in self.ignore_patterns]},
-            "diff": {"diff": self.diff or self.pr_diff or ""},
+            "diff": {"diff": self.diff_context.target},
         }
         self.daemon: Daemon = Daemon(cwd=cwd, annotators=annotators, verbose=False)
 
@@ -120,18 +121,22 @@ class CodeContext:
         # we just refresh the cache every time get_code_message is called
         self.diff_context.refresh()
         if self.diff_context.diff_files():
-            code_message += [
-                "Diff References:",
-                f' "-" = {self.diff_context.name}',
-                ' "+" = Active Changes',
-                "",
-            ]
+            code_message += [f"Diff References: {self.diff_context.name}\n"]
 
         code_message += ["Code Files:\n\n"]
 
         await self.daemon.update()
         context_builder = self.daemon.get_context("", max_tokens=0)
-        for features in self.include_files.values():
+
+        diff_nodes: list[str] = [
+            node
+            for node, data in self.daemon.graph.nodes(data=True)  # pyright: ignore
+            if data and "type" in data and data["type"] == "diff"
+        ]
+        if not self.include_files.values():
+            for node in diff_nodes:
+                context_builder.add_diff(node)
+        for path, features in self.include_files.items():
             for feature in features:
                 interval_string = feature.interval_string()
                 if interval_string and "-" in interval_string:
@@ -140,6 +145,12 @@ class CodeContext:
                     interval_string = f"{start}-{inclusive_end}"
                 ref = feature.rel_path(session_context.cwd) + interval_string
                 context_builder.add_ref(ref, tags=["user-included"])
+            relative_path = get_relative_path(path, cwd).as_posix()
+            diffs_for_path = [
+                node for node in diff_nodes if f":{relative_path}" in node
+            ]
+            for diff in diffs_for_path:
+                context_builder.add_diff(diff)
 
         if config.auto_context_tokens > 0 and prompt:
             meta_tokens = count_tokens(
@@ -191,7 +202,9 @@ class CodeContext:
         all_features = list[CodeFeature]()
         for _, data in self.daemon.graph.nodes(data=True):  # pyright: ignore
             if (
-                data is None or "type" not in data or "ref" not in data
+                data is None
+                or "type" not in data
+                or "ref" not in data
                 or data["type"] not in {"file", "chunk"}
             ):
                 continue

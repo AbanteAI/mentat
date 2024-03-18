@@ -71,8 +71,8 @@ def test_diff_context_default(temp_testbed, git_history, mock_session_context):
         mock_session_context.stream,
         temp_testbed,
     )
-    assert diff_context.target == "HEAD"
-    assert diff_context.name == "HEAD (last commit)"
+    assert diff_context.target == ""
+    assert diff_context.name == "index (last commit)"
     assert diff_context.diff_files() == []
 
     # DiffContext.files (property): return git-tracked files with active changes

@@ -225,11 +225,9 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
 
     code_message = await code_context.get_code_message(0, prompt="prompt")
-    assert count_tokens(code_message, "gpt-4", full_message=True) == 110  # Code
+    assert count_tokens(code_message, "gpt-4", full_message=True) == 103  # Code
     assert code_message == """\
-Diff References:
- "-" = HEAD (last commit)
- "+" = Active Changes
+Diff References: index (last commit)
 
 Code Files:
 
