@@ -278,6 +278,12 @@ class Session:
             ctx.code_context.exclude(message.data)
             await ctx.code_context.refresh_context_display()
 
+    async def listen_for_clear_conversation(self):
+        ctx = SESSION_CONTEXT.get()
+
+        async for _ in self.stream.listen(channel="clear_conversation"):
+            ctx.conversation.clear_messages()
+
     ### lifecycle
 
     def start(self):
@@ -319,6 +325,7 @@ class Session:
         self._create_task(self.listen_for_completion_requests())
         self._create_task(self.listen_for_include())
         self._create_task(self.listen_for_exclude())
+        self._create_task(self.listen_for_clear_conversation())
 
     async def _stop(self):
         if self.stopped.is_set():

@@ -8,6 +8,8 @@ import { vscode } from "webviews/utils/vscode";
 import { isEqual } from "lodash";
 import { WorkspaceRootContext } from "webviews/context/WorkspaceRootContext";
 
+const MESSAGE_LIMIT = 100;
+
 export default function Chat() {
     // We have to use null instead of undefined everywhere here because vscode.setState serializes into json, so getState turns undefined into null
     const [messages, setMessages] = useState<(Message | null)[]>([]);
@@ -108,7 +110,7 @@ export default function Chat() {
             } else {
                 setActiveEdits([]);
                 return [
-                    ...prevMessages,
+                    ...prevMessages.slice(-(MESSAGE_LIMIT - 1)),
                     { content: [messageContent], source: source },
                 ];
             }
@@ -191,6 +193,12 @@ export default function Chat() {
                         setMessages((prevMessages) => [...prevMessages, null]);
                         setActiveEdits([]);
                         setWorkspaceRoot(message.extra.workspaceRoot);
+                        break;
+                    }
+                    case "eraseChatHistory": {
+                        setMessages([]);
+                        setActiveEdits([]);
+                        break;
                     }
                 }
                 break;
@@ -263,7 +271,7 @@ export default function Chat() {
                 <div className="flex flex-col justify-between h-full">
                     <div
                         ref={chatLogRef}
-                        className="flex flex-col gap-2 overflow-y-scroll hide-scrollbar"
+                        className="flex flex-col gap-2 overflow-y-scroll"
                     >
                         {chatMessageElements}
                     </div>

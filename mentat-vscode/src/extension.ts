@@ -1,7 +1,12 @@
 import WebviewProvider from "lib/WebviewProvider";
 import * as vscode from "vscode";
 import * as os from "os";
-import { excludeResource, includeResource } from "utils/commands";
+import {
+    clearChat,
+    eraseChatHistory,
+    excludeResource,
+    includeResource,
+} from "utils/commands";
 import { ContextUpdateData, StreamMessage } from "types";
 import path from "path";
 import { server } from "utils/server";
@@ -55,32 +60,6 @@ async function activateClient(context: vscode.ExtensionContext) {
             )
         );
 
-        // Commands
-        context.subscriptions.push(
-            vscode.commands.registerCommand(
-                "mentat.includeFile",
-                includeResource
-            )
-        );
-        context.subscriptions.push(
-            vscode.commands.registerCommand(
-                "mentat.includeFolder",
-                includeResource
-            )
-        );
-        context.subscriptions.push(
-            vscode.commands.registerCommand(
-                "mentat.excludeFile",
-                excludeResource
-            )
-        );
-        context.subscriptions.push(
-            vscode.commands.registerCommand(
-                "mentat.excludeFolder",
-                excludeResource
-            )
-        );
-
         // File decoration
         const contextFileDecorationProvider =
             new ContextFileDecorationProvider();
@@ -122,6 +101,41 @@ async function activateClient(context: vscode.ExtensionContext) {
                 {
                     webviewOptions: { retainContextWhenHidden: true },
                 }
+            )
+        );
+
+        // Commands
+        context.subscriptions.push(
+            vscode.commands.registerCommand(
+                "mentat.includeFile",
+                includeResource
+            )
+        );
+        context.subscriptions.push(
+            vscode.commands.registerCommand(
+                "mentat.includeFolder",
+                includeResource
+            )
+        );
+        context.subscriptions.push(
+            vscode.commands.registerCommand(
+                "mentat.excludeFile",
+                excludeResource
+            )
+        );
+        context.subscriptions.push(
+            vscode.commands.registerCommand(
+                "mentat.excludeFolder",
+                excludeResource
+            )
+        );
+        context.subscriptions.push(
+            vscode.commands.registerCommand("mentat.clearChat", clearChat)
+        );
+        context.subscriptions.push(
+            vscode.commands.registerCommand(
+                "mentat.eraseChatHistory",
+                eraseChatHistory(chatWebviewProvider)
             )
         );
 

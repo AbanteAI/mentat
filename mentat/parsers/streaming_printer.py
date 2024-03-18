@@ -42,7 +42,7 @@ class StreamingPrinter:
         if isinstance(formatted_string, List):
             for string in formatted_string:
                 self.add_string(string, end="")
-            if end:
+            if end and (allow_empty or any(string[0] for string in formatted_string)):
                 self.add_string(end, end="")
             return
         if isinstance(formatted_string, str):

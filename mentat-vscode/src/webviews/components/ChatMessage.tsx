@@ -100,7 +100,7 @@ function FileBlock({
                                 className="bg-cyan-700 hover:bg-blue-500"
                                 onClick={() => onPreview(activeEdit)}
                             >
-                                Preview
+                                Review
                             </PillButton>
                         </div>
                     </>
@@ -233,7 +233,7 @@ export default function ChatMessage(props: Props) {
                                 props.activeEdits.map(props.onPreview)
                             }
                         >
-                            Preview All
+                            Review All
                         </PillButton>
                     </div>
                 </>

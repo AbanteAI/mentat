@@ -79,6 +79,7 @@ class SessionStream:
 
     *include: Sent by the client. Gives a path to include in context.
     *exclude: Sent by the client. Gives a path to exclude from context.
+    *clear_conversation: Sent by the client. Clears the conversation history (but not the context).
     """
 
     def __init__(self):

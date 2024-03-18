@@ -71,6 +71,14 @@
                 "command": "mentat.excludeFolder",
                 "title": "Mentat: Exclude Folder",
                 "enablement": "explorerResourceIsFolder && resourcePath in mentat.includedFolders"
+            },
+            {
+                "command": "mentat.clearChat",
+                "title": "Mentat: Clear Chat"
+            },
+            {
+                "command": "mentat.eraseChatHistory",
+                "title": "Mentat: Erase Chat History"
             }
         ],
         "menus": {
@@ -106,6 +114,16 @@
                     "when": "resourcePath in mentat.includedFiles",
                     "command": "mentat.excludeFile",
                     "group": "8_mentat"
+                }
+            ],
+            "webview/context": [
+                {
+                    "command": "mentat.clearChat",
+                    "when": "webviewId == 'mentat-webview'"
+                },
+                {
+                    "command": "mentat.eraseChatHistory",
+                    "when": "webviewId == 'mentat-webview'"
                 }
             ]
         }

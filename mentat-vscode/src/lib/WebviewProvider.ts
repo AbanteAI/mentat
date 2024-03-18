@@ -26,18 +26,30 @@ class WebviewProvider implements vscode.WebviewViewProvider {
 
     constructor(extensionUri: vscode.Uri, private workspaceRoot: string) {
         this.extensionUri = extensionUri;
-        this.postMessage({
-            id: v4(),
-            channel: "vscode:newSession",
-            source: "client",
-            data: undefined,
-            extra: { workspaceRoot: workspaceRoot },
+        this.sendMessage(null, "vscode:newSession", {
+            workspaceRoot: workspaceRoot,
         });
     }
 
     private backlog: StreamMessage[] = [];
 
-    // Send LS Messages to the WebView
+    /**
+     * Convenience method for sending data over a specific channel
+     */
+    public sendMessage(
+        data: any,
+        channel: string,
+        extra: { [key: string]: any } = {}
+    ) {
+        this.postMessage({
+            id: v4(),
+            channel: channel,
+            source: "client",
+            data: data,
+            extra: extra,
+        });
+    }
+
     public postMessage(message: StreamMessage) {
         if (!this.view) {
             this.backlog.push(message);

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { server } from "./server";
 import { FileEdit } from "types";
 import path from "path";
+import WebviewProvider from "lib/WebviewProvider";
 
 function getFilepath(args: any[]): string | undefined {
     return (
@@ -23,6 +24,18 @@ export function excludeResource(...args: any[]) {
         return;
     }
     server.sendStreamMessage(filePath, "exclude");
+}
+
+export function clearChat(...args: any[]) {
+    server.sendStreamMessage(null, "clear_conversation");
+}
+
+export function eraseChatHistory(
+    webviewProvider: WebviewProvider
+): (...args: any[]) => void {
+    return (...args: any[]) => {
+        webviewProvider.sendMessage(null, "vscode:eraseChatHistory");
+    };
 }
 
 export async function acceptEdit(fileEdit: FileEdit) {
