@@ -96,6 +96,7 @@ def annotate_file_message(
 class DiffContext:
     target: str = ""
     name: str = "index (last commit)"
+
     def __init__(
         self,
         stream: SessionStream,
