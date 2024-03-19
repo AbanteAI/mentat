@@ -20,9 +20,7 @@ class LoadCommand(Command, command_name="load"):
         context_file_path = mentat_dir_path / "context.json"
 
         if len(args) > 1:
-            stream.send(
-                "Only one context file can be loaded at a time", style="warning"
-            )
+            stream.send("Only one context file can be loaded at a time", style="warning")
             return
 
         if args:
@@ -30,9 +28,7 @@ class LoadCommand(Command, command_name="load"):
             try:
                 context_file_path = Path(path_arg).expanduser().resolve()
             except RuntimeError as e:
-                raise PathValidationError(
-                    f"Invalid context file path provided: {path_arg}: {e}"
-                )
+                raise PathValidationError(f"Invalid context file path provided: {path_arg}: {e}")
 
         try:
             with open(context_file_path, "r") as file:
@@ -58,15 +54,10 @@ class LoadCommand(Command, command_name="load"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         return get_command_filename_completions(arguments[-1])
 
     @override
     @classmethod
     def help_message(cls) -> str:
-        return (
-            "Loads a context file. Loaded context adds to existing context, it does not"
-            " replace it."
-        )
+        return "Loads a context file. Loaded context adds to existing context, it does not" " replace it."

@@ -32,15 +32,11 @@ def migration(path: Path):
                 benchmark_run.metadata["file"] = file.name
 
             benchmark_run.save(folder=full_result_path, name=file.name)
-            benchmark_run.make_html_report(
-                html_path / file.name.replace(".json", ".html")
-            )
+            benchmark_run.make_html_report(html_path / file.name.replace(".json", ".html"))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "path", type=Path, help="Path to the benchmark result directory"
-    )
+    parser.add_argument("path", type=Path, help="Path to the benchmark result directory")
     args = parser.parse_args()
     migration(args.path)

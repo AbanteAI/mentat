@@ -46,20 +46,14 @@ async def generate_finetune(
             conversation.append({"role": "user", "content": message["content"]})
         elif message["role"] == "assistant":
             generator = convert_string_to_asynciter(message["content"], 100)
-            parsed_llm_response = await GitParser().stream_and_parse_llm_response(
-                generator
-            )
-            formatted_content = ctx.config.parser.file_edits_to_llm_message(
-                parsed_llm_response
-            )
+            parsed_llm_response = await GitParser().stream_and_parse_llm_response(generator)
+            formatted_content = ctx.config.parser.file_edits_to_llm_message(parsed_llm_response)
             conversation.append({"role": "assistant", "content": formatted_content})
     conversation.append({"role": "user", "content": sample.message_prompt})
     message_example = sample.message_edit or ""
     if sample.diff_edit:  # Convert any diff_edit to block format for answer
         parsed_llm_response = GitParser().parse_llm_response(sample.diff_edit)
-        message_example += ctx.config.parser.file_edits_to_llm_message(
-            parsed_llm_response
-        )
+        message_example += ctx.config.parser.file_edits_to_llm_message(parsed_llm_response)
     conversation.append({"role": "assistant", "content": message_example})
 
     await python_client.shutdown()

@@ -17,14 +17,10 @@ setup(
     name="mentat",
     version=VERSION,
     python_requires=">=3.10",
-    packages=find_packages(
-        include=["mentat", "mentat.*", "benchmarks", "benchmarks.*"]
-    ),
+    packages=find_packages(include=["mentat", "mentat.*", "benchmarks", "benchmarks.*"]),
     install_requires=[
         str(r)
-        for r in pkg_resources.parse_requirements(
-            open(os.path.join(os.path.dirname(__file__), "requirements.txt"))
-        )
+        for r in pkg_resources.parse_requirements(open(os.path.join(os.path.dirname(__file__), "requirements.txt")))
     ],
     entry_points={
         "console_scripts": [

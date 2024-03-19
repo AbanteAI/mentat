@@ -44,15 +44,9 @@ class Config:
     )
     embedding_model: str = attr.field(
         default="text-embedding-ada-002",
-        metadata={
-            "auto_completions": [
-                model.name for model in known_models.values() if model.embedding_model
-            ]
-        },
+        metadata={"auto_completions": [model.name for model in known_models.values() if model.embedding_model]},
     )
-    temperature: float = attr.field(
-        default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)]
-    )
+    temperature: float = attr.field(default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)])
 
     maximum_context: int | None = attr.field(
         default=None,
@@ -69,18 +63,14 @@ class Config:
     token_buffer: int = attr.field(
         default=1000,
         metadata={
-            "description": (
-                "The amount of tokens to always be reserved as a buffer for user and"
-                " model messages."
-            ),
+            "description": ("The amount of tokens to always be reserved as a buffer for user and" " model messages."),
         },
     )
     parser: Parser = attr.field(  # pyright: ignore
         default="block",
         metadata={
             "description": (
-                "The format for the LLM to write code in. You probably don't want to"
-                " mess with this setting."
+                "The format for the LLM to write code in. You probably don't want to" " mess with this setting."
             ),
             "auto_completions": list(parser_map.keys()),
         },
@@ -112,9 +102,7 @@ class Config:
     sampler: bool = attr.field(
         default=False,
         metadata={
-            "description": (
-                "Automatically saves a git diff snapshot for the sampler on startup."
-            ),
+            "description": ("Automatically saves a git diff snapshot for the sampler on startup."),
             "auto_completions": bool_autocomplete,
         },
         converter=converters.optional(converters.to_bool),
@@ -157,15 +145,11 @@ class Config:
     # Sample specific settings
     sample_repo: str | None = attr.field(
         default=None,
-        metadata={
-            "description": "A public url for a cloneable git repository to sample from."
-        },
+        metadata={"description": "A public url for a cloneable git repository to sample from."},
     )
     sample_merge_base_target: str | None = attr.field(
         default=None,
-        metadata={
-            "description": "The branch or commit to use as the merge base for samples."
-        },
+        metadata={"description": "The branch or commit to use as the merge base for samples."},
     )
 
     theme: str = attr.field(  # pyright: ignore
@@ -179,9 +163,7 @@ class Config:
 
     @classmethod
     def get_fields(cls) -> list[str]:
-        return [
-            field.name for field in attr.fields(cls) if not field.name.startswith("_")
-        ]
+        return [field.name for field in attr.fields(cls) if not field.name.startswith("_")]
 
     @classmethod
     def add_fields_to_argparse(cls, parser: ArgumentParser) -> None:
@@ -245,24 +227,16 @@ class Config:
                 try:
                     config = json.load(config_file)
                 except JSONDecodeError:
-                    self.error(
-                        f"Warning: Config {path} contains invalid json; ignoring user"
-                        " configuration file"
-                    )
+                    self.error(f"Warning: Config {path} contains invalid json; ignoring user" " configuration file")
                     return
             for field in config:
                 if hasattr(self, field):
                     try:
                         setattr(self, field, config[field])
                     except (ValueError, TypeError) as e:
-                        self.error(
-                            f"Warning: Config {path} contains invalid value for"
-                            f" setting: {field}\n{e}"
-                        )
+                        self.error(f"Warning: Config {path} contains invalid value for" f" setting: {field}\n{e}")
                 else:
-                    self.error(
-                        f"Warning: Config {path} contains unrecognized setting: {field}"
-                    )
+                    self.error(f"Warning: Config {path} contains unrecognized setting: {field}")
 
     def error(self, message: str) -> None:
         self._errors.append(message)

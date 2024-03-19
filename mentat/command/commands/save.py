@@ -27,9 +27,7 @@ class SaveCommand(Command, command_name="save"):
             try:
                 context_file_path = Path(args[0]).expanduser().resolve()
             except RuntimeError as e:
-                raise PathValidationError(
-                    f"Invalid context file path provided: {args[0]}: {e}"
-                )
+                raise PathValidationError(f"Invalid context file path provided: {args[0]}: {e}")
 
         serializable_context = code_context.to_simple_context_dict()
 
@@ -45,9 +43,7 @@ class SaveCommand(Command, command_name="save"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         return get_command_filename_completions(arguments[-1])
 
     @override

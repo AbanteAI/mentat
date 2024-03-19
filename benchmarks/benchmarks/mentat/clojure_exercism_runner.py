@@ -31,9 +31,7 @@ def verify():
             ExerciseRunnerFactory,
         )
 
-        added_to_factory = (
-            ExerciseRunnerFactory.RUNNERS["clojure"] == ClojureExerciseRunner
-        )
+        added_to_factory = ExerciseRunnerFactory.RUNNERS["clojure"] == ClojureExerciseRunner
 
         made_runner = hasattr(ClojureExerciseRunner, "run_test")
         made_runner = made_runner and hasattr(ClojureExerciseRunner, "passed")

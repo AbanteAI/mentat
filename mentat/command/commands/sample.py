@@ -38,9 +38,7 @@ class SampleCommand(Command, command_name="sample"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         return []
 
     @classmethod

@@ -12,9 +12,7 @@ from mentat.utils import is_file_text_encoded
 CLONE_TO_DIR = Path("benchmarks/benchmark_repos")
 
 
-def clone_repo(
-    url: str, local_dir_name: str, refresh: bool = False, depth: int = 0
-) -> Path | None:
+def clone_repo(url: str, local_dir_name: str, refresh: bool = False, depth: int = 0) -> Path | None:
     local_dir = CLONE_TO_DIR / local_dir_name
     if os.path.exists(local_dir):
         if refresh:
@@ -99,10 +97,7 @@ def get_active_snapshot_commit(repo: Repo) -> str | None:
     if not repo.is_dirty() and not repo.untracked_files:
         return None
     if not repo.config_reader().has_option("user", "name"):
-        raise SampleError(
-            "ERROR: Git user.name not set. Please run 'git config --global user.name"
-            ' "Your Name"\'.'
-        )
+        raise SampleError("ERROR: Git user.name not set. Please run 'git config --global user.name" ' "Your Name"\'.')
     try:
         # Stash active changes and record the current position
         for file in get_non_gitignored_files(Path(repo.working_dir)):

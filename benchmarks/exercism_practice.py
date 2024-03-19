@@ -38,14 +38,11 @@ prompt = (
     + "reason: <reason_failed>\n"
     + "Your response will be parsed programmatically, so you MUST follow the format for"
     " the final line! The possible responses for the final line and what they mean"
-    " are as follows:\n"
-    + "blank (the coder didn't change the file at all from the stub you provided"
-    " them)\n"
-    + "wording (everything was correct, but the coder messed up the wording or spacing"
+    " are as follows:\n" + "blank (the coder didn't change the file at all from the stub you provided"
+    " them)\n" + "wording (everything was correct, but the coder messed up the wording or spacing"
     " which caused it to be rejected)\n"
     + "duplication (the coder had a random duplicated line that caused the code to not"
-    " be compiled/interpreted)\n"
-    + "syntax (the coder messed up their syntax, meaning their code couldn't be"
+    " be compiled/interpreted)\n" + "syntax (the coder messed up their syntax, meaning their code couldn't be"
     " compiled/interpreted)\n"
     + "logic (the coder messed up the logic)\n"
     + "other (some other reason caused it to fail)\n"
@@ -58,10 +55,7 @@ async def failure_analysis(exercise_runner, language):
     code = exercise_runner.read_code(language)
     test_results = exercise_runner.read_test_results()
 
-    final_message = (
-        f"All instructions:\n{instructions}\nCode to review:\n{code}\nTest"
-        f" results:\n{test_results}"
-    )
+    final_message = f"All instructions:\n{instructions}\nCode to review:\n{code}\nTest" f" results:\n{test_results}"
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": final_message},
@@ -108,11 +102,7 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
     while iterations < max_iterations and not client.stopped.is_set():
         if exercise_runner.passed():
             break
-        message = (
-            prompt_1
-            if iterations == 0
-            else exercise_runner.get_error_message() + prompt_2
-        )
+        message = prompt_1 if iterations == 0 else exercise_runner.get_error_message() + prompt_2
         await client.call_mentat_auto_accept(message)
 
         exercise_runner.run_test()
@@ -204,9 +194,7 @@ def run_exercism_benchmark(
         pbar = tqdm.tqdm(total=num_exercises)
 
         result_map = pool.imap(
-            partial(
-                run_exercise_sync, language=language, max_iterations=max_iterations
-            ),
+            partial(run_exercise_sync, language=language, max_iterations=max_iterations),
             exercises,
         )
         results = []

@@ -55,9 +55,7 @@ async def grade(to_grade, prompt, model="gpt-4-1106-preview"):
             messages[1]["content"] = messages[1]["content"][:-chars_to_remove]
 
         llm_api_handler = SESSION_CONTEXT.get().llm_api_handler
-        llm_grade = await llm_api_handler.call_llm_api(
-            messages, model, False, ResponseFormat(type="json_object")
-        )
+        llm_grade = await llm_api_handler.call_llm_api(messages, model, False, ResponseFormat(type="json_object"))
         content = llm_grade.choices[0].message.content
         return json.loads(content)
     except Exception as e:
@@ -196,9 +194,7 @@ class Benchmark:
             ],
         )
         if hasattr(module, "comparison_commit"):
-            diff_edit = git_diff_from_comparison_commit(
-                output.samples[0], module.comparison_commit
-            )
+            diff_edit = git_diff_from_comparison_commit(output.samples[0], module.comparison_commit)
             for sample in output.samples:
                 if not sample.diff_edit:
                     sample.diff_edit = diff_edit
@@ -220,9 +216,7 @@ class Benchmark:
         for i, sample in enumerate(self.samples):
             print("  Prompt:", sample.message_prompt)
             for j in range(1, retries + 1):
-                formatted_title = re.sub(r"[ '\"/\\-^]", "", sample.title).replace(
-                    " ", "_"
-                )
+                formatted_title = re.sub(r"[ '\"/\\-^]", "", sample.title).replace(" ", "_")
                 result = BenchmarkResult(
                     name=f"{formatted_title}-{i}-{j}",
                     family=formatted_title,
@@ -272,9 +266,7 @@ def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1)
             else:
                 continue
 
-            if len(user_benchmarks) > 0 and not benchmark_listed(
-                benchmark.title, user_benchmarks
-            ):
+            if len(user_benchmarks) > 0 and not benchmark_listed(benchmark.title, user_benchmarks):
                 continue
             benchmarks.append(benchmark)
     print("Found benchmarks:\n" + "\n".join(b.title for b in benchmarks))

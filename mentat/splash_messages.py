@@ -11,9 +11,7 @@ from mentat.version import __version__
 
 def get_changelog() -> Optional[str]:
     try:
-        response = requests.get(
-            "https://raw.githubusercontent.com/AbanteAI/mentat/main/CHANGELOG.rst"
-        )
+        response = requests.get("https://raw.githubusercontent.com/AbanteAI/mentat/main/CHANGELOG.rst")
         if response.status_code == 200:
             return response.text
         else:
@@ -42,9 +40,7 @@ def check_version():
         data = response.json()
         latest_version = data["info"]["version"]
 
-        if packaging.version.parse(__version__) < packaging.version.parse(
-            latest_version
-        ):
+        if packaging.version.parse(__version__) < packaging.version.parse(latest_version):
             ctx.stream.send(
                 f"Version v{latest_version} of Mentat is available. If pip was used to"
                 " install Mentat, upgrade with:",
@@ -53,9 +49,7 @@ def check_version():
             ctx.stream.send("pip install --upgrade mentat", style="warning")
             changelog = get_latest_changelog()
             if changelog:
-                ctx.stream.send(
-                    "Upgrade for the following features/improvements:", style="warning"
-                )
+                ctx.stream.send("Upgrade for the following features/improvements:", style="warning")
                 ctx.stream.send(changelog, style="warning")
 
         else:
@@ -63,14 +57,10 @@ def check_version():
             if last_version_check_file.exists():
                 with open(last_version_check_file, "r") as f:
                     last_version_check = f.read()
-                if packaging.version.parse(
-                    last_version_check
-                ) < packaging.version.parse(__version__):
+                if packaging.version.parse(last_version_check) < packaging.version.parse(__version__):
                     changelog = get_latest_changelog()
                     if changelog:
-                        ctx.stream.send(
-                            f"Thanks for upgrading to v{__version__}.", style="info"
-                        )
+                        ctx.stream.send(f"Thanks for upgrading to v{__version__}.", style="info")
                         ctx.stream.send("Changes in this version:", style="info")
                         ctx.stream.send(changelog, style="info")
             with open(last_version_check_file, "w") as f:
@@ -91,7 +81,6 @@ def check_model():
         )
         if "gpt-3.5" not in model:
             ctx.stream.send(
-                "Warning: Mentat does not know how to calculate costs or context"
-                " size for this model.",
+                "Warning: Mentat does not know how to calculate costs or context" " size for this model.",
                 style="warning",
             )

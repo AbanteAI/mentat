@@ -37,11 +37,7 @@ def git_history(temp_testbed):
     """
     # sometimes the testbed is set up with main, sometimes master,
     # so we just make sure it's master for the tests
-    branch_name = (
-        subprocess.check_output(["git", "branch"], cwd=temp_testbed, text=True)
-        .split()[1]
-        .strip()
-    )
+    branch_name = subprocess.check_output(["git", "branch"], cwd=temp_testbed, text=True).split()[1].strip()
     if branch_name != "master":
         subprocess.run(["git", "checkout", "-b", "master"], cwd=temp_testbed)
 
@@ -95,9 +91,7 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
 
     # Get the hash of 2-commits-ago
-    last_commit = subprocess.check_output(
-        ["git", "rev-parse", "HEAD~2"], cwd=temp_testbed, text=True
-    ).strip()
+    last_commit = subprocess.check_output(["git", "rev-parse", "HEAD~2"], cwd=temp_testbed, text=True).strip()
     diff_context = DiffContext(
         mock_session_context.stream,
         temp_testbed,
@@ -173,9 +167,7 @@ async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
         pr_diff="master",
     )
 
-    commit2 = subprocess.check_output(
-        ["git", "rev-parse", "HEAD~1"], cwd=temp_testbed, text=True
-    ).strip()
+    commit2 = subprocess.check_output(["git", "rev-parse", "HEAD~1"], cwd=temp_testbed, text=True).strip()
     assert diff_context.target == commit2
     assert diff_context.name.startswith("Merge-base Branch master:")
     assert diff_context.name.endswith(": commit2")  # NOT the latest

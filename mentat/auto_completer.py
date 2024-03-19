@@ -44,11 +44,7 @@ def get_command_filename_completions(cur_path: str) -> List[str]:
     """
     path = Path(cur_path)
 
-    if (
-        cur_path.endswith("/")
-        or cur_path.endswith(os.path.sep)
-        or cur_path.endswith("~")
-    ):
+    if cur_path.endswith("/") or cur_path.endswith(os.path.sep) or cur_path.endswith("~"):
         actual_parent = path
         cur_file = ""
     else:
@@ -91,11 +87,7 @@ class AutoCompleter:
         Takes a list of string completions along with their displays, and filters to match only completions
         whose displays start with the last word, and then returns a list of Completions that will replace that word
         """
-        filtered_completions = [
-            completion
-            for completion in completions
-            if completion[1].startswith(last_word)
-        ]
+        filtered_completions = [completion for completion in completions if completion[1].startswith(last_word)]
         return [
             Completion(
                 content=completion[0],
@@ -105,9 +97,7 @@ class AutoCompleter:
             for completion in filtered_completions
         ]
 
-    def _partial_shlex_split(
-        self, argument_buffer: str
-    ) -> tuple[List[str], bool, bool]:
+    def _partial_shlex_split(self, argument_buffer: str) -> tuple[List[str], bool, bool]:
         """
         Handles unescaped backslashes and unclosed quotation marks
         """
@@ -125,17 +115,13 @@ class AutoCompleter:
                 in_quote = True
             elif "escaped" in str(e):
                 # Remove the offending backslash and pretend it isn't there
-                split_buffer, in_quote, _ = self._partial_shlex_split(
-                    argument_buffer[:-1]
-                )
+                split_buffer, in_quote, _ = self._partial_shlex_split(argument_buffer[:-1])
                 return split_buffer, in_quote, True
             else:
                 raise ValueError(f"shlex.split raised unexpected error: {e}")
         return split_buffer, in_quote, False
 
-    def _find_shlex_last_word_position(
-        self, argument_buffer: str, num_words: int
-    ) -> int:
+    def _find_shlex_last_word_position(self, argument_buffer: str, num_words: int) -> int:
         """
         Find where the last word starts in a shlexed buffer
         """
@@ -150,9 +136,7 @@ class AutoCompleter:
         if any(buffer.startswith(space) for space in whitespace):
             return []
         if not any(space in buffer for space in whitespace):
-            return self._replace_last_word(
-                buffer, [(name, name) for name in Command.get_command_names()]
-            )
+            return self._replace_last_word(buffer, [(name, name) for name in Command.get_command_names()])
         else:
             command_cls = Command.create_command(buffer.split()[0]).__class__
             argument_buffer = buffer.split(maxsplit=1)
@@ -164,12 +148,8 @@ class AutoCompleter:
             # shlex fails if there are uncompleted quotations or backslashes not escaping anything;
             # we check for this and try to complete the quotations/backslashes, so that we can get the
             # actual escaped last_word argument to compare against our possible completions.
-            split_buffer, in_quote, unescaped = self._partial_shlex_split(
-                argument_buffer
-            )
-            last_word_position = self._find_shlex_last_word_position(
-                argument_buffer, len(split_buffer)
-            )
+            split_buffer, in_quote, unescaped = self._partial_shlex_split(argument_buffer)
+            last_word_position = self._find_shlex_last_word_position(argument_buffer, len(split_buffer))
 
             # If we removed an ending \ and before it was whitespace, we need to move on one argument
             if unescaped and buffer[-2] in whitespace:
@@ -182,14 +162,9 @@ class AutoCompleter:
             arg_position = len(split_buffer) - 1
 
             arg_completions = [
-                (shlex.quote(name), name)
-                for name in command_cls.argument_autocompletions(
-                    split_buffer, arg_position
-                )
+                (shlex.quote(name), name) for name in command_cls.argument_autocompletions(split_buffer, arg_position)
             ]
-            return self._replace_last_word(
-                split_buffer[-1], arg_completions, last_word_position
-            )
+            return self._replace_last_word(split_buffer[-1], arg_completions, last_word_position)
 
     def _refresh_file_completion(self, file_path: Path):
         if not file_path.exists() or file_path.is_dir():
@@ -213,9 +188,7 @@ class AutoCompleter:
             if len(token_value) <= 1:
                 continue
             filtered_tokens.add(token_value)
-        self._file_completions[file_path] = FileCompletion(
-            datetime.utcnow(), filtered_tokens
-        )
+        self._file_completions[file_path] = FileCompletion(datetime.utcnow(), filtered_tokens)
 
     def _refresh_all_file_completions(self):
         ctx = SESSION_CONTEXT.get()
@@ -248,8 +221,7 @@ class AutoCompleter:
     def get_file_completions(self, buffer: str) -> List[Completion]:
         if (
             self._last_refresh_at is None
-            or (datetime.utcnow() - self._last_refresh_at).seconds
-            > SECONDS_BETWEEN_REFRESH
+            or (datetime.utcnow() - self._last_refresh_at).seconds > SECONDS_BETWEEN_REFRESH
         ):
             self._refresh_all_file_completions()
 
@@ -265,14 +237,10 @@ class AutoCompleter:
         if last_word.startswith("`"):
             last_word = last_word[1:]
 
-        completions = [
-            (f"`{completion}`", completion) for completion in self._all_file_completions
-        ]
+        completions = [(f"`{completion}`", completion) for completion in self._all_file_completions]
         return self._replace_last_word(last_word, completions, position)
 
-    def get_completions(
-        self, buffer: str, command_autocomplete: bool = False
-    ) -> List[Completion]:
+    def get_completions(self, buffer: str, command_autocomplete: bool = False) -> List[Completion]:
         """
         Get the auto-completion suggestions for the current user buffer.
         """

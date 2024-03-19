@@ -40,21 +40,14 @@ class HelpCommand(Command, command_name="help"):
             commands = args
         for command_name in commands:
             if command_name not in Command._registered_commands:
-                stream.send(
-                    f"Error: Command {command_name} does not exist.", style="error"
-                )
+                stream.send(f"Error: Command {command_name} does not exist.", style="error")
             else:
                 command_cls = Command._registered_commands[command_name]
                 arguments = command_cls.arguments()
                 argument_message = [_arg_message(arg) for arg in arguments]
 
                 help_message = command_cls.help_message()
-                message = (
-                    " ".join([f"/{command_name}"] + argument_message).ljust(
-                        help_message_width
-                    )
-                    + help_message
-                )
+                message = " ".join([f"/{command_name}"] + argument_message).ljust(help_message_width) + help_message
                 stream.send(message)
 
     @override
@@ -64,9 +57,7 @@ class HelpCommand(Command, command_name="help"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         return Command.get_command_names()
 
     @override

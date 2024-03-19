@@ -57,12 +57,8 @@ def benchmarks(request):
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "benchmark: run benchmarks that call openai")
-    config.addinivalue_line(
-        "markers", "uitest: run ui-tests that get evaluated by humans"
-    )
-    config.addinivalue_line(
-        "markers", "clear_testbed: create a testbed without any existing files"
-    )
+    config.addinivalue_line("markers", "uitest: run ui-tests that get evaluated by humans")
+    config.addinivalue_line("markers", "clear_testbed: create a testbed without any existing files")
     config.addinivalue_line("markers", "no_git_testbed: create a testbed without git")
 
 

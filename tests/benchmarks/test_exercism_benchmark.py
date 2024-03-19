@@ -39,7 +39,8 @@ def test_run_exercism_benchmark(mock_pool, mock_webbrowser, mock_call_llm_api):
     cwd = os.getcwd()
     mock_call_llm_api.set_return_values(
         [
-            dedent("""\
+            dedent(
+                """\
             test
 
             @@start
@@ -55,8 +56,10 @@ def test_run_exercism_benchmark(mock_pool, mock_webbrowser, mock_call_llm_api):
                 for item in collection:
                     result.append(operation(item))
                 return result
-            @@end"""),
-            dedent("""\
+            @@end"""
+            ),
+            dedent(
+                """\
             @@start
             {
                 "file": "exercises/practice/high-scores/high_scores.py",
@@ -67,8 +70,10 @@ def test_run_exercism_benchmark(mock_pool, mock_webbrowser, mock_call_llm_api):
             @@code
                 def personal_best(self):
                     return max(self.scores)
-            @@end"""),
-            dedent("""\
+            @@end"""
+            ),
+            dedent(
+                """\
             @@start
             {
                 "file": "exercises/practice/high-scores/high_scores.py",
@@ -91,10 +96,13 @@ def test_run_exercism_benchmark(mock_pool, mock_webbrowser, mock_call_llm_api):
             @@code
                 def personal_top_three(self):
                     return sorted(self.scores, reverse=True)[:3]
-            @@end"""),
-            dedent("""\
+            @@end"""
+            ),
+            dedent(
+                """\
             grading example
-            reason: logic"""),
+            reason: logic"""
+            ),
         ]
     )
     run_exercism_benchmark(

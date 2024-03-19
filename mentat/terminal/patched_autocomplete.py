@@ -18,17 +18,13 @@ class PatchedAutoComplete(AutoComplete):
 
     @override
     def _select_item(self):
-        selected: CompletionDropdownItem | None = (
-            self.dropdown.selected_item
-        )  # pyright: ignore
+        selected: CompletionDropdownItem | None = self.dropdown.selected_item  # pyright: ignore
         if self.dropdown.display and selected is not None:
             cursor_position: int = self.input.cursor_position  # pyright: ignore
             before = self.input.value[: cursor_position + selected.position]
             after = self.input.value[cursor_position:]
             self.input.value = before + selected.content + after
-            self.input.cursor_position = (
-                cursor_position + selected.position + len(selected.content)
-            )
+            self.input.cursor_position = cursor_position + selected.position + len(selected.content)
 
             self.dropdown.display = False
             self.post_message(self.Selected(item=selected))
@@ -112,11 +108,7 @@ class PatchedDropdown(Dropdown):
             CompletionDropdownItem(
                 content=completion["content"],
                 position=completion["position"],
-                main=(
-                    completion["display"]
-                    if completion["display"] is not None
-                    else completion["content"]
-                ),
+                main=(completion["display"] if completion["display"] is not None else completion["content"]),
             )
             for completion in completions
         ]
@@ -137,14 +129,14 @@ class PatchedDropdown(Dropdown):
         ):
             matches = await self._get_completions()
             self._mentat_sync_state(
-                value, self.input_widget.cursor_position, matches  # pyright: ignore
+                value,
+                self.input_widget.cursor_position,
+                matches,  # pyright: ignore
             )
 
     # Since we do the autocomplete matching on the backend, we completely change this function
     # to not do any matching of its own
-    def _mentat_sync_state(
-        self, value: str, input_cursor_position: int, matches: List[DropdownItem]
-    ):
+    def _mentat_sync_state(self, value: str, input_cursor_position: int, matches: List[DropdownItem]):
         self.child.matches = matches
         if matches:
             self.styles.width = max(len(match.main) for match in matches) + 2
@@ -180,9 +172,7 @@ class PatchedDropdown(Dropdown):
             )
         )
 
-        cursor_screen_position = x + (
-            input_cursor_position - self.input_widget.view_position
-        )
+        cursor_screen_position = x + (input_cursor_position - self.input_widget.view_position)
         self.styles.margin = (
             line_below_cursor,
             right,

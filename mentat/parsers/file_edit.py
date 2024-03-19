@@ -33,8 +33,7 @@ class Replacement:
 
     def __lt__(self, other: Replacement):
         return self.ending_line < other.ending_line or (
-            self.ending_line == other.ending_line
-            and self.starting_line < other.ending_line
+            self.ending_line == other.ending_line and self.starting_line < other.ending_line
         )
 
 
@@ -77,9 +76,7 @@ class FileEdit:
         added_lines = list[str]()
         for replacement in self.replacements:
             added_lines.extend(replacement.new_lines)
-        display_information = DisplayInformation(
-            self.file_path, [], added_lines, [], FileActionType.CreateFile
-        )
+        display_information = DisplayInformation(self.file_path, [], added_lines, [], FileActionType.CreateFile)
         display_full_change(display_information, prefix=prefix)
 
     def _display_deletion(self, file_lines: list[str], prefix: str = ""):
@@ -103,9 +100,7 @@ class FileEdit:
         )
         display_full_change(display_information, prefix=prefix)
 
-    def _display_replacement(
-        self, replacement: Replacement, file_lines: list[str], prefix: str = ""
-    ):
+    def _display_replacement(self, replacement: Replacement, file_lines: list[str], prefix: str = ""):
         removed_block = file_lines[replacement.starting_line : replacement.ending_line]
         display_information = DisplayInformation(
             self.file_path,
@@ -213,12 +208,7 @@ class FileEdit:
                     new_replacements.append(replacement)
             self.replacements = new_replacements
 
-        return (
-            self.is_creation
-            or self.is_deletion
-            or (self.rename_file_path is not None)
-            or len(self.replacements) > 0
-        )
+        return self.is_creation or self.is_deletion or (self.rename_file_path is not None) or len(self.replacements) > 0
 
     def _print_resolution(self, first: Replacement, second: Replacement):
         session_context = SESSION_CONTEXT.get()
@@ -235,10 +225,7 @@ class FileEdit:
         self.replacements.sort(reverse=True)
         for index, replacement in enumerate(self.replacements):
             for other in self.replacements[index + 1 :]:
-                if (
-                    other.ending_line > replacement.starting_line
-                    and other.starting_line < replacement.ending_line
-                ):
+                if other.ending_line > replacement.starting_line and other.starting_line < replacement.ending_line:
                     # Overlap conflict
                     other.ending_line = replacement.starting_line
                     other.starting_line = min(other.starting_line, other.ending_line)
@@ -263,9 +250,7 @@ class FileEdit:
                 file_lines += [""] * (replacement.ending_line - len(file_lines))
             earliest_line = replacement.starting_line
             file_lines = (
-                file_lines[: replacement.starting_line]
-                + replacement.new_lines
-                + file_lines[replacement.ending_line :]
+                file_lines[: replacement.starting_line] + replacement.new_lines + file_lines[replacement.ending_line :]
             )
         return file_lines
 
@@ -276,27 +261,21 @@ class FileEdit:
 
         if self.is_creation:
             if not self.file_path.exists():
-                raise HistoryError(
-                    f"File {self.file_path} does not exist; unable to delete"
-                )
+                raise HistoryError(f"File {self.file_path} does not exist; unable to delete")
             ctx.code_file_manager.delete_file(self.file_path)
 
             self._display_creation(prefix=prefix)
-            ctx.stream.send(
-                f"Creation of file {self.file_path} undone", style="success"
-            )
+            ctx.stream.send(f"Creation of file {self.file_path} undone", style="success")
             return
 
         if self.rename_file_path is not None:
             if self.file_path.exists():
                 raise HistoryError(
-                    f"File {self.file_path} already exists; unable to undo rename to"
-                    f" {self.rename_file_path}"
+                    f"File {self.file_path} already exists; unable to undo rename to" f" {self.rename_file_path}"
                 )
             if not self.rename_file_path.exists():
                 raise HistoryError(
-                    f"File {self.rename_file_path} does not exist; unable to undo"
-                    f" rename from {self.file_path}"
+                    f"File {self.rename_file_path} does not exist; unable to undo" f" rename from {self.file_path}"
                 )
             ctx.code_file_manager.rename_file(self.rename_file_path, self.file_path)
 
@@ -308,33 +287,21 @@ class FileEdit:
 
         if self.is_deletion:
             if self.file_path.exists():
-                raise HistoryError(
-                    f"File {self.file_path} already exists; unable to re-create"
-                )
+                raise HistoryError(f"File {self.file_path} already exists; unable to re-create")
             if not self.previous_file_lines:
                 # Should never happen
-                raise ValueError(
-                    "Previous file lines not set when undoing file deletion"
-                )
-            ctx.code_file_manager.create_file(
-                self.file_path, content="\n".join(self.previous_file_lines)
-            )
+                raise ValueError("Previous file lines not set when undoing file deletion")
+            ctx.code_file_manager.create_file(self.file_path, content="\n".join(self.previous_file_lines))
 
             self._display_deletion(self.previous_file_lines, prefix=prefix)
-            ctx.stream.send(
-                f"Deletion of file {self.file_path} undone", style="success"
-            )
+            ctx.stream.send(f"Deletion of file {self.file_path} undone", style="success")
         elif self.replacements:
             if not self.file_path.exists():
-                raise HistoryError(
-                    f"File {self.file_path} does not exist; unable to undo edit"
-                )
+                raise HistoryError(f"File {self.file_path} does not exist; unable to undo edit")
             if not self.previous_file_lines:
                 # Should never happen
                 raise ValueError("Previous file lines not set when undoing file edit")
 
-            ctx.code_file_manager.write_to_file(
-                self.file_path, self.previous_file_lines
-            )
+            ctx.code_file_manager.write_to_file(self.file_path, self.previous_file_lines)
             self._display_replacements(self.previous_file_lines, prefix=prefix)
             ctx.stream.send(f"Edits to file {self.file_path} undone", style="success")

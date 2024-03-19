@@ -33,9 +33,7 @@ def select_transcripts(
             continue
         if skip_config and info["configuration"]:
             continue
-        if count_tokens(
-            json.dumps(info["mocked_conversation"]), model
-        ) > model_context_size(model):
+        if count_tokens(json.dumps(info["mocked_conversation"]), model) > model_context_size(model):
             continue
         transcripts.append(info["mocked_conversation"])
 
@@ -44,9 +42,7 @@ def select_transcripts(
 
 if __name__ == "__main__":
     # Run after git_log_to_transcripts.py
-    parser = argparse.ArgumentParser(
-        description="Make a jsonl for training for a direcotry with commit information"
-    )
+    parser = argparse.ArgumentParser(description="Make a jsonl for training for a direcotry with commit information")
     parser.add_argument(
         "--file",
         type=str,

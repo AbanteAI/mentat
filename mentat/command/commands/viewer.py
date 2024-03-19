@@ -17,9 +17,7 @@ class ViewerCommand(Command, command_name="viewer"):
 
         logs = get_transcript_logs()
 
-        viewer_path = create_viewer(
-            [Transcript(id="Current", messages=conversation.literal_messages)] + logs
-        )
+        viewer_path = create_viewer([Transcript(id="Current", messages=conversation.literal_messages)] + logs)
         webbrowser.open(f"file://{viewer_path.resolve()}")
 
     @override
@@ -29,9 +27,7 @@ class ViewerCommand(Command, command_name="viewer"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         return []
 
     @override

@@ -21,8 +21,7 @@ class ScreenshotCommand(Command, command_name="screenshot"):
         if "gpt" in model:
             if "vision" not in model:
                 stream.send(
-                    "Using a version of gpt that doesn't support images. Changing to"
-                    " gpt-4-vision-preview",
+                    "Using a version of gpt that doesn't support images. Changing to" " gpt-4-vision-preview",
                     style="warning",
                 )
                 config.model = "gpt-4-vision-preview"
@@ -54,9 +53,7 @@ class ScreenshotCommand(Command, command_name="screenshot"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         return get_command_filename_completions(arguments[-1])
 
     @override

@@ -40,9 +40,7 @@ def create_file_edit(temp_testbed):
 @pytest.fixture
 def delete_file_edit(temp_testbed, mock_session_context):
     file_to_delete = temp_testbed / "format_examples" / "replacement.txt"
-    previous_file_lines = mock_session_context.code_file_manager.read_file(
-        file_to_delete
-    )
+    previous_file_lines = mock_session_context.code_file_manager.read_file(file_to_delete)
     return FileEdit(
         file_path=file_to_delete,
         replacements=[],
@@ -66,9 +64,7 @@ def rename_file_edit(temp_testbed, mock_session_context):
 @pytest.fixture
 def modify_file_edit(temp_testbed, mock_session_context):
     file_to_modify = temp_testbed / "multifile_calculator" / "operations.py"
-    previous_file_lines = mock_session_context.code_file_manager.read_file(
-        file_to_modify
-    )
+    previous_file_lines = mock_session_context.code_file_manager.read_file(file_to_modify)
     return FileEdit(
         file_path=file_to_modify,
         replacements=[
@@ -78,9 +74,7 @@ def modify_file_edit(temp_testbed, mock_session_context):
                 ending_line=5,
                 new_lines=["def multiply_numbers(a, b): # I modified this line"],
             ),
-            Replacement(
-                starting_line=14, ending_line=14, new_lines=["# I added this line"]
-            ),
+            Replacement(starting_line=14, ending_line=14, new_lines=["# I added this line"]),
         ],
         previous_file_lines=previous_file_lines,
     )
@@ -133,7 +127,9 @@ def test_modify_file_edit_to_git_diff(temp_testbed, modify_file_edit):
     modify_file_diff = GitParser().file_edit_to_git_diff(modify_file_edit)
 
     with open(modify_file_edit.file_path, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             return a + b
 
 
@@ -148,7 +144,9 @@ def test_modify_file_edit_to_git_diff(temp_testbed, modify_file_edit):
         def divide_numbers(a, b):
             return a / b
         # I added this line
-        """))
+        """
+            )
+        )
     repo.git.add(["--all"])
     expected_diff = repo.git.diff(["--staged"], unified=0)
 
@@ -156,19 +154,19 @@ def test_modify_file_edit_to_git_diff(temp_testbed, modify_file_edit):
 
 
 @pytest.mark.asyncio
-async def test_git_parser_inverse(
-    temp_testbed, create_file_edit, delete_file_edit, rename_file_edit, modify_file_edit
-):
+async def test_git_parser_inverse(temp_testbed, create_file_edit, delete_file_edit, rename_file_edit, modify_file_edit):
     """
     This is mostly a duplicate of inverse.py, but the git_parser needs the removed/previous
     lines so I use actual files instead.
     """
     parsedLLMResponse = ParsedLLMResponse(
         full_response="",
-        conversation=dedent("""\
+        conversation=dedent(
+            """\
             Conversation
             with two lines
-        """),
+        """
+        ),
         file_edits=[
             create_file_edit,
             delete_file_edit,

@@ -69,9 +69,7 @@ class TalkCommand(Command, command_name="talk"):
             )
         else:
             # TODO: Ctrl+C doesn't make sense for VSCode client. Send this info in a client agnostic way
-            ctx.stream.send(
-                "Listening on your default microphone. Press Ctrl+C to end."
-            )
+            ctx.stream.send("Listening on your default microphone. Press Ctrl+C to end.")
             recorder = Recorder()
             async with ctx.stream.interrupt_catcher(recorder.shutdown):
                 await recorder.record()
@@ -88,9 +86,7 @@ class TalkCommand(Command, command_name="talk"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         return []
 
     @override
