@@ -183,6 +183,27 @@ def get_file_name(
             return (f"\n{display_information.file_name}", {"color": "bright_blue"})
 
 
+def get_file_name_display(display_information: DisplayInformation):
+    match display_information.file_action_type:
+        case FileActionType.CreateFile:
+            return (f"{display_information.file_name}*", "creation")
+        case FileActionType.DeleteFile:
+            return (
+                f"Deletion: {display_information.file_name}",
+                "deletion",
+            )
+        case FileActionType.RenameFile:
+            return (
+                (
+                    f"Rename: {display_information.file_name} ->"
+                    f" {display_information.new_name}"
+                ),
+                "rename",
+            )
+        case FileActionType.UpdateFile:
+            return (f"{display_information.file_name}", "edit")
+
+
 def get_added_lines(
     display_information: DisplayInformation,
     prefix: str = "+",

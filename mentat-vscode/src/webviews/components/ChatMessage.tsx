@@ -1,9 +1,8 @@
 import { VscAccount } from "react-icons/vsc";
 import { FileEdit, Message, MessageContent } from "types";
 import MentatIcon from "./MentatIcon";
-import React, { useContext } from "react";
+import React from "react";
 import PillButton from "./PillButton";
-import { WorkspaceRootContext } from "webviews/context/WorkspaceRootContext";
 
 // TODO: Change the colors to vscode theme colors
 const light_theme: { [id: string]: string } = {
@@ -67,10 +66,49 @@ function FileBlock({
         (fileEdit) => fileEdit.file_path === filePath
     );
 
+    var filePathColor;
+    switch (filePathDisplay[1]) {
+        case "creation": {
+            filePathColor = "lightgreen";
+            break;
+        }
+        case "deletion": {
+            filePathColor = "red";
+            break;
+        }
+        case "rename": {
+            filePathColor = "yellow";
+            break;
+        }
+        default: {
+            filePathColor = "lightblue";
+            break;
+        }
+    }
+    var acceptText = "Accept";
+    if (activeEdit) {
+        switch (activeEdit.type) {
+            case "creation": {
+                acceptText = "Create File";
+                break;
+            }
+            case "deletion": {
+                acceptText = "Delete File";
+                break;
+            }
+        }
+    }
+
     return (
         // hover:bg-[var(--vscode-inputOption-hoverBackground)] hover:scale-[1.01] transition-all duration-500 ease-out
         <fieldset className="border-solid rounded-md border min-w-[30%] max-w-[80%] w-fit p-2 bg-[var(--vscode-input-background)]">
-            <legend>{filePathDisplay}</legend>
+            <legend
+                style={{
+                    color: filePathColor,
+                }}
+            >
+                {filePathDisplay[0]}
+            </legend>
             {contentPieces.map((contentPiece, index) => (
                 // Index as key should be fine here since we never insert reorder or delete elements
                 <ContentPiece
@@ -88,7 +126,7 @@ function FileBlock({
                                 className="bg-green-600 hover:bg-green-500"
                                 onClick={() => onAccept(activeEdit)}
                             >
-                                Accept
+                                {acceptText}
                             </PillButton>
                             <PillButton
                                 className="bg-red-700 hover:bg-red-500"
@@ -96,12 +134,14 @@ function FileBlock({
                             >
                                 Decline
                             </PillButton>
-                            <PillButton
-                                className="bg-cyan-700 hover:bg-blue-500"
-                                onClick={() => onPreview(activeEdit)}
-                            >
-                                Review
-                            </PillButton>
+                            {activeEdit.type === "edit" && (
+                                <PillButton
+                                    className="bg-cyan-700 hover:bg-blue-500"
+                                    onClick={() => onPreview(activeEdit)}
+                                >
+                                    Review
+                                </PillButton>
+                            )}
                         </div>
                     </>
                 )
@@ -226,14 +266,6 @@ export default function ChatMessage(props: Props) {
                             }
                         >
                             Decline All
-                        </PillButton>
-                        <PillButton
-                            className="bg-cyan-700 hover:bg-blue-500"
-                            onClick={() =>
-                                props.activeEdits.map(props.onPreview)
-                            }
-                        >
-                            Review All
                         </PillButton>
                     </div>
                 </>

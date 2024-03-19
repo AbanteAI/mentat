@@ -1,7 +1,6 @@
 import asyncio
 from collections import deque
-from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Literal, Tuple
 
 from mentat.session_context import SESSION_CONTEXT
 
@@ -27,8 +26,10 @@ class StreamingPrinter:
         self.strings_to_print: deque[Tuple[str, Dict[str, Any]]] = deque()
         self.finishing = False
         self.shutdown = False
-        self.cur_file: Path | None = None
-        self.cur_file_display: Path | None = None
+        self.cur_file: str | None = None
+        self.cur_file_display: Tuple[
+            str, Literal["edit", "creation", "deletion", "rename"]
+        ] | None = None
 
     def add_string(
         self,
@@ -53,7 +54,9 @@ class StreamingPrinter:
             styles = formatted_string[1]
 
         styles["filepath"] = self.cur_file
-        styles["filepath_display"] = self.cur_file_display
+        styles["filepath_display"] = (
+            list(self.cur_file_display) if self.cur_file_display else None
+        )
         if not string:
             if allow_empty:
                 self.strings_to_print.append(("", styles))

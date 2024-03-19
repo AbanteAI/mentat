@@ -32,7 +32,6 @@ export default function Chat() {
         if (state) {
             setMessages(state.messages);
             setInputRequestId(state.inputRequestId);
-            setSessionActive(state.sessionActive);
             setTextAreaValue(state.textAreaValue);
             setInterruptable(state.interruptable);
             setActiveEdits(state.activeEdits);
@@ -51,7 +50,6 @@ export default function Chat() {
         const state = {
             messages,
             inputRequestId,
-            sessionActive,
             textAreaValue,
             interruptable,
             activeEdits,
@@ -61,7 +59,6 @@ export default function Chat() {
     }, [
         messages,
         inputRequestId,
-        sessionActive,
         textAreaValue,
         interruptable,
         activeEdits,
@@ -75,7 +72,7 @@ export default function Chat() {
     };
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
+    }, [messages, activeEdits]);
 
     function addMessageContent(
         messageContent: MessageContent,
@@ -122,8 +119,9 @@ export default function Chat() {
         const messageColor: string | undefined = message.extra.color;
         const messageStyle: string | undefined = message.extra.style;
         const messageFilepath: string | undefined = message.extra.filepath;
-        const messageFilepathDisplay: string | undefined =
-            message.extra.filepath_display;
+        const messageFilepathDisplay:
+            | [string, "creation" | "deletion" | "rename" | "edit"]
+            | undefined = message.extra.filepath_display;
         const messageDelimiter: boolean = !!message.extra.delimiter;
 
         addMessageContent(

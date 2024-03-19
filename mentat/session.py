@@ -142,9 +142,21 @@ class Session:
             [
                 {
                     "file_path": str(file_edit.file_path),
+                    "new_file_path": (
+                        None
+                        if not file_edit.rename_file_path
+                        else str(file_edit.rename_file_path)
+                    ),
+                    "type": (
+                        "creation"
+                        if file_edit.is_creation
+                        else ("deletion" if file_edit.is_deletion else "edit")
+                    ),
                     "new_content": "\n".join(
                         file_edit.get_updated_file_lines(
-                            ctx.code_file_manager.file_lines[file_edit.file_path]
+                            ctx.code_file_manager.file_lines.get(
+                                file_edit.file_path, []
+                            )
                         )
                     ),
                 }

@@ -274,9 +274,24 @@ class TerminalApp(App[None]):
                 if self.last_filepath:
                     content_container.add_content(f"{change_delimiter}\n\n")
                 if filepath:
-                    filepath_display = message.extra.get("filepath_display", filepath)
+                    filepath_display, filepath_display_type = message.extra.get(
+                        "filepath_display", filepath
+                    )
                     content_container.add_content(
-                        f"{filepath_display}\n{change_delimiter}\n"
+                        f"{filepath_display}\n{change_delimiter}\n",
+                        color=(
+                            "bright_green"
+                            if filepath_display_type == "creation"
+                            else (
+                                "bright_red"
+                                if filepath_display_type == "deletion"
+                                else (
+                                    "yellow"
+                                    if filepath_display_type == "rename"
+                                    else "bright_blue"
+                                )
+                            )
+                        ),
                     )
                 self.last_filepath = filepath
 

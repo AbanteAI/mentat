@@ -1,6 +1,5 @@
-import { ChildProcessWithoutNullStreams } from "child_process";
 import { FileEdit, StreamMessage } from "types";
-import { acceptEdit, previewEdit } from "utils/commands";
+import { acceptEdit, previewEdit } from "utils/edits";
 import { server } from "utils/server";
 import { v4 } from "uuid";
 import * as vscode from "vscode";

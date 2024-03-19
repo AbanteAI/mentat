@@ -48,6 +48,8 @@ class SessionStream:
     [
         {
             "file_path": "/absolute/path/to/file",
+            "new_file_path": "/absolute/path/to/renamed_file", # May be null
+            "type": "edit" | "creation" | "deletion",
             "new_content": "The new file text after edits are applied"
         },
         ...

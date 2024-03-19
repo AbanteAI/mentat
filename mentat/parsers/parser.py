@@ -17,6 +17,7 @@ from mentat.llm_api_handler import chunk_to_lines
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
+    get_file_name_display,
     get_later_lines,
     get_previous_lines,
     get_removed_lines,
@@ -206,8 +207,10 @@ class Parser(ABC):
                         if previous_file == file_edit.file_path:
                             printer.add_delimiter()
 
-                        printer.cur_file = file_edit.file_path
-                        printer.cur_file_display = display_information.file_name
+                        printer.cur_file = str(file_edit.file_path)
+                        printer.cur_file_display = get_file_name_display(
+                            display_information
+                        )
                         in_special_lines = False
                         prev_block = cur_block
                         cur_block = ""

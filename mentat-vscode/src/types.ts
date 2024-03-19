@@ -11,7 +11,7 @@ type MessageContent = {
     style?: string;
     color?: string;
     filepath?: string;
-    filepath_display?: string;
+    filepath_display?: [string, "creation" | "deletion" | "rename" | "edit"];
     delimiter?: boolean;
 };
 
@@ -33,6 +33,8 @@ type ContextUpdateData = {
 
 type FileEdit = {
     file_path: string;
+    new_file_path?: string;
+    type: "edit" | "creation" | "deletion";
     new_content: string;
 };
 
