@@ -101,9 +101,7 @@ class ContentContainer(Static):
 
     def start_loading(self):
         if not self.loading_bar:
-            self.loading_bar = ProgressBar(
-                id="loading-display", show_percentage=False, show_eta=False
-            )
+            self.loading_bar = ProgressBar(id="loading-display", show_percentage=False, show_eta=False)
             self.mount(self.loading_bar)
 
     def end_loading(self):
@@ -113,10 +111,7 @@ class ContentContainer(Static):
 
     def add_content(self, new_content: str, color: str | None):
         new_content = escape(new_content)
-        lines = [
-            f"[{color}]{line}[/{color}]" if color else line
-            for line in new_content.split("\n")
-        ]
+        lines = [f"[{color}]{line}[/{color}]" if color else line for line in new_content.split("\n")]
         for line in lines[:-1]:
             line = self.cur_line + line
             self.cur_line = ""
@@ -196,12 +191,8 @@ class ContextContainer(Static):
         total_tokens: int,
         total_cost: float,
     ):
-        feature_tree = self._build_tree_widget(
-            features, cwd, git_diff_paths, git_untracked_paths
-        )
-        auto_feature_tree = self._build_tree_widget(
-            auto_features, cwd, git_diff_paths, git_untracked_paths
-        )
+        feature_tree = self._build_tree_widget(features, cwd, git_diff_paths, git_untracked_paths)
+        auto_feature_tree = self._build_tree_widget(auto_features, cwd, git_diff_paths, git_untracked_paths)
 
         context_header = ""
         context_header += "[blue bold]Code Context:[/blue bold]"
@@ -211,9 +202,7 @@ class ContextContainer(Static):
         if diff_context_display:
             context_header += f"\nDiff:[green]{diff_context_display}[/green]"
         if auto_context_tokens > 0:
-            context_header += (
-                f"\nAuto-Context: Enabled\nAuto-Context Tokens: {auto_context_tokens}"
-            )
+            context_header += f"\nAuto-Context: Enabled\nAuto-Context Tokens: {auto_context_tokens}"
         else:
             context_header += "\nAuto-Context: [yellow]Disabled[/yellow]"
 
@@ -268,9 +257,7 @@ class TerminalApp(App[None]):
         content = str(message.data) + end
         content_container.add_content(content, color)
 
-    async def get_user_input(
-        self, default_prompt: str, command_autocomplete: bool
-    ) -> str:
+    async def get_user_input(self, default_prompt: str, command_autocomplete: bool) -> str:
         # This is a really janky way to pass command_autocomplete to Dropdown._get_completions(),
         # but I couldn't think of anything better
         self.command_autocomplete = command_autocomplete

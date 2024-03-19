@@ -10,9 +10,7 @@ class ClojureExerciseRunner(AbstractExerciseRunner):
         self.full_path = self.dir / "src" / self.file
 
     def run_test(self):
-        self._run_test_command(
-            ["lein", "test", ":only", self.name + "-test"], cwd=self.dir
-        )
+        self._run_test_command(["lein", "test", ":only", self.name + "-test"], cwd=self.dir)
 
     def passed(self):
         try:

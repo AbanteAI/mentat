@@ -20,7 +20,8 @@ from mentat.parsers.git_parser import GitParser
 from mentat.sampler.utils import clone_repo
 from mentat.session_context import SESSION_CONTEXT, SessionContext
 
-system_prompt = dedent("""\
+system_prompt = dedent(
+    """\
         You are part of an automated system for making synthetic data. You will be given the \
         output of `git show` for a commit. Please respond only in json. The json should have \
         the following entries:
@@ -38,7 +39,8 @@ system_prompt = dedent("""\
         - feature (type boolean): True if this change is a new feature.
         - complexity (type int): On a scale of 1 to 10 rate how interesting you think this \
         change is. Use your judgement.
-        """)
+        """
+)
 
 commit_information = "commit_information.json"
 
@@ -123,9 +125,7 @@ async def translate_commits_to_transcripts(repo, count=10):
             print("SHA:", sha)
             # Necessary for CodeContext to work
             repo.git.checkout(commit.parents[0].hexsha)
-            shown = subprocess.check_output(
-                ["git", "show", sha, "-m", "--first-parent"]
-            ).decode("utf-8")
+            shown = subprocess.check_output(["git", "show", sha, "-m", "--first-parent"]).decode("utf-8")
             if count_tokens(shown, "gpt-4") > 6000:
                 print("Skipping because too long")
                 continue
@@ -160,10 +160,7 @@ async def translate_commits_to_transcripts(repo, count=10):
                 "prompt": prompt,
                 "expected_edits": llmResponse,
                 "edited_features": list(
-                    {
-                        str(f.relative_to(git_root))
-                        for f in bound_files(parsedLLMResponse.file_edits, padding=0)
-                    }
+                    {str(f.relative_to(git_root)) for f in bound_files(parsedLLMResponse.file_edits, padding=0)}
                 ),
                 "selected_features": [],
             }
@@ -232,9 +229,7 @@ if __name__ == "__main__":
     SESSION_CONTEXT.set(session_context)
     repo = Repo(".")
     repo.git.checkout(args.commit)
-    _, benchmarks = asyncio.run(
-        translate_commits_to_transcripts(repo, count=args.count)
-    )
+    _, benchmarks = asyncio.run(translate_commits_to_transcripts(repo, count=args.count))
     old_benchmarks.update(benchmarks)
     benchmarks = old_benchmarks
     for sha, benchmark in benchmarks.items():

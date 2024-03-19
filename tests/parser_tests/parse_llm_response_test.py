@@ -10,7 +10,8 @@ from mentat.parsers.parser_map import parser_map
 async def test_parse_llm_response(mocker, temp_testbed):
     mock_file_name = temp_testbed / "multifile_calculator" / "calculator.py"
     mock_renamed_name = temp_testbed / "multifile_calculator" / "calculator_renamed.py"
-    response = dedent(f"""\
+    response = dedent(
+        f"""\
         I will insert a comment then rename the file
 
         Steps:
@@ -34,20 +35,23 @@ async def test_parse_llm_response(mocker, temp_testbed):
             "name": "{mock_renamed_name.as_posix()}"
         }}
         @@code
-        @@end""")
+        @@end"""
+    )
 
     parser = parser_map["block"]
     parsed_response = await parser.parse_llm_response(response)
 
     assert isinstance(parsed_response, ParsedLLMResponse)
-    assert parsed_response.conversation == dedent("""\
+    assert parsed_response.conversation == dedent(
+        """\
         I will insert a comment then rename the file
 
         Steps:
         1. insert a comment
         2. rename the file
         
-        """)
+        """
+    )
     assert "forty two" in parsed_response.full_response
     assert "forty two" not in parsed_response.conversation
     assert len(parsed_response.file_edits) == 1

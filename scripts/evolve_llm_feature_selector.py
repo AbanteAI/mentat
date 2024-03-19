@@ -29,9 +29,7 @@ async def evaluate_prompt(prompt: str) -> dict[str, dict[str, float]]:
 # Fitness Function
 def recall_weighted_mean(scores: dict[str, dict[str, Any]], weight: int = 3) -> float:
     """Calculate score of prompt based on scores of all features"""
-    precision_scores = [
-        s["precision"] for s in scores.values() if s["precision"] is not None
-    ]
+    precision_scores = [s["precision"] for s in scores.values() if s["precision"] is not None]
     recall_scores = [s["recall"] for s in scores.values() if s["recall"] is not None]
 
     recall_score = sum(recall_scores) / len(recall_scores)  # mean
@@ -41,11 +39,10 @@ def recall_weighted_mean(scores: dict[str, dict[str, Any]], weight: int = 3) -> 
     return (weight * recall_score + precision_score) / (weight + 1)
 
 
-async def generate_variations(
-    scores: dict[str, dict[str, float]], population: int
-) -> list[dict[str, str]]:
+async def generate_variations(scores: dict[str, dict[str, float]], population: int) -> list[dict[str, str]]:
     """Generate variations of the prompt based on the highest-scoring prompts"""
-    system_prompt = dedent("""\
+    system_prompt = dedent(
+        """\
         You are part of an automated coding system, specifically the part of that system that selects code which is related to the user's query. \
         The heart of this selection system is a large language model (LLM), like yourself. \
         The system will use statistical methods to generate a select a large sample of code for a given user query; \
@@ -60,7 +57,8 @@ async def generate_variations(
           3. To also identify relevant context to the query, such as the type-definitions of variables which will be edited, or functions which would be directly affected by the edits. \
           4. To NOT select irrelevant files or lines of code. \
           5. It's critical respond to this with a JSON-parsable list of strings (one for each prompt). \
-    """).format(population=population)
+    """
+    ).format(population=population)
     scores = [(prompt, recall_weighted_mean(scores[prompt])) for prompt in scores]
     top_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:population]
     messages = [
@@ -112,9 +110,7 @@ async def evolve_prompt(population: int = 5) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Evolve feature selection prompt based on current benchmarks"
-    )
+    parser = argparse.ArgumentParser(description="Evolve feature selection prompt based on current benchmarks")
     parser.add_argument(
         "--generations",
         default=10,

@@ -26,15 +26,10 @@ class ClearCommand(Command, command_name="clear"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         return []
 
     @override
     @classmethod
     def help_message(cls) -> str:
-        return (
-            "Clear the current message history and auto included code features from"
-            " context."
-        )
+        return "Clear the current message history and auto included code features from" " context."

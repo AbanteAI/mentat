@@ -32,9 +32,7 @@ class ExcludeCommand(Command, command_name="exclude"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         ctx = SESSION_CONTEXT.get()
 
         file_names = get_command_filename_completions(arguments[-1])

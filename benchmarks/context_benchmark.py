@@ -38,9 +38,7 @@ def _load_benchmarks() -> dict[str, dict[str, Any]]:
     return benchmarks
 
 
-def _convert_features_to_line_sets(
-    git_root: Path, features: list[CodeFeature]
-) -> defaultdict[set]:
+def _convert_features_to_line_sets(git_root: Path, features: list[CodeFeature]) -> defaultdict[set]:
     """Convert a list of features to a dict of {path: set(lines)} for comparison"""
     lines = defaultdict(set)
     for feature in features:
@@ -81,9 +79,7 @@ def evaluate(
     return {"precision": precision, "recall": recall, "f1": f1}
 
 
-async def select_features_for_benchmark(
-    session_context, benchmark, eval=True, use_expected=False, use_llm=True
-):
+async def select_features_for_benchmark(session_context, benchmark, eval=True, use_expected=False, use_llm=True):
     """Select features for benchmark using expected edits as a guide"""
     git_root = session_context.git_root
     config = session_context.config
@@ -97,26 +93,18 @@ async def select_features_for_benchmark(
     if use_expected:
         expected_edits = benchmark["expected_edits"]
         expected_edits_tokens = count_tokens(expected_edits, model)
-    max_context_tokens = (
-        model_context_size(model) - mentat_prompt_tokens - expected_edits_tokens
-    )
+    max_context_tokens = model_context_size(model) - mentat_prompt_tokens - expected_edits_tokens
     # Fill-in available context
     config.auto_context_tokens = 8000
     code_context.use_llm = use_llm
-    await code_context.get_code_message(
-        benchmark["prompt"], max_context_tokens, expected_edits
-    )
+    await code_context.get_code_message(benchmark["prompt"], max_context_tokens, expected_edits)
     git_root_length = len(str(git_root)) + 1
     selected_features = [f.ref()[git_root_length:] for f in code_context.features]
 
     selector_performance = {}
     if eval:
-        edited_features = [
-            CodeFeature(git_root / f) for f in benchmark["edited_features"]
-        ]
-        selector_performance = evaluate(
-            git_root, code_context.features, edited_features
-        )
+        edited_features = [CodeFeature(git_root / f) for f in benchmark["edited_features"]]
+        selector_performance = evaluate(git_root, code_context.features, edited_features)
     return {"features": selected_features, "score": selector_performance}
 
 

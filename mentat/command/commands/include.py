@@ -31,9 +31,7 @@ class IncludeCommand(Command, command_name="include"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         return get_command_filename_completions(arguments[-1])
 
     @override

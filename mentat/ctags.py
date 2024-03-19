@@ -33,9 +33,7 @@ def ensure_ctags_installed() -> None:
 
     error_message = "Missing Dependency: universal-ctags (required for auto-context)"
     if suggested_install_command:
-        error_message += (
-            f"\nSuggested install method for your OS: `{suggested_install_command}`"
-        )
+        error_message += f"\nSuggested install method for your OS: `{suggested_install_command}`"
     error_message += "\nSee README.md for full installation details."
     raise MentatError(error_message)
 

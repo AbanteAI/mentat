@@ -46,7 +46,8 @@ async def remove_context(sample) -> Sample:
     messages = [
         ChatCompletionSystemMessageParam(
             role="system",
-            content=dedent("""\
+            content=dedent(
+                """\
                 You are part of an LLM Coding Assistant, designed to answer questions and
                 complete tasks for developers. Specifically, you generate examples of
                 interactions where the user has not provided enough context to fulfill the
@@ -84,11 +85,10 @@ async def remove_context(sample) -> Sample:
                 RESPONSE: "No code files have been included. In order to make the 
                   requested changes, I need to see the context related to \"writing 
                   questions/answers\" and \"populating the component\"."
-            """),
+            """
+            ),
         ),
-        ChatCompletionUserMessageParam(
-            role="user", content=f"USER QUERY:\n{sample.message_prompt}"
-        ),
+        ChatCompletionUserMessageParam(role="user", content=f"USER QUERY:\n{sample.message_prompt}"),
         ChatCompletionSystemMessageParam(
             role="system",
             content=f"BACKGROUND CONTEXT:\n{background_context}",
@@ -112,10 +112,7 @@ async def remove_context(sample) -> Sample:
 
     # Ask user to review and accept/reject
     print("Generated reason:", message)
-    print(
-        "Press ENTER to accept, 's' to skip this sample, or type a new reason to"
-        " reject."
-    )
+    print("Press ENTER to accept, 's' to skip this sample, or type a new reason to" " reject.")
     response = input()
     if response:
         if response.lower() == "s":

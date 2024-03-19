@@ -22,9 +22,7 @@ def test_empty_prompt(
     temp_testbed,
     mocker,
 ):
-    terminal_client = TerminalClient(
-        cwd=temp_testbed, paths=["."], headless=True, auto_pilot=pilot(["", "q"])
-    )
+    terminal_client = TerminalClient(cwd=temp_testbed, paths=["."], headless=True, auto_pilot=pilot(["", "q"]))
     terminal_client.run()
 
 
@@ -36,7 +34,10 @@ def test_editing_file(
     with open(file_name, "w") as f:
         f.write("# Line 1")
 
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -48,7 +49,10 @@ def test_editing_file(
         }}
         @@code
         # Line 2
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
     terminal_client = TerminalClient(
         cwd=temp_testbed,
@@ -74,7 +78,10 @@ def test_request_and_command(
     mock_call_llm_api,
 ):
     file_name = "test.py"
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         I will create a new file called temp.py
 
         Steps: 1. Create a new file called temp.py
@@ -86,7 +93,10 @@ def test_request_and_command(
         }}
         @@code
         # I created this file
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
     terminal_client = TerminalClient(
         cwd=temp_testbed,

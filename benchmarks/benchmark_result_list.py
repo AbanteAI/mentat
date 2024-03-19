@@ -37,11 +37,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "path", type=Path, help="Path to the benchmark result directory"
-    )
-    parser.add_argument(
-        "output", type=Path, help="Path to the benchmark result directory"
-    )
+    parser.add_argument("path", type=Path, help="Path to the benchmark result directory")
+    parser.add_argument("output", type=Path, help="Path to the benchmark result directory")
     args = parser.parse_args()
     generate_list(args.path, args.output)

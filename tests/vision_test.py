@@ -40,9 +40,7 @@ def test_vision_manager_screenshot(mock_platform, mock_webdriver, temp_testbed):
     # Test taking a screenshot of a local file
     test_file_path = "scripts/calculator.py"
     vision_manager.screenshot(test_file_path)
-    mock_driver_instance.get.assert_called_with(
-        f"file://{temp_testbed / test_file_path}"
-    )
+    mock_driver_instance.get.assert_called_with(f"file://{temp_testbed / test_file_path}")
     assert mock_driver_instance.get_screenshot_as_png.call_count == 3
 
     # Test exception when no browser is open

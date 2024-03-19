@@ -50,27 +50,16 @@ class LLMFeatureFilter(FeatureFilter):
         model = config.feature_selection_model
         context_size = model_context_size(model)
         if context_size is None:
-            raise UserError(
-                "Unknown context size for feature selection model: "
-                f"{config.feature_selection_model}"
-            )
+            raise UserError("Unknown context size for feature selection model: " f"{config.feature_selection_model}")
         context_size = min(context_size, config.llm_feature_filter)
         system_prompt = read_prompt(self.feature_selection_prompt_path)
-        system_prompt_tokens = count_tokens(
-            system_prompt, config.feature_selection_model, full_message=True
-        )
+        system_prompt_tokens = count_tokens(system_prompt, config.feature_selection_model, full_message=True)
         user_prompt_tokens = count_tokens(self.user_prompt, model, full_message=True)
         expected_edits_tokens = (
-            0
-            if not self.expected_edits
-            else count_tokens("\n".join(self.expected_edits), model, full_message=True)
+            0 if not self.expected_edits else count_tokens("\n".join(self.expected_edits), model, full_message=True)
         )
         preselect_max_tokens = (
-            context_size
-            - system_prompt_tokens
-            - user_prompt_tokens
-            - expected_edits_tokens
-            - config.token_buffer
+            context_size - system_prompt_tokens - user_prompt_tokens - expected_edits_tokens - config.token_buffer
         )
         truncate_filter = TruncateFilter(preselect_max_tokens, model)
         preselected_features = await truncate_filter.filter(features)
@@ -80,20 +69,13 @@ class LLMFeatureFilter(FeatureFilter):
             ChatCompletionSystemMessageParam(role="system", content=system_prompt),
             ChatCompletionSystemMessageParam(
                 role="system",
-                content="\n".join(
-                    ["CODE FILES:"]
-                    + get_code_message_from_features(preselected_features)
-                ),
+                content="\n".join(["CODE FILES:"] + get_code_message_from_features(preselected_features)),
             ),
-            ChatCompletionUserMessageParam(
-                role="user", content=f"USER QUERY: {self.user_prompt}"
-            ),
+            ChatCompletionUserMessageParam(role="user", content=f"USER QUERY: {self.user_prompt}"),
         ]
         if self.expected_edits:
             messages.append(
-                ChatCompletionAssistantMessageParam(
-                    role="assistant", content=f"Expected Edits:\n{self.expected_edits}"
-                )
+                ChatCompletionAssistantMessageParam(role="assistant", content=f"Expected Edits:\n{self.expected_edits}")
             )
         messages.append(
             ChatCompletionSystemMessageParam(
@@ -134,13 +116,10 @@ class LLMFeatureFilter(FeatureFilter):
         postselected_features: Set[CodeFeature] = set()
         for selected_ref in selected_refs:
             try:
-                parsed_features = get_code_features_for_path(
-                    path=selected_ref, cwd=session_context.cwd
-                )
+                parsed_features = get_code_features_for_path(path=selected_ref, cwd=session_context.cwd)
                 for feature in parsed_features:
                     assert any(
-                        in_feat.path == feature.path and in_feat.interval.intersects
-                        for in_feat in preselected_features
+                        in_feat.path == feature.path and in_feat.interval.intersects for in_feat in preselected_features
                     )
                     postselected_features.add(feature)
             except (PathValidationError, AssertionError):

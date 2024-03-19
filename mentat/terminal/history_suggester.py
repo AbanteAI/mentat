@@ -18,9 +18,7 @@ class HistorySuggester(Suggester):
 
     def append_to_history(self, submission: str):
         self.position = 0
-        if not submission.strip() or (
-            self._suggestions and self._suggestions[-1] == submission
-        ):
+        if not submission.strip() or (self._suggestions and self._suggestions[-1] == submission):
             return
         self._suggestions.append(submission)
         with open(self.history_file, "a") as f:

@@ -11,10 +11,12 @@ async def verify_inverse(parser):
     cwd = Path(os.getcwd())
     parsedLLMResponse = ParsedLLMResponse(
         full_response="",
-        conversation=dedent("""\
+        conversation=dedent(
+            """\
             Conversation
             with two lines
-        """),
+        """
+        ),
         file_edits=[
             FileEdit(
                 file_path=cwd / "test.txt",
@@ -24,9 +26,7 @@ async def verify_inverse(parser):
                         ending_line=1,
                         new_lines=["# I inserted this comment"],
                     ),
-                    Replacement(
-                        starting_line=3, ending_line=4, new_lines=["# better measure"]
-                    ),
+                    Replacement(starting_line=3, ending_line=4, new_lines=["# better measure"]),
                 ],
                 is_creation=False,
                 is_deletion=False,
@@ -34,9 +34,7 @@ async def verify_inverse(parser):
             ),
             FileEdit(
                 file_path=cwd / "delete.txt",
-                replacements=[
-                    Replacement(starting_line=1, ending_line=3, new_lines=[])
-                ],
+                replacements=[Replacement(starting_line=1, ending_line=3, new_lines=[])],
                 is_creation=False,
                 is_deletion=False,
                 rename_file_path=None,

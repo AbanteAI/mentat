@@ -88,9 +88,7 @@ class SearchCommand(Command, command_name="search"):
                         features = [results[index - 1][0] for index in to_include]
                         included_paths = code_context.include_features(features)
                         for included_path in included_paths:
-                            rel_path = get_relative_path(
-                                included_path, session_context.cwd
-                            )
+                            rel_path = get_relative_path(included_path, session_context.cwd)
                             stream.send(f"{rel_path} added to context", style="success")
                     else:
                         stream.send("(Y/n)", style="input")
@@ -106,9 +104,7 @@ class SearchCommand(Command, command_name="search"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         ctx = SESSION_CONTEXT.get()
 
         return [

@@ -25,26 +25,17 @@ class DefaultFilter(FeatureFilter):
         use_llm = bool(ctx.config.llm_feature_filter)
 
         if ctx.config.auto_context_tokens > 0 and self.user_prompt != "":
-            features = await EmbeddingSimilarityFilter(self.user_prompt).filter(
-                features
-            )
+            features = await EmbeddingSimilarityFilter(self.user_prompt).filter(features)
 
         if use_llm:
             try:
-                features = await LLMFeatureFilter(
-                    self.max_tokens, self.user_prompt, self.expected_edits
-                ).filter(features)
-            except (ModelError, ReturnToUser):
-                ctx.stream.send(
-                    "Feature-selection LLM response invalid. Using TruncateFilter"
-                    " instead."
+                features = await LLMFeatureFilter(self.max_tokens, self.user_prompt, self.expected_edits).filter(
+                    features
                 )
-                features = await TruncateFilter(
-                    self.max_tokens, ctx.config.model
-                ).filter(features)
+            except (ModelError, ReturnToUser):
+                ctx.stream.send("Feature-selection LLM response invalid. Using TruncateFilter" " instead.")
+                features = await TruncateFilter(self.max_tokens, ctx.config.model).filter(features)
         else:
-            features = await TruncateFilter(self.max_tokens, ctx.config.model).filter(
-                features
-            )
+            features = await TruncateFilter(self.max_tokens, ctx.config.model).filter(features)
 
         return features

@@ -81,15 +81,9 @@ def generate_plot_html(summary_list):
         data.append(
             go.Scatter(
                 x=[summary.metadata["date"] for summary in summary_list if f(summary)],
-                y=[
-                    summary.summary["passed"][0]
-                    for summary in summary_list
-                    if f(summary)
-                ],
-                text=[
-                    summary.metadata["file"] for summary in summary_list if f(summary)
-                ],
-                **props
+                y=[summary.summary["passed"][0] for summary in summary_list if f(summary)],
+                text=[summary.metadata["file"] for summary in summary_list if f(summary)],
+                **props,
             )
         )
 
@@ -99,9 +93,7 @@ def generate_plot_html(summary_list):
     for metric in metrics:
         ys = []
         for f, props in filters:
-            ys.append(
-                [summary.summary[metric][0] for summary in summary_list if f(summary)]
-            )
+            ys.append([summary.summary[metric][0] for summary in summary_list if f(summary)])
         buttons.append(dict(args=[{"y": ys}], label=metric, method="update"))
 
     # Add the buttons to the layout

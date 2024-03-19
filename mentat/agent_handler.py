@@ -37,44 +37,33 @@ class AgentHandler:
     async def enable_agent_mode(self):
         ctx = SESSION_CONTEXT.get()
 
-        ctx.stream.send(
-            "Finding files to determine how to test changes...", style="info"
-        )
+        ctx.stream.send("Finding files to determine how to test changes...", style="info")
         features = ctx.code_context.get_all_features(split_intervals=False)
         messages: list[ChatCompletionMessageParam] = [
-            ChatCompletionSystemMessageParam(
-                role="system", content=self.agent_file_selection_prompt
-            ),
+            ChatCompletionSystemMessageParam(role="system", content=self.agent_file_selection_prompt),
             ChatCompletionSystemMessageParam(
                 role="system",
-                content="\n".join(
-                    str(feature.path.relative_to(ctx.cwd)) for feature in features
-                ),
+                content="\n".join(str(feature.path.relative_to(ctx.cwd)) for feature in features),
             ),
         ]
         model = ctx.config.model
         response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
         content = response.choices[0].message.content or ""
 
-        paths = [
-            Path(path) for path in content.strip().split("\n") if Path(path).exists()
-        ]
+        paths = [Path(path) for path in content.strip().split("\n") if Path(path).exists()]
         self.agent_file_message = ""
         for path in paths:
             file_contents = "\n\n".join(ctx.code_file_manager.read_file(path))
             self.agent_file_message += f"{path}\n\n{file_contents}"
 
         ctx.stream.send(
-            "The model has chosen these files to help it determine how to test its"
-            " changes:",
+            "The model has chosen these files to help it determine how to test its" " changes:",
             style="info",
         )
         ctx.stream.send("\n".join(str(path) for path in paths))
         ctx.cost_tracker.display_last_api_call()
 
-        messages.append(
-            ChatCompletionAssistantMessageParam(role="assistant", content=content)
-        )
+        messages.append(ChatCompletionAssistantMessageParam(role="assistant", content=content))
         ctx.conversation.add_transcript_message(
             ModelMessage(message=content, prior_messages=messages, message_type="agent")
         )
@@ -85,12 +74,8 @@ class AgentHandler:
 
         model = ctx.config.model
         system_prompt: list[ChatCompletionMessageParam] = [
-            ChatCompletionSystemMessageParam(
-                role="system", content=self.agent_command_prompt
-            ),
-            ChatCompletionSystemMessageParam(
-                role="system", content=self.agent_file_message
-            ),
+            ChatCompletionSystemMessageParam(role="system", content=self.agent_command_prompt),
+            ChatCompletionSystemMessageParam(role="system", content=self.agent_file_message),
         ]
         messages = await ctx.conversation.get_messages(system_prompt=system_prompt)
 
@@ -104,9 +89,7 @@ class AgentHandler:
 
         content = response.choices[0].message.content or ""
 
-        messages.append(
-            ChatCompletionAssistantMessageParam(role="assistant", content=content)
-        )
+        messages.append(ChatCompletionAssistantMessageParam(role="assistant", content=content))
         parsed_llm_response = await ctx.config.parser.parse_llm_response(content)
         ctx.conversation.add_model_message(content, messages, parsed_llm_response)
 
@@ -122,9 +105,7 @@ class AgentHandler:
         commands = await self._determine_commands()
         if not commands:
             return True
-        ctx.stream.send(
-            "The model has chosen these commands to test its changes:", style="info"
-        )
+        ctx.stream.send("The model has chosen these commands to test its changes:", style="info")
         for command in commands:
             ctx.stream.send("* ", end="")
             ctx.stream.send(command, style="warning")
@@ -132,8 +113,7 @@ class AgentHandler:
         run_commands = await ask_yes_no(default_yes=True)
         if not run_commands:
             ctx.stream.send(
-                "Enter a new-line separated list of commands to run, or nothing to"
-                " return control to the user:",
+                "Enter a new-line separated list of commands to run, or nothing to" " return control to the user:",
                 style="info",
             )
             commands: list[str] = (await collect_user_input()).data.strip().splitlines()

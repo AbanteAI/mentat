@@ -79,11 +79,7 @@ class GitParser:
                 rename_file_path=new_name,
             )
             if not is_creation:
-                file_edit.previous_file_lines = (
-                    session_context.code_file_manager.file_lines.get(
-                        start_file_name, []
-                    )
-                )
+                file_edit.previous_file_lines = session_context.code_file_manager.file_lines.get(start_file_name, [])
             diff_split = diff.split("\n@@")
             if not is_deletion:
                 for change in diff_split[1:]:
@@ -102,9 +98,7 @@ class GitParser:
                         start_line = a - (1 if b > 0 else 0)
                         end_line = start_line + b
                     line_changes = change.split("@@")[1]
-                    code_lines = line_changes.split("\n")[
-                        1:
-                    ]  # Discard optional context
+                    code_lines = line_changes.split("\n")[1:]  # Discard optional context
                     # This check is necessary because new code sometimes starts on the same line
                     # as @@ sometimes on the next line.
                     if code_lines[0] == "":
@@ -130,21 +124,15 @@ class GitParser:
                     end_line -= ending_repetition
 
                     lines: List[str] = []
-                    for line in code_lines[
-                        starting_repetition : len(code_lines) - ending_repetition
-                    ]:
+                    for line in code_lines[starting_repetition : len(code_lines) - ending_repetition]:
                         if not line.startswith("-"):
                             lines.append(line[1:])
 
-                    file_edit.replacements.append(
-                        Replacement(start_line, end_line, lines)
-                    )
+                    file_edit.replacements.append(Replacement(start_line, end_line, lines))
 
             file_edits.append(file_edit)
 
-        return ParsedLLMResponse(
-            f"{conversation}\n\n{git_diff}", conversation, file_edits
-        )
+        return ParsedLLMResponse(f"{conversation}\n\n{git_diff}", conversation, file_edits)
 
     def file_edit_to_git_diff(self, file_edit: FileEdit) -> str:
         """Converts a FileEdit object into a git diff string."""
@@ -152,9 +140,7 @@ class GitParser:
         cwd = session_context.cwd
 
         diff_lines: list[str] = []
-        file_path_str = (
-            Path(file_edit.file_path).relative_to(session_context.cwd).as_posix()
-        )
+        file_path_str = Path(file_edit.file_path).relative_to(session_context.cwd).as_posix()
 
         if file_edit.is_deletion:
             assert file_edit.previous_file_lines is not None, "Missing previous lines"
@@ -188,9 +174,7 @@ class GitParser:
             diff_lines.append(f"--- a/{file_path_str}")
             diff_lines.append(f"+++ b/{file_path_str}")
 
-        sorted_replacements = sorted(
-            file_edit.replacements, key=lambda r: r.starting_line
-        )
+        sorted_replacements = sorted(file_edit.replacements, key=lambda r: r.starting_line)
         net_change_in_lines: int = 0
         for replacement in sorted_replacements:
             if file_edit.is_creation:
@@ -208,19 +192,12 @@ class GitParser:
                 + net_change_in_lines
             )
             d = n_inserted_lines
-            hunk_header = (
-                f"@@ -{a}"
-                + (" " if b == 1 else f",{b} ")
-                + f"+{c}"
-                + (" @@" if d == 1 else f",{d} @@")
-            )
+            hunk_header = f"@@ -{a}" + (" " if b == 1 else f",{b} ") + f"+{c}" + (" @@" if d == 1 else f",{d} @@")
             net_change_in_lines += d - b
             diff_lines.append(hunk_header)
 
             if not file_edit.is_creation:
-                assert (
-                    file_edit.previous_file_lines is not None
-                ), "Missing previous lines"
+                assert file_edit.previous_file_lines is not None, "Missing previous lines"
                 for line in range(a, a + b):
                     diff_lines.append(f"-{file_edit.previous_file_lines[line - 1]}")
             for line in replacement.new_lines:
