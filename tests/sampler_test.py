@@ -203,7 +203,7 @@ test_sample = {
 
 @pytest.mark.ragdaemon
 @pytest.mark.asyncio
-async def test_sample_eval(mock_call_llm_api):
+async def test_sample_eval(temp_testbed, mock_call_llm_api):
     parsedLLMResponse = GitParser().parse_llm_response(test_sample["diff_edit"])
     edit_message = BlockParser().file_edits_to_llm_message(parsedLLMResponse)
     mock_call_llm_api.set_streamed_values(
