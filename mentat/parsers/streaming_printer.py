@@ -27,9 +27,7 @@ class StreamingPrinter:
         self.finishing = False
         self.shutdown = False
         self.cur_file: str | None = None
-        self.cur_file_display: Tuple[
-            str, Literal["edit", "creation", "deletion", "rename"]
-        ] | None = None
+        self.cur_file_display: Tuple[str, Literal["edit", "creation", "deletion", "rename"]] | None = None
 
     def add_string(
         self,
@@ -54,9 +52,7 @@ class StreamingPrinter:
             styles = formatted_string[1]
 
         styles["filepath"] = self.cur_file
-        styles["filepath_display"] = (
-            list(self.cur_file_display) if self.cur_file_display else None
-        )
+        styles["filepath_display"] = list(self.cur_file_display) if self.cur_file_display else None
         if not string:
             if allow_empty:
                 self.strings_to_print.append(("", styles))

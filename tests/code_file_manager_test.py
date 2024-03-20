@@ -30,19 +30,24 @@ async def test_partial_files(mocker, mock_session_context):
     file_path = os.path.join(dir_name, file_name)
     os.makedirs(dir_name, exist_ok=True)
     with open(file_path, "w") as file_file:
-        file_file.write(dedent("""\
+        file_file.write(
+            dedent(
+                """\
              I am a file
              with 5 lines
              third
              fourth
-             fifth"""))
+             fifth"""
+            )
+        )
 
     file_path_partial = Path(file_path + ":1,3-5")
     mock_session_context.code_context.include(file_path_partial)
     mock_session_context.code_context.code_map = False
 
     code_message = await mock_session_context.code_context.get_code_message(0)
-    assert code_message == dedent("""\
+    assert code_message == dedent(
+        """\
             Code Files:
 
             dir/file.txt
@@ -50,7 +55,8 @@ async def test_partial_files(mocker, mock_session_context):
             ...
             3:third
             4:fourth
-            """)
+            """
+    )
 
 
 @pytest.mark.asyncio
@@ -72,7 +78,10 @@ async def test_run_from_subdirectory(
             "q",
         ]
     )
-    mock_call_llm_api.set_streamed_values([dedent("""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                """\
         I will insert a comment in both files.
 
         @@start
@@ -94,11 +103,12 @@ async def test_run_from_subdirectory(
         }
         @@code
         # Hello
-        @@end""")])
-
-    session = Session(
-        cwd=temp_testbed, paths=["multifile_calculator/calculator.py", "scripts"]
+        @@end"""
+            )
+        ]
     )
+
+    session = Session(cwd=temp_testbed, paths=["multifile_calculator/calculator.py", "scripts"])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -129,7 +139,10 @@ async def test_run_from_superdirectory(
             "q",
         ]
     )
-    mock_call_llm_api.set_streamed_values([dedent("""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                """\
         I will insert a comment in both files.
 
         @@start
@@ -151,7 +164,10 @@ async def test_run_from_superdirectory(
         }
         @@code
         # Hello
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
     session = Session(
         cwd=Path(temp_testbed) / "format_examples",
@@ -182,7 +198,10 @@ async def test_change_after_creation(
             "q",
         ]
     )
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -201,7 +220,10 @@ async def test_change_after_creation(
         }}
         @@code
         print("Hello, World!")
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd())
     session.start()

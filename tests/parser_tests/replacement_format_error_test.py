@@ -20,9 +20,13 @@ async def test_invalid_line_numbers(
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -31,7 +35,10 @@ async def test_invalid_line_numbers(
             "q",
         ]
     )
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @ {temp_file_name} insert_line=2
@@ -42,17 +49,22 @@ async def test_invalid_line_numbers(
         @
         @ {temp_file_name} insert_line=1
         # I also will not be used
-        @""")])
+        @"""
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
             # I inserted this comment
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
 
@@ -63,9 +75,13 @@ async def test_invalid_special_line(
 ):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -74,7 +90,10 @@ async def test_invalid_special_line(
             "q",
         ]
     )
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @ {temp_file_name} insert_line=2
@@ -85,15 +104,20 @@ async def test_invalid_special_line(
         @
         @ {temp_file_name} insert_line=1
         # I will not be used
-        @""")])
+        @"""
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
             # I inserted this comment
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content

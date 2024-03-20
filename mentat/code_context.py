@@ -67,11 +67,7 @@ class CodeContext:
         diff_context_display = self.diff_context.get_display_context()
 
         features = get_consolidated_feature_refs(
-            [
-                feature
-                for file_features in self.include_files.values()
-                for feature in file_features
-            ]
+            [feature for file_features in self.include_files.values() for feature in file_features]
         )
         git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
         git_untracked_paths = [str(p) for p in self.diff_context.untracked_files()]
@@ -127,21 +123,13 @@ class CodeContext:
 
         # Get auto included features
         if config.auto_context_tokens > 0 and prompt:
-            meta_tokens = count_tokens(
-                "\n".join(code_message), model, full_message=True
-            )
+            meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
 
             # Calculate user included features token size
             include_files_message = get_code_message_from_features(
-                [
-                    feature
-                    for file_features in self.include_files.values()
-                    for feature in file_features
-                ]
+                [feature for file_features in self.include_files.values() for feature in file_features]
             )
-            include_files_tokens = count_tokens(
-                "\n".join(include_files_message), model, full_message=False
-            )
+            include_files_tokens = count_tokens("\n".join(include_files_message), model, full_message=False)
 
             tokens_used = prompt_tokens + meta_tokens + include_files_tokens
             auto_tokens = min(
@@ -149,19 +137,11 @@ class CodeContext:
                 config.auto_context_tokens,
             )
             features = self.get_all_features()
-            feature_filter = DefaultFilter(
-                auto_tokens,
-                prompt,
-                expected_edits,
-            )
+            feature_filter = DefaultFilter(auto_tokens, prompt, expected_edits)
             self.include_features(await feature_filter.filter(features))
             await self.refresh_context_display()
 
-        include_features = [
-            feature
-            for file_features in self.include_files.values()
-            for feature in file_features
-        ]
+        include_features = [feature for file_features in self.include_files.values() for feature in file_features]
         code_message += get_code_message_from_features(include_features)
 
         return "\n".join(code_message)
@@ -177,18 +157,14 @@ class CodeContext:
         session_context = SESSION_CONTEXT.get()
 
         abs_exclude_patterns: Set[Path] = set()
-        for pattern in self.ignore_patterns.union(
-            session_context.config.file_exclude_glob_list
-        ):
+        for pattern in self.ignore_patterns.union(session_context.config.file_exclude_glob_list):
             if not Path(pattern).is_absolute():
                 abs_exclude_patterns.add(session_context.cwd / pattern)
             else:
                 abs_exclude_patterns.add(Path(pattern))
 
         all_features: List[CodeFeature] = []
-        for path in get_paths_for_directory(
-            path=session_context.cwd, exclude_patterns=abs_exclude_patterns
-        ):
+        for path in get_paths_for_directory(path=session_context.cwd, exclude_patterns=abs_exclude_patterns):
             if not is_file_text_encoded(path) or os.path.getsize(path) > max_chars:
                 continue
 
@@ -230,9 +206,7 @@ class CodeContext:
                     included_paths.add(Path(str(code_feature)))
         return included_paths
 
-    def include(
-        self, path: Path | str, exclude_patterns: Iterable[Path | str] = []
-    ) -> Set[Path]:
+    def include(self, path: Path | str, exclude_patterns: Iterable[Path | str] = []) -> Set[Path]:
         """
         Add paths to the context
 
@@ -295,9 +269,7 @@ class CodeContext:
 
         interval_path, interval_str = split_intervals_from_path(path)
         if interval_path not in self.include_files:
-            session_context.stream.send(
-                f"Path {interval_path} not in context", style="error"
-            )
+            session_context.stream.send(f"Path {interval_path} not in context", style="error")
             return excluded_paths
 
         intervals = parse_intervals(interval_str)
@@ -365,9 +337,7 @@ class CodeContext:
         path = Path(path)
         excluded_paths: Set[Path] = set()
         try:
-            validated_path = validate_and_format_path(
-                path, session_context.cwd, check_for_text=False
-            )
+            validated_path = validate_and_format_path(path, session_context.cwd, check_for_text=False)
             match get_path_type(validated_path):
                 case PathType.FILE:
                     excluded_path = self._exclude_file(validated_path)
@@ -419,9 +389,7 @@ class CodeContext:
                 feature_path = Path(feature_str)
 
                 # feature_path is already absolute, so cwd doesn't matter
-                current_features = get_code_features_for_path(
-                    feature_path, cwd=Path("/")
-                )
+                current_features = get_code_features_for_path(feature_path, cwd=Path("/"))
                 features_for_path += list(current_features)
 
             self.include_files[path] = features_for_path

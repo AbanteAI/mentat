@@ -135,24 +135,15 @@ class ReplacementParser(Parser):
             elif file_edit.is_deletion:
                 action_indicator = "-"
             elif file_edit.rename_file_path is not None:
-                action_indicator = file_edit.rename_file_path.relative_to(
-                    session_context.cwd
-                ).as_posix()
+                action_indicator = file_edit.rename_file_path.relative_to(session_context.cwd).as_posix()
 
-            file_rel_path = file_edit.file_path.relative_to(
-                session_context.cwd
-            ).as_posix()
+            file_rel_path = file_edit.file_path.relative_to(session_context.cwd).as_posix()
             if action_indicator != "":
                 ans += f"@ {file_rel_path} {action_indicator}\n"
 
             for replacement in file_edit.replacements:
-                if (
-                    replacement.starting_line == replacement.ending_line
-                    and len(replacement.new_lines) != 0
-                ):
-                    ans += (
-                        f"@ {file_rel_path} insert_line={replacement.starting_line + 1}\n"
-                    )
+                if replacement.starting_line == replacement.ending_line and len(replacement.new_lines) != 0:
+                    ans += f"@ {file_rel_path} insert_line={replacement.starting_line + 1}\n"
                 else:
                     ans += (
                         f"@ {file_rel_path} starting_line={replacement.starting_line + 1} "

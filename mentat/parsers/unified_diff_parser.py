@@ -35,9 +35,7 @@ class UnifiedDiffParser(Parser):
         return False
 
     @override
-    def _code_line_beginning(
-        self, display_information: DisplayInformation, cur_block: str
-    ) -> FormattedString:
+    def _code_line_beginning(self, display_information: DisplayInformation, cur_block: str) -> FormattedString:
         return ("", {})
 
     @override
@@ -77,9 +75,9 @@ class UnifiedDiffParser(Parser):
 
     @override
     def _ends_special(self, line: str) -> bool:
-        return line.startswith(
-            UnifiedDiffDelimiter.MidChange.value.strip()
-        ) or line.startswith(UnifiedDiffDelimiter.EndChange.value.strip())
+        return line.startswith(UnifiedDiffDelimiter.MidChange.value.strip()) or line.startswith(
+            UnifiedDiffDelimiter.EndChange.value.strip()
+        )
 
     @override
     def _special_block(
@@ -104,9 +102,7 @@ class UnifiedDiffParser(Parser):
         full_path = (cwd / file_name).resolve()
         file_lines = self._get_file_lines(code_file_manager, rename_map, full_path)
         file_action_type = get_file_action_type(is_creation, is_deletion, new_name)
-        display_information = DisplayInformation(
-            file_name, file_lines, [], [], file_action_type, -1, -1, new_name
-        )
+        display_information = DisplayInformation(file_name, file_lines, [], [], file_action_type, -1, -1, new_name)
         file_edit = FileEdit(
             full_path,
             [],
@@ -134,9 +130,7 @@ class UnifiedDiffParser(Parser):
         display_information: DisplayInformation,
         file_edit: FileEdit,
     ):
-        file_lines = self._get_file_lines(
-            code_file_manager, rename_map, file_edit.file_path
-        ).copy()
+        file_lines = self._get_file_lines(code_file_manager, rename_map, file_edit.file_path).copy()
 
         # First, we split by the symbols that separate changes.
         lines = code_block.split("\n")
@@ -154,10 +148,7 @@ class UnifiedDiffParser(Parser):
             else:
                 if (
                     # Remove empty lines; hopefully the model always puts a space for context lines
-                    line
-                    and not line.startswith("+")
-                    and not line.startswith("-")
-                    and not line.startswith(" ")
+                    line and not line.startswith("+") and not line.startswith("-") and not line.startswith(" ")
                 ):
                     return
                 cur_lines.append(line)
@@ -209,9 +200,7 @@ class UnifiedDiffParser(Parser):
             for line in change:
                 if line.startswith(" ") or not line:
                     if cur_start is not None:
-                        replacements.append(
-                            Replacement(cur_start, cur_index, cur_additions)
-                        )
+                        replacements.append(Replacement(cur_start, cur_index, cur_additions))
                     cur_index += 1
                     cur_additions = list[str]()
                     cur_start = None

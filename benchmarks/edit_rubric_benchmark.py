@@ -40,7 +40,8 @@ def write_result(commit, result, repo_path):
         json.dump(results, f, indent=4)
 
 
-grader_prompt = dedent("""\
+grader_prompt = dedent(
+    """\
         Please grade the following diff on the following metrics:
         - correctness
         - readability
@@ -49,7 +50,8 @@ grader_prompt = dedent("""\
         Please reply with only a json object rating the diff from 1
         to 5 on each of those dimensions. For example:
         {"correctness": 4, "readability": 3, "style": 2, "surprisingness": 1}
-        """)
+        """
+)
 
 
 def evaluate_diff(diff: str) -> dict[str, int]:
@@ -68,9 +70,7 @@ def evaluate_diff(diff: str) -> dict[str, int]:
     return json.loads(message)
 
 
-async def test_edit_quality(
-    benchmarks, max_benchmarks, evaluate_baseline, repo, refresh_repo
-):
+async def test_edit_quality(benchmarks, max_benchmarks, evaluate_baseline, repo, refresh_repo):
     repo_path = Path(__file__).parent / f"../../benchmark_repos/{repo}"
     tests = load_tests(repo_path)
     results = load_results(repo_path)
@@ -92,13 +92,17 @@ async def test_edit_quality(
         codebase = clone_repo(repo_url, repo_name)
         os.chdir(codebase)
         with open(".git/info/exclude", "w") as f:
-            f.write(dedent("""\
+            f.write(
+                dedent(
+                    """\
                 commit_information.json
                 benchmarks.json
                 benchmark_results.json
                 transcripts*.jsonl
                 gpt-output-cache.json
-                """))
+                """
+                )
+            )
         repo = Repo(".")
         start_commit = repo.commit()
         repo.git.checkout(test["commit"] + "^1")

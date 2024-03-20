@@ -42,19 +42,27 @@ async def test_config_creation():
     assert args.auto_context_tokens == 2000
 
     with open(config_file_name, "w") as project_config_file:
-        project_config_file.write(dedent("""\
+        project_config_file.write(
+            dedent(
+                """\
         {
             "embedding_model": "project"
-        }"""))
+        }"""
+            )
+        )
 
     mentat.config.user_config_path = Path(str(config_file_name) + "1")
     with open(mentat.config.user_config_path, "w") as user_config_file:
-        user_config_file.write(dedent("""\
+        user_config_file.write(
+            dedent(
+                """\
         {
             "model": "test",
             "parser": "replacement",
             "embedding_model": "user"
-        }"""))
+        }"""
+            )
+        )
 
     config = Config.create(Path.cwd(), args)
 
@@ -70,27 +78,29 @@ async def test_config_creation():
 async def test_invalid_config(mock_config_errors):
     # If invalid config file is found, it should use next config
     with open(config_file_name, "w") as project_config_file:
-        project_config_file.write(dedent("""\
+        project_config_file.write(
+            dedent(
+                """\
         {
             "model": "project",
             "format": "I have a trailing comma",
-        }"""))
+        }"""
+            )
+        )
 
     mentat.config.user_config_path = Path(str(config_file_name) + "1")
     with open(mentat.config.user_config_path, "w") as user_config_file:
-        user_config_file.write(dedent("""\
+        user_config_file.write(
+            dedent(
+                """\
         {
             "model": "test",
             "foobar": "Not a real setting"
-        }"""))
+        }"""
+            )
+        )
 
     config = Config.create(cwd=Path.cwd())
-    assert (
-        mock_config_errors[0]
-        == "Warning: Config .mentat_config.json1 contains unrecognized setting: foobar"
-    )
-    assert (
-        "contains invalid json; ignoring user configuration file"
-        in mock_config_errors[1]
-    )
+    assert mock_config_errors[0] == "Warning: Config .mentat_config.json1 contains unrecognized setting: foobar"
+    assert "contains invalid json; ignoring user configuration file" in mock_config_errors[1]
     assert config.model == "test"

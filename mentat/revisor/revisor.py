@@ -59,25 +59,16 @@ async def revise_edit(file_edit: FileEdit):
         user_message,
         ChatCompletionSystemMessageParam(content=f"Diff:\n{diff}", role="system"),
     ]
-    code_message = await ctx.code_context.get_code_message(
-        prompt_tokens(messages, ctx.config.model)
-    )
-    messages.insert(
-        1, ChatCompletionSystemMessageParam(content=code_message, role="system")
-    )
+    code_message = await ctx.code_context.get_code_message(prompt_tokens(messages, ctx.config.model))
+    messages.insert(1, ChatCompletionSystemMessageParam(content=code_message, role="system"))
 
     ctx.stream.send(
-        "\nRevising edits for file"
-        f" {get_relative_path(file_edit.file_path, ctx.cwd)}...",
+        "\nRevising edits for file" f" {get_relative_path(file_edit.file_path, ctx.cwd)}...",
         style="info",
     )
-    response = await ctx.llm_api_handler.call_llm_api(
-        messages, model=ctx.config.model, stream=False
-    )
+    response = await ctx.llm_api_handler.call_llm_api(messages, model=ctx.config.model, stream=False)
     message = response.choices[0].message.content or ""
-    messages.append(
-        ChatCompletionAssistantMessageParam(content=message, role="assistant")
-    )
+    messages.append(ChatCompletionAssistantMessageParam(content=message, role="assistant"))
     ctx.conversation.add_transcript_message(
         ModelMessage(message=message, prior_messages=messages, message_type="revisor")
     )
@@ -91,10 +82,7 @@ async def revise_edit(file_edit: FileEdit):
 
     # This makes it more similar to a git diff so that we can use the pre existing git diff parser
     message = "\n".join(message.split("\n")[2:])  # remove leading +++ and ---
-    post_diff = (
-        "diff --git a/file b/file\nindex 0000000..0000000\n--- a/file\n+++"
-        f" b/file\n{message}"
-    )
+    post_diff = "diff --git a/file b/file\nindex 0000000..0000000\n--- a/file\n+++" f" b/file\n{message}"
     parsed_response = GitParser().parse_llm_response(post_diff)
 
     # Only modify the replacements of the current file edit
@@ -113,11 +101,7 @@ async def revise_edit(file_edit: FileEdit):
             if line.startswith("---"):
                 diff_diff.append(f"{line}{file_edit.file_path}")
             elif line.startswith("+++"):
-                new_name = (
-                    file_edit.rename_file_path
-                    if file_edit.rename_file_path is not None
-                    else file_edit.file_path
-                )
+                new_name = file_edit.rename_file_path if file_edit.rename_file_path is not None else file_edit.file_path
                 diff_diff.append(f"{line}{new_name}")
             elif line.startswith("@@"):
                 diff_diff.append(line)

@@ -27,15 +27,10 @@ class AgentCommand(Command, command_name="agent"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         return []
 
     @override
     @classmethod
     def help_message(cls) -> str:
-        return (
-            "Toggle agent mode. In agent mode Mentat will automatically make changes"
-            " and run commands."
-        )
+        return "Toggle agent mode. In agent mode Mentat will automatically make changes" " and run commands."

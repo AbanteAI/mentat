@@ -20,11 +20,15 @@ async def test_not_matching(
 ):
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is
             # a temporary file
             # with
-            # 4 lines"""))
+            # 4 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -33,7 +37,10 @@ async def test_not_matching(
             "q",
         ]
     )
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         --- {temp_file_name}
@@ -43,18 +50,23 @@ async def test_not_matching(
         -# a temporary file
         -# with
         +# your captain speaking
-         # 4 lines""")])
+         # 4 lines"""
+            )
+        ]
+    )
 
     session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is
             # a temporary file
             # with
-            # 4 lines""")
+            # 4 lines"""
+        )
     assert content == expected_content
 
 
@@ -66,11 +78,15 @@ async def test_no_prefix(
 ):
     temp_file_name = Path("temp.py")
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is
             # a temporary file
             # with
-            # 4 lines"""))
+            # 4 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -79,7 +95,10 @@ async def test_no_prefix(
             "q",
         ]
     )
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         --- {temp_file_name}
@@ -89,16 +108,21 @@ async def test_no_prefix(
         -# a temporary file
         -# with
         +# your captain speaking
-        # 4 lines""")])
+        # 4 lines"""
+            )
+        ]
+    )
 
     session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
     await session.stream.recv(channel="client_exit")
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is
             # a temporary file
             # with
-            # 4 lines""")
+            # 4 lines"""
+        )
     assert content == expected_content

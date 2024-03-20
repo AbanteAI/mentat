@@ -142,22 +142,12 @@ class Session:
             [
                 {
                     "file_path": str(file_edit.file_path),
-                    "new_file_path": (
-                        None
-                        if not file_edit.rename_file_path
-                        else str(file_edit.rename_file_path)
-                    ),
+                    "new_file_path": (None if not file_edit.rename_file_path else str(file_edit.rename_file_path)),
                     "type": (
-                        "creation"
-                        if file_edit.is_creation
-                        else ("deletion" if file_edit.is_deletion else "edit")
+                        "creation" if file_edit.is_creation else ("deletion" if file_edit.is_deletion else "edit")
                     ),
                     "new_content": "\n".join(
-                        file_edit.get_updated_file_lines(
-                            ctx.code_file_manager.file_lines.get(
-                                file_edit.file_path, []
-                            )
-                        )
+                        file_edit.get_updated_file_lines(ctx.code_file_manager.file_lines.get(file_edit.file_path, []))
                     ),
                 }
                 for file_edit in file_edits
@@ -194,8 +184,7 @@ class Session:
                     if agent_handler.agent_enabled:
                         code_file_manager.history.push_edits()
                         stream.send(
-                            "Use /undo to undo all changes from agent mode since last"
-                            " input.",
+                            "Use /undo to undo all changes from agent mode since last" " input.",
                             style="success",
                         )
                     message = await collect_input_with_commands()
@@ -204,11 +193,7 @@ class Session:
                     conversation.add_user_message(message.data)
 
                 parsed_llm_response = await conversation.get_model_response()
-                file_edits = [
-                    file_edit
-                    for file_edit in parsed_llm_response.file_edits
-                    if file_edit.is_valid()
-                ]
+                file_edits = [file_edit for file_edit in parsed_llm_response.file_edits if file_edit.is_valid()]
                 for file_edit in file_edits:
                     file_edit.resolve_conflicts()
                 if file_edits:
@@ -221,18 +206,10 @@ class Session:
                     self.send_file_edits(file_edits)
                     if self.apply_edits:
                         if not agent_handler.agent_enabled:
-                            file_edits, need_user_request = (
-                                await get_user_feedback_on_edits(file_edits)
-                            )
-                        applied_edits = await code_file_manager.write_changes_to_files(
-                            file_edits
-                        )
+                            file_edits, need_user_request = await get_user_feedback_on_edits(file_edits)
+                        applied_edits = await code_file_manager.write_changes_to_files(file_edits)
                         stream.send(
-                            (
-                                "Changes applied."
-                                if applied_edits
-                                else "No changes applied."
-                            ),
+                            ("Changes applied." if applied_edits else "No changes applied."),
                             style="input",
                         )
                     else:
@@ -308,9 +285,7 @@ class Session:
         async def run_main():
             ctx = SESSION_CONTEXT.get()
             try:
-                with sentry_sdk.start_transaction(
-                    op="mentat_started", name="Mentat Started"
-                ) as transaction:
+                with sentry_sdk.start_transaction(op="mentat_started", name="Mentat Started") as transaction:
                     transaction.set_tag("config", attr.asdict(ctx.config))
                     await self._main()
             except (SessionExit, CancelledError):

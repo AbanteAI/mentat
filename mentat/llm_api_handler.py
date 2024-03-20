@@ -77,31 +77,21 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
     if iscoroutinefunction(func):
 
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-            assert (
-                not is_test_environment()
-            ), "OpenAI call attempted in non-benchmark test environment!"
+            assert not is_test_environment(), "OpenAI call attempted in non-benchmark test environment!"
             try:
                 return await func(*args, **kwargs)
             except APIConnectionError:
-                raise MentatError(
-                    "API connection error: please check your internet connection and"
-                    " try again."
-                )
+                raise MentatError("API connection error: please check your internet connection and" " try again.")
 
         return async_wrapper
     else:
 
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            assert (
-                not is_test_environment()
-            ), "OpenAI call attempted in non-benchmark test environment!"
+            assert not is_test_environment(), "OpenAI call attempted in non-benchmark test environment!"
             try:
                 return func(*args, **kwargs)
             except APIConnectionError:
-                raise MentatError(
-                    "API connection error: please check your internet connection and"
-                    " try again."
-                )
+                raise MentatError("API connection error: please check your internet connection and" " try again.")
 
         return sync_wrapper
 
@@ -132,9 +122,7 @@ def count_tokens(message: str, model: str, full_message: bool) -> int:
     if this message is part of a prompt. You do NOT want full_message to be true for a response.
     """
     encoding = get_encoding_for_model(model)
-    return len(encoding.encode(message, disallowed_special=())) + (
-        4 if full_message else 0
-    )
+    return len(encoding.encode(message, disallowed_special=())) + (4 if full_message else 0)
 
 
 def normalize_messages_for_anthropic(
@@ -152,9 +140,7 @@ def normalize_messages_for_anthropic(
                 replace_non_leading_systems.append(message)
             else:
                 content = "SYSTEM: " + (message["content"] or "")
-                replace_non_leading_systems.append(
-                    ChatCompletionUserMessageParam(role="user", content=content)
-                )
+                replace_non_leading_systems.append(ChatCompletionUserMessageParam(role="user", content=content))
         else:
             replace_non_leading_systems.append(message)
 
@@ -167,40 +153,24 @@ def normalize_messages_for_anthropic(
             current_content += delimiter + str(message["content"])
         else:
             if current_role == "user":
-                concatenate_adjacent.append(
-                    ChatCompletionUserMessageParam(
-                        role=current_role, content=current_content
-                    )
-                )
+                concatenate_adjacent.append(ChatCompletionUserMessageParam(role=current_role, content=current_content))
             elif current_role == "system":
                 concatenate_adjacent.append(
-                    ChatCompletionSystemMessageParam(
-                        role=current_role, content=current_content
-                    )
+                    ChatCompletionSystemMessageParam(role=current_role, content=current_content)
                 )
             elif current_role == "assistant":
                 concatenate_adjacent.append(
-                    ChatCompletionAssistantMessageParam(
-                        role=current_role, content=current_content
-                    )
+                    ChatCompletionAssistantMessageParam(role=current_role, content=current_content)
                 )
             current_role = message["role"]
             current_content = str(message["content"])
 
     if current_role == "user":
-        concatenate_adjacent.append(
-            ChatCompletionUserMessageParam(role=current_role, content=current_content)
-        )
+        concatenate_adjacent.append(ChatCompletionUserMessageParam(role=current_role, content=current_content))
     elif current_role == "system":
-        concatenate_adjacent.append(
-            ChatCompletionSystemMessageParam(role=current_role, content=current_content)
-        )
+        concatenate_adjacent.append(ChatCompletionSystemMessageParam(role=current_role, content=current_content))
     elif current_role == "assistant":
-        concatenate_adjacent.append(
-            ChatCompletionAssistantMessageParam(
-                role=current_role, content=current_content
-            )
-        )
+        concatenate_adjacent.append(ChatCompletionAssistantMessageParam(role=current_role, content=current_content))
 
     return concatenate_adjacent
 
@@ -233,9 +203,7 @@ def prompt_tokens(messages: list[ChatCompletionMessageParam], model: str):
                         size = (int(size[0] * scale), int(size[1] * scale))
                         scale = min(1, 768 / min(size))
                         size = (int(size[0] * scale), int(size[1] * scale))
-                        num_tokens += 85 + 170 * ((size[0] + 511) // 512) * (
-                            (size[1] + 511) // 512
-                        )
+                        num_tokens += 85 + 170 * ((size[0] + 511) // 512) * ((size[1] + 511) // 512)
             elif isinstance(value, str):
                 num_tokens += len(encoding.encode(value))
             if key == "name":  # if there's a name, the role is omitted
@@ -260,18 +228,14 @@ class ModelsIndex(Dict[str, Model]):
     def _validate_key(self, key: str) -> str:
         """Try to match fine-tuned models to their base models."""
         if not super().__contains__(key) and key.startswith("ft:"):
-            base_model = key.split(":")[
-                1
-            ]  # e.g. "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F"
+            base_model = key.split(":")[1]  # e.g. "ft:gpt-3.5-turbo-1106:abante::8dsQMc4F"
             if super().__contains__(base_model):
                 ctx = SESSION_CONTEXT.get()
                 ctx.stream.send(
                     f"Using base model {base_model} for size and cost estimates.",
                     style="info",
                 )
-                super().__setitem__(
-                    key, attr.evolve(super().__getitem__(base_model), name=key)
-                )
+                super().__setitem__(key, attr.evolve(super().__getitem__(base_model), name=key))
                 return key
         return key
 
@@ -299,9 +263,7 @@ known_models = ModelsIndex(
         "gpt-3.5-turbo-0613": Model("gpt-3.5-turbo-0613", 4096, 0.0015, 0.002),
         "gpt-3.5-turbo-16k-0613": Model("gpt-3.5-turbo-16k-0613", 16385, 0.003, 0.004),
         "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
-        "text-embedding-ada-002": Model(
-            "text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True
-        ),
+        "text-embedding-ada-002": Model("text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True),
     }
 )
 
@@ -412,7 +374,8 @@ class LlmApiHandler:
         model: str,
         stream: Literal[True],
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> AsyncIterator[ChatCompletionChunk]: ...
+    ) -> AsyncIterator[ChatCompletionChunk]:
+        ...
 
     @overload
     async def call_llm_api(
@@ -421,7 +384,8 @@ class LlmApiHandler:
         model: str,
         stream: Literal[False],
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> ChatCompletion: ...
+    ) -> ChatCompletion:
+        ...
 
     @api_guard
     async def call_llm_api(
@@ -485,9 +449,7 @@ class LlmApiHandler:
                 model,
                 full_message=False,
             )
-            cost_tracker.log_api_call_stats(
-                tokens, response_tokens, model, time_elapsed
-            )
+            cost_tracker.log_api_call_stats(tokens, response_tokens, model, time_elapsed)
         else:
             cost_tracker.last_api_call = ""
             response = cost_tracker.response_logger_wrapper(
@@ -497,12 +459,8 @@ class LlmApiHandler:
         return response
 
     @api_guard
-    def call_embedding_api(
-        self, input_texts: list[str], model: str = "text-embedding-ada-002"
-    ) -> Embeddings:
-        embeddings = self.sync_client.embeddings.create(
-            input=input_texts, model=model
-        ).data
+    def call_embedding_api(self, input_texts: list[str], model: str = "text-embedding-ada-002") -> Embeddings:
+        embeddings = self.sync_client.embeddings.create(input=input_texts, model=model).data
         sorted_embeddings = sorted(embeddings, key=lambda e: e.index)
         return [result.embedding for result in sorted_embeddings]
 

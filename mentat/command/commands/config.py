@@ -20,20 +20,15 @@ class ConfigCommand(Command, command_name="config"):
             if hasattr(config, setting):
                 if len(args) == 1:
                     value = getattr(config, setting)
-                    description = attr.fields_dict(type(config))[setting].metadata.get(
-                        "description"
-                    )
+                    description = attr.fields_dict(type(config))[setting].metadata.get("description")
                     stream.send(f"{setting}: {value}")
                     if description:
                         stream.send(f"Description: {description}")
                 elif len(args) == 2:
                     value = args[1]
-                    if attr.fields_dict(type(config))[setting].metadata.get(
-                        "no_midsession_change"
-                    ):
+                    if attr.fields_dict(type(config))[setting].metadata.get("no_midsession_change"):
                         stream.send(
-                            f"Cannot change {setting} mid-session. Please restart"
-                            " Mentat to change this setting.",
+                            f"Cannot change {setting} mid-session. Please restart" " Mentat to change this setting.",
                             style="warning",
                         )
                         return
@@ -41,9 +36,7 @@ class ConfigCommand(Command, command_name="config"):
                         setattr(config, setting, value)
                         stream.send(f"{setting} set to {value}", style="success")
                     except (TypeError, ValueError):
-                        stream.send(
-                            f"Illegal value for {setting}: {value}", style="error"
-                        )
+                        stream.send(f"Illegal value for {setting}: {value}", style="error")
                 else:
                     stream.send("Too many arguments", style="warning")
             else:
@@ -59,9 +52,7 @@ class ConfigCommand(Command, command_name="config"):
 
     @override
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         # Dodge circular imports
         from mentat.config import Config
 

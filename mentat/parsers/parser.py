@@ -48,9 +48,7 @@ class Parser(ABC):
     def response_format(self) -> ResponseFormat:
         return ResponseFormat(type="text")
 
-    async def stream_and_parse_llm_response(
-        self, response: AsyncIterator[ChatCompletionChunk]
-    ) -> ParsedLLMResponse:
+    async def stream_and_parse_llm_response(self, response: AsyncIterator[ChatCompletionChunk]) -> ParsedLLMResponse:
         """
         This general parsing structure relies on the assumption that all formats require three types of lines:
         1. 'conversation' lines, which are streamed as they come,
@@ -88,9 +86,7 @@ class Parser(ABC):
                 printer.shutdown_printer()
                 if printer_task is not None:
                     await printer_task
-                stream.send(
-                    "\n\nInterrupted by user. Using the response up to this point."
-                )
+                stream.send("\n\nInterrupted by user. Using the response up to this point.")
                 break
 
             for content in chunk_to_lines(chunk):
@@ -109,9 +105,7 @@ class Parser(ABC):
                                 conversation += cur_line
                             else:
                                 printer.add_string(
-                                    self._code_line_beginning(
-                                        display_information, cur_block
-                                    ),
+                                    self._code_line_beginning(display_information, cur_block),
                                     end="",
                                 )
                                 printer.add_string(
@@ -129,9 +123,7 @@ class Parser(ABC):
                             conversation += content
                         else:
                             printer.add_string(
-                                self._code_line_content(
-                                    display_information, content, cur_line, cur_block
-                                ),
+                                self._code_line_content(display_information, content, cur_line, cur_block),
                                 end="",
                             )
 
@@ -144,24 +136,16 @@ class Parser(ABC):
                 if "\n" in cur_line:
                     # Now that full line is in, give _could_be_special full line (including newline)
                     # and see if it should be printed or not
-                    if (
-                        not in_special_lines
-                        and not line_printed
-                        and not self._could_be_special(cur_line)
-                    ):
+                    if not in_special_lines and not line_printed and not self._could_be_special(cur_line):
                         if not in_code_lines or display_information is None:
                             printer.add_string(cur_line, end="")
                         else:
                             printer.add_string(
-                                self._code_line_beginning(
-                                    display_information, cur_block
-                                ),
+                                self._code_line_beginning(display_information, cur_block),
                                 end="",
                             )
                             printer.add_string(
-                                self._code_line_content(
-                                    display_information, cur_line, cur_line, cur_block
-                                ),
+                                self._code_line_content(display_information, cur_line, cur_line, cur_block),
                                 end="",
                             )
                         line_printed = True
@@ -173,9 +157,7 @@ class Parser(ABC):
                         cur_block += cur_line
 
                     if in_special_lines and self._ends_special(cur_line.strip()):
-                        previous_file = (
-                            None if file_edit is None else file_edit.file_path
-                        )
+                        previous_file = None if file_edit is None else file_edit.file_path
 
                         try:
                             (
@@ -208,9 +190,7 @@ class Parser(ABC):
                             printer.add_delimiter()
 
                         printer.cur_file = str(file_edit.file_path)
-                        printer.cur_file_display = get_file_name_display(
-                            display_information
-                        )
+                        printer.cur_file_display = get_file_name_display(display_information)
                         in_special_lines = False
                         prev_block = cur_block
                         cur_block = ""
@@ -219,25 +199,17 @@ class Parser(ABC):
                         if file_edit.rename_file_path is not None:
                             rename_map[file_edit.rename_file_path] = file_edit.file_path
                         if file_edit.file_path in rename_map:
-                            file_edit.file_path = (
-                                session_context.cwd / rename_map[file_edit.file_path]
-                            )
+                            file_edit.file_path = session_context.cwd / rename_map[file_edit.file_path]
 
                         # New file_edit creation and merging
                         if file_edit.file_path not in file_edits:
                             file_edits[file_edit.file_path] = file_edit
                         else:
                             cur_file_edit = file_edits[file_edit.file_path]
-                            cur_file_edit.is_creation = (
-                                cur_file_edit.is_creation or file_edit.is_creation
-                            )
-                            cur_file_edit.is_deletion = (
-                                cur_file_edit.is_deletion or file_edit.is_deletion
-                            )
+                            cur_file_edit.is_creation = cur_file_edit.is_creation or file_edit.is_creation
+                            cur_file_edit.is_deletion = cur_file_edit.is_deletion or file_edit.is_deletion
                             if file_edit.rename_file_path is not None:
-                                cur_file_edit.rename_file_path = (
-                                    file_edit.rename_file_path
-                                )
+                                cur_file_edit.rename_file_path = file_edit.rename_file_path
                             cur_file_edit.replacements.extend(file_edit.replacements)
                             file_edit = cur_file_edit
 
@@ -245,8 +217,7 @@ class Parser(ABC):
                         # in which case this is all that will be sent from this fileedit)
                         if (
                             in_conversation
-                            or display_information.file_action_type
-                            == FileActionType.RenameFile
+                            or display_information.file_action_type == FileActionType.RenameFile
                             or (file_edit.file_path != previous_file)
                         ):
                             in_conversation = False
@@ -278,11 +249,7 @@ class Parser(ABC):
                     cur_line = ""
         else:
             # If the model doesn't close out the code lines, we might as well do it for it
-            if (
-                in_code_lines
-                and display_information is not None
-                and file_edit is not None
-            ):
+            if in_code_lines and display_information is not None and file_edit is not None:
                 self._add_code_block(
                     code_file_manager,
                     rename_map,
@@ -327,9 +294,7 @@ class Parser(ABC):
     def line_number_starting_index(self) -> int:
         return 1
 
-    def _code_line_beginning(
-        self, display_information: DisplayInformation, cur_block: str
-    ) -> FormattedString:
+    def _code_line_beginning(self, display_information: DisplayInformation, cur_block: str) -> FormattedString:
         """
         The beginning of a code line; normally this means printing the + prefix
         """

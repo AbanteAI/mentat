@@ -94,12 +94,7 @@ def _remove_extra_empty_lines(lines: list[str]) -> list[str]:
 
 
 def _prefixed_lines(line_number_buffer: int, lines: list[str], prefix: str) -> str:
-    return "\n".join(
-        [
-            prefix + " " * (line_number_buffer - len(prefix)) + line.strip("\n")
-            for line in lines
-        ]
-    )
+    return "\n".join([prefix + " " * (line_number_buffer - len(prefix)) + line.strip("\n") for line in lines])
 
 
 def _get_code_block(
@@ -120,20 +115,12 @@ def display_full_change(display_information: DisplayInformation, prefix: str = "
 
     full_change: List[FormattedString] = [
         get_file_name(display_information),
-        (
-            ("", {"delimiter": True})
-            if display_information.added_block or display_information.removed_block
-            else ""
-        ),
+        (("", {"delimiter": True}) if display_information.added_block or display_information.removed_block else ""),
         get_previous_lines(display_information),
         get_removed_lines(display_information),
         get_added_lines(display_information),
         get_later_lines(display_information),
-        (
-            ("", {"delimiter": True})
-            if display_information.added_block or display_information.removed_block
-            else ""
-        ),
+        (("", {"delimiter": True}) if display_information.added_block or display_information.removed_block else ""),
     ]
     # TODO: This is called by undo and redo; make sure this stuff looks good before merging!!!
     for line in full_change:
@@ -173,10 +160,7 @@ def get_file_name(
             )
         case FileActionType.RenameFile:
             return (
-                (
-                    f"\nRename: {display_information.file_name} ->"
-                    f" {display_information.new_name}"
-                ),
+                (f"\nRename: {display_information.file_name} ->" f" {display_information.new_name}"),
                 {"color": "yellow"},
             )
         case FileActionType.UpdateFile:
@@ -194,10 +178,7 @@ def get_file_name_display(display_information: DisplayInformation):
             )
         case FileActionType.RenameFile:
             return (
-                (
-                    f"Rename: {display_information.file_name} ->"
-                    f" {display_information.new_name}"
-                ),
+                (f"Rename: {display_information.file_name} ->" f" {display_information.new_name}"),
                 "rename",
             )
         case FileActionType.UpdateFile:
@@ -303,10 +284,7 @@ def get_later_lines(
         ]
     )
     numbered = [
-        (str(display_information.last_changed_line + 1 + i) + ":").ljust(
-            display_information.line_number_buffer
-        )
-        + line
+        (str(display_information.last_changed_line + 1 + i) + ":").ljust(display_information.line_number_buffer) + line
         for i, line in enumerate(lines)
     ]
 

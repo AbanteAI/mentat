@@ -5,20 +5,25 @@ name: lint and test
 
 on: [push, pull_request]
 
+
 jobs:
-  ruff-black-isort:
+  ruff:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: chartboost/ruff-action@v1
-      - name: Install dependencies
+      - name: install reqs
         run: |
-          python -m pip install .
-          pip install -r dev-requirements.txt
-      - name: black check
-        run: black --check --preview .
-      - name: isort check
-        run: isort --profile black --check .
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv venv
+          uv pip install -r dev-requirements.txt
+      - name: activate venv
+        run: |
+          . .venv/bin/activate
+          echo PATH=$PATH >> $GITHUB_ENV
+      - name: ruff (linter)
+        run: ruff check .
+      - name: ruff (formatter)
+        run: ruff format --check .
 
   build:
     runs-on: ${{ matrix.os }}
@@ -26,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-14]
         python-version: ["3.10", "3.11"]
 
     steps:

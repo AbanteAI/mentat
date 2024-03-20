@@ -112,12 +112,8 @@ class PythonClient:
         )
         self.session.start()
         self.acc_task = asyncio.create_task(self._accumulate_messages())
-        self.client_exit_task: Task[None] = asyncio.create_task(
-            self._listen_for_client_exit()
-        )
-        self.session_stopped_task: Task[None] = asyncio.create_task(
-            self._listen_for_session_stopped()
-        )
+        self.client_exit_task: Task[None] = asyncio.create_task(self._listen_for_client_exit())
+        self.session_stopped_task: Task[None] = asyncio.create_task(self._listen_for_session_stopped())
 
     async def shutdown(self):
         """Initiates shutdown of the client, ensuring all tasks are cancelled and the session is properly closed.

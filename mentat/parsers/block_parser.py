@@ -75,10 +75,9 @@ class BlockParser(Parser):
 
     @override
     def _could_be_special(self, cur_line: str) -> bool:
-        return any(
-            to_match.value.startswith(cur_line.strip())
-            for to_match in _BlockParserIndicator
-        ) and (bool(cur_line.strip()) or not cur_line.endswith("\n"))
+        return any(to_match.value.startswith(cur_line.strip()) for to_match in _BlockParserIndicator) and (
+            bool(cur_line.strip()) or not cur_line.endswith("\n")
+        )
 
     @override
     def _starts_special(self, line: str) -> bool:
@@ -86,10 +85,7 @@ class BlockParser(Parser):
 
     @override
     def _ends_special(self, line: str) -> bool:
-        return (
-            line == _BlockParserIndicator.Code.value
-            or line == _BlockParserIndicator.End.value
-        )
+        return line == _BlockParserIndicator.Code.value or line == _BlockParserIndicator.End.value
 
     @override
     def _special_block(
@@ -116,10 +112,7 @@ class BlockParser(Parser):
             case _BlockParserAction.Insert:
                 if deserialized_json.before_line is not None:
                     starting_line = deserialized_json.before_line - 1
-                    if (
-                        deserialized_json.after_line is not None
-                        and starting_line != deserialized_json.after_line
-                    ):
+                    if deserialized_json.after_line is not None and starting_line != deserialized_json.after_line:
                         raise ModelError("Error: Model output malformed edit.")
                 elif deserialized_json.after_line is not None:
                     starting_line = deserialized_json.after_line
@@ -129,10 +122,7 @@ class BlockParser(Parser):
                 file_action = FileActionType.UpdateFile
 
             case _BlockParserAction.Replace | _BlockParserAction.Delete:
-                if (
-                    deserialized_json.start_line is None
-                    or deserialized_json.end_line is None
-                ):
+                if deserialized_json.start_line is None or deserialized_json.end_line is None:
                     raise ModelError("Error: Model output malformed edit.")
                 starting_line = deserialized_json.start_line - 1
                 ending_line = deserialized_json.end_line
@@ -150,9 +140,7 @@ class BlockParser(Parser):
             raise ModelError("Error: Model output malformed edit.")
 
         full_path = (cwd / deserialized_json.file).resolve()
-        rename_file_path = (
-            (cwd / deserialized_json.name).resolve() if deserialized_json.name else None
-        )
+        rename_file_path = (cwd / deserialized_json.name).resolve() if deserialized_json.name else None
 
         file_lines = self._get_file_lines(code_file_manager, rename_map, full_path)
         display_information = DisplayInformation(
@@ -210,65 +198,44 @@ class BlockParser(Parser):
         ans = parsedLLMResponse.conversation.strip() + "\n\n"
         for file_edit in parsedLLMResponse.file_edits:
             tmp = {}
-            tmp[_BlockParserJsonKeys.File.value] = file_edit.file_path.relative_to(
-                session_context.cwd
-            ).as_posix()
+            tmp[_BlockParserJsonKeys.File.value] = file_edit.file_path.relative_to(session_context.cwd).as_posix()
             if file_edit.is_creation:
-                tmp[_BlockParserJsonKeys.Action.value] = (
-                    _BlockParserAction.CreateFile.value
-                )
+                tmp[_BlockParserJsonKeys.Action.value] = _BlockParserAction.CreateFile.value
             elif file_edit.is_deletion:
-                tmp[_BlockParserJsonKeys.Action.value] = (
-                    _BlockParserAction.DeleteFile.value
-                )
+                tmp[_BlockParserJsonKeys.Action.value] = _BlockParserAction.DeleteFile.value
             elif file_edit.rename_file_path is not None:
-                tmp[_BlockParserJsonKeys.Action.value] = (
-                    _BlockParserAction.RenameFile.value
-                )
-                tmp[_BlockParserJsonKeys.Name.value] = (
-                    file_edit.rename_file_path.relative_to(
-                        session_context.cwd
-                    ).as_posix()
-                )
+                tmp[_BlockParserJsonKeys.Action.value] = _BlockParserAction.RenameFile.value
+                tmp[_BlockParserJsonKeys.Name.value] = file_edit.rename_file_path.relative_to(
+                    session_context.cwd
+                ).as_posix()
             if _BlockParserJsonKeys.Action.value in tmp:
                 ans += _BlockParserIndicator.Start.value + "\n"
                 ans += json.dumps(tmp, indent=4) + "\n"
-                if (
-                    tmp[_BlockParserJsonKeys.Action.value]
-                    == _BlockParserAction.CreateFile.value
-                ):
+                if tmp[_BlockParserJsonKeys.Action.value] == _BlockParserAction.CreateFile.value:
                     ans += _BlockParserIndicator.Code.value + "\n"
                     ans += "\n".join(file_edit.replacements[0].new_lines) + "\n"
                 ans += _BlockParserIndicator.End.value + "\n"
             if not file_edit.is_creation:
                 for replacement in file_edit.replacements:
                     tmp = {}
-                    tmp[_BlockParserJsonKeys.File.value] = (
-                        file_edit.file_path.relative_to(session_context.cwd).as_posix()
-                    )
+                    tmp[_BlockParserJsonKeys.File.value] = file_edit.file_path.relative_to(
+                        session_context.cwd
+                    ).as_posix()
                     ans += _BlockParserIndicator.Start.value + "\n"
                     starting_line = replacement.starting_line
                     ending_line = replacement.ending_line
                     if len(replacement.new_lines) == 0:
-                        tmp[_BlockParserJsonKeys.Action.value] = (
-                            _BlockParserAction.Delete.value
-                        )
+                        tmp[_BlockParserJsonKeys.Action.value] = _BlockParserAction.Delete.value
                         tmp[_BlockParserJsonKeys.StartLine.value] = starting_line + 1
                         tmp[_BlockParserJsonKeys.EndLine.value] = ending_line
                     else:
                         if starting_line == ending_line:
-                            tmp[_BlockParserJsonKeys.Action.value] = (
-                                _BlockParserAction.Insert.value
-                            )
+                            tmp[_BlockParserJsonKeys.Action.value] = _BlockParserAction.Insert.value
                             tmp[_BlockParserJsonKeys.AfterLine.value] = starting_line
                             tmp[_BlockParserJsonKeys.BeforeLine.value] = ending_line + 1
                         else:
-                            tmp[_BlockParserJsonKeys.Action.value] = (
-                                _BlockParserAction.Replace.value
-                            )
-                            tmp[_BlockParserJsonKeys.StartLine.value] = (
-                                starting_line + 1
-                            )
+                            tmp[_BlockParserJsonKeys.Action.value] = _BlockParserAction.Replace.value
+                            tmp[_BlockParserJsonKeys.StartLine.value] = starting_line + 1
                             tmp[_BlockParserJsonKeys.EndLine.value] = ending_line
                     ans += json.dumps(tmp, indent=4) + "\n"
                     if len(replacement.new_lines) > 0:

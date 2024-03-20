@@ -46,24 +46,16 @@ class BenchmarkRunSummary:
 
                 # Add units based on aggregation type
                 if aggregation_type == "sum" and "cost" in formatted_name:
-                    formatted[formatted_name] = (
-                        f"${formatted_value} {percent_set_display}"
-                    )
+                    formatted[formatted_name] = f"${formatted_value} {percent_set_display}"
                 elif aggregation_type == "percent":
-                    formatted[formatted_name] = (
-                        f"{formatted_value}% {percent_set_display}"
-                    )
+                    formatted[formatted_name] = f"{formatted_value}% {percent_set_display}"
                 else:
-                    formatted[formatted_name] = (
-                        f"{formatted_value} {percent_set_display}"
-                    )
+                    formatted[formatted_name] = f"{formatted_value} {percent_set_display}"
 
         return formatted
 
     def display_string(self) -> str:
-        return ", ".join(
-            f"{name}: {value}" for name, value in self.formatted_summary().items()
-        )
+        return ", ".join(f"{name}: {value}" for name, value in self.formatted_summary().items())
 
     def to_json(self) -> str:
         return json.dumps(
