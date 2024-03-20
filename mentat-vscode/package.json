@@ -49,7 +49,56 @@
         },
         "configuration": {
             "title": "Mentat",
-            "properties": {}
+            "properties": {
+                "mentat.model": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "The LLM model for Mentat to use."
+                },
+                "mentat.embedding-model": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "The LLM model for Mentat to use with embeddings."
+                },
+                "mentat.temperature": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "The temperature for the model Mentat uses."
+                },
+                "mentat.maximum-context": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "The maximum number of lines of context to include in the prompt. It is inferred automatically for openai models but you can still set it to save costs. If not set for non-openai models, it defaults to 4096."
+                },
+                "mentat.token-buffer": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "The amount of tokens to always be reserved as a buffer for user and model messages."
+                },
+                "mentat.auto-context-tokens": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "Automatically selects code files for every request to include in context. Adds this many tokens to context each request."
+                }
+            }
         },
         "commands": [
             {

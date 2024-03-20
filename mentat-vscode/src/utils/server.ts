@@ -10,7 +10,6 @@ import * as util from "util";
 import { v4 } from "uuid";
 import * as vscode from "vscode";
 const aexec = util.promisify(exec);
-
 class Server {
     private binFolder: string | undefined = undefined;
     private serverProcess: ChildProcessWithoutNullStreams | undefined;
@@ -93,12 +92,35 @@ class Server {
         return binFolder;
     }
 
+    private collectConfigOptions(): string[] {
+        const configuration = vscode.workspace.getConfiguration("mentat");
+        const optionNames = [
+            "model",
+            "embedding-model",
+            "temperature",
+            "maximum-context",
+            "token-buffer",
+            "auto-context-tokens",
+        ];
+        const configOptions: string[] = [];
+        for (const optionName of optionNames) {
+            const configValue = configuration.get(optionName);
+            if (configValue !== undefined && configValue !== null) {
+                configOptions.push(`--${optionName}=${configValue.toString()}`);
+            }
+        }
+
+        return configOptions;
+    }
+
     private async startMentat(workspaceRoot: string, binFolder: string) {
         const mentatExecutable: string = path.join(binFolder, "mentat-server");
 
-        // TODO: Pass config options to mentat here
         // TODO: I don't think this will work on Windows (check to make sure)
-        const serverProcess = spawn(mentatExecutable, [workspaceRoot]);
+        const serverProcess = spawn(mentatExecutable, [
+            workspaceRoot,
+            ...this.collectConfigOptions(),
+        ]);
         serverProcess.stdout.setEncoding("utf-8");
         serverProcess.stdout.on("data", (data: any) => {
             // console.log(`Server Output: ${data}`);

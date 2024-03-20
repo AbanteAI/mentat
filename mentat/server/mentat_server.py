@@ -5,6 +5,7 @@ from asyncio import CancelledError, Event
 from pathlib import Path
 from typing import Any
 
+from mentat.config import Config
 from mentat.session import Session
 from mentat.session_stream import StreamMessage, StreamMessageSource
 
@@ -14,10 +15,10 @@ async def ainput(*args: Any, **kwargs: Any):
 
 
 class MentatServer:
-    def __init__(self, cwd: Path) -> None:
+    def __init__(self, cwd: Path, config: Config) -> None:
         self.cwd = cwd
         self.stopped = Event()
-        self.session = Session(self.cwd, apply_edits=False)
+        self.session = Session(self.cwd, config=config, apply_edits=False)
 
     async def _client_listener(self):
         while not self.stopped.is_set():
@@ -56,7 +57,8 @@ class MentatServer:
 async def run(args: argparse.Namespace):
     try:
         cwd = Path(args.cwd).expanduser().resolve()
-        mentat_server = MentatServer(cwd)
+        config = Config.create(cwd, args)
+        mentat_server = MentatServer(cwd, config)
         await mentat_server.run()
     except Exception as e:
         logging.error(f"Exception: {e}")
@@ -67,5 +69,7 @@ def main():
         description="Run conversation with command line args",
     )
     parser.add_argument("cwd", help="The working directory for the server to run in")
+    Config.add_fields_to_argparse(parser)
+
     args = parser.parse_args()
     asyncio.run(run(args))
