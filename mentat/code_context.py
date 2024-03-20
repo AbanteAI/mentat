@@ -34,7 +34,6 @@ class ContextStreamMessage(TypedDict):
     diff_context_display: Optional[str]
     auto_context_tokens: int
     features: List[str]
-    auto_features: List[str]
     git_diff_paths: List[str]
     git_untracked_paths: List[str]
     total_tokens: int
@@ -58,7 +57,6 @@ class CodeContext:
 
         self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
-        self.auto_features: List[CodeFeature] = []
 
     async def refresh_context_display(self):
         """
@@ -75,7 +73,6 @@ class CodeContext:
                 for feature in file_features
             ]
         )
-        auto_features = get_consolidated_feature_refs(self.auto_features)
         git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
         git_untracked_paths = [str(p) for p in self.diff_context.untracked_files()]
 
@@ -88,7 +85,6 @@ class CodeContext:
             diff_context_display=diff_context_display,
             auto_context_tokens=ctx.config.auto_context_tokens,
             features=features,
-            auto_features=auto_features,
             git_diff_paths=git_diff_paths,
             git_untracked_paths=git_untracked_paths,
             total_tokens=total_tokens,
@@ -129,19 +125,20 @@ class CodeContext:
 
         code_message += ["Code Files:\n"]
 
-        # Calculate user included features token size
-        include_features = [
-            feature
-            for file_features in self.include_files.values()
-            for feature in file_features
-        ]
-
         # Get auto included features
         if config.auto_context_tokens > 0 and prompt:
             meta_tokens = count_tokens(
                 "\n".join(code_message), model, full_message=True
             )
-            include_files_message = get_code_message_from_features(include_features)
+
+            # Calculate user included features token size
+            include_files_message = get_code_message_from_features(
+                [
+                    feature
+                    for file_features in self.include_files.values()
+                    for feature in file_features
+                ]
+            )
             include_files_tokens = count_tokens(
                 "\n".join(include_files_message), model, full_message=False
             )
@@ -157,15 +154,15 @@ class CodeContext:
                 prompt,
                 expected_edits,
             )
-            self.auto_features = list(
-                set(self.auto_features) | set(await feature_filter.filter(features))
-            )
+            self.include_features(await feature_filter.filter(features))
             await self.refresh_context_display()
 
-        # Merge include file features and auto features and add to code message
-        code_message += get_code_message_from_features(
-            include_features + self.auto_features
-        )
+        include_features = [
+            feature
+            for file_features in self.include_files.values()
+            for feature in file_features
+        ]
+        code_message += get_code_message_from_features(include_features)
 
         return "\n".join(code_message)
 
@@ -204,12 +201,6 @@ class CodeContext:
                 all_features += _split_features
 
         return sorted(all_features, key=lambda f: f.path)
-
-    def clear_auto_context(self):
-        """
-        Clears all auto-features added to the conversation so far.
-        """
-        self._auto_features = []
 
     def include_features(self, code_features: Iterable[CodeFeature]):
         """

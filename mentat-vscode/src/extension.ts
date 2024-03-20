@@ -17,9 +17,8 @@ function contextUpdate(
     data: ContextUpdateData,
     contextFileDecorationProvider: ContextFileDecorationProvider
 ) {
-    const features = [...data.features, ...data.auto_features];
     const folders: string[] = [];
-    for (const feature of features) {
+    for (const feature of data.features) {
         var dir = feature;
         while (dir !== path.dirname(dir)) {
             dir = path.dirname(dir);
@@ -31,7 +30,7 @@ function contextUpdate(
     vscode.commands.executeCommand(
         "setContext",
         "mentat.includedFiles",
-        features
+        data.features
     );
     vscode.commands.executeCommand(
         "setContext",
@@ -40,7 +39,7 @@ function contextUpdate(
     );
 
     // Update file decorations
-    contextFileDecorationProvider.refresh([...features, ...folders]);
+    contextFileDecorationProvider.refresh([...data.features, ...folders]);
 }
 
 async function activateClient(context: vscode.ExtensionContext) {
@@ -78,7 +77,7 @@ async function activateClient(context: vscode.ExtensionContext) {
         },
 
         In contextUpdate:
-        contextTreeProvider.updateContext(data.features, data.auto_features);
+        contextTreeProvider.updateContext(data.features);
 
         Here:
         const contextTreeProvider = new ContextTreeProvider(workspaceRoot);

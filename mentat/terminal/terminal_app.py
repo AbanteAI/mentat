@@ -192,7 +192,6 @@ class ContextContainer(Static):
         diff_context_display: Optional[str],
         auto_context_tokens: int,
         features: List[str],
-        auto_features: List[str],
         git_diff_paths: Set[Path],
         git_untracked_paths: Set[Path],
         total_tokens: int,
@@ -200,9 +199,6 @@ class ContextContainer(Static):
     ):
         feature_tree = self._build_tree_widget(
             features, cwd, git_diff_paths, git_untracked_paths
-        )
-        auto_feature_tree = self._build_tree_widget(
-            auto_features, cwd, git_diff_paths, git_untracked_paths
         )
 
         context_header = ""
@@ -227,9 +223,6 @@ class ContextContainer(Static):
         self.mount(Static(context_header))
         if features:
             self.mount(feature_tree)
-        if auto_features:
-            self.mount(Static("Auto-Included Features:"))
-            self.mount(auto_feature_tree)
 
 
 css_resource = fetch_resource(css_path)
@@ -313,7 +306,6 @@ class TerminalApp(App[None]):
         diff_context_display: Optional[str],
         auto_context_tokens: int,
         features: List[str],
-        auto_features: List[str],
         git_diff_paths: Set[Path],
         git_untracked_paths: Set[Path],
         total_tokens: int,
@@ -325,7 +317,6 @@ class TerminalApp(App[None]):
             diff_context_display,
             auto_context_tokens,
             features,
-            auto_features,
             git_diff_paths,
             git_untracked_paths,
             total_tokens,

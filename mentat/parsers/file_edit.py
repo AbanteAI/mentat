@@ -154,9 +154,9 @@ class FileEdit:
                     style="warning",
                 )
                 return False
-            file_features_in_context = [
-                f for f in code_context.auto_features if f.path == self.file_path
-            ] + code_context.include_files.get(self.file_path, [])
+            file_features_in_context = code_context.include_files.get(
+                self.file_path, []
+            )
             if not file_features_in_context or not all(
                 any(f.interval.contains(i) for f in file_features_in_context)
                 for r in self.replacements
