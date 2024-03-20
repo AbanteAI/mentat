@@ -139,7 +139,11 @@ class CodeContext:
             features = self.get_all_features()
             feature_filter = DefaultFilter(auto_tokens, prompt, expected_edits)
             self.include_features(await feature_filter.filter(features))
-            await self.refresh_context_display()
+
+            # TODO: We want to show the auto included features immediately, but refreshing the context display
+            # also refreshes the token count per message, which calls this function again causing an infinite loop.
+            # To fix this, we should completely separate the token count per message from the context display message
+            # await self.refresh_context_display()
 
         include_features = [feature for file_features in self.include_files.values() for feature in file_features]
         code_message += get_code_message_from_features(include_features)
