@@ -322,7 +322,16 @@ def temp_testbed(mocker, monkeypatch, get_marks):
         base_db = base_dir / "testbed" / ".ragdaemon" / "chroma"
         if base_db.exists():
             shutil.rmtree(base_db)
-        shutil.move(temp_db, base_dir / "testbed" / ".ragdaemon")
+        # Attempt to move the directory with retries to handle Windows file lock issues
+        for attempt in range(3):
+            try:
+                shutil.move(temp_db, base_dir / "testbed" / ".ragdaemon")
+                break
+            except PermissionError:
+                if attempt < 2:  # Wait a bit before retrying if not on the last attempt
+                    time.sleep(0.5)
+                else:
+                    raise
 
     shutil.rmtree(temp_dir, onerror=add_permissions)
 
