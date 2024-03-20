@@ -160,6 +160,7 @@ class CodeContext:
             self.auto_features = list(
                 set(self.auto_features) | set(await feature_filter.filter(features))
             )
+            await self.refresh_context_display()
 
         # Merge include file features and auto features and add to code message
         code_message += get_code_message_from_features(
