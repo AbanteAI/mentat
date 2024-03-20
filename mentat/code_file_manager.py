@@ -90,15 +90,10 @@ class CodeFileManager:
 
             if file_edit.is_creation:
                 if file_edit.file_path.exists():
-                    raise MentatError(
-                        f"Model attempted to create file {file_edit.file_path} which"
-                        " already exists"
-                    )
+                    raise MentatError(f"Model attempted to create file {file_edit.file_path} which" " already exists")
                 self.create_file(file_edit.file_path)
             elif not file_edit.file_path.exists():
-                raise MentatError(
-                    f"Attempted to edit non-existent file {file_edit.file_path}"
-                )
+                raise MentatError(f"Attempted to edit non-existent file {file_edit.file_path}")
 
             if file_edit.is_deletion:
                 stream.send(f"Deleting {display_path}...", style="error")
@@ -113,9 +108,7 @@ class CodeFileManager:
                 # We should instead make sure the last modified time doesn't change between code message and now
                 stored_lines = self.file_lines[file_edit.file_path]
                 if stored_lines != self.read_file(file_edit.file_path):
-                    logging.info(
-                        f"File '{file_edit.file_path}' changed while generating changes"
-                    )
+                    logging.info(f"File '{file_edit.file_path}' changed while generating changes")
                     stream.send(
                         f"File '{display_path}' changed while"
                         " generating; current file changes will be erased. Continue?",
@@ -155,8 +148,6 @@ class CodeFileManager:
         text = path.read_text()
         if interval is not None:
             lines = text.splitlines()
-            filtered_lines = [
-                line for i, line in enumerate(lines, start=1) if interval.contains(i)
-            ]
+            filtered_lines = [line for i, line in enumerate(lines, start=1) if interval.contains(i)]
             text = "\n".join(filtered_lines)
         return sha256(text)

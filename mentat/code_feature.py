@@ -29,19 +29,14 @@ def split_file_into_intervals(
     code_file_manager = session_context.code_file_manager
     n_lines = len(code_file_manager.read_file(feature.path))
 
-    lines_and_names = get_ctag_lines_and_names(
-        session_context.cwd.joinpath(feature.path)
-    )
+    lines_and_names = get_ctag_lines_and_names(session_context.cwd.joinpath(feature.path))
 
     if len(lines_and_names) == 0:
         return [feature]
 
     lines, names = map(list, zip(*sorted(lines_and_names)))
     lines[0] = 1  # first interval covers from start of file
-    draft_named_intervals = [
-        (name, start, end)
-        for name, start, end in zip(names, lines, lines[1:] + [n_lines])
-    ]
+    draft_named_intervals = [(name, start, end) for name, start, end in zip(names, lines, lines[1:] + [n_lines])]
 
     def length(interval: tuple[str, int, int]):
         return interval[2] - interval[1]
@@ -54,10 +49,7 @@ def split_file_into_intervals(
         last_interval = named_intervals[-1]
         if length(last_interval) < min_lines:
             named_intervals[-1] = merge_intervals(last_interval, next_interval)
-        elif (
-            length(next_interval) < min_lines
-            and next_interval == draft_named_intervals[-1]
-        ):
+        elif length(next_interval) < min_lines and next_interval == draft_named_intervals[-1]:
             # this is the last interval it's too short, so merge it with previous
             named_intervals[-1] = merge_intervals(last_interval, next_interval)
         else:
@@ -101,8 +93,7 @@ class CodeFeature:
 
     def __repr__(self):
         return (
-            f"CodeFeature(path={self.path},"
-            f" interval={self.interval.start}-{self.interval.end}, name={self.name})"
+            f"CodeFeature(path={self.path}," f" interval={self.interval.start}-{self.interval.end}, name={self.name})"
         )
 
     def rel_path(self, cwd: Optional[Path] = None) -> str:
@@ -145,9 +136,7 @@ class CodeFeature:
         for i, line in enumerate(file_lines):
             if self.interval.contains(i + 1):
                 if parser.provide_line_numbers():
-                    code_message.append(
-                        f"{i + parser.line_number_starting_index()}:{line}"
-                    )
+                    code_message.append(f"{i + parser.line_number_starting_index()}:{line}")
                 else:
                     code_message.append(f"{line}")
 
@@ -162,10 +151,7 @@ class CodeFeature:
             else:
                 for section in diff_annotations:
                     # TODO: Place diff_annotations inside interval where they belong
-                    if (
-                        section.start >= self.interval.start
-                        and section.start < self.interval.end
-                    ):
+                    if section.start >= self.interval.start and section.start < self.interval.end:
                         code_message += section.message
         return code_message
 

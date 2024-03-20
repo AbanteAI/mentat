@@ -59,8 +59,7 @@ class Conversation:
                 (True, True): "s exceed",
             }
             stream.send(
-                f"Included file{message[(_plural, _exceed)]} token limit"
-                f" ({tokens} / {context_size}).",
+                f"Included file{message[(_plural, _exceed)]} token limit" f" ({tokens} / {context_size}).",
                 style="warning",
             )
         else:
@@ -102,9 +101,7 @@ class Conversation:
         parsed_llm_response: ParsedLLMResponse,
     ):
         """Used for actual model output messages"""
-        self.add_transcript_message(
-            ModelMessage(message=message, prior_messages=messages_snapshot)
-        )
+        self.add_transcript_message(ModelMessage(message=message, prior_messages=messages_snapshot))
         self.add_message(
             MentatAssistantMessageParam(
                 parsed_llm_response=parsed_llm_response,
@@ -122,9 +119,7 @@ class Conversation:
         system_prompt: Optional[list[ChatCompletionMessageParam]] = None,
         include_code_message: bool = False,
     ) -> int:
-        _messages = await self.get_messages(
-            system_prompt=system_prompt, include_code_message=include_code_message
-        )
+        _messages = await self.get_messages(system_prompt=system_prompt, include_code_message=include_code_message)
         model = SESSION_CONTEXT.get().config.model
         return prompt_tokens(_messages, model)
 
@@ -142,9 +137,7 @@ class Conversation:
 
         _messages = [
             (  # Remove metadata from messages by default
-                ChatCompletionAssistantMessageParam(
-                    role=msg["role"], content=msg.get("content")
-                )
+                ChatCompletionAssistantMessageParam(role=msg["role"], content=msg.get("content"))
                 if msg["role"] == "assistant" and include_parsed_llm_responses is False
                 else msg
             )
@@ -154,9 +147,7 @@ class Conversation:
         if len(_messages) > 0 and _messages[-1].get("role") == "user":
             prompt = _messages[-1].get("content")
             if isinstance(prompt, list):
-                text_prompts = [
-                    p.get("text", "") for p in prompt if p.get("type") == "text"
-                ]
+                text_prompts = [p.get("text", "") for p in prompt if p.get("type") == "text"]
                 prompt = " ".join(text_prompts)
         else:
             prompt = ""
@@ -236,35 +227,25 @@ class Conversation:
         # TODO: control-c doesn't make sense for VSCode; send information in client agnostic way
         stream.send("Streaming... use control-c to interrupt the model at any point\n")
         async with stream.interrupt_catcher(parser.shutdown):
-            parsed_llm_response = await parser.stream_and_parse_llm_response(
-                add_newline(response)
-            )
+            parsed_llm_response = await parser.stream_and_parse_llm_response(add_newline(response))
         # Sampler and History require previous_file_lines
         for file_edit in parsed_llm_response.file_edits:
-            file_edit.previous_file_lines = code_file_manager.file_lines.get(
-                file_edit.file_path, []
-            )
+            file_edit.previous_file_lines = code_file_manager.file_lines.get(file_edit.file_path, [])
         if not parsed_llm_response.interrupted:
             cost_tracker.display_last_api_call()
         else:
             # Generator doesn't log the api call if we interrupt it
             cost_tracker.log_api_call_stats(
                 num_prompt_tokens,
-                count_tokens(
-                    parsed_llm_response.full_response, config.model, full_message=False
-                ),
+                count_tokens(parsed_llm_response.full_response, config.model, full_message=False),
                 config.model,
                 display=True,
             )
 
         messages.append(
-            ChatCompletionAssistantMessageParam(
-                role="assistant", content=parsed_llm_response.full_response
-            )
+            ChatCompletionAssistantMessageParam(role="assistant", content=parsed_llm_response.full_response)
         )
-        self.add_model_message(
-            parsed_llm_response.full_response, messages, parsed_llm_response
-        )
+        self.add_model_message(parsed_llm_response.full_response, messages, parsed_llm_response)
 
         return parsed_llm_response
 
@@ -291,9 +272,7 @@ class Conversation:
 
     async def remaining_context(self) -> int | None:
         ctx = SESSION_CONTEXT.get()
-        return get_max_tokens() - prompt_tokens(
-            await self.get_messages(), ctx.config.model
-        )
+        return get_max_tokens() - prompt_tokens(await self.get_messages(), ctx.config.model)
 
     async def can_add_to_context(self, message: str) -> bool:
         """
@@ -305,9 +284,7 @@ class Conversation:
         remaining_context = await self.remaining_context()
         return (
             remaining_context is not None
-            and remaining_context
-            - count_tokens(message, ctx.config.model, full_message=True)
-            - ctx.config.token_buffer
+            and remaining_context - count_tokens(message, ctx.config.model, full_message=True) - ctx.config.token_buffer
             > 0
         )
 
@@ -349,17 +326,12 @@ class Conversation:
         message = f"Command ran:\n{' '.join(command)}\nCommand output:\n{output}"
 
         if await self.can_add_to_context(message):
-            self.add_message(
-                ChatCompletionSystemMessageParam(role="system", content=message)
-            )
-            ctx.stream.send(
-                "Successfully added command output to model context.", style="success"
-            )
+            self.add_message(ChatCompletionSystemMessageParam(role="system", content=message))
+            ctx.stream.send("Successfully added command output to model context.", style="success")
             return True
         else:
             ctx.stream.send(
-                "Not enough tokens remaining in model's context to add command output"
-                " to model context.",
+                "Not enough tokens remaining in model's context to add command output" " to model context.",
                 style="error",
             )
             return False

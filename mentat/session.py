@@ -156,8 +156,7 @@ class Session:
                     if agent_handler.agent_enabled:
                         code_file_manager.history.push_edits()
                         stream.send(
-                            "Use /undo to undo all changes from agent mode since last"
-                            " input.",
+                            "Use /undo to undo all changes from agent mode since last" " input.",
                             style="success",
                         )
                     stream.send("\nWhat can I do for you?", style="input")
@@ -167,11 +166,7 @@ class Session:
                     conversation.add_user_message(message.data)
 
                 parsed_llm_response = await conversation.get_model_response()
-                file_edits = [
-                    file_edit
-                    for file_edit in parsed_llm_response.file_edits
-                    if file_edit.is_valid()
-                ]
+                file_edits = [file_edit for file_edit in parsed_llm_response.file_edits if file_edit.is_valid()]
                 for file_edit in file_edits:
                     file_edit.resolve_conflicts()
                 if file_edits:
@@ -179,16 +174,12 @@ class Session:
                         await revise_edits(file_edits)
 
                     if not agent_handler.agent_enabled:
-                        file_edits, need_user_request = (
-                            await get_user_feedback_on_edits(file_edits)
-                        )
+                        file_edits, need_user_request = await get_user_feedback_on_edits(file_edits)
 
                     if session_context.config.sampler:
                         session_context.sampler.set_active_diff()
 
-                    applied_edits = await code_file_manager.write_changes_to_files(
-                        file_edits
-                    )
+                    applied_edits = await code_file_manager.write_changes_to_files(file_edits)
                     stream.send(
                         "Changes applied." if applied_edits else "No changes applied.",
                         style="input",
@@ -258,9 +249,7 @@ class Session:
         async def run_main():
             ctx = SESSION_CONTEXT.get()
             try:
-                with sentry_sdk.start_transaction(
-                    op="mentat_started", name="Mentat Started"
-                ) as transaction:
+                with sentry_sdk.start_transaction(op="mentat_started", name="Mentat Started") as transaction:
                     transaction.set_tag("config", attr.asdict(ctx.config))
                     await self._main()
             except (SessionExit, CancelledError):

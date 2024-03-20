@@ -43,7 +43,6 @@ class Sample:
                 _version = kwargs["version"]
             if _version != __version__:
                 raise SampleError(
-                    f"Warning: sample version ({_version}) does not match current"
-                    f" version ({__version__})."
+                    f"Warning: sample version ({_version}) does not match current" f" version ({__version__})."
                 )
             return cls(**kwargs)

@@ -69,9 +69,7 @@ class Sampler:
                     assert mb and hasattr(mb, "hexsha"), "No merge base found"
                     merge_base = mb.hexsha
                 except Exception as e:
-                    stream.send(
-                        f"Error getting merge base from tar: {e}", style="error"
-                    )
+                    stream.send(f"Error getting merge base from tar: {e}", style="error")
         if not merge_base:
             merge_base = git_repo.head.commit.hexsha
             stream.send(
@@ -97,10 +95,7 @@ class Sampler:
                 ).strip()
             except subprocess.CalledProcessError:
                 pass
-            stream.send(
-                f"Found repo URL: {remote_url}. Press 'ENTER' to accept, or enter a new"
-                " URL."
-            )
+            stream.send(f"Found repo URL: {remote_url}. Press 'ENTER' to accept, or enter a new" " URL.")
             response = (await collect_user_input()).data.strip()
             if response == "y":
                 repo = remote_url
@@ -152,9 +147,7 @@ class Sampler:
                     message_history.append(
                         {
                             "role": role,
-                            "content": GitParser().file_edits_to_llm_message(
-                                parsed_llm_response
-                            ),
+                            "content": GitParser().file_edits_to_llm_message(parsed_llm_response),
                         }
                     )
 
@@ -177,20 +170,14 @@ class Sampler:
 
         # Add include_files from context
         if code_context.include_files:
-            feature_refs = get_consolidated_feature_refs(
-                [f for fs in code_context.include_files.values() for f in fs]
-            )
+            feature_refs = get_consolidated_feature_refs([f for fs in code_context.include_files.values() for f in fs])
             context.update(_rp(f) for f in feature_refs)
         # Undo adds/removes/renames to match pre-diff_edit state
         if diff_edit:
             file_edits = GitParser().parse_llm_response(diff_edit).file_edits
             for file_edit in file_edits:
                 file_path = _rp(file_edit.file_path)
-                rename_path = (
-                    ""
-                    if not file_edit.rename_file_path
-                    else _rp(file_edit.rename_file_path)
-                )
+                rename_path = "" if not file_edit.rename_file_path else _rp(file_edit.rename_file_path)
                 if file_edit.is_deletion or rename_path or file_edit.replacements:
                     context.add(file_path)
                 if file_edit.is_creation and file_path in context:

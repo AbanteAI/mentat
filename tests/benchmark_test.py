@@ -22,8 +22,7 @@ async def edit_file_and_run(
     argument_lists,
 ):
     mock_collect_user_input.set_stream_messages(
-        [prompt for pair in zip(prompts, ["y"] * len(prompts)) for prompt in pair]
-        + ["q"]
+        [prompt for pair in zip(prompts, ["y"] * len(prompts)) for prompt in pair] + ["q"]
     )
 
     session = Session(cwd=temp_testbed, paths=context_file_paths)
@@ -34,9 +33,7 @@ async def edit_file_and_run(
 
     results = []
     for arguments in argument_lists:
-        result = subprocess.check_output(
-            ["python", main_file_path, *arguments], text=True
-        )
+        result = subprocess.check_output(["python", main_file_path, *arguments], text=True)
         results.append(result.strip())
     return results
 
@@ -46,10 +43,7 @@ async def test_calculator_add_power(mock_collect_user_input):
     calculator_path = "scripts/calculator.py"
     results = await edit_file_and_run(
         mock_collect_user_input,
-        prompts=[
-            "Add power as a possible operation, raising the first arg to the power of"
-            " the second"
-        ],
+        prompts=["Add power as a possible operation, raising the first arg to the power of" " the second"],
         context_file_paths=[calculator_path],
         main_file_path=calculator_path,
         argument_lists=[["power", "15", "3"]],
@@ -87,9 +81,7 @@ async def test_calculator_continue_change(mock_collect_user_input):
         "def exp_numbers(a, b):\n",
         "    return a**b\n",
     ]
-    calculator_lines = (
-        calculator_lines[: index + 1] + new_lines + calculator_lines[index + 1 :]
-    )
+    calculator_lines = calculator_lines[: index + 1] + new_lines + calculator_lines[index + 1 :]
     with open(calculator_path, "w") as f:
         f.writelines(calculator_lines)
 

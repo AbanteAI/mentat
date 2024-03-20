@@ -24,8 +24,7 @@ class DiffAnnotation(Interval):
     message: List[str] = attr.field()
     end: int | float = attr.field(
         default=attr.Factory(
-            lambda self: self.start
-            + sum(bool(line.startswith("-")) for line in self.message),
+            lambda self: self.start + sum(bool(line.startswith("-")) for line in self.message),
             takes_self=True,
         )
     )
@@ -58,9 +57,7 @@ def parse_diff(diff: str) -> list[DiffAnnotation]:
     return annotations
 
 
-def annotate_file_message(
-    code_message: list[str], annotations: list[DiffAnnotation]
-) -> list[str]:
+def annotate_file_message(code_message: list[str], annotations: list[DiffAnnotation]) -> list[str]:
     """Return the code_message with annotations inserted."""
     active_index = 0
     annotated_message: list[str] = []
@@ -112,8 +109,7 @@ class DiffContext:
             # TODO: Once broadcast queue's unread messages and/or config is moved to client,
             # determine if this should quit or not
             stream.send(
-                "Cannot specify more than one type of diff. Disabling diff and"
-                " pr-diff.",
+                "Cannot specify more than one type of diff. Disabling diff and" " pr-diff.",
                 style="warning",
             )
             diff = None
@@ -141,8 +137,7 @@ class DiffContext:
             if not target:
                 # TODO: Same as above todo
                 stream.send(
-                    f"Cannot identify merge base between HEAD and {pr_diff}. Disabling"
-                    " pr-diff.",
+                    f"Cannot identify merge base between HEAD and {pr_diff}. Disabling" " pr-diff.",
                     style="warning",
                 )
                 return
@@ -188,12 +183,8 @@ class DiffContext:
             self._diff_files = []  # A new repo without any commits
             self._untracked_files = []
         else:
-            self._diff_files = [
-                (ctx.cwd / f).resolve() for f in get_files_in_diff(self.target)
-            ]
-            self._untracked_files = [
-                (ctx.cwd / f).resolve() for f in get_untracked_files(ctx.cwd)
-            ]
+            self._diff_files = [(ctx.cwd / f).resolve() for f in get_files_in_diff(self.target)]
+            self._untracked_files = [(ctx.cwd / f).resolve() for f in get_untracked_files(ctx.cwd)]
 
     def get_annotations(self, rel_path: Path) -> list[DiffAnnotation]:
         if not self.git_root:
@@ -212,14 +203,10 @@ class DiffContext:
         for file in diff_files:
             diff = get_diff_for_file(self.target, file)
             diff_lines = diff.splitlines()
-            num_lines += len(
-                [line for line in diff_lines if line.startswith(("+ ", "- "))]
-            )
+            num_lines += len([line for line in diff_lines if line.startswith(("+ ", "- "))])
         return f" {self.name} | {num_files} files | {num_lines} lines"
 
-    def annotate_file_message(
-        self, rel_path: Path, file_message: list[str]
-    ) -> list[str]:
+    def annotate_file_message(self, rel_path: Path, file_message: list[str]) -> list[str]:
         """Return file_message annotated with active diff."""
         if not self.git_root:
             return []
@@ -232,9 +219,7 @@ TreeishType = Literal["commit", "branch", "relative", "compare"]
 
 def _git_command(git_root: Path, *args: str) -> str | None:
     try:
-        return subprocess.check_output(
-            ["git"] + list(args), cwd=git_root, stderr=subprocess.PIPE, text=True
-        ).strip()
+        return subprocess.check_output(["git"] + list(args), cwd=git_root, stderr=subprocess.PIPE, text=True).strip()
     except subprocess.CalledProcessError:
         return None
 

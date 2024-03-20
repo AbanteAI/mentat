@@ -24,9 +24,7 @@ async def get_user_feedback_on_edits(
         case "y" | "":
             edits_to_apply = file_edits
             conversation.add_message(
-                ChatCompletionSystemMessageParam(
-                    role="system", content="User chose to apply all your changes."
-                )
+                ChatCompletionSystemMessageParam(role="system", content="User chose to apply all your changes.")
             )
         case "n":
             edits_to_apply = []

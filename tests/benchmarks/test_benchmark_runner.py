@@ -18,7 +18,8 @@ def test_run_real_world_benchmark(mock_webbrowser, mock_call_llm_api):
     cwd = os.getcwd()
     mock_call_llm_api.set_return_values(
         [
-            dedent("""\
+            dedent(
+                """\
                 Here are the code changes:
 
                 @@start
@@ -70,18 +71,23 @@ def test_run_real_world_benchmark(mock_webbrowser, mock_call_llm_api):
                 }
                 @@code
                         "clojure": ClojureExerciseRunner,
-                @@end"""),
-            dedent("""\
+                @@end"""
+            ),
+            dedent(
+                """\
             {
                 "indentation": false,
                 "off_by_one": false,
                 "syntax": false
-            }"""),
-            dedent("""\
+            }"""
+            ),
+            dedent(
+                """\
             {
                 "referenced_format": true,
                 "trailing_waffling": false
-            }"""),
+            }"""
+            ),
         ]
     )
     run_benchmarks(["Clojure Exercism Runner"], "benchmarks/benchmarks")

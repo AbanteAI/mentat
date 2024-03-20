@@ -70,9 +70,7 @@ async def convert_string_to_asynciter(
 
 
 def fetch_resource(resource_path: Path) -> Traversable:
-    resource = resources.files(package_name).joinpath(
-        str(resources_path / resource_path)
-    )
+    resource = resources.files(package_name).joinpath(str(resources_path / resource_path))
     return resource
 
 

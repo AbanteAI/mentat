@@ -43,11 +43,7 @@ class Command(ABC):
 
     @classmethod
     def get_command_names(cls) -> list[str]:
-        return [
-            name
-            for name, command in cls._registered_commands.items()
-            if not command.hidden
-        ]
+        return [name for name, command in cls._registered_commands.items() if not command.hidden]
 
     @abstractmethod
     async def apply(self, *args: str) -> None:
@@ -60,9 +56,7 @@ class Command(ABC):
 
     @classmethod
     @abstractmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         """
         Returns a list of possible completions for the argument in the specified position (0-indexed)
         given the previous arguments
@@ -84,8 +78,7 @@ class InvalidCommand(Command, command_name=None):
         stream = session_context.stream
 
         stream.send(
-            f"{self.invalid_name} is not a valid command. Use /help to see a list of"
-            " all valid commands",
+            f"{self.invalid_name} is not a valid command. Use /help to see a list of" " all valid commands",
             style="warning",
         )
 
@@ -94,9 +87,7 @@ class InvalidCommand(Command, command_name=None):
         raise MentatError("Argument names called on invalid command")
 
     @classmethod
-    def argument_autocompletions(
-        cls, arguments: list[str], argument_position: int
-    ) -> list[str]:
+    def argument_autocompletions(cls, arguments: list[str], argument_position: int) -> list[str]:
         return []
 
     @classmethod

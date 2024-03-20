@@ -116,7 +116,10 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
             "q",
         ]
     )
-    mock_call_llm_api.set_streamed_values([dedent("""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                """\
         I will insert a comment in both files.
 
         @@start
@@ -136,11 +139,12 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
         }
         @@code
         # forty two
-        @@end""")])
-
-    session = Session(
-        cwd=Path.cwd(), paths=[Path("multifile_calculator/calculator.py")]
+        @@end"""
+            )
+        ]
     )
+
+    session = Session(cwd=Path.cwd(), paths=[Path("multifile_calculator/calculator.py")])
     session.start()
     await session.stream.recv(channel="client_exit")
 
@@ -182,8 +186,7 @@ test_sample = {
     "message_history": [],
     "message_prompt": "Add a sha1 function to utils.py",
     "message_edit": (
-        "I will add a new sha1 function to the `utils.py` file.\n\nSteps:\n1."
-        " Add the sha1 function to `utils.py`."
+        "I will add a new sha1 function to the `utils.py` file.\n\nSteps:\n1." " Add the sha1 function to `utils.py`."
     ),
     "context": ["mentat/utils.py"],
     "diff_edit": (
@@ -203,11 +206,17 @@ test_sample = {
 async def test_sample_eval(mock_call_llm_api):
     parsedLLMResponse = GitParser().parse_llm_response(test_sample["diff_edit"])
     edit_message = BlockParser().file_edits_to_llm_message(parsedLLMResponse)
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         I will add a new helper function called `sha1` to the `mentat/utils.py` file.
         
         Steps:
-        1. Add the `sha1` function to `mentat/utils.py`.{edit_message}""")])
+        1. Add the `sha1` function to `mentat/utils.py`.{edit_message}"""
+            )
+        ]
+    )
 
     sample = Sample(**test_sample)
     result = await run_sample(sample)
@@ -247,9 +256,7 @@ def test_get_active_snapshot_commit(temp_testbed):
     with open(temp_testbed / "scripts" / "calculator2.py", "w") as f:
         f.write("test")
     (temp_testbed / "scripts" / "echo.py").unlink()
-    (temp_testbed / "scripts" / "graph_class.py").rename(
-        temp_testbed / "scripts" / "graph.py"
-    )
+    (temp_testbed / "scripts" / "graph_class.py").rename(temp_testbed / "scripts" / "graph.py")
 
     commit_active = get_active_snapshot_commit(repo)
 
@@ -330,9 +337,7 @@ def get_updates_as_parsed_llm_message(cwd):
 
 
 @pytest.mark.asyncio
-async def test_sampler_integration(
-    temp_testbed, mock_session_context, mock_call_llm_api
-):
+async def test_sampler_integration(temp_testbed, mock_session_context, mock_call_llm_api):
     # Setup the environemnt
     repo = Repo(temp_testbed)
     (temp_testbed / "test_file.py").write_text("permanent commit")
@@ -367,25 +372,22 @@ async def test_sampler_integration(
     assert any("Replaced Line 2" in str(f.replacements) for f in file_edits)
     assert any(
         # In file-edit, the entire file is overwritten, so we verify it's missing the last line
-        (
-            "operations.py" in str(f.file_path)
-            and "return a - b" not in str(f.replacements)
-        )
+        ("operations.py" in str(f.file_path) and "return a - b" not in str(f.replacements))
         for f in file_edits
     )
     assert any("calculator2.py" in str(f.file_path) for f in file_edits)
     assert any("replacement.txt" in str(f.file_path) for f in file_edits)
 
     llm_response = BlockParser().file_edits_to_llm_message(parsed_llm_message)
-    mock_call_llm_api.set_streamed_values(
-        [f"I will make the following edits. {llm_response}"]
-    )
+    mock_call_llm_api.set_streamed_values([f"I will make the following edits. {llm_response}"])
 
     # Generate a sample using Mentat
     client = Mentat(cwd=temp_testbed, paths=["."])
     await client.startup()
     client.session.ctx.config.sampler = True
-    await client.call_mentat_auto_accept(dedent("""\
+    await client.call_mentat_auto_accept(
+        dedent(
+            """\
         Make the following changes to "multifile_calculator/operations.py":
         1. Add "# Inserted line 2" as the first line
         2. Add "# Replaced Line 2" to the end of the 5th line
@@ -394,7 +396,9 @@ async def test_sampler_integration(
         4. Create "multifile_calculator/calculator2.py"
         5. Delete "format_examples/replacement.txt"
         6. Rename "scripts/echo1.py" to "scripts/echo2.py"
-        """))
+        """
+        )
+    )
 
     # Remove all included files; rely on the diff to include them
     client.session.ctx.code_context.include_files = {}
@@ -426,9 +430,7 @@ async def test_sampler_integration(
     }
     assert sample.diff_edit != ""
 
-    mock_call_llm_api.set_streamed_values(
-        [f"I will make the following edits. {llm_response}"]
-    )
+    mock_call_llm_api.set_streamed_values([f"I will make the following edits. {llm_response}"])
     result = await run_sample(sample, temp_testbed)
     diff_eval = result["diff_eval"]
     assert diff_eval == sample.diff_edit

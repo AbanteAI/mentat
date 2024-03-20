@@ -45,9 +45,7 @@ async def test_path_gitignoring(temp_testbed, mock_code_context):
     ]
 
     case = TestCase()
-    file_paths = [
-        str(file_path.resolve()) for file_path in mock_code_context.include_files
-    ]
+    file_paths = [str(file_path.resolve()) for file_path in mock_code_context.include_files]
     case.assertListEqual(sorted(expected_file_paths), sorted(file_paths))
 
 
@@ -78,9 +76,7 @@ async def test_bracket_file(temp_testbed, mock_code_context):
 @pytest.mark.asyncio
 async def test_config_glob_exclude(mocker, temp_testbed, mock_code_context):
     # Makes sure glob exclude config works
-    mocker.patch.object(
-        Config, "file_exclude_glob_list", new=[os.path.join("glob_test", "**", "*.py")]
-    )
+    mocker.patch.object(Config, "file_exclude_glob_list", new=[os.path.join("glob_test", "**", "*.py")])
 
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.py")
     glob_include_path = os.path.join("glob_test", "bagel", "apple", "include_me.ts")
@@ -92,22 +88,15 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_code_context):
         glob_exclude_file.write("I am excluded")
     with open(glob_include_path, "w") as glob_include_file:
         glob_include_file.write("I am included")
-    with open(
-        directly_added_glob_excluded_path, "w"
-    ) as directly_added_glob_excluded_file:
-        directly_added_glob_excluded_file.write(
-            "Config excludes me but I'm included if added directly"
-        )
+    with open(directly_added_glob_excluded_path, "w") as directly_added_glob_excluded_file:
+        directly_added_glob_excluded_file.write("Config excludes me but I'm included if added directly")
 
     mock_code_context.include(".")
     mock_code_context.include(directly_added_glob_excluded_path)
 
     assert Path(temp_testbed / glob_exclude_path) not in mock_code_context.include_files
     assert Path(temp_testbed / glob_include_path) in mock_code_context.include_files
-    assert (
-        Path(temp_testbed / directly_added_glob_excluded_path)
-        in mock_code_context.include_files
-    )
+    assert Path(temp_testbed / directly_added_glob_excluded_path) in mock_code_context.include_files
 
 
 @pytest.mark.ragdaemon
@@ -130,9 +119,7 @@ async def test_glob_include(temp_testbed, mock_code_context):
 
     mock_code_context.include("**/*.py")
 
-    file_paths = [
-        str(file_path.resolve()) for file_path in mock_code_context.include_files
-    ]
+    file_paths = [str(file_path.resolve()) for file_path in mock_code_context.include_files]
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
     assert os.path.join(temp_testbed, glob_include_path) in file_paths
     assert os.path.join(temp_testbed, glob_include_path2) in file_paths
@@ -142,9 +129,7 @@ async def test_glob_include(temp_testbed, mock_code_context):
 @pytest.mark.asyncio
 async def test_cli_glob_exclude(temp_testbed, mock_code_context):
     # Make sure cli glob exclude works and overrides regular include
-    glob_include_then_exclude_path = os.path.join(
-        "glob_test", "bagel", "apple", "include_then_exclude_me.py"
-    )
+    glob_include_then_exclude_path = os.path.join("glob_test", "bagel", "apple", "include_then_exclude_me.py")
     glob_exclude_path = os.path.join("glob_test", "bagel", "apple", "exclude_me.ts")
 
     os.makedirs(os.path.dirname(glob_include_then_exclude_path), exist_ok=True)
@@ -195,22 +180,30 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
 @pytest.mark.clear_testbed
 async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     with open("file_1.py", "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             def func_1(x, y):
                 return x + y
             
             def func_2():
                 return 3
-            """))
+            """
+            )
+        )
 
     with open("file_2.py", "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             def func_3(a, b, c):
                 return a * b ** c
             
             def func_4(string):
                 print(string)
-            """))
+            """
+            )
+        )
     run_git_command(temp_testbed, "add", ".")
     run_git_command(temp_testbed, "commit", "-m", "initial commit")
 
@@ -303,11 +296,7 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
             continue
         abs_path = temp_testbed / file
         rel_path = abs_path.relative_to(temp_testbed).as_posix()
-        if (
-            not is_file_text_encoded(abs_path)
-            or "scripts" in rel_path
-            or rel_path.endswith(".txt")
-        ):
+        if not is_file_text_encoded(abs_path) or "scripts" in rel_path or rel_path.endswith(".txt"):
             assert rel_path not in code_message
         else:
             assert rel_path in code_message
@@ -321,9 +310,7 @@ def test_include_single_file_interval(mock_code_context):
     multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
     assert multifile_calculator_path in mock_code_context.include_files
     assert len(mock_code_context.include_files[multifile_calculator_path]) == 1
-    assert mock_code_context.include_files[multifile_calculator_path][
-        0
-    ].interval == Interval(10, 12)
+    assert mock_code_context.include_files[multifile_calculator_path][0].interval == Interval(10, 12)
 
 
 @pytest.mark.no_git_testbed
@@ -334,12 +321,8 @@ def test_include_multiple_file_intervals(mock_code_context):
     assert len(mock_code_context.include_files) == 1
     multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
     assert len(mock_code_context.include_files[multifile_calculator_path]) == 2
-    assert mock_code_context.include_files[multifile_calculator_path][
-        0
-    ].interval == Interval(10, 12)
-    assert mock_code_context.include_files[multifile_calculator_path][
-        1
-    ].interval == Interval(14, 20)
+    assert mock_code_context.include_files[multifile_calculator_path][0].interval == Interval(10, 12)
+    assert mock_code_context.include_files[multifile_calculator_path][1].interval == Interval(14, 20)
 
 
 @pytest.mark.no_git_testbed
@@ -355,12 +338,8 @@ def test_include_overlapping_file_intervals(mock_code_context):
     assert len(mock_code_context.include_files) == 1
     multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
     assert len(mock_code_context.include_files[multifile_calculator_path]) == 2
-    assert mock_code_context.include_files[multifile_calculator_path][
-        0
-    ].interval == Interval(1, 5)
-    assert mock_code_context.include_files[multifile_calculator_path][
-        1
-    ].interval == Interval(1, 6)
+    assert mock_code_context.include_files[multifile_calculator_path][0].interval == Interval(1, 5)
+    assert mock_code_context.include_files[multifile_calculator_path][1].interval == Interval(1, 6)
 
 
 @pytest.mark.no_git_testbed
@@ -370,9 +349,7 @@ def test_include_duplicate_file_interval(mock_code_context):
     assert len(mock_code_context.include_files) == 1
     multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
     assert len(mock_code_context.include_files[multifile_calculator_path]) == 1
-    assert mock_code_context.include_files[multifile_calculator_path][
-        0
-    ].interval == Interval(1, 5)
+    assert mock_code_context.include_files[multifile_calculator_path][0].interval == Interval(1, 5)
 
 
 @pytest.mark.no_git_testbed
@@ -390,9 +367,7 @@ def test_exclude_multiple_file_intervals(mock_code_context):
     assert len(mock_code_context.include_files) == 1
     multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
     assert len(mock_code_context.include_files[multifile_calculator_path]) == 1
-    assert mock_code_context.include_files[multifile_calculator_path][
-        0
-    ].interval == Interval(6, 10)
+    assert mock_code_context.include_files[multifile_calculator_path][0].interval == Interval(6, 10)
 
 
 @pytest.mark.no_git_testbed
@@ -402,56 +377,35 @@ def test_exclude_missing_file_interval(mock_code_context):
     assert len(mock_code_context.include_files) == 1
     multifile_calculator_path = Path("multifile_calculator/calculator.py").resolve()
     assert len(mock_code_context.include_files[multifile_calculator_path]) == 1
-    assert mock_code_context.include_files[multifile_calculator_path][
-        0
-    ].interval == Interval(1, 5)
+    assert mock_code_context.include_files[multifile_calculator_path][0].interval == Interval(1, 5)
 
 
 @pytest.mark.no_git_testbed
 def test_include_single_directory(mock_code_context):
-    mock_code_context.include(
-        "multifile_calculator", exclude_patterns=["**/__pycache__"]
-    )
+    mock_code_context.include("multifile_calculator", exclude_patterns=["**/__pycache__"])
     assert len(mock_code_context.include_files) == 3
-    assert (
-        Path("multifile_calculator/__init__.py").resolve()
-        in mock_code_context.include_files
-    )
-    assert (
-        Path("multifile_calculator/calculator.py").resolve()
-        in mock_code_context.include_files
-    )
-    assert (
-        Path("multifile_calculator/operations.py").resolve()
-        in mock_code_context.include_files
-    )
+    assert Path("multifile_calculator/__init__.py").resolve() in mock_code_context.include_files
+    assert Path("multifile_calculator/calculator.py").resolve() in mock_code_context.include_files
+    assert Path("multifile_calculator/operations.py").resolve() in mock_code_context.include_files
 
 
 @pytest.mark.no_git_testbed
 def test_include_duplicate_directory(mock_code_context):
-    mock_code_context.include(
-        "multifile_calculator", exclude_patterns=["**/__pycache__"]
-    )
-    mock_code_context.include(
-        "multifile_calculator", exclude_patterns=["**/__pycache__"]
-    )
+    mock_code_context.include("multifile_calculator", exclude_patterns=["**/__pycache__"])
+    mock_code_context.include("multifile_calculator", exclude_patterns=["**/__pycache__"])
     assert len(mock_code_context.include_files) == 3
 
 
 @pytest.mark.no_git_testbed
 def test_include_missing_directory(mock_code_context):
-    mock_code_context.include(
-        "multifile_calculator", exclude_patterns=["**/__pycache__"]
-    )
+    mock_code_context.include("multifile_calculator", exclude_patterns=["**/__pycache__"])
     mock_code_context.include("this_directory_does_not_exist")
     assert len(mock_code_context.include_files) == 3
 
 
 @pytest.mark.no_git_testbed
 def test_exclude_single_directory(mock_code_context):
-    mock_code_context.include(
-        "multifile_calculator", exclude_patterns=["**/__pycache__"]
-    )
+    mock_code_context.include("multifile_calculator", exclude_patterns=["**/__pycache__"])
     mock_code_context.exclude("multifile_calculator")
     assert len(mock_code_context.include_files) == 0
 

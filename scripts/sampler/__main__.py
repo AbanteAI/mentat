@@ -42,21 +42,15 @@ os.makedirs(SAMPLES_DIR, exist_ok=True)
 async def main():
     parser = argparse.ArgumentParser(description="Evaluate code samples.")
     parser.add_argument("sample_ids", nargs="*", help="Optional sample IDs to run")
-    parser.add_argument(
-        "--number", "-n", type=int, default=None, help="Maximum number of times to run"
-    )
+    parser.add_argument("--number", "-n", type=int, default=None, help="Maximum number of times to run")
     parser.add_argument(
         "--validate",
         "-v",
         action="store_true",
         help="Validate samples conform to spec",
     )
-    parser.add_argument(
-        "--finetune", "-f", action="store_true", help="Generate fine-tuning examples"
-    )
-    parser.add_argument(
-        "--add-context", "-a", action="store_true", help="Add extra context to samples"
-    )
+    parser.add_argument("--finetune", "-f", action="store_true", help="Generate fine-tuning examples")
+    parser.add_argument("--add-context", "-a", action="store_true", help="Add extra context to samples")
     parser.add_argument(
         "--remove-context",
         "-r",
@@ -94,11 +88,7 @@ async def main():
             continue
         if args.validate:
             is_valid, reason = await validate_sample(sample)
-            status = (
-                "\033[92mPASSED\033[0m"
-                if is_valid
-                else f"\033[91mFAILED: {reason}\033[0m"
-            )
+            status = "\033[92mPASSED\033[0m" if is_valid else f"\033[91mFAILED: {reason}\033[0m"
             print(f"[{sample.id[:8]}] {sample.title}: {status}")
             logs.append({"id": sample.id, "is_valid": is_valid, "reason": reason})
         elif args.finetune:
@@ -110,15 +100,10 @@ async def main():
                 elif "text" in example:
                     tokens = count_tokens(example["text"], "gpt-4", full_message=False)
                 example["tokens"] = tokens
-                print(
-                    "Generated finetune example"
-                    f" {sample.id[:8]} ({example['tokens']} tokens)"
-                )
+                print("Generated finetune example" f" {sample.id[:8]} ({example['tokens']} tokens)")
                 logs.append(example)
             except Exception as e:
-                warn(
-                    f"Error generating finetune example for sample {sample.id[:8]}: {e}"
-                )
+                warn(f"Error generating finetune example for sample {sample.id[:8]}: {e}")
         elif args.add_context:
             try:
                 new_sample = await add_context(sample)
@@ -164,10 +149,7 @@ async def main():
             )
 
     if args.validate:
-        print(
-            f"{sum([log['is_valid'] for log in logs])}/{len(logs)} samples passed"
-            " validation."
-        )
+        print(f"{sum([log['is_valid'] for log in logs])}/{len(logs)} samples passed" " validation.")
     elif args.finetune:
         # Dump all logs into a .jsonl file
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")

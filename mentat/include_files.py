@@ -84,8 +84,7 @@ def validate_file_interval_path(path: Path, check_for_text: bool = True) -> None
         for interval in intervals:
             if interval.start < 0 or interval.end > line_count + 1:
                 raise PathValidationError(
-                    f"Interval {interval.start}-{interval.end} is out of bounds for"
-                    f" file {interval_path}"
+                    f"Interval {interval.start}-{interval.end} is out of bounds for" f" file {interval_path}"
                 )
 
 
@@ -98,9 +97,7 @@ def validate_glob_path(path: Path) -> None:
         raise PathValidationError(f"Unable to validate glob path {path}")
 
 
-def validate_and_format_path(
-    path: Path | str, cwd: Path, check_for_text: bool = True
-) -> Path:
+def validate_and_format_path(path: Path | str, cwd: Path, check_for_text: bool = True) -> Path:
     """Validate and format a path.
 
     Args:
@@ -201,13 +198,9 @@ def get_paths_for_directory(
                 abs_git_path = root / git_path
                 if not recursive and git_path.parent != Path("."):
                     continue
-                if any(include_patterns) and not match_path_with_patterns(
-                    abs_git_path, include_patterns
-                ):
+                if any(include_patterns) and not match_path_with_patterns(abs_git_path, include_patterns):
                     continue
-                if any(exclude_patterns) and match_path_with_patterns(
-                    abs_git_path, exclude_patterns
-                ):
+                if any(exclude_patterns) and match_path_with_patterns(abs_git_path, exclude_patterns):
                     continue
                 paths.add(abs_git_path)
 
@@ -215,26 +208,18 @@ def get_paths_for_directory(
             filtered_dirs: List[str] = []
             for dir_ in dirs:
                 abs_dir_path = root.joinpath(dir_)
-                if any(include_patterns) and not match_path_with_patterns(
-                    abs_dir_path, include_patterns
-                ):
+                if any(include_patterns) and not match_path_with_patterns(abs_dir_path, include_patterns):
                     continue
-                if any(exclude_patterns) and match_path_with_patterns(
-                    abs_dir_path, exclude_patterns
-                ):
+                if any(exclude_patterns) and match_path_with_patterns(abs_dir_path, exclude_patterns):
                     continue
                 filtered_dirs.append(dir_)
             dirs[:] = filtered_dirs
 
             for file in files:
                 abs_file_path = root.joinpath(file)
-                if any(include_patterns) and not match_path_with_patterns(
-                    abs_file_path, include_patterns
-                ):
+                if any(include_patterns) and not match_path_with_patterns(abs_file_path, include_patterns):
                     continue
-                if any(exclude_patterns) and match_path_with_patterns(
-                    abs_file_path, exclude_patterns
-                ):
+                if any(exclude_patterns) and match_path_with_patterns(abs_file_path, exclude_patterns):
                     continue
                 paths.add(abs_file_path)
 
@@ -264,9 +249,7 @@ def get_code_features_for_path(
                 code_feature = CodeFeature(interval_path, interval)
                 code_features.add(code_feature)
         case PathType.DIRECTORY:
-            paths = get_paths_for_directory(
-                validated_path, include_patterns, exclude_patterns
-            )
+            paths = get_paths_for_directory(validated_path, include_patterns, exclude_patterns)
             code_features = set(CodeFeature(p) for p in paths)
         case PathType.GLOB:
             root_parts: List[str] = []
@@ -277,17 +260,11 @@ def get_code_features_for_path(
                     break
                 root_parts.append(part)
             if pattern is None:
-                raise PathValidationError(
-                    f"Unable to parse glob pattern {validated_path}"
-                )
+                raise PathValidationError(f"Unable to parse glob pattern {validated_path}")
             root = Path().joinpath(*root_parts)
             paths = get_paths_for_directory(
                 root,
-                include_patterns=(
-                    set([*include_patterns, validated_path])
-                    if pattern != "*"
-                    else include_patterns
-                ),
+                include_patterns=(set([*include_patterns, validated_path]) if pattern != "*" else include_patterns),
                 exclude_patterns=exclude_patterns,
                 recursive=True,
             )

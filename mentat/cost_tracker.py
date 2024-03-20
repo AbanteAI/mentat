@@ -32,9 +32,7 @@ class CostTracker:
         self.total_tokens += num_prompt_tokens + num_sampled_tokens
         if num_sampled_tokens > 0 and call_time is not None:
             tokens_per_second = num_sampled_tokens / call_time
-            speed_and_cost_string += (
-                f"Speed: {tokens_per_second:.{decimal_places}f} tkns/s"
-            )
+            speed_and_cost_string += f"Speed: {tokens_per_second:.{decimal_places}f} tkns/s"
         cost = model_price_per_1000_tokens(model)
         if cost:
             prompt_cost = (num_prompt_tokens / 1000) * cost[0]

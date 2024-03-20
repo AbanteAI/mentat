@@ -11,13 +11,17 @@ from mentat.revisor.revisor import revise_edit
 async def test_revision(mock_session_context, mock_call_llm_api):
     file_name = Path("file").resolve()
     mock_session_context.conversation.add_user_message("User Request")
-    mock_session_context.code_file_manager.file_lines[file_name] = dedent("""\
+    mock_session_context.code_file_manager.file_lines[file_name] = dedent(
+        """\
         def hello_world():
             pass
         hello_world(
-        """).split("\n")
+        """
+    ).split("\n")
 
-    mock_call_llm_api.set_unstreamed_values(dedent("""\
+    mock_call_llm_api.set_unstreamed_values(
+        dedent(
+            """\
         --- 
         +++ 
         @@ -1,5 +1,5 @@
@@ -26,17 +30,19 @@ async def test_revision(mock_session_context, mock_call_llm_api):
         +    print("Hello, World!")
         -hello_world(
         +hello_world()
-        """))
+        """
+        )
+    )
 
-    replacement_text = dedent("""\
+    replacement_text = dedent(
+        """\
             print("Hello, World!
-        hello_world()""").split("\n")
+        hello_world()"""
+    ).split("\n")
     file_edit = FileEdit(file_name, [Replacement(1, 4, replacement_text)], False, False)
     await revise_edit(file_edit)
     assert "\n".join(
-        file_edit.get_updated_file_lines(
-            mock_session_context.code_file_manager.file_lines[file_name]
-        )
+        file_edit.get_updated_file_lines(mock_session_context.code_file_manager.file_lines[file_name])
     ) == dedent(
         """\
             def hello_world():

@@ -59,9 +59,7 @@ async def test_include_command(temp_testbed, mock_collect_user_input):
     await session.stream.recv(channel="client_exit")
 
     code_context = SESSION_CONTEXT.get().code_context
-    assert (
-        Path(temp_testbed) / "scripts" / "calculator.py" in code_context.include_files
-    )
+    assert Path(temp_testbed) / "scripts" / "calculator.py" in code_context.include_files
 
 
 # TODO: test without git
@@ -185,9 +183,13 @@ async def test_load_command_invalid_json(temp_testbed, mock_collect_user_input):
 async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -198,7 +200,10 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         ]
     )
 
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -210,7 +215,10 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         }}
         @@code
         # I inserted this comment
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
     session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
@@ -218,9 +226,11 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
 
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
 
@@ -228,9 +238,13 @@ async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm
 async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -243,7 +257,10 @@ async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm
     )
 
     new_file_name = "new_temp.py"
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -264,7 +281,10 @@ async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm
         @@code
         # I created this file
         @@end
-        """)])
+        """
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
@@ -272,28 +292,34 @@ async def test_redo_command(temp_testbed, mock_collect_user_input, mock_call_llm
 
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
             # I inserted this comment
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
     with open(new_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
-            # I created this file""")
+        expected_content = dedent(
+            """\
+            # I created this file"""
+        )
     assert content == expected_content
 
 
 @pytest.mark.asyncio
-async def test_undo_all_command(
-    temp_testbed, mock_collect_user_input, mock_call_llm_api
-):
+async def test_undo_all_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
     temp_file_name = "temp.py"
     with open(temp_file_name, "w") as f:
-        f.write(dedent("""\
+        f.write(
+            dedent(
+                """\
             # This is a temporary file
-            # with 2 lines"""))
+            # with 2 lines"""
+            )
+        )
 
     mock_collect_user_input.set_stream_messages(
         [
@@ -305,7 +331,10 @@ async def test_undo_all_command(
     )
 
     # TODO: Make a way to set multiple return values for call_llm_api and reset multiple edits at once
-    mock_call_llm_api.set_streamed_values([dedent(f"""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                f"""\
         Conversation
 
         @@start
@@ -317,7 +346,10 @@ async def test_undo_all_command(
         }}
         @@code
         # I inserted this comment
-        @@end""")])
+        @@end"""
+            )
+        ]
+    )
 
     session = Session(cwd=temp_testbed, paths=[temp_file_name])
     session.start()
@@ -325,9 +357,11 @@ async def test_undo_all_command(
 
     with open(temp_file_name, "r") as f:
         content = f.read()
-        expected_content = dedent("""\
+        expected_content = dedent(
+            """\
             # This is a temporary file
-            # with 2 lines""")
+            # with 2 lines"""
+        )
     assert content == expected_content
 
 
@@ -354,9 +388,7 @@ async def test_clear_command(temp_testbed, mock_collect_user_input, mock_call_ll
 
 # TODO: test without git
 @pytest.mark.asyncio
-async def test_search_command(
-    mocker, temp_testbed, mock_call_llm_api, mock_collect_user_input
-):
+async def test_search_command(mocker, temp_testbed, mock_call_llm_api, mock_collect_user_input):
     mock_collect_user_input.set_stream_messages(
         [
             "Request",
@@ -365,9 +397,7 @@ async def test_search_command(
         ]
     )
     mock_call_llm_api.set_streamed_values(["Answer"])
-    mock_feature = CodeFeature(
-        Path(temp_testbed) / "multifile_calculator" / "calculator.py"
-    )
+    mock_feature = CodeFeature(Path(temp_testbed) / "multifile_calculator" / "calculator.py")
     mock_score = 1.0
     mocker.patch(
         "mentat.code_context.CodeContext.search",
@@ -378,9 +408,7 @@ async def test_search_command(
     await session.stream.recv(channel="client_exit")
 
     rel_path = mock_feature.path.relative_to(Path(temp_testbed))
-    assert str(rel_path) in "\n".join(
-        str(message.data) for message in session.stream.messages
-    )
+    assert str(rel_path) in "\n".join(str(message.data) for message in session.stream.messages)
     assert "cost" in session.stream.messages[-2].data
 
 

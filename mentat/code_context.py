@@ -68,11 +68,7 @@ class CodeContext:
         diff_context_display = self.diff_context.get_display_context()
 
         features = get_consolidated_feature_refs(
-            [
-                feature
-                for file_features in self.include_files.values()
-                for feature in file_features
-            ]
+            [feature for file_features in self.include_files.values() for feature in file_features]
         )
         auto_features = get_consolidated_feature_refs(self.auto_features)
         git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
@@ -250,9 +246,7 @@ class CodeContext:
                     included_paths.add(Path(str(code_feature)))
         return included_paths
 
-    def include(
-        self, path: Path | str, exclude_patterns: Iterable[Path | str] = []
-    ) -> Set[Path]:
+    def include(self, path: Path | str, exclude_patterns: Iterable[Path | str] = []) -> Set[Path]:
         """
         Add paths to the context
 
@@ -316,9 +310,7 @@ class CodeContext:
 
         interval_path, interval_str = split_intervals_from_path(path)
         if interval_path not in self.include_files:
-            session_context.stream.send(
-                f"Path {interval_path} not in context", style="error"
-            )
+            session_context.stream.send(f"Path {interval_path} not in context", style="error")
             return excluded_paths
 
         intervals = parse_intervals(interval_str)
@@ -386,9 +378,7 @@ class CodeContext:
         path = Path(path)
         excluded_paths: Set[Path] = set()
         try:
-            validated_path = validate_and_format_path(
-                path, session_context.cwd, check_for_text=False
-            )
+            validated_path = validate_and_format_path(path, session_context.cwd, check_for_text=False)
             match get_path_type(validated_path):
                 case PathType.FILE:
                     excluded_path = self._exclude_file(validated_path)
@@ -446,9 +436,7 @@ class CodeContext:
                 feature_path = Path(feature_str)
 
                 # feature_path is already absolute, so cwd doesn't matter
-                current_features = get_code_features_for_path(
-                    feature_path, cwd=Path("/")
-                )
+                current_features = get_code_features_for_path(feature_path, cwd=Path("/"))
                 features_for_path += list(current_features)
 
             self.include_files[path] = features_for_path

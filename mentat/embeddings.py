@@ -23,18 +23,14 @@ class MentatEmbeddingFunction(EmbeddingFunction[Embeddable]):
         config = session_context.config
         llm_api_handler = session_context.llm_api_handler
 
-        n_batches = (
-            0 if len(input) == 0 else len(input) // EMBEDDINGS_API_BATCH_SIZE + 1
-        )
+        n_batches = 0 if len(input) == 0 else len(input) // EMBEDDINGS_API_BATCH_SIZE + 1
         output: Embeddings = []
         for batch in range(n_batches):
             i_start, i_end = (
                 batch * EMBEDDINGS_API_BATCH_SIZE,
                 (batch + 1) * EMBEDDINGS_API_BATCH_SIZE,
             )
-            response = llm_api_handler.call_embedding_api(
-                input[i_start:i_end], config.embedding_model
-            )
+            response = llm_api_handler.call_embedding_api(input[i_start:i_end], config.embedding_model)
             output += response
         return output
 
@@ -125,10 +121,7 @@ async def get_feature_similarity_scores(
     else:
         expected_cost = (sum(embed_tokens) / 1000) * cost[0]
         if expected_cost > 1.0:
-            stream.send(
-                f"Embedding {sum(embed_tokens)} tokens will cost ${cost[0]:.2f}."
-                " Continue anyway?"
-            )
+            stream.send(f"Embedding {sum(embed_tokens)} tokens will cost ${cost[0]:.2f}." " Continue anyway?")
             if not await ask_yes_no(default_yes=True):
                 stream.send("Ignoring embeddings for now.")
                 return [0.0 for _ in checksums]

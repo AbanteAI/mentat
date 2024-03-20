@@ -39,11 +39,7 @@ class BenchmarkRun:
         for field in attr.fields(BenchmarkResult):
             if "aggregation" in field.metadata:
                 name = field.name
-                values = [
-                    getattr(result, name)
-                    for result in self.results
-                    if getattr(result, name) is not None
-                ]
+                values = [getattr(result, name) for result in self.results if getattr(result, name) is not None]
                 if len(values) == 0:
                     summary[name] = (0, 0)
                 else:
@@ -83,9 +79,7 @@ class BenchmarkRun:
         env = Environment(
             loader=FileSystemLoader(
                 [
-                    os.path.join(
-                        os.path.dirname(__file__), "../mentat/resources/templates"
-                    ),
+                    os.path.join(os.path.dirname(__file__), "../mentat/resources/templates"),
                     os.path.join(os.path.dirname(__file__), "resources/templates"),
                 ]
             ),

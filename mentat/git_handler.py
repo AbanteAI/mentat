@@ -59,10 +59,7 @@ def get_non_gitignored_files(root: Path, visited: set[Path] = set()) -> Set[Path
         if (root / path).is_dir():
             if (root / path).resolve() in visited:
                 continue
-            file_paths.update(
-                root / path / inner_path
-                for inner_path in get_non_gitignored_files(root / path, visited)
-            )
+            file_paths.update(root / path / inner_path for inner_path in get_non_gitignored_files(root / path, visited))
         else:
             file_paths.add(path)
     return file_paths
@@ -89,9 +86,7 @@ def get_git_root_for_path(path: Path, raise_error: bool = True) -> Optional[Path
         )
         # --show-toplevel doesn't work in some windows environment with posix paths,
         # like msys2, so we have to use --show-prefix instead
-        git_root = os.path.abspath(
-            os.path.join(dir_path, "../" * len(Path(relative_path).parts))
-        )
+        git_root = os.path.abspath(os.path.join(dir_path, "../" * len(Path(relative_path).parts)))
         # call realpath to resolve symlinks, so all paths match
         return Path(os.path.realpath(git_root))
     except subprocess.CalledProcessError:
@@ -115,10 +110,7 @@ def get_shared_git_root_for_paths(paths: list[Path]) -> Path:
         git_roots.add(git_root)  # pyright: ignore
 
     if len(git_roots) > 1:
-        logging.error(
-            "All paths must be part of the same git project! Projects provided:"
-            f" {git_roots}"
-        )
+        logging.error("All paths must be part of the same git project! Projects provided:" f" {git_roots}")
         raise UserError()
     elif len(git_roots) == 0:
         logging.error("No git projects provided.")

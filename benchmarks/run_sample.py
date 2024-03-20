@@ -49,12 +49,8 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
             conversation.add_user_message(msg["content"])
         elif msg["role"] == "assistant":
             generator = convert_string_to_asynciter(msg["content"], 100)
-            parsed_llm_response = await GitParser().stream_and_parse_llm_response(
-                generator
-            )
-            content = session_context.config.parser.file_edits_to_llm_message(
-                parsed_llm_response
-            )
+            parsed_llm_response = await GitParser().stream_and_parse_llm_response(generator)
+            content = session_context.config.parser.file_edits_to_llm_message(parsed_llm_response)
             conversation.add_model_message(content, [], parsed_llm_response)
         else:
             raise SampleError(f"Invalid role found in message_history: {msg['role']}")

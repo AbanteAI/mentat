@@ -24,7 +24,10 @@ async def test_system(mock_call_llm_api, mock_collect_user_input):
         ]
     )
 
-    mock_call_llm_api.set_streamed_values([dedent("""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                """\
         I will add a print statement.
 
         Steps:
@@ -39,7 +42,10 @@ async def test_system(mock_call_llm_api, mock_collect_user_input):
         }}
         @@code
         print("Hello, world!")
-        @@end""".format(file_name=temp_file_name))])
+        @@end""".format(file_name=temp_file_name)
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
@@ -81,7 +87,10 @@ async def test_interactive_change_selection(mock_call_llm_api, mock_collect_user
         ]
     )
 
-    mock_call_llm_api.set_streamed_values([dedent("""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                """\
         I will make three changes to the file.
 
         Steps:
@@ -118,7 +127,10 @@ async def test_interactive_change_selection(mock_call_llm_api, mock_collect_user
         }}
         @@code
         print("Change 3")
-        @@end""".format(file_name=temp_file_name))])
+        @@end""".format(file_name=temp_file_name)
+            )
+        ]
+    )
 
     session = Session(cwd=Path.cwd(), paths=[temp_file_name])
     session.start()
@@ -142,13 +154,14 @@ async def test_without_os_join(mock_call_llm_api, mock_collect_user_input):
     with open(temp_file_path, "w") as f:
         f.write("# This is a temporary file.")
 
-    mock_collect_user_input.set_stream_messages(
-        ['Replace comment with print("Hello, world!")', "y", "q"]
-    )
+    mock_collect_user_input.set_stream_messages(['Replace comment with print("Hello, world!")', "y", "q"])
 
     # Use / here since that should always be what the model outputs
     fake_file_path = temp_dir + "/" + temp_file_name
-    mock_call_llm_api.set_streamed_values([dedent("""\
+    mock_call_llm_api.set_streamed_values(
+        [
+            dedent(
+                """\
         I will add a print statement.
         Steps:
         1. Add a print statement after the last line
@@ -161,7 +174,10 @@ async def test_without_os_join(mock_call_llm_api, mock_collect_user_input):
         }}
         @@code
         print("Hello, world!")
-        @@end""".format(file_name=fake_file_path))])
+        @@end""".format(file_name=fake_file_path)
+            )
+        ]
+    )
     session = Session(cwd=Path.cwd(), paths=[temp_file_path])
     session.start()
     await session.stream.recv(channel="client_exit")
@@ -173,9 +189,7 @@ async def test_without_os_join(mock_call_llm_api, mock_collect_user_input):
 
 
 @pytest.mark.asyncio
-async def test_sub_directory(
-    temp_testbed, mock_call_llm_api, mock_collect_user_input, monkeypatch
-):
+async def test_sub_directory(temp_testbed, mock_call_llm_api, mock_collect_user_input, monkeypatch):
     with monkeypatch.context() as m:
         m.chdir("scripts")
         file_name = "calculator.py"
@@ -187,7 +201,10 @@ async def test_sub_directory(
             ]
         )
 
-        mock_call_llm_api.set_streamed_values([dedent(f"""\
+        mock_call_llm_api.set_streamed_values(
+            [
+                dedent(
+                    f"""\
             Conversation
 
             @@start
@@ -199,7 +216,10 @@ async def test_sub_directory(
             }}
             @@code
             print("Hello, world!")
-            @@end""")])
+            @@end"""
+                )
+            ]
+        )
 
         session = Session(cwd=temp_testbed, paths=[Path("scripts", file_name)])
         session.start()

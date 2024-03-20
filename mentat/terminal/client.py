@@ -127,9 +127,7 @@ class TerminalClient:
             default_prompt = self._default_prompt.strip()
             self._default_prompt = ""
 
-            command_autocomplete = input_request_message.extra.get(
-                "command_autocomplete", False
-            )
+            command_autocomplete = input_request_message.extra.get("command_autocomplete", False)
 
             user_input = await self.app.get_user_input(
                 default_prompt=default_prompt,
@@ -156,16 +154,12 @@ class TerminalClient:
         Does *NOT* shut down the client, only disables it.
         """
         await self._should_exit.wait()
-        self.session.stream.send(
-            None, source=StreamMessageSource.CLIENT, channel="session_exit"
-        )
+        self.session.stream.send(None, source=StreamMessageSource.CLIENT, channel="session_exit")
 
     def send_interrupt(self):
         if (
             # If session is still starting up we want to quit without an error
-            not self.session
-            or self.session.stream.is_interrupt_locked() is False
-            or self.session.stopped.is_set()
+            not self.session or self.session.stream.is_interrupt_locked() is False or self.session.stopped.is_set()
         ):
             if self._should_exit.is_set():
                 logging.debug("Force exiting client...")
@@ -176,9 +170,7 @@ class TerminalClient:
                 self._should_exit.set()
         else:
             logging.debug("Sending interrupt to session stream")
-            self.session.stream.send(
-                None, source=StreamMessageSource.CLIENT, channel="interrupt"
-            )
+            self.session.stream.send(None, source=StreamMessageSource.CLIENT, channel="interrupt")
 
     async def _run(self):
         self.session = Session(
@@ -219,9 +211,7 @@ class TerminalClient:
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(
-        description="Run conversation with command line args"
-    )
+    parser = argparse.ArgumentParser(description="Run conversation with command line args")
     parser.add_argument(
         "paths",
         nargs="*",
@@ -240,10 +230,7 @@ def get_parser():
         "-g",
         nargs="*",
         default=[],
-        help=(
-            "List of file paths, directory paths, or glob patterns to ignore in"
-            " auto-context"
-        ),
+        help=("List of file paths, directory paths, or glob patterns to ignore in" " auto-context"),
     )
     parser.add_argument(
         "--diff",
@@ -261,9 +248,7 @@ def get_parser():
         default=None,
         help="A git tree-ish to diff against the latest common ancestor of",
     )
-    parser.add_argument(
-        "--cwd", default=Path.cwd(), help="The current working directory"
-    )
+    parser.add_argument("--cwd", default=Path.cwd(), help="The current working directory")
     Config.add_fields_to_argparse(parser)
     return parser
 

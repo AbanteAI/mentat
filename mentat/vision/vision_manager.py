@@ -49,8 +49,7 @@ class VisionManager:
                         except Exception:
                             if safari_installed:
                                 ctx.stream.send(
-                                    "No suitable browser found. To use Safari, enable"
-                                    " remote automation.",
+                                    "No suitable browser found. To use Safari, enable" " remote automation.",
                                     style="error",
                                 )
                             else:

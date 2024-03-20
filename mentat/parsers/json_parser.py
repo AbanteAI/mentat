@@ -94,9 +94,7 @@ class JsonParser(Parser):
         return 0
 
     @override
-    async def stream_and_parse_llm_response(
-        self, response: AsyncIterator[ChatCompletionChunk]
-    ) -> ParsedLLMResponse:
+    async def stream_and_parse_llm_response(self, response: AsyncIterator[ChatCompletionChunk]) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
 
@@ -109,9 +107,7 @@ class JsonParser(Parser):
             if self.shutdown.is_set():
                 printer.shutdown_printer()
                 await printer_task
-                stream.send(
-                    "\n\nInterrupted by user. Using the response up to this point."
-                )
+                stream.send("\n\nInterrupted by user. Using the response up to this point.")
                 break
 
             for content in chunk_to_lines(chunk):
@@ -134,9 +130,7 @@ class JsonParser(Parser):
             stream.send("Error processing model response: Invalid JSON", style="error")
             return ParsedLLMResponse(message, "", [])
         except ValidationError:
-            stream.send(
-                "Error processing model response: Invalid format given", style="error"
-            )
+            stream.send("Error processing model response: Invalid format given", style="error")
             return ParsedLLMResponse(message, "", [])
 
         file_edits: Dict[Path, FileEdit] = {}
