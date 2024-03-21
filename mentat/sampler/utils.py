@@ -88,7 +88,7 @@ def setup_repo(
         errors = apply_diff_to_repo(diff_active, repo)
         if errors:
             raise SampleError(f"Error applying diff_active: {errors}")
-        
+
     # Add a name/email if missing
     if not repo.config_reader().has_option("user", "name"):
         repo.git.config("user.name", "Test User")

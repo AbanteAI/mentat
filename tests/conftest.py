@@ -321,7 +321,7 @@ def temp_testbed(mocker, monkeypatch, get_marks):
         if base_db.exists():
             shutil.rmtree(base_db)
         shutil.move(temp_db, base_dir / "testbed" / ".ragdaemon")
-        
+
     shutil.rmtree(temp_dir, onerror=add_permissions)
 
 
