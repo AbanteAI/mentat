@@ -27,6 +27,7 @@ type ContextUpdateData = {
     features: string[];
     git_diff_paths: string[];
     total_tokens: number;
+    maximum_tokens: number;
     total_cost: number;
 };
 

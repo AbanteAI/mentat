@@ -68,7 +68,6 @@ class WebviewProvider implements vscode.WebviewViewProvider {
             "index.js",
         ]);
 
-        // TODO: Can this be done in react code? Check
         const styleUri = getUri(this.view.webview, this.extensionUri, [
             "build",
             "webviews",

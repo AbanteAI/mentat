@@ -31,7 +31,7 @@ function ContentPiece({ contentPiece }: { contentPiece: MessageContent }) {
         <span
             style={{
                 color:
-                    contentPiece.color ||
+                    contentPiece.color?.replace("bright_", "light") ||
                     (contentPiece.style && dark_theme[contentPiece.style]),
             }}
             className={

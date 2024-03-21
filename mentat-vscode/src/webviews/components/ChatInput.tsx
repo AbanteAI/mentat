@@ -48,7 +48,7 @@ export default function ChatInput(props: Props) {
     }
 
     return (
-        <div className="flex flex-row items-center pb-4">
+        <div className="flex flex-row items-center pb-4 relative">
             <div className="relative flex-1 bg-[var(--vscode-input-background)] rounded-md">
                 <textarea
                     ref={textAreaRef}
@@ -69,7 +69,7 @@ export default function ChatInput(props: Props) {
                 className={`${
                     !submitDisabled &&
                     "hover:bg-[var(--vscode-button-secondaryHoverBackground)]"
-                } w-6 h-6 flex justify-center items-center rounded-md fixed bottom-[22px] right-12`}
+                } w-6 h-6 flex justify-center items-center rounded-md absolute bottom-[22px] right-10`}
                 onClick={handleSubmit}
                 disabled={submitDisabled}
             >

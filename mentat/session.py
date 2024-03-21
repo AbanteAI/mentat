@@ -168,12 +168,8 @@ class Session:
             ensure_ctags_installed()
 
         session_context.llm_api_handler.initialize_client()
-
         check_model()
-        await conversation.display_token_count()
 
-        stream.send("Type 'q' or use Ctrl-C to quit at any time.")
-        stream.send("\nWhat can I do for you?", style="input")
         need_user_request = True
         while True:
             await code_context.refresh_context_display()

@@ -1,12 +1,19 @@
 import React, { createContext, useEffect, useRef, useState } from "react";
 
-import { FileEdit, Message, MessageContent, StreamMessage } from "../../types";
+import {
+    ContextUpdateData,
+    FileEdit,
+    Message,
+    MessageContent,
+    StreamMessage,
+} from "../../types";
 
 import ChatInput from "webviews/components/ChatInput";
 import ChatMessage from "webviews/components/ChatMessage";
 import { vscode } from "webviews/utils/vscode";
 import { isEqual } from "lodash";
 import { WorkspaceRootContext } from "webviews/context/WorkspaceRootContext";
+import CostOverview from "webviews/components/CostOverview";
 
 const MESSAGE_LIMIT = 100;
 
@@ -19,12 +26,13 @@ export default function Chat() {
     const [interruptable, setInterruptable] = useState<boolean>(false);
     const [activeEdits, setActiveEdits] = useState<FileEdit[]>([]);
     const [workspaceRoot, setWorkspaceRoot] = useState<string>("");
+    const [contextUpdataData, setContextUpdateData] =
+        useState<ContextUpdateData>();
 
     const chatLogRef = useRef<HTMLDivElement>(null);
 
     // TODO: Rarely, if you move fast during model output, some bugs can occur when reloading webview view;
     // figure out why and fix it (easiest to see if you turn off retainContextWhenHidden). Once fixed, turn off retainContextWhenHidden permanently.
-    // Also TODO: When restarting vscode during model output, interruptable will be stuck on (along with a few other quirks).
 
     // Whenever you add more state, make certain to update both of these effects!!!
     useEffect(() => {
@@ -32,10 +40,12 @@ export default function Chat() {
         if (state) {
             setMessages(state.messages);
             setInputRequestId(state.inputRequestId);
+            setSessionActive(state.sessionActive);
             setTextAreaValue(state.textAreaValue);
             setInterruptable(state.interruptable);
             setActiveEdits(state.activeEdits);
             setWorkspaceRoot(state.workspaceRoot);
+            setContextUpdateData(state.contextUpdataData);
         }
 
         window.addEventListener("message", handleServerMessage);
@@ -50,19 +60,23 @@ export default function Chat() {
         const state = {
             messages,
             inputRequestId,
+            sessionActive,
             textAreaValue,
             interruptable,
             activeEdits,
             workspaceRoot,
+            contextUpdataData,
         };
         vscode.setState(state);
     }, [
         messages,
         inputRequestId,
+        sessionActive,
         textAreaValue,
         interruptable,
         activeEdits,
         workspaceRoot,
+        contextUpdataData,
     ]);
 
     const scrollToBottom = () => {
@@ -182,14 +196,22 @@ export default function Chat() {
                 break;
             }
             case "context_update": {
+                setContextUpdateData(message.data);
                 break;
             }
             case "vscode": {
                 const subchannel = message.channel.split(":").at(1);
                 switch (subchannel) {
                     case "newSession": {
-                        setMessages((prevMessages) => [...prevMessages, null]);
+                        if (messages.length > 0 && messages.at(-1) !== null) {
+                            setMessages((prevMessages) => [
+                                ...prevMessages,
+                                null,
+                            ]);
+                        }
                         setActiveEdits([]);
+                        setSessionActive(true);
+                        setInterruptable(false);
                         setWorkspaceRoot(message.extra.workspaceRoot);
                         break;
                     }
@@ -240,33 +262,39 @@ export default function Chat() {
     }
 
     // Using index as key should be fine since we never insert, delete, or re-order chat messages
-    const chatMessageElements = messages.map((message, index) => (
-        <React.Fragment key={index}>
-            {message === null ? (
-                <div className="border-solid border-b border-[var(--vscode-panel-border)]"></div>
-            ) : (
-                <ChatMessage
-                    message={message}
-                    activeEdits={
-                        index === messages.length - 1 ? activeEdits : []
-                    }
-                    onAccept={onAccept}
-                    onDecline={onDecline}
-                    onPreview={onPreview}
-                ></ChatMessage>
-            )}
-        </React.Fragment>
-    ));
+    const startingMessage: Message = {
+        content: [{ text: "What can I do for you?" }],
+        source: "mentat",
+    };
+    const chatMessageElements = [startingMessage, ...messages].map(
+        (message, index, arr) => (
+            <React.Fragment key={index}>
+                {message === null ? (
+                    <div className="border-solid border-b border-[var(--vscode-panel-border)]"></div>
+                ) : (
+                    <ChatMessage
+                        message={message}
+                        activeEdits={
+                            index === arr.length - 1 ? activeEdits : []
+                        }
+                        onAccept={onAccept}
+                        onDecline={onDecline}
+                        onPreview={onPreview}
+                    ></ChatMessage>
+                )}
+            </React.Fragment>
+        )
+    );
     return (
         <WorkspaceRootContext.Provider value={workspaceRoot}>
             <div
-                className="h-screen"
+                className="h-screen relative"
                 style={{
                     fontWeight: "var(--vscode-editor-font-weight)",
                     fontSize: "var(--vscode-editor-font-size)",
                 }}
             >
-                <div className="flex flex-col justify-between h-full">
+                <div className="flex flex-col grow justify-between h-full">
                     <div
                         ref={chatLogRef}
                         className="flex flex-col gap-2 overflow-y-scroll"
@@ -282,6 +310,13 @@ export default function Chat() {
                         cancelEnabled={interruptable}
                         onCancel={onCancel}
                     />
+                </div>
+                <div className="w-fit h-fit absolute right-0 top-0 border-l-2 border-b-2 rounded-bl-md pl-2 pb-2 bg-[var(--vscode-activityBar-background)]">
+                    <CostOverview
+                        tokens_used={contextUpdataData?.total_tokens ?? 0}
+                        max_tokens={contextUpdataData?.maximum_tokens ?? 0}
+                        total_cost={contextUpdataData?.total_cost ?? 0}
+                    ></CostOverview>
                 </div>
             </div>
         </WorkspaceRootContext.Provider>

@@ -37,6 +37,7 @@ class ContextStreamMessage(TypedDict):
     git_diff_paths: List[str]
     git_untracked_paths: List[str]
     total_tokens: int
+    maximum_tokens: int
     total_cost: float
 
 
@@ -84,6 +85,7 @@ class CodeContext:
             git_diff_paths=git_diff_paths,
             git_untracked_paths=git_untracked_paths,
             total_tokens=total_tokens,
+            maximum_tokens=get_max_tokens(),
             total_cost=total_cost,
         )
         ctx.stream.send(data, channel="context_update")

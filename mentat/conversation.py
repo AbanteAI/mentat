@@ -40,34 +40,6 @@ class Conversation:
         # This contains a list of messages used for transcripts
         self.literal_messages = list[TranscriptMessage]()
 
-    async def display_token_count(self):
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-        config = session_context.config
-        code_context = session_context.code_context
-
-        tokens = await self.count_tokens(include_code_message=True)
-
-        context_size = get_max_tokens()
-        if tokens + config.token_buffer > context_size:
-            _plural = len(code_context.include_files) > 1
-            _exceed = tokens > context_size
-            message: dict[tuple[bool, bool], str] = {
-                (False, False): " is close to",
-                (False, True): " exceeds",
-                (True, False): "s are close to",
-                (True, True): "s exceed",
-            }
-            stream.send(
-                f"Included file{message[(_plural, _exceed)]} token limit" f" ({tokens} / {context_size}).",
-                style="warning",
-            )
-        else:
-            stream.send(
-                f"Prompt and included files token count: {tokens} / {context_size}",
-                style="info",
-            )
-
     # The transcript logger logs tuples containing the actual message sent by the user or LLM
     # and (for LLM messages) the LLM conversation that led to that LLM response
     def add_transcript_message(self, transcript_message: TranscriptMessage):

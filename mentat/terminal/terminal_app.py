@@ -66,6 +66,7 @@ class ContentContainer(Static):
             ),
             PatchedDropdown(self.stream, self.suggester),
         )
+        self.add_content("What can I do for you?\n", color="blue")
 
     @on(Input.Submitted)
     def on_user_input(self, event: Input.Submitted):
@@ -236,7 +237,8 @@ class TerminalApp(App[None]):
     def compose(self) -> ComposeResult:
         self.dark = self.client.config.theme == "dark"
         self.theme = themes[self.client.config.theme]
-        yield ContentContainer(self.client.session.stream, self.theme)
+        self.content_container = ContentContainer(self.client.session.stream, self.theme)
+        yield self.content_container
         yield ContextContainer()
 
     def display_stream_message(self, message: StreamMessage):
@@ -260,7 +262,7 @@ class TerminalApp(App[None]):
                 if filepath:
                     filepath_display, filepath_display_type = message.extra.get("filepath_display", filepath)
                     content_container.add_content(
-                        f"{filepath_display}\n{change_delimiter}\n",
+                        f"{filepath_display}\n",
                         color=(
                             "bright_green"
                             if filepath_display_type == "creation"
@@ -271,6 +273,7 @@ class TerminalApp(App[None]):
                             )
                         ),
                     )
+                    content_container.add_content(f"{change_delimiter}\n")
                 self.last_filepath = filepath
 
         content = str(message.data) + end

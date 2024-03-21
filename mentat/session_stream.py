@@ -75,6 +75,7 @@ class SessionStream:
         "features": ["List of user included features"],
         "git_diff_paths": ["List of all paths with git diffs; used to color the changed included features"],
         "total_tokens": Total tokens in context,
+        "maximum_tokens": Maximum tokens allowed in context,
         "total_cost": Total cost so far
     }
 
