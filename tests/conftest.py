@@ -314,14 +314,6 @@ def temp_testbed(mocker, monkeypatch, get_marks):
         m.chdir(temp_testbed)
         yield Path(temp_testbed)
 
-    # Cache the embeddings for tests
-    temp_db = Path(temp_testbed) / ".ragdaemon" / "chroma"
-    if temp_db.exists():
-        base_db = base_dir / "testbed" / ".ragdaemon" / "chroma"
-        if base_db.exists():
-            shutil.rmtree(base_db)
-        shutil.move(temp_db, base_dir / "testbed" / ".ragdaemon")
-
     shutil.rmtree(temp_dir, onerror=add_permissions)
 
 
