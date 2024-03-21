@@ -2,7 +2,6 @@ import WebviewProvider from "lib/WebviewProvider";
 import * as vscode from "vscode";
 import * as os from "os";
 import {
-    clearChat,
     eraseChatHistory,
     excludeResource,
     includeResource,
@@ -127,9 +126,6 @@ async function activateClient(context: vscode.ExtensionContext) {
                 "mentat.excludeFolder",
                 excludeResource
             )
-        );
-        context.subscriptions.push(
-            vscode.commands.registerCommand("mentat.clearChat", clearChat)
         );
         context.subscriptions.push(
             vscode.commands.registerCommand(

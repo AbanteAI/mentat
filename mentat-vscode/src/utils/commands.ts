@@ -24,10 +24,6 @@ export function excludeResource(...args: any[]) {
     server.sendStreamMessage(filePath, "exclude");
 }
 
-export function clearChat(...args: any[]) {
-    server.sendStreamMessage(null, "clear_conversation");
-}
-
 export function eraseChatHistory(
     webviewProvider: WebviewProvider
 ): (...args: any[]) => void {

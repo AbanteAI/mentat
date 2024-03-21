@@ -122,10 +122,6 @@
                 "enablement": "explorerResourceIsFolder && resourcePath in mentat.includedFolders"
             },
             {
-                "command": "mentat.clearChat",
-                "title": "Mentat: Clear Chat"
-            },
-            {
                 "command": "mentat.eraseChatHistory",
                 "title": "Mentat: Erase Chat History"
             }
@@ -166,10 +162,6 @@
                 }
             ],
             "webview/context": [
-                {
-                    "command": "mentat.clearChat",
-                    "when": "webviewId == 'mentat-webview'"
-                },
                 {
                     "command": "mentat.eraseChatHistory",
                     "when": "webviewId == 'mentat-webview'"
