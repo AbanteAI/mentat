@@ -26,7 +26,7 @@ def get_lexer(file_path: Path):
 
 
 def get_line_number_buffer(file_lines: list[str]):
-    return len(str(len(file_lines) + 1)) + 1
+    return 1
 
 
 class FileActionType(Enum):
@@ -71,7 +71,7 @@ class DisplayInformation:
             self.new_name = get_relative_path(self.new_name, ctx.cwd)
 
 
-def _remove_extra_empty_lines(lines: list[str]) -> list[str]:
+def _remove_empty_lines(lines: list[str]) -> list[str]:
     if not lines:
         return []
 
@@ -85,12 +85,12 @@ def _remove_extra_empty_lines(lines: list[str]) -> list[str]:
     while end > start and not lines[end].strip():
         end -= 1
 
-    # If all lines are empty, keep only one empty line
+    # If all lines are empty, return nothing
     if start == len(lines):
-        return [" "]
+        return []
 
-    # Return the list with only a maximum of one empty line on either side
-    return lines[max(start - 1, 0) : end + 2]
+    # Return the list with no empty lines
+    return lines[start : end + 1]
 
 
 def _prefixed_lines(line_number_buffer: int, lines: list[str], prefix: str) -> str:
@@ -241,7 +241,7 @@ def get_previous_lines(
 ) -> FormattedString:
     if display_information.first_changed_line < 0:
         return ""
-    lines = _remove_extra_empty_lines(
+    lines = _remove_empty_lines(
         [
             display_information.file_lines[i]
             for i in range(
@@ -253,15 +253,9 @@ def get_previous_lines(
             )
         ]
     )
-    numbered = [
-        (str(display_information.first_changed_line - len(lines) + i + 1) + ":").ljust(
-            display_information.line_number_buffer
-        )
-        + line
-        for i, line in enumerate(lines)
-    ]
+    buffered = [" " * display_information.line_number_buffer + line for line in lines]
 
-    prev = "\n".join(numbered)
+    prev = "\n".join(buffered)
     return highlight_text(prev, display_information.lexer)
 
 
@@ -271,7 +265,7 @@ def get_later_lines(
 ) -> FormattedString:
     if display_information.last_changed_line < 0:
         return ""
-    lines = _remove_extra_empty_lines(
+    lines = _remove_empty_lines(
         [
             display_information.file_lines[i]
             for i in range(
@@ -283,10 +277,7 @@ def get_later_lines(
             )
         ]
     )
-    numbered = [
-        (str(display_information.last_changed_line + 1 + i) + ":").ljust(display_information.line_number_buffer) + line
-        for i, line in enumerate(lines)
-    ]
+    buffered = [" " * (display_information.line_number_buffer) + line for line in lines]
 
-    later = "\n".join(numbered)
+    later = "\n".join(buffered)
     return highlight_text(later, display_information.lexer)
