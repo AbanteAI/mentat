@@ -142,20 +142,14 @@ class CodeContext:
                 ref = feature.rel_path(session_context.cwd) + interval_string
                 context_builder.add_ref(ref, tags=["user-included"])
             relative_path = get_relative_path(path, cwd).as_posix()
-            diffs_for_path = [
-                node for node in diff_nodes if f":{relative_path}" in node
-            ]
+            diffs_for_path = [node for node in diff_nodes if f":{relative_path}" in node]
             for diff in diffs_for_path:
                 context_builder.add_diff(diff)
 
         if config.auto_context_tokens > 0 and prompt:
-            meta_tokens = count_tokens(
-                "\n".join(code_message), model, full_message=True
-            )
+            meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
             include_files_message = context_builder.render()
-            include_files_tokens = count_tokens(
-                include_files_message, model, full_message=False
-            )
+            include_files_tokens = count_tokens(include_files_message, model, full_message=False)
 
             tokens_used = prompt_tokens + meta_tokens + include_files_tokens
             auto_tokens = min(
@@ -197,12 +191,7 @@ class CodeContext:
 
         all_features = list[CodeFeature]()
         for _, data in self.daemon.graph.nodes(data=True):  # pyright: ignore
-            if (
-                data is None
-                or "type" not in data
-                or "ref" not in data
-                or data["type"] not in {"file", "chunk"}
-            ):
+            if data is None or "type" not in data or "ref" not in data or data["type"] not in {"file", "chunk"}:
                 continue
             path, interval = split_intervals_from_path(data["ref"])  # pyright: ignore
             intervals = parse_intervals(interval)

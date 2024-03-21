@@ -20,9 +20,7 @@ async def test_posix_paths(mock_session_context):
     mock_session_context.code_context.include(file_path)
 
     code_message = await mock_session_context.code_context.get_code_message(0)
-    assert any(
-        line.startswith(dir_name + "/" + file_name) for line in code_message.split("\n")
-    )
+    assert any(line.startswith(dir_name + "/" + file_name) for line in code_message.split("\n"))
 
 
 @pytest.mark.ragdaemon

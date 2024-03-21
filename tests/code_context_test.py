@@ -219,7 +219,9 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
 
     code_message = await code_context.get_code_message(0, prompt="prompt")
     assert count_tokens(code_message, "gpt-4", full_message=True) == 103  # Code
-    assert code_message == """\
+    assert (
+        code_message
+        == """\
 Diff References: index (last commit)
 
 Code Files:
@@ -238,6 +240,7 @@ file_2.py (search-result)
 4:def func_4(string):
 5:    print(string)
 """
+    )
 
 
 @pytest.mark.ragdaemon

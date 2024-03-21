@@ -149,9 +149,7 @@ class DiffContext:
         if not target:
             return
         elif treeish_type == "compare":
-            name += "Comparing " + ", ".join(
-                _get_treeish_metadata(self.git_root, part) for part in target.split(" ")
-            )
+            name += "Comparing " + ", ".join(_get_treeish_metadata(self.git_root, part) for part in target.split(" "))
         else:
             name += _get_treeish_metadata(self.git_root, target)
         self.target = target
