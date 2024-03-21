@@ -9,7 +9,12 @@ import { StreamMessage } from "types";
 import * as util from "util";
 import { v4 } from "uuid";
 import * as vscode from "vscode";
+
+// IMPORTANT: This MUST be updated with the vscode extension to ensure that the right mentat version is installed!
+const MENTAT_VERSION = "1.0.10";
+
 const aexec = util.promisify(exec);
+
 class Server {
     private binFolder: string | undefined = undefined;
     private serverProcess: ChildProcessWithoutNullStreams | undefined;
@@ -83,9 +88,11 @@ class Server {
             .at(1)
             ?.split("Version: ")
             ?.at(1);
-        if (mentatVersion === undefined) {
+        if (mentatVersion !== MENTAT_VERSION) {
             progress.report({ message: "Mentat: Installing..." });
-            await aexec(`${pythonLocation} -m pip install mentat`);
+            await aexec(
+                `${pythonLocation} -m pip install mentat==${MENTAT_VERSION}`
+            );
             console.log("Installed Mentat");
         }
 
