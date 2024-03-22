@@ -158,7 +158,7 @@ type Props = {
     onPreview: (fileEdit: FileEdit) => void;
 };
 
-// TODO: Once everything is working, make sure to memoize!!!
+// TODO: Memoize this component if we need the performace increase. Will need to wrap prop functions in useCallback.
 export default function ChatMessage(props: Props) {
     const sourceIcon =
         props.message.source === "user" ? (
@@ -230,16 +230,6 @@ export default function ChatMessage(props: Props) {
             ))}
         </pre>
     );
-
-    // TODO: Should we put a warning or error box around specific styles?
-    /*
-    chatMessageContent = (
-        <div className="bg-red-500 p-2 rounded-md flex gap-2 text-white">
-            <WarningIcon />
-            {content}
-        </div>
-    );
-    */
 
     return (
         <div className="flex flex-col gap-2 p-1 border-t border-[var(--vscode-panel-border)]">

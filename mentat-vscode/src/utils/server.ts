@@ -81,7 +81,6 @@ class Server {
         );
         const pythonLocation = path.join(binFolder, "python");
 
-        // TODO: Auto update mentat if wrong version
         const { stdout } = await aexec(`${pythonLocation} -m pip show mentat`);
         const mentatVersion = stdout
             .split("\n")

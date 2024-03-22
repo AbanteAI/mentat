@@ -9,7 +9,6 @@ import {
     ThemeColor,
 } from "vscode";
 
-// TODO: add some sort of badge or color to files that are included
 // Currently not registered in extension.ts!
 export class ContextFileDecorationProvider implements FileDecorationProvider {
     constructor() {}

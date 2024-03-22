@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import {
     ContextUpdateData,
@@ -252,7 +252,6 @@ export default function Chat() {
     }
 
     function onAccept(fileEdit: FileEdit) {
-        console.log("Accepted", fileEdit);
         disableEdit(fileEdit);
         vscode.sendMessage(fileEdit, "vscode:acceptEdit");
     }
