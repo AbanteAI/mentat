@@ -170,6 +170,7 @@ class Server {
                 }
             }
         });
+        this.clearBacklog();
     }
 
     public closeServer() {
@@ -196,16 +197,23 @@ class Server {
         this.sendMessage(message);
     }
 
+    private clearBacklog() {
+        if (this.serverProcess === undefined) {
+            return;
+        }
+        for (const streamMessage of this.backlog) {
+            this.serverProcess.stdin.write(
+                JSON.stringify(streamMessage) + "\n"
+            );
+        }
+        this.backlog = [];
+    }
+
     public sendMessage(message: StreamMessage) {
         if (this.serverProcess === undefined) {
             this.backlog.push(message);
         } else {
-            for (const streamMessage of this.backlog) {
-                this.serverProcess.stdin.write(
-                    JSON.stringify(streamMessage) + "\n"
-                );
-            }
-            this.backlog = [];
+            this.clearBacklog();
             this.serverProcess.stdin.write(JSON.stringify(message) + "\n");
         }
     }
