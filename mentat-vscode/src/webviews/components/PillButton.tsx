@@ -10,7 +10,7 @@ export default function PillButton(props: Props) {
     return (
         <button
             className={
-                "basis-1 py-1 px-3 rounded-full w-fit whitespace-nowrap hover:scale-[1.12] transition-all duration-500 ease-out border-solid border-2 border-[var(--vscode-focusBorder)] " +
+                "basis-1 py-1 px-3 rounded-sm w-fit whitespace-nowrap border-solid border-2 border-[var(--vscode-focusBorder)] " +
                 (props.className ? props.className : "")
             }
             onClick={props.onClick}

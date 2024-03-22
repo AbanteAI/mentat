@@ -8,7 +8,7 @@ import PillButton from "./PillButton";
 const light_theme: { [id: string]: string } = {
     prompt: "gray",
     code: "blue",
-    info: "cyan",
+    info: "lightblue",
     failure: "darkred",
     success: "green",
     input: "lightblue",
@@ -18,7 +18,7 @@ const light_theme: { [id: string]: string } = {
 const dark_theme: { [id: string]: string } = {
     prompt: "white",
     code: "blue",
-    info: "cyan",
+    info: "lightblue",
     failure: "red",
     success: "green",
     input: "lightblue",
@@ -101,7 +101,7 @@ function FileBlock({
 
     return (
         // hover:bg-[var(--vscode-inputOption-hoverBackground)] hover:scale-[1.01] transition-all duration-500 ease-out
-        <fieldset className="border-solid rounded-md border min-w-[30%] max-w-[80%] w-fit p-2 bg-[var(--vscode-input-background)]">
+        <fieldset className="border-solid rounded-md border min-w-[30%] max-w-[80%] w-fit p-1 bg-[var(--vscode-input-background)]">
             <legend
                 style={{
                     color: filePathColor,
@@ -121,22 +121,22 @@ function FileBlock({
                 activeEdit && (
                     <>
                         <span className="border-solid border-b block my-2"></span>
-                        <div className="flex flex-row flex-wrap gap-3 mt-2 mr-auto">
+                        <div className="flex flex-row flex-wrap gap-3 ml-1 mb-1 mr-auto">
                             <PillButton
-                                className="bg-green-600 hover:bg-green-500"
+                                className="bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)]"
                                 onClick={() => onAccept(activeEdit)}
                             >
                                 {acceptText}
                             </PillButton>
                             <PillButton
-                                className="bg-red-700 hover:bg-red-500"
+                                className="bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)]"
                                 onClick={() => onDecline(activeEdit)}
                             >
                                 Decline
                             </PillButton>
                             {activeEdit.type === "edit" && (
                                 <PillButton
-                                    className="bg-cyan-700 hover:bg-blue-500"
+                                    className="bg-[var(--vscode-button-secondaryBackground)] hover:bg-[var(--vscode-button-secondaryHoverBackground)]"
                                     onClick={() => onPreview(activeEdit)}
                                 >
                                     Review
@@ -242,7 +242,7 @@ export default function ChatMessage(props: Props) {
     */
 
     return (
-        <div className="flex flex-col gap-2 p-2 border-t border-[var(--vscode-panel-border)]">
+        <div className="flex flex-col gap-2 p-1 border-t border-[var(--vscode-panel-border)]">
             <div className="flex gap-2 pt-2">
                 {sourceIcon}
                 <p className="font-bold">{sourceName}</p>
@@ -250,9 +250,9 @@ export default function ChatMessage(props: Props) {
             {messageContent}
             {props.activeEdits.length > 0 && (
                 <>
-                    <div className="flex flex-row flex-wrap gap-3 mt-2 mr-auto">
+                    <div className="flex flex-row flex-wrap gap-3 ml-1 mb-1 mr-auto">
                         <PillButton
-                            className="bg-green-600 hover:bg-green-500"
+                            className="bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)]"
                             onClick={() =>
                                 props.activeEdits.map(props.onAccept)
                             }
@@ -260,7 +260,7 @@ export default function ChatMessage(props: Props) {
                             Accept All
                         </PillButton>
                         <PillButton
-                            className="bg-red-700 hover:bg-red-500"
+                            className="bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)]"
                             onClick={() =>
                                 props.activeEdits.map(props.onDecline)
                             }

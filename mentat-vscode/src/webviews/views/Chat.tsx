@@ -203,12 +203,16 @@ export default function Chat() {
                 const subchannel = message.channel.split(":").at(1);
                 switch (subchannel) {
                     case "newSession": {
-                        if (messages.length > 0 && messages.at(-1) !== null) {
-                            setMessages((prevMessages) => [
-                                ...prevMessages,
-                                null,
-                            ]);
-                        }
+                        setMessages((prevMessages) => {
+                            if (
+                                prevMessages.length > 0 &&
+                                prevMessages.at(-1) !== null
+                            ) {
+                                return [...prevMessages, null];
+                            } else {
+                                return [...prevMessages];
+                            }
+                        });
                         setActiveEdits([]);
                         setSessionActive(true);
                         setInterruptable(false);
@@ -263,7 +267,7 @@ export default function Chat() {
 
     // Using index as key should be fine since we never insert, delete, or re-order chat messages
     const startingMessage: Message = {
-        content: [{ text: "What can I do for you?" }],
+        content: [{ text: "What can I do for you?", style: "info" }],
         source: "mentat",
     };
     const chatMessageElements = [startingMessage, ...messages].map(
