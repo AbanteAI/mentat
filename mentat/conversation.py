@@ -228,19 +228,24 @@ class Conversation:
         stream.send("Streaming... use control-c to interrupt the model at any point\n")
         async with stream.interrupt_catcher(parser.shutdown):
             parsed_llm_response = await parser.stream_and_parse_llm_response(add_newline(response.stream()))
+
+        stream.send(f"TESTING: {response.input_tokens}", style="info")
+
         # Sampler and History require previous_file_lines
         for file_edit in parsed_llm_response.file_edits:
             file_edit.previous_file_lines = code_file_manager.file_lines.get(file_edit.file_path, [])
         if not parsed_llm_response.interrupted:
             cost_tracker.display_last_api_call()
         else:
-            # Generator doesn't log the api call if we interrupt it
-            cost_tracker.log_api_call_stats(
-                num_prompt_tokens,
-                count_tokens(parsed_llm_response.full_response, config.model, full_message=False),
-                config.model,
-                display=True,
-            )
+            pass
+            # TODO: make sure we actually do log if interrupted
+            # # Generator doesn't log the api call if we interrupt it
+            # cost_tracker.log_api_call_stats(
+            #     num_prompt_tokens,
+            #     count_tokens(parsed_llm_response.full_response, config.model, full_message=False),
+            #     config.model,
+            #     display=True,
+            # )
 
         messages.append(
             ChatCompletionAssistantMessageParam(role="assistant", content=parsed_llm_response.full_response)

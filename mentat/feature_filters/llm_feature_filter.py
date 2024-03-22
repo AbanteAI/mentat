@@ -99,12 +99,13 @@ class LLMFeatureFilter(FeatureFilter):
         message = llm_response.text
         tokens = prompt_tokens(messages, model)
         response_tokens = count_tokens(message, model, full_message=True)
-        cost_tracker.log_api_call_stats(
-            tokens,
-            response_tokens,
-            model,
-            default_timer() - start_time,
-        )
+        # TODO: run above llm call through spice and use callback to log below
+        # cost_tracker.log_api_call_stats(
+        #     tokens,
+        #     response_tokens,
+        #     model,
+        #     default_timer() - start_time,
+        # )
         stream.send(None, channel="loading")
 
         # Parse response into features

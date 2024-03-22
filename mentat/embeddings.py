@@ -131,12 +131,13 @@ async def get_feature_similarity_scores(
         start_time = default_timer()
         stream.send(None, channel="loading")
         collection.add(embed_checksums, embed_texts)
-        cost_tracker.log_api_call_stats(
-            sum(embed_tokens),
-            0,
-            embedding_model,
-            start_time - default_timer(),
-        )
+        # TODO: log cost for embedding models properly
+        # cost_tracker.log_api_call_stats(
+        #     sum(embed_tokens),
+        #     0,
+        #     embedding_model,
+        #     start_time - default_timer(),
+        # )
 
     # Get similarity scores
     stream.send(None, channel="loading")

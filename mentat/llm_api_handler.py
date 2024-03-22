@@ -404,22 +404,8 @@ class LlmApiHandler:
                 stream=stream,
                 temperature=config.temperature,
                 response_format=response_format,
+                logging_callback=cost_tracker.log_api_call_stats,
             )
-
-        if not stream:
-            time_elapsed = default_timer() - start_time
-            response_tokens = count_tokens(
-                response.text,
-                model,
-                full_message=False,
-            )
-            cost_tracker.log_api_call_stats(tokens, response_tokens, model, time_elapsed)
-        else:
-            cost_tracker.last_api_call = ""
-            # TODO: replace this tracking for stream
-            # response = cost_tracker.response_logger_wrapper(
-            #     tokens, cast(AsyncStream[ChatCompletionChunk], response), model
-            # )
 
         return response
 
