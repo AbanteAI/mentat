@@ -115,14 +115,15 @@ def display_full_change(display_information: DisplayInformation, prefix: str = "
 
     full_change: List[FormattedString] = [
         get_file_name(display_information),
-        (("", {"delimiter": True}) if display_information.added_block or display_information.removed_block else ""),
+        ("=" * 60 if display_information.added_block or display_information.removed_block else ""),
         get_previous_lines(display_information),
         get_removed_lines(display_information),
         get_added_lines(display_information),
         get_later_lines(display_information),
-        (("", {"delimiter": True}) if display_information.added_block or display_information.removed_block else ""),
+        ("=" * 60 if display_information.added_block or display_information.removed_block else ""),
     ]
-    # TODO: This is called by undo and redo; make sure this stuff looks good before merging!!!
+    # TODO: This is called by undo and redo; this is very hardcoded to terminalclient ui right now
+    # (so it might look weird in vscode extension), but once we move commands to terminalclient we can remove this
     for line in full_change:
         if isinstance(line, str):
             if not line.strip():
