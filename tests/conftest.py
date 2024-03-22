@@ -264,6 +264,9 @@ def add_permissions(func, path, exc_info):
     If the error is due to an access error (read only file)
     it attempts to add write permission and then retries.
 
+    If the error is because the file is being used by another process,
+    it retries after a short delay.
+
     If the error is for another reason it re-raises the error.
     """
 
@@ -271,6 +274,9 @@ def add_permissions(func, path, exc_info):
     # Is the error an access error?
     if not os.access(path, os.W_OK):
         os.chmod(path, stat.S_IWUSR)
+        func(path)
+    elif os.path.isdir(path):
+        time.sleep(0.1)
         func(path)
     else:
         raise
