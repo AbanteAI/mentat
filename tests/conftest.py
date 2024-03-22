@@ -275,11 +275,18 @@ def add_permissions(func, path, exc_info):
     if not os.access(path, os.W_OK):
         os.chmod(path, stat.S_IWUSR)
         func(path)
-    elif os.path.isdir(path):
-        time.sleep(0.1)
-        func(path)
-    else:
-        raise
+    # Retry deletion with a delay
+    retries = 2
+    delay = 1
+    for attempt in range(retries):
+        try:
+            func(path)
+            break
+        except PermissionError:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise
 
 
 @pytest.fixture(autouse=True)
