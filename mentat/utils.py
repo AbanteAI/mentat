@@ -89,9 +89,9 @@ def create_viewer(transcripts: list[Transcript]) -> Path:
 
 
 async def add_newline(
-    iterator: AsyncIterator[ChatCompletionChunk],
+    iterator: AsyncIterator[str],
     role: Optional[Literal["system", "user", "assistant", "tool"]] = "assistant",
-) -> AsyncIterator[ChatCompletionChunk]:
+) -> AsyncIterator[str]:
     """
     The model often doesn't end it's responses in a newline;
     adding a newline makes it significantly easier for us to parse.
@@ -101,20 +101,7 @@ async def add_newline(
         last_chunk = chunk
         yield chunk
     if last_chunk is not None:
-        yield ChatCompletionChunk(
-            id=last_chunk.id,
-            choices=[
-                Choice(
-                    delta=ChoiceDelta(content="\n", role=role),
-                    finish_reason=last_chunk.choices[0].finish_reason,
-                    index=0,
-                )
-            ],
-            created=last_chunk.created,
-            model=last_chunk.model,
-            object=last_chunk.object,
-            system_fingerprint=last_chunk.system_fingerprint,
-        )
+        yield "\n"
 
 
 def get_relative_path(path: Path, target: Path) -> Path:

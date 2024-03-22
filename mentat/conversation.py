@@ -227,7 +227,7 @@ class Conversation:
         # TODO: control-c doesn't make sense for VSCode; send information in client agnostic way
         stream.send("Streaming... use control-c to interrupt the model at any point\n")
         async with stream.interrupt_catcher(parser.shutdown):
-            parsed_llm_response = await parser.stream_and_parse_llm_response(add_newline(response))
+            parsed_llm_response = await parser.stream_and_parse_llm_response(add_newline(response.stream()))
         # Sampler and History require previous_file_lines
         for file_edit in parsed_llm_response.file_edits:
             file_edit.previous_file_lines = code_file_manager.file_lines.get(file_edit.file_path, [])

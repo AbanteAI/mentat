@@ -96,7 +96,7 @@ class LLMFeatureFilter(FeatureFilter):
             stream=False,
             response_format=ResponseFormat(type="json_object"),
         )
-        message = (llm_response.choices[0].message.content) or ""
+        message = llm_response.text
         tokens = prompt_tokens(messages, model)
         response_tokens = count_tokens(message, model, full_message=True)
         cost_tracker.log_api_call_stats(

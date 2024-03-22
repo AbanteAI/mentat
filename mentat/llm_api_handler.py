@@ -44,6 +44,7 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
+from spice import Spice, SpiceResponse
 
 from mentat.errors import MentatError, ReturnToUser, UserError
 from mentat.session_context import SESSION_CONTEXT
@@ -97,11 +98,8 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
 
 
 # Ensures that each chunk will have at most one newline character
-def chunk_to_lines(chunk: ChatCompletionChunk) -> list[str]:
-    content = None
-    if len(chunk.choices) > 0:
-        content = chunk.choices[0].delta.content
-    return ("" if content is None else content).splitlines(keepends=True)
+def chunk_to_lines(content: str) -> list[str]:
+    return content.splitlines(keepends=True)
 
 
 def get_encoding_for_model(model: str) -> tiktoken.Encoding:
@@ -264,6 +262,9 @@ known_models = ModelsIndex(
         "gpt-3.5-turbo-16k-0613": Model("gpt-3.5-turbo-16k-0613", 16385, 0.003, 0.004),
         "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
         "text-embedding-ada-002": Model("text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True),
+        "claude-3-opus-20240229": Model("claude-3-opus-20240229", 200000, 0.015, 0.075),
+        "claude-3-sonnet-20240229": Model("claude-3-sonnet-20240229", 200000, 0.003, 0.015),
+        "claude-3-haiku-20240307": Model("claude-3-haiku-20240307", 200000, 0.00025, 0.00125),
     }
 )
 
@@ -362,30 +363,12 @@ class LlmApiHandler:
             self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
             self.sync_client = OpenAI(api_key=key, base_url=base_url)
 
+        self.spice_client = Spice(provider="anthropic")
+
         try:
             self.async_client.models.list()  # Test the key
         except AuthenticationError as e:
             raise UserError(f"API gave an Authentication Error:\n{e}")
-
-    @overload
-    async def call_llm_api(
-        self,
-        messages: list[ChatCompletionMessageParam],
-        model: str,
-        stream: Literal[True],
-        response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> AsyncIterator[ChatCompletionChunk]:
-        ...
-
-    @overload
-    async def call_llm_api(
-        self,
-        messages: list[ChatCompletionMessageParam],
-        model: str,
-        stream: Literal[False],
-        response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> ChatCompletion:
-        ...
 
     @api_guard
     async def call_llm_api(
@@ -394,7 +377,7 @@ class LlmApiHandler:
         model: str,
         stream: bool,
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> ChatCompletion | AsyncIterator[ChatCompletionChunk]:
+    ) -> SpiceResponse:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         cost_tracker = session_context.cost_tracker
@@ -409,52 +392,34 @@ class LlmApiHandler:
         start_time = default_timer()
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
+
+            # TODO: handle this for gpt-4-vision-preview in spice?
             # OpenAI's API is bugged; when gpt-4-vision-preview is used, including the response format
             # at all returns a 400 error. Additionally, gpt-4-vision-preview has a max response of 30 tokens by default.
             # Until this is fixed, we have to use this workaround.
-            if model == "gpt-4-vision-preview":
-                response = await self.async_client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=config.temperature,
-                    stream=stream,
-                    max_tokens=4096,
-                )
-            else:
-                # This makes it slightly easier when using the litellm proxy or models outside of OpenAI
-                if response_format["type"] == "text":
-                    response = await self.async_client.chat.completions.create(
-                        model=model,
-                        messages=messages,
-                        temperature=config.temperature,
-                        stream=stream,
-                        max_tokens=4096,
-                    )
-                else:
-                    response = await self.async_client.chat.completions.create(
-                        model=model,
-                        messages=messages,
-                        temperature=config.temperature,
-                        stream=stream,
-                        response_format=response_format,
-                        max_tokens=4096,
-                    )
 
-        # We have to cast response since pyright isn't smart enough to connect
-        # the dots between stream and the overloaded create function
+            response = await self.spice_client.call_llm(
+                model=model,
+                messages=messages,
+                stream=stream,
+                temperature=config.temperature,
+                response_format=response_format,
+            )
+
         if not stream:
             time_elapsed = default_timer() - start_time
             response_tokens = count_tokens(
-                cast(ChatCompletion, response).choices[0].message.content or "",
+                response.text,
                 model,
                 full_message=False,
             )
             cost_tracker.log_api_call_stats(tokens, response_tokens, model, time_elapsed)
         else:
             cost_tracker.last_api_call = ""
-            response = cost_tracker.response_logger_wrapper(
-                tokens, cast(AsyncStream[ChatCompletionChunk], response), model
-            )
+            # TODO: replace this tracking for stream
+            # response = cost_tracker.response_logger_wrapper(
+            #     tokens, cast(AsyncStream[ChatCompletionChunk], response), model
+            # )
 
         return response
 
