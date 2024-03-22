@@ -158,6 +158,11 @@ class Parser(ABC):
 
                     if in_special_lines and self._ends_special(cur_line.strip()):
                         previous_file = None if file_edit is None else file_edit.file_path
+                        previous_file_had_edits = (
+                            False
+                            if file_edit is None
+                            else file_edit.replacements or file_edit.is_creation or file_edit.is_deletion
+                        )
 
                         try:
                             (
@@ -184,9 +189,15 @@ class Parser(ABC):
                                 [file_edit for file_edit in file_edits.values()],
                             )
 
+                        # Rename map handling
+                        if file_edit.rename_file_path is not None:
+                            rename_map[file_edit.rename_file_path] = file_edit.file_path
+                        if file_edit.file_path in rename_map:
+                            file_edit.file_path = session_context.cwd / rename_map[file_edit.file_path]
+
                         # Add a delimiter directly before a new file edit if it's the same file as before
                         # This way, we get delimiters between every edit but not before or after the whole thing.
-                        if previous_file == file_edit.file_path:
+                        if previous_file == file_edit.file_path and previous_file_had_edits:
                             printer.add_delimiter()
 
                         printer.cur_file = str(file_edit.file_path)
@@ -194,12 +205,6 @@ class Parser(ABC):
                         in_special_lines = False
                         prev_block = cur_block
                         cur_block = ""
-
-                        # Rename map handling
-                        if file_edit.rename_file_path is not None:
-                            rename_map[file_edit.rename_file_path] = file_edit.file_path
-                        if file_edit.file_path in rename_map:
-                            file_edit.file_path = session_context.cwd / rename_map[file_edit.file_path]
 
                         # New file_edit creation and merging
                         if file_edit.file_path not in file_edits:

@@ -31,7 +31,7 @@ export async function acceptEdit(fileEdit: FileEdit) {
         includeResource({ path: fileEdit.file_path });
     }
 
-    renameFile(fileEdit);
+    await renameFile(fileEdit);
     const filePath = fileEdit.new_file_path ?? fileEdit.file_path;
 
     const editor = await vscode.window.showTextDocument(
@@ -48,7 +48,7 @@ export async function acceptEdit(fileEdit: FileEdit) {
 }
 
 export async function previewEdit(fileEdit: FileEdit) {
-    renameFile(fileEdit);
+    await renameFile(fileEdit);
     const filePath = fileEdit.new_file_path ?? fileEdit.file_path;
 
     const editor = await vscode.window.showTextDocument(
