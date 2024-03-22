@@ -86,7 +86,7 @@ class Parser(ABC):
                 printer.shutdown_printer()
                 if printer_task is not None:
                     await printer_task
-                stream.send("\n\nInterrupted by user. Using the response up to this point.")
+                stream.send("\nInterrupted by user. Using the response up to this point.")
                 break
 
             for content in chunk_to_lines(chunk):

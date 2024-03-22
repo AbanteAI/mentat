@@ -245,36 +245,36 @@ class TerminalApp(App[None]):
         end = "\n"
         color = None
         content_container = self.query_one(ContentContainer)
-        if message.extra:
-            if isinstance(message.extra.get("end"), str):
-                end = message.extra["end"]
-            if isinstance(message.extra.get("color"), str):
-                color = message.extra["color"]
-            if isinstance(message.extra.get("style"), str):
-                style = message.extra["style"]
-                color = self.theme[style]
-            if message.extra.get("delimiter", False):
+
+        if isinstance(message.extra.get("end"), str):
+            end = message.extra["end"]
+        if isinstance(message.extra.get("color"), str):
+            color = message.extra["color"]
+        if isinstance(message.extra.get("style"), str):
+            style = message.extra["style"]
+            color = self.theme[style]
+        if message.extra.get("delimiter", False):
+            content_container.add_content(f"{change_delimiter}\n")
+        filepath = message.extra.get("filepath")
+        if filepath != self.last_filepath:
+            if self.last_filepath:
+                content_container.add_content(f"{change_delimiter}\n\n")
+            if filepath:
+                filepath_display, filepath_display_type = message.extra.get("filepath_display", filepath)
+                content_container.add_content(
+                    f"{filepath_display}\n",
+                    color=(
+                        "bright_green"
+                        if filepath_display_type == "creation"
+                        else (
+                            "bright_red"
+                            if filepath_display_type == "deletion"
+                            else ("yellow" if filepath_display_type == "rename" else "bright_blue")
+                        )
+                    ),
+                )
                 content_container.add_content(f"{change_delimiter}\n")
-            filepath = message.extra.get("filepath")
-            if filepath != self.last_filepath:
-                if self.last_filepath:
-                    content_container.add_content(f"{change_delimiter}\n\n")
-                if filepath:
-                    filepath_display, filepath_display_type = message.extra.get("filepath_display", filepath)
-                    content_container.add_content(
-                        f"{filepath_display}\n",
-                        color=(
-                            "bright_green"
-                            if filepath_display_type == "creation"
-                            else (
-                                "bright_red"
-                                if filepath_display_type == "deletion"
-                                else ("yellow" if filepath_display_type == "rename" else "bright_blue")
-                            )
-                        ),
-                    )
-                    content_container.add_content(f"{change_delimiter}\n")
-                self.last_filepath = filepath
+            self.last_filepath = filepath
 
         content = str(message.data) + end
         content_container.add_content(content, color)
