@@ -14,6 +14,7 @@ import { vscode } from "webviews/utils/vscode";
 import { isEqual } from "lodash";
 import { WorkspaceRootContext } from "webviews/context/WorkspaceRootContext";
 import CostOverview from "webviews/components/CostOverview";
+import WarningIcon from "webviews/components/WarningIcon";
 
 const MESSAGE_LIMIT = 100;
 
@@ -305,6 +306,12 @@ export default function Chat() {
                     >
                         {chatMessageElements}
                     </div>
+                    {!sessionActive && (
+                        <div className="bg-[var(--vscode-problemsErrorIcon-foreground)] p-2 my-2 rounded-md w-fit flex gap-2 text-white">
+                            <WarningIcon />
+                            Mentat has crashed. Restart to re-enable Mentat.
+                        </div>
+                    )}
                     <ChatInput
                         onUserInput={onUserInput}
                         inputRequestId={inputRequestId}
