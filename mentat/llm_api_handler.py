@@ -363,7 +363,7 @@ class LlmApiHandler:
             self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
             self.sync_client = OpenAI(api_key=key, base_url=base_url)
 
-        self.spice_client = Spice(provider="anthropic")
+        self.spice_client = Spice()
 
         try:
             self.async_client.models.list()  # Test the key
