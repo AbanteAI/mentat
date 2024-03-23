@@ -28,6 +28,7 @@ jobs:
 
   build:
     runs-on: ${{ matrix.os }}
+    # Set timeout to 20 minutes for Windows due to longer build times, otherwise 5 minutes
     timeout-minutes: ${{ matrix.os == 'windows-latest' && 20 || 5 }}
 
     strategy:
