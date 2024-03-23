@@ -1,25 +1,17 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set, TypedDict, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, TypedDict, Union
 
-from mentat.code_feature import (
-    CodeFeature,
-    get_code_message_from_features,
-    get_consolidated_feature_refs,
-    split_file_into_intervals,
-)
+from ragdaemon.daemon import Daemon
+
+from mentat.code_feature import CodeFeature, get_consolidated_feature_refs
 from mentat.diff_context import DiffContext
 from mentat.errors import PathValidationError
-from mentat.feature_filters.default_filter import DefaultFilter
-from mentat.feature_filters.embedding_similarity_filter import EmbeddingSimilarityFilter
 from mentat.include_files import (
     PathType,
     get_code_features_for_path,
     get_path_type,
-    get_paths_for_directory,
-    is_file_text_encoded,
     match_path_with_patterns,
     validate_and_format_path,
 )
@@ -27,6 +19,7 @@ from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import count_tokens, get_max_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
+from mentat.utils import get_relative_path
 
 
 class ContextStreamMessage(TypedDict):
@@ -55,6 +48,12 @@ class CodeContext:
         self.ignore_patterns = set(Path(p) for p in ignore_patterns)
 
         self.diff_context = DiffContext(stream, cwd, self.diff, self.pr_diff)
+
+        annotators: dict[str, dict[str, Any]] = {
+            "hierarchy": {"ignore_patterns": [str(p) for p in self.ignore_patterns]},
+            "diff": {"diff": self.diff_context.target},
+        }
+        self.daemon: Daemon = Daemon(cwd=cwd, annotators=annotators, verbose=False)
 
         self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
@@ -108,6 +107,8 @@ class CodeContext:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         model = config.model
+        cwd = session_context.cwd
+        code_file_manager = session_context.code_file_manager
 
         # Setup code message metadata
         code_message = list[str]()
@@ -116,41 +117,66 @@ class CodeContext:
         # we just refresh the cache every time get_code_message is called
         self.diff_context.refresh()
         if self.diff_context.diff_files():
-            code_message += [
-                "Diff References:",
-                f' "-" = {self.diff_context.name}',
-                ' "+" = Active Changes',
-                "",
-            ]
+            code_message += [f"Diff References: {self.diff_context.name}\n"]
 
-        code_message += ["Code Files:\n"]
+        code_message += ["Code Files:\n\n"]
 
-        # Calculate user included features token size
-        include_features = [feature for file_features in self.include_files.values() for feature in file_features]
+        await self.daemon.update()
+        context_builder = self.daemon.get_context("", max_tokens=0)
 
-        # Get auto included features
+        diff_nodes: list[str] = [
+            node
+            for node, data in self.daemon.graph.nodes(data=True)  # pyright: ignore
+            if data and "type" in data and data["type"] == "diff"
+        ]
+        if not self.include_files.values():
+            for node in diff_nodes:
+                context_builder.add_diff(node)
+        for path, features in self.include_files.items():
+            for feature in features:
+                interval_string = feature.interval_string()
+                if interval_string and "-" in interval_string:
+                    start, exclusive_end = interval_string.split("-")
+                    inclusive_end = str(int(exclusive_end) - 1)
+                    interval_string = f"{start}-{inclusive_end}"
+                ref = feature.rel_path(session_context.cwd) + interval_string
+                context_builder.add_ref(ref, tags=["user-included"])
+            relative_path = get_relative_path(path, cwd).as_posix()
+            diffs_for_path = [node for node in diff_nodes if f":{relative_path}" in node]
+            for diff in diffs_for_path:
+                context_builder.add_diff(diff)
+
         if config.auto_context_tokens > 0 and prompt:
             meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
-            include_files_message = get_code_message_from_features(include_features)
-            include_files_tokens = count_tokens("\n".join(include_files_message), model, full_message=False)
+            include_files_message = context_builder.render()
+            include_files_tokens = count_tokens(include_files_message, model, full_message=False)
 
             tokens_used = prompt_tokens + meta_tokens + include_files_tokens
             auto_tokens = min(
                 get_max_tokens() - tokens_used - config.token_buffer,
                 config.auto_context_tokens,
             )
-            features = self.get_all_features()
-            feature_filter = DefaultFilter(
-                auto_tokens,
-                prompt,
-                expected_edits,
+            context_builder = self.daemon.get_context(
+                query=prompt,
+                context_builder=context_builder,
+                max_tokens=get_max_tokens(),
+                auto_tokens=auto_tokens,
             )
-            self.auto_features = list(set(self.auto_features) | set(await feature_filter.filter(features)))
+            for ref in context_builder.to_refs():
+                path, interval = split_intervals_from_path(Path(ref))
+                intervals = parse_intervals(interval)
+                for _interval in intervals:
+                    self.auto_features.append(CodeFeature(cwd / path, _interval))
 
-        # Merge include file features and auto features and add to code message
-        code_message += get_code_message_from_features(include_features + self.auto_features)
+            self.auto_features = list(set(self.auto_features))
 
-        return "\n".join(code_message)
+        context_message = context_builder.render()
+        for relative_path in context_builder.context.keys():
+            path = Path(cwd / relative_path).resolve()
+            with open(path, "r") as file:
+                lines = file.read().split("\n")
+                code_file_manager.file_lines[path] = lines
+        return "\n".join(code_message) + context_message
 
     def get_all_features(
         self,
@@ -161,28 +187,19 @@ class CodeContext:
         Retrieves every CodeFeature under the cwd. If files_only is True the features won't be split into intervals
         """
         session_context = SESSION_CONTEXT.get()
+        cwd = session_context.cwd
 
-        abs_exclude_patterns: Set[Path] = set()
-        for pattern in self.ignore_patterns.union(session_context.config.file_exclude_glob_list):
-            if not Path(pattern).is_absolute():
-                abs_exclude_patterns.add(session_context.cwd / pattern)
-            else:
-                abs_exclude_patterns.add(Path(pattern))
-
-        all_features: List[CodeFeature] = []
-        for path in get_paths_for_directory(path=session_context.cwd, exclude_patterns=abs_exclude_patterns):
-            if not is_file_text_encoded(path) or os.path.getsize(path) > max_chars:
+        all_features = list[CodeFeature]()
+        for _, data in self.daemon.graph.nodes(data=True):  # pyright: ignore
+            if data is None or "type" not in data or "ref" not in data or data["type"] not in {"file", "chunk"}:
                 continue
-
-            if not split_intervals:
-                _feature = CodeFeature(path)
-                all_features.append(_feature)
-            else:
-                full_feature = CodeFeature(path)
-                _split_features = split_file_into_intervals(full_feature)
-                all_features += _split_features
-
-        return sorted(all_features, key=lambda f: f.path)
+            path, interval = split_intervals_from_path(data["ref"])  # pyright: ignore
+            intervals = parse_intervals(interval)
+            if not intervals:
+                all_features.append(CodeFeature(cwd / path))
+            for _interval in intervals:
+                all_features.append(CodeFeature(cwd / path, _interval))
+        return all_features
 
     def clear_auto_context(self):
         """
@@ -374,10 +391,16 @@ class CodeContext:
     ) -> list[tuple[CodeFeature, float]]:
         """Return the top n features that are most similar to the query."""
 
-        all_features = self.get_all_features()
-
-        embedding_similarity_filter = EmbeddingSimilarityFilter(query)
-        all_features_sorted = await embedding_similarity_filter.score(all_features)
+        cwd = SESSION_CONTEXT.get().cwd
+        all_nodes_sorted = self.daemon.search(query, max_results)
+        all_features_sorted = list[tuple[CodeFeature, float]]()
+        for node in all_nodes_sorted:
+            distance = node["distance"]
+            path, interval = split_intervals_from_path(Path(node["ref"]))
+            intervals = parse_intervals(interval)
+            for _interval in intervals:
+                feature = CodeFeature(cwd / path, _interval)
+                all_features_sorted.append((feature, distance))
         if max_results is None:
             return all_features_sorted
         else:

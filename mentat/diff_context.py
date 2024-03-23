@@ -91,6 +91,9 @@ def annotate_file_message(code_message: list[str], annotations: list[DiffAnnotat
 
 
 class DiffContext:
+    target: str = ""
+    name: str = "index (last commit)"
+
     def __init__(
         self,
         stream: SessionStream,
@@ -114,8 +117,6 @@ class DiffContext:
 
         target = diff or pr_diff
         if not target:
-            self.target = "HEAD"
-            self.name = "HEAD (last commit)"
             return
 
         name = ""
@@ -123,13 +124,11 @@ class DiffContext:
         if treeish_type is None:
             stream.send(f"Invalid treeish: {target}", style="failure")
             stream.send("Disabling diff and pr-diff.", style="warning")
-            self.target = "HEAD"
-            self.name = "HEAD (last commit)"
             return
 
         if treeish_type == "branch":
             name += f"Branch {target}: "
-        elif treeish_type == "relative":
+        elif treeish_type in {"relative"}:
             name += f"{target}: "
 
         if pr_diff:
@@ -141,15 +140,18 @@ class DiffContext:
                     f"Cannot identify merge base between HEAD and {pr_diff}. Disabling" " pr-diff.",
                     style="warning",
                 )
-                self.target = "HEAD"
-                self.name = "HEAD (last commit)"
                 return
 
-        meta = get_treeish_metadata(self.git_root, target)
-        name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
-        if target == "HEAD":
-            name = "HEAD (last commit)"
+        def _get_treeish_metadata(git_root: Path, _target: str):
+            meta = get_treeish_metadata(git_root, _target)
+            return f'{meta["hexsha"][:8]}: {meta["summary"]}'
 
+        if not target:
+            return
+        elif treeish_type == "compare":
+            name += "Comparing " + ", ".join(_get_treeish_metadata(self.git_root, part) for part in target.split(" "))
+        else:
+            name += _get_treeish_metadata(self.git_root, target)
         self.target = target
         self.name = name
 
@@ -210,7 +212,7 @@ class DiffContext:
         return annotate_file_message(file_message, annotations)
 
 
-TreeishType = Literal["commit", "branch", "relative"]
+TreeishType = Literal["commit", "branch", "relative", "compare"]
 
 
 def _git_command(git_root: Path, *args: str) -> str | None:
@@ -221,6 +223,13 @@ def _git_command(git_root: Path, *args: str) -> str | None:
 
 
 def _get_treeish_type(git_root: Path, treeish: str) -> TreeishType | None:
+    if " " in treeish:
+        parts = treeish.split(" ")
+        types = [_get_treeish_type(git_root, part) for part in parts]
+        if not all(types):
+            return None
+        return "compare"
+
     object_type = _git_command(git_root, "cat-file", "-t", treeish)
 
     if not object_type:

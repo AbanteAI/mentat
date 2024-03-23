@@ -14,3 +14,4 @@ build
 benchmark_repos
 docs/build
 .DS_Store
+**/*.ragdaemon

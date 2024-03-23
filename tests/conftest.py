@@ -60,6 +60,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "uitest: run ui-tests that get evaluated by humans")
     config.addinivalue_line("markers", "clear_testbed: create a testbed without any existing files")
     config.addinivalue_line("markers", "no_git_testbed: create a testbed without git")
+    config.addinivalue_line("markers", "ragdaemon: DON'T mock the daemon in the testbed")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -263,6 +264,9 @@ def add_permissions(func, path, exc_info):
     If the error is due to an access error (read only file)
     it attempts to add write permission and then retries.
 
+    If the error is because the file is being used by another process,
+    it retries after a short delay.
+
     If the error is for another reason it re-raises the error.
     """
 
@@ -271,12 +275,15 @@ def add_permissions(func, path, exc_info):
     if not os.access(path, os.W_OK):
         os.chmod(path, stat.S_IWUSR)
         func(path)
+    elif os.path.isdir(path):
+        time.sleep(0.1)
+        func(path)
     else:
         raise
 
 
 @pytest.fixture(autouse=True)
-def temp_testbed(monkeypatch, get_marks):
+def temp_testbed(mocker, monkeypatch, get_marks):
     # Allow us to run tests from any directory
     base_dir = Path(__file__).parent.parent
 
@@ -304,6 +311,9 @@ def temp_testbed(monkeypatch, get_marks):
             # Add all files and commit
             run_git_command(temp_testbed, "add", ".")
             run_git_command(temp_testbed, "commit", "-m", "add testbed")
+
+    if "ragdaemon" not in get_marks:
+        mocker.patch("ragdaemon.daemon.Daemon.update", side_effect=AsyncMock())
 
     # necessary to undo chdir before calling rmtree, or it fails on windows
     with monkeypatch.context() as m:

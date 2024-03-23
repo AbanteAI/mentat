@@ -24,7 +24,6 @@ from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
 from mentat.cost_tracker import CostTracker
-from mentat.ctags import ensure_ctags_installed
 from mentat.errors import MentatError, ReturnToUser, SessionExit, UserError
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
@@ -139,11 +138,9 @@ class Session:
         code_file_manager = session_context.code_file_manager
         agent_handler = session_context.agent_handler
 
-        # check early for ctags so we can fail fast
-        if session_context.config.auto_context_tokens > 0:
-            ensure_ctags_installed()
-
         session_context.llm_api_handler.initialize_client()
+
+        await code_context.daemon.update()
 
         check_model()
         await conversation.display_token_count()
