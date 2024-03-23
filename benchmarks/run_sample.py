@@ -1,4 +1,6 @@
 from pathlib import Path
+import subprocess
+import re
 from typing import Any
 
 from mentat import Mentat
@@ -6,7 +8,7 @@ from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.git_parser import GitParser
 from mentat.sampler.sample import Sample
-from mentat.sampler.utils import get_active_snapshot_commit, setup_repo
+from mentat.sampler.utils import get_active_snapshot_commit, setup_repo, apply_diff_to_repo
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import convert_string_to_asynciter
 
@@ -45,7 +47,10 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
             conversation.add_model_message(content, [], parsed_llm_response)
         else:
             raise SampleError(f"Invalid role found in message_history: {msg['role']}")
-    await mentat.call_mentat_auto_accept(sample.message_prompt)
+    prompt = sample.message_prompt
+    if sample.hint_text:
+        prompt += f"\n{80 * '-'}\nHint Text:\n{sample.hint_text}"
+    await mentat.call_mentat_auto_accept(prompt)
     await mentat.shutdown()
 
     # Get the diff between pre- and post-edit
@@ -53,6 +58,27 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
 
     message_eval = str(transcript_messages[-1].get("message", ""))
     diff_eval = get_git_diff(commit_active or "HEAD", cwd=cwd)
+
+    test_results = {"passed": 0, "failed": 0, "error": ""}
+    if sample.test_command:
+        if sample.test_patch:
+            apply_diff_to_repo(sample.test_patch, repo)
+        try:
+            output = subprocess.run(
+                sample.test_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=cwd,
+            )
+            matches = re.search(r"(?:(\d+) passed)?(?:, )?(?:(\d+) failed)?", output.stdout)
+            if matches:
+                test_results["passed"] = int(matches.group(1)) or 0
+                test_results["failed"] = int(matches.group(2)) or 0
+            else:
+                raise SampleError(f"Test command failed: {output.stdout}")
+        except Exception as e:
+            test_results["error"] = str(e)
 
     return {
         "id": sample.id,
@@ -64,4 +90,5 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
             "id": sample.id,
             "messages": transcript_messages,
         },
+        "test_results": test_results,
     }
