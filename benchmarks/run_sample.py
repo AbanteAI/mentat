@@ -1,6 +1,7 @@
-from pathlib import Path
+import json
 import subprocess
 import re
+from pathlib import Path
 from typing import Any
 
 from mentat import Mentat
@@ -27,6 +28,21 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
 
     # Make a commit from the pre-edited state (should match diff_active)
     commit_active = get_active_snapshot_commit(repo)
+
+    # Run the PASS_TO_PASS test to confirm correct setup
+    test_results = {
+        "FAIL_TO_PASS": {"passed": 0, "total": 0},
+        "PASS_TO_PASS": {"passed": 0, "total": 0},
+    }
+    if sample.PASS_TO_PASS:
+        tests = json.loads(sample.PASS_TO_PASS)
+        for test in tests:
+            passed, error = get_test_result(test, cwd)
+            test_results["PASS_TO_PASS"]["total"] += 1
+            if passed:
+                test_results["PASS_TO_PASS"]["passed"] += 1
+            if error:
+                print(f"Error running PASS_TO_PASS test '{test}': {error}")
 
     # Run sample in PythonClient
     paths = list[Path]()
@@ -59,26 +75,17 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
     message_eval = str(transcript_messages[-1].get("message", ""))
     diff_eval = get_git_diff(commit_active or "HEAD", cwd=cwd)
 
-    test_results = {"passed": 0, "failed": 0, "error": ""}
-    if sample.test_command:
-        if sample.test_patch:
-            apply_diff_to_repo(sample.test_patch, repo)
-        try:
-            output = subprocess.run(
-                sample.test_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                cwd=cwd,
-            )
-            matches = re.search(r"(?:(\d+) passed)?(?:, )?(?:(\d+) failed)?", output.stdout)
-            if matches:
-                test_results["passed"] = int(matches.group(1)) or 0
-                test_results["failed"] = int(matches.group(2)) or 0
-            else:
-                raise SampleError(f"Test command failed: {output.stdout}")
-        except Exception as e:
-            test_results["error"] = str(e)
+    if sample.test_patch:
+        apply_diff_to_repo(sample.test_patch, repo)
+    if sample.FAIL_TO_PASS:
+        tests = json.loads(sample.FAIL_TO_PASS)
+        for test in tests:
+            passed, error = get_test_result(test, cwd)
+            test_results["FAIL_TO_PASS"]["total"] += 1
+            if passed:
+                test_results["FAIL_TO_PASS"]["passed"] += 1
+            if error:
+                print(f"Error running FAIL_TO_PASS test '{test}': {error}")
 
     return {
         "id": sample.id,
@@ -92,3 +99,28 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
         },
         "test_results": test_results,
     }
+
+
+def get_test_result(test: str, cwd: Path) -> tuple[bool, str]:
+    passed, error = False, ""
+    try:
+        output = subprocess.run(
+            test,
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+        if output.returncode != 0:
+            raise SampleError(f"Test command failed: {output.stderr}")
+        matches = re.search(r"(?:(\d+) passed)?(?:, )?(?:(\d+) failed)?", output.stdout)
+        if not matches:
+            raise SampleError(f"Failed parsing test result from output: {output.stdout}")
+        _passed = int(matches.group(1)) or 0
+        _failed = int(matches.group(2)) or 0
+        if _passed + _failed != 1:
+            raise SampleError(f"Invalid test output: {output.stdout}")
+        passed = _passed == 1
+    except Exception as e:
+        error = str(e)
+    return passed, error
