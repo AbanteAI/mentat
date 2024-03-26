@@ -16,12 +16,13 @@ function contextUpdate(
     data: ContextUpdateData,
     contextFileDecorationProvider: ContextFileDecorationProvider
 ) {
+    const features = data.features.map((feature: string) => vscode.Uri.file(feature).fsPath)
     const folders: string[] = [];
-    for (const feature of data.features) {
+    for (const feature of features) {
         var dir = feature;
         while (dir !== path.dirname(dir)) {
             dir = path.dirname(dir);
-            folders.push(dir);
+            folders.push(vscode.Uri.file(dir).fsPath);
         }
     }
 
@@ -29,7 +30,7 @@ function contextUpdate(
     vscode.commands.executeCommand(
         "setContext",
         "mentat.includedFiles",
-        data.features
+        features
     );
     vscode.commands.executeCommand(
         "setContext",
@@ -38,14 +39,14 @@ function contextUpdate(
     );
 
     // Update file decorations
-    contextFileDecorationProvider.refresh([...data.features, ...folders]);
+    contextFileDecorationProvider.refresh([...features, ...folders]);
 }
 
 async function activateClient(context: vscode.ExtensionContext) {
     try {
         // Startup
         const workspaceRoot =
-            vscode.workspace.workspaceFolders?.at(0)?.uri?.path ?? os.homedir();
+            vscode.workspace.workspaceFolders?.at(0)?.uri?.fsPath ?? os.homedir();
         await server.startServer(workspaceRoot);
 
         // URI Provider

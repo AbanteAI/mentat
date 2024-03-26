@@ -4,7 +4,7 @@ import WebviewProvider from "lib/WebviewProvider";
 
 function getFilepath(args: any[]): string | undefined {
     return (
-        args.at(0)?.path ?? vscode.window.activeTextEditor?.document?.fileName
+        args.at(0)?.fsPath ?? vscode.window.activeTextEditor?.document?.fileName
     );
 }
 

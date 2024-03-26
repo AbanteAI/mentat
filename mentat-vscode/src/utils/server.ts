@@ -86,7 +86,7 @@ class Server {
             .split("\n")
             .at(1)
             ?.split("Version: ")
-            ?.at(1);
+            ?.at(1)?.trim();
         if (mentatVersion !== MENTAT_VERSION) {
             progress.report({ message: "Mentat: Installing..." });
             await aexec(

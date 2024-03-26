@@ -33,7 +33,7 @@ export class ContextFileDecorationProvider implements FileDecorationProvider {
         uri: Uri,
         token: CancellationToken
     ): ProviderResult<FileDecoration> {
-        if (this.included_resources.has(uri.path)) {
+        if (this.included_resources.has(uri.fsPath)) {
             return {
                 badge: "C",
                 color: new ThemeColor("mentat.fileInContext"),
