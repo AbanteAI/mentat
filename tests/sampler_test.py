@@ -171,7 +171,7 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
     assert "test_file.py" in edits[1]
     assert "+# forty two" in edits[1]
     assert sample.test_command == "test_test_command"
-    assert sample.version == "0.2.0"
+    assert sample.version == "0.3.0"
 
 
 test_sample = {
