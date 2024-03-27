@@ -82,13 +82,20 @@ class Server {
         );
         const pythonLocation = path.join(binFolder, "python");
 
-        const { stdout } = await aexec(`${pythonLocation} -m pip show mentat`);
-        const mentatVersion = stdout
-            .split("\n")
-            .at(1)
-            ?.split("Version: ")
-            ?.at(1)
-            ?.trim();
+        var mentatVersion;
+        try {
+            const { stdout } = await aexec(
+                `${pythonLocation} -m pip show mentat`
+            );
+            mentatVersion = stdout
+                .split("\n")
+                .at(1)
+                ?.split("Version: ")
+                ?.at(1)
+                ?.trim();
+        } catch (error) {
+            mentatVersion = null;
+        }
         if (mentatVersion !== MENTAT_VERSION) {
             progress.report({ message: "Mentat: Installing..." });
             await aexec(
