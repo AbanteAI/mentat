@@ -48,7 +48,7 @@ class AgentHandler:
         ]
         model = ctx.config.model
         response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
-        content = response.choices[0].message.content or ""
+        content = response.text
 
         paths = [Path(path) for path in content.strip().split("\n") if Path(path).exists()]
         self.agent_file_message = ""
@@ -87,7 +87,7 @@ class AgentHandler:
             ctx.stream.send(f"Error accessing OpenAI API: {e.message}", style="error")
             return []
 
-        content = response.choices[0].message.content or ""
+        content = response.text
 
         messages.append(ChatCompletionAssistantMessageParam(role="assistant", content=content))
         parsed_llm_response = await ctx.config.parser.parse_llm_response(content)

@@ -72,14 +72,14 @@ def check_version():
 def check_model():
     ctx = SESSION_CONTEXT.get()
     model = ctx.config.model
-    if "gpt-4" not in model:
+    if "gpt-4" not in model and "opus" not in model:
         ctx.stream.send(
-            "Warning: Mentat has only been tested on GPT-4. You may experience"
-            " issues with quality. This model may not be able to respond in"
-            " mentat's edit format.",
+            "Warning: The only recommended models are GPT-4 and Claude 3 Opus. "
+            "You may experience issues with quality. This model may not be able to "
+            "respond in mentat's edit format.",
             style="warning",
         )
-        if "gpt-3.5" not in model:
+        if "gpt-3.5" not in model and "claude-3" not in model:
             ctx.stream.send(
                 "Warning: Mentat does not know how to calculate costs or context" " size for this model.",
                 style="warning",
