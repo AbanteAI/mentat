@@ -11,6 +11,12 @@ from benchmarks.run_sample import validate_test_fields
 
 
 SWE_BENCH_SAMPLES_DIR = Path(__file__).parent / "benchmarks" / "swe_bench_samples"
+SWE_VALIDATION_RESULTS_PATH = (
+    Path(__file__).parent.parent.parent / 
+    "summoning-the-shoggoth" / 
+    "swe_bench" / 
+    "swe_bench_validation_results_2024-03-29.json"
+)
 
 
 def download_swe_benchmarks(split: str = "dev") -> list[dict[str, str]]:
@@ -37,6 +43,30 @@ def get_swe_samples(split: str = "dev", max_benchmarks: int | None = None) -> li
     else:
         samples = [Sample.load(fname) for fname in saved_benchmarks]
 
+    # Check that samples are valid
+    valid_samples = list[Sample]()
+    if not SWE_VALIDATION_RESULTS_PATH.exists():
+        print(f"Sample validation results not found at {SWE_VALIDATION_RESULTS_PATH}.")
+        print("Validating SWE samples...")
+        print("\033[93m" + "Warning: This will take a couple hours." + "\033[0m")
+        # This takes a couple hours. 
+        validate_swe_samples()
+    with open(SWE_VALIDATION_RESULTS_PATH, "r") as f:
+        swe_validation_results = json.load(f)
+    for sample in samples:
+        results = swe_validation_results.get(sample.title)
+        pass_to_pass = (
+            "PASS_TO_PASS" in results and
+            results["PASS_TO_PASS"]["passed"] == results["PASS_TO_PASS"]["total"]
+        )
+        fail_to_pass_post = (
+            "FAIL_TO_PASS_POST" in results and
+            results["FAIL_TO_PASS_POST"]["passed"] == results["FAIL_TO_PASS_POST"]["total"]
+        )
+        if pass_to_pass and fail_to_pass_post:
+            valid_samples.append(sample)
+    samples = valid_samples
+
     if max_benchmarks:
         samples = samples[:max_benchmarks]
     print(f"Selected {len(samples)} benchmarks from '{split}'")
@@ -47,13 +77,13 @@ def validate_swe_samples(targets: list[str] | None = None) -> None:
     cwd = Path.cwd()
     samples = get_swe_samples()
 
-    results_path = cwd / "swe_bench_validation_results.json"
-    if results_path.exists():
-        with open(results_path, "r") as f:
+    if SWE_VALIDATION_RESULTS_PATH.exists():
+        with open(SWE_VALIDATION_RESULTS_PATH, "r") as f:
             results = json.load(f)
         print(f"Loaded {len(results)} previous validation results.")
     else:
-        results_path.touch()
+        SWE_VALIDATION_RESULTS_PATH.mkdir(parents=True, exist_ok=True)
+        SWE_VALIDATION_RESULTS_PATH.touch()
         results = dict[str, Any]()
     for sample in samples:
         os.chdir(cwd)
@@ -74,7 +104,7 @@ def validate_swe_samples(targets: list[str] | None = None) -> None:
             print(f"Error: {e}")
             results[sample.title] = {"error": str(e)}
         finally:
-            with open(results_path, "w") as f:
+            with open(SWE_VALIDATION_RESULTS_PATH, "w") as f:
                 json.dump(results, f, indent=4)
 
 
@@ -88,9 +118,6 @@ def _results_to_percentages(test_results: dict[str, Any]) -> dict[str, float]:
 
 
 if __name__ == "__main__":
-
-    # anything added after 'python3 swe_bench_runner.py here or here' should go to
-    # a list of strings, ["here", "or", "here"].
     parser = argparse.ArgumentParser()
     parser.add_argument("targets", nargs="*")
     parsed_args = parser.parse_args()

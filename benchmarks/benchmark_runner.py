@@ -227,6 +227,8 @@ class Benchmark:
                     result.cost = sample_result["cost"]
                     result.tokens = sample_result["tokens"]
                     result.transcript = sample_result["transcript"]
+                    result.test_eval_results = sample_result["test_eval_results"]
+                    result.test_eval_passed = sample_result["test_eval_passed"]
                     if self.verify is not None:
                         result.verify = self.verify()
 
@@ -251,7 +253,7 @@ def benchmark_listed(title, benchmarks):
     return False
 
 
-def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1):
+def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1, max_benchmarks: int | None = None):
     # Load benchmarks
     dir_path = Path(directory).resolve()
     assert dir_path.exists(), f"Invalid directory: {directory}"
@@ -277,7 +279,9 @@ def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1)
     results_cache = dir_path / f"benchmark_results_cache_{uuid4()}.jsonl"
     results_cache.touch()
     total_cost = 0.0
-    for benchmark in benchmarks:
+    for i, benchmark in enumerate(benchmarks):
+        if max_benchmarks and i >= max_benchmarks:
+            break   
         # Run benchmark.run() with timeout
         try:
             result = asyncio.run(benchmark.run(retries=retries))
@@ -328,4 +332,5 @@ if __name__ == "__main__":
         args.benchmarks,
         args.directory,
         args.retries,
+        args.max_benchmarks,
     )
