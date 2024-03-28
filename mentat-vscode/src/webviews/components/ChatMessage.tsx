@@ -223,7 +223,9 @@ export default function ChatMessage(props: Props) {
     const messageContent = (
         <pre
             className="whitespace-pre-wrap"
-            style={{ fontFamily: "var(--vscode-editor-fontfamily), monospace" }}
+            style={{
+                fontFamily: "var(--vscode-editor-font-family), monospace",
+            }}
         >
             {messagesPieces.map((messagePiece, index) => (
                 <React.Fragment key={index}>{messagePiece}</React.Fragment>

@@ -316,11 +316,9 @@ class Session:
         self.stopped.set()
 
         session_context = SESSION_CONTEXT.get()
-        cost_tracker = session_context.cost_tracker
         vision_manager = session_context.vision_manager
 
         vision_manager.close()
-        cost_tracker.display_total_cost()
         logging.shutdown()
 
         for task in self._tasks:
