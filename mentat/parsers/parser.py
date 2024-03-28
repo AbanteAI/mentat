@@ -294,7 +294,7 @@ class Parser(ABC):
             abs_path,
             abs_path,
         )
-        return code_file_manager.file_lines.get(path, [])
+        return code_file_manager.file_lines.get(path, []).copy()
 
     # These methods aren't abstract, since most parsers will use this implementation, but can be overriden easily
     def provide_line_numbers(self) -> bool:

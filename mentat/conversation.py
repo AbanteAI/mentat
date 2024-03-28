@@ -201,7 +201,7 @@ class Conversation:
             parsed_llm_response = await parser.stream_and_parse_llm_response(add_newline(response))
         # Sampler and History require previous_file_lines
         for file_edit in parsed_llm_response.file_edits:
-            file_edit.previous_file_lines = code_file_manager.file_lines.get(file_edit.file_path, [])
+            file_edit.previous_file_lines = code_file_manager.file_lines.get(file_edit.file_path, []).copy()
         if not parsed_llm_response.interrupted:
             cost_tracker.display_last_api_call()
         else:

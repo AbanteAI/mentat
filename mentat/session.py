@@ -147,7 +147,9 @@ class Session:
                         "creation" if file_edit.is_creation else ("deletion" if file_edit.is_deletion else "edit")
                     ),
                     "new_content": "\n".join(
-                        file_edit.get_updated_file_lines(ctx.code_file_manager.file_lines.get(file_edit.file_path, []))
+                        file_edit.get_updated_file_lines(
+                            ctx.code_file_manager.file_lines.get(file_edit.file_path, []).copy()
+                        )
                     ),
                 }
                 for file_edit in file_edits

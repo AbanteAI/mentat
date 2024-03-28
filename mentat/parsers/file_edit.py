@@ -185,7 +185,7 @@ class FileEdit:
                 return False
             file_lines = []
         else:
-            file_lines = code_file_manager.file_lines[self.file_path]
+            file_lines = code_file_manager.file_lines[self.file_path].copy()
 
         if self.is_deletion:
             self._display_deletion(file_lines)
