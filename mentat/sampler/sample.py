@@ -51,9 +51,14 @@ class Sample:
                 kwargs["environment_setup_commit"] = ""
                 kwargs["hint_text"] = ""
                 kwargs["test_patch"] = ""
-                kwargs["FAIL_TO_PASS"] = "" if "test_command" not in kwargs else json.dumps([kwargs["test_command"]])
+                if "test_command" in kwargs:
+                    kwargs["FAIL_TO_PASS"] = json.dumps([kwargs["test_command"]])
+                    del kwargs["test_command"]
+                else:
+                    kwargs["FAIL_TO_PASS"] = ""
                 kwargs["PASS_TO_PASS"] = ""
                 kwargs["version"] = "0.3.0"
+                _version = kwargs["version"]
             if _version != __version__:
                 raise SampleError(
                     f"Warning: sample version ({_version}) does not match current" f" version ({__version__})."
