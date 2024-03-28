@@ -27,15 +27,22 @@ def setup_logging():
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = logs_path / f"mentat_{timestamp}.log"
-    latest_log_file = logs_path / "latest.log"
-    latest_log_file.unlink(missing_ok=True)
-
     file_handler = logging.FileHandler(log_file)
-    file_handler_latest = logging.FileHandler(latest_log_file)
     file_handler.setFormatter(formatter)
-    file_handler_latest.setFormatter(formatter)
 
-    handlers = [console_handler, file_handler, file_handler_latest]
+    handlers = [console_handler, file_handler]
+
+    try:
+        latest_log_file = logs_path / "latest.log"
+        latest_log_file.unlink(missing_ok=True)
+
+        file_handler_latest = logging.FileHandler(latest_log_file)
+        file_handler_latest.setFormatter(formatter)
+        handlers.append(file_handler_latest)
+    except PermissionError:
+        # Thrown on Windows when trying to unlink a file that's in use by another mentat process;
+        # instead, we just run without a latest.log handler if mentat is already running.
+        pass
 
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)

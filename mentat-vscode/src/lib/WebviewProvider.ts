@@ -1,6 +1,7 @@
-import { ChildProcessWithoutNullStreams } from "child_process";
-import { StreamMessage } from "types";
+import { FileEdit, StreamMessage } from "types";
+import { acceptEdit, previewEdit } from "utils/edits";
 import { server } from "utils/server";
+import { v4 } from "uuid";
 import * as vscode from "vscode";
 import { Uri, Webview } from "vscode";
 
@@ -22,13 +23,32 @@ class WebviewProvider implements vscode.WebviewViewProvider {
     private extensionUri: vscode.Uri;
     private view?: vscode.WebviewView;
 
-    constructor(extensionUri: vscode.Uri) {
+    constructor(extensionUri: vscode.Uri, private workspaceRoot: string) {
         this.extensionUri = extensionUri;
+        this.sendMessage(null, "vscode:newSession", {
+            workspaceRoot: workspaceRoot,
+        });
     }
 
     private backlog: StreamMessage[] = [];
 
-    // Send LS Messages to the WebView
+    /**
+     * Convenience method for sending data over a specific channel
+     */
+    public sendMessage(
+        data: any,
+        channel: string,
+        extra: { [key: string]: any } = {}
+    ) {
+        this.postMessage({
+            id: v4(),
+            channel: channel,
+            source: "client",
+            data: data,
+            extra: extra,
+        });
+    }
+
     public postMessage(message: StreamMessage) {
         if (!this.view) {
             this.backlog.push(message);
@@ -48,7 +68,6 @@ class WebviewProvider implements vscode.WebviewViewProvider {
             "index.js",
         ]);
 
-        // TODO: Can this be done in react code? Check
         const styleUri = getUri(this.view.webview, this.extensionUri, [
             "build",
             "webviews",
@@ -92,12 +111,22 @@ class WebviewProvider implements vscode.WebviewViewProvider {
         this.view.webview.onDidReceiveMessage((message: StreamMessage) => {
             if (message.channel.startsWith("vscode")) {
                 switch (message.channel) {
-                    case "vscode:webview_loaded": {
+                    case "vscode:webviewLoaded": {
                         // All messages we get before user first opens view have to be sent once the webview is loaded.
                         for (const streamMessage of this.backlog) {
                             this.postMessage(streamMessage);
                         }
                         this.backlog = [];
+                        break;
+                    }
+                    case "vscode:acceptEdit": {
+                        const fileEdit: FileEdit = message.data;
+                        acceptEdit(fileEdit);
+                        break;
+                    }
+                    case "vscode:previewEdit": {
+                        const fileEdit: FileEdit = message.data;
+                        previewEdit(fileEdit);
                         break;
                     }
                 }

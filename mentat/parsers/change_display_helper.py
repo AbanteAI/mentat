@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Tuple, cast
+from typing import List, Tuple, cast
 
 import attr
 from pygments import lex
@@ -12,8 +12,6 @@ from pygments.util import ClassNotFound
 from mentat.parsers.streaming_printer import FormattedString
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
-
-change_delimiter = 60 * "="
 
 
 def get_lexer(file_path: Path):
@@ -28,7 +26,7 @@ def get_lexer(file_path: Path):
 
 
 def get_line_number_buffer(file_lines: list[str]):
-    return len(str(len(file_lines) + 1)) + 1
+    return 1
 
 
 class FileActionType(Enum):
@@ -73,7 +71,7 @@ class DisplayInformation:
             self.new_name = get_relative_path(self.new_name, ctx.cwd)
 
 
-def _remove_extra_empty_lines(lines: list[str]) -> list[str]:
+def _remove_empty_lines(lines: list[str]) -> list[str]:
     if not lines:
         return []
 
@@ -87,12 +85,12 @@ def _remove_extra_empty_lines(lines: list[str]) -> list[str]:
     while end > start and not lines[end].strip():
         end -= 1
 
-    # If all lines are empty, keep only one empty line
+    # If all lines are empty, return nothing
     if start == len(lines):
-        return [" "]
+        return []
 
-    # Return the list with only a maximum of one empty line on either side
-    return lines[max(start - 1, 0) : end + 2]
+    # Return the list with no empty lines
+    return lines[start : end + 1]
 
 
 def _prefixed_lines(line_number_buffer: int, lines: list[str], prefix: str) -> str:
@@ -115,15 +113,17 @@ def _get_code_block(
 def display_full_change(display_information: DisplayInformation, prefix: str = ""):
     ctx = SESSION_CONTEXT.get()
 
-    full_change = [
+    full_change: List[FormattedString] = [
         get_file_name(display_information),
-        (change_delimiter if display_information.added_block or display_information.removed_block else ""),
+        ("=" * 60 if display_information.added_block or display_information.removed_block else ""),
         get_previous_lines(display_information),
         get_removed_lines(display_information),
         get_added_lines(display_information),
         get_later_lines(display_information),
-        (change_delimiter if display_information.added_block or display_information.removed_block else ""),
+        ("=" * 60 if display_information.added_block or display_information.removed_block else ""),
     ]
+    # TODO: This is called by undo and redo; this is very hardcoded to terminalclient ui right now
+    # (so it might look weird in vscode extension), but once we move commands to terminalclient we can remove this
     for line in full_change:
         if isinstance(line, str):
             if not line.strip():
@@ -166,6 +166,24 @@ def get_file_name(
             )
         case FileActionType.UpdateFile:
             return (f"\n{display_information.file_name}", {"color": "bright_blue"})
+
+
+def get_file_name_display(display_information: DisplayInformation):
+    match display_information.file_action_type:
+        case FileActionType.CreateFile:
+            return (f"{display_information.file_name}*", "creation")
+        case FileActionType.DeleteFile:
+            return (
+                f"Deletion: {display_information.file_name}",
+                "deletion",
+            )
+        case FileActionType.RenameFile:
+            return (
+                (f"Rename: {display_information.file_name} ->" f" {display_information.new_name}"),
+                "rename",
+            )
+        case FileActionType.UpdateFile:
+            return (f"{display_information.file_name}", "edit")
 
 
 def get_added_lines(
@@ -224,7 +242,7 @@ def get_previous_lines(
 ) -> FormattedString:
     if display_information.first_changed_line < 0:
         return ""
-    lines = _remove_extra_empty_lines(
+    lines = _remove_empty_lines(
         [
             display_information.file_lines[i]
             for i in range(
@@ -236,15 +254,9 @@ def get_previous_lines(
             )
         ]
     )
-    numbered = [
-        (str(display_information.first_changed_line - len(lines) + i + 1) + ":").ljust(
-            display_information.line_number_buffer
-        )
-        + line
-        for i, line in enumerate(lines)
-    ]
+    buffered = [" " * display_information.line_number_buffer + line for line in lines]
 
-    prev = "\n".join(numbered)
+    prev = "\n".join(buffered)
     return highlight_text(prev, display_information.lexer)
 
 
@@ -254,7 +266,7 @@ def get_later_lines(
 ) -> FormattedString:
     if display_information.last_changed_line < 0:
         return ""
-    lines = _remove_extra_empty_lines(
+    lines = _remove_empty_lines(
         [
             display_information.file_lines[i]
             for i in range(
@@ -266,10 +278,7 @@ def get_later_lines(
             )
         ]
     )
-    numbered = [
-        (str(display_information.last_changed_line + 1 + i) + ":").ljust(display_information.line_number_buffer) + line
-        for i, line in enumerate(lines)
-    ]
+    buffered = [" " * (display_information.line_number_buffer) + line for line in lines]
 
-    later = "\n".join(numbered)
+    later = "\n".join(buffered)
     return highlight_text(later, display_information.lexer)

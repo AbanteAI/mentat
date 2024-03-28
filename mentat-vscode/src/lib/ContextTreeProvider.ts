@@ -37,8 +37,8 @@ export class ContextTreeProvider implements TreeDataProvider<ContextFile> {
         }
     }
 
-    async updateContext(features: string[], autoFeatures: string[]) {
-        await this.createFileTree([...features, ...autoFeatures]);
+    async updateContext(features: string[]) {
+        await this.createFileTree(features);
         this._onDidChangeTreeData.fire();
     }
 

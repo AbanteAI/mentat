@@ -172,7 +172,9 @@ class PatchedDropdown(Dropdown):
             )
         )
 
-        cursor_screen_position = x + (input_cursor_position - self.input_widget.view_position)
+        cursor_screen_position = x + (  # pyright: ignore
+            input_cursor_position - self.input_widget.view_position
+        )
         self.styles.margin = (
             line_below_cursor,
             right,
