@@ -130,6 +130,10 @@ class Parser(ABC):
                 # If we print non code lines, we want to reprint the file name of the next change,
                 # even if it's the same file as the last change
                 if not in_code_lines and not in_special_lines and line_printed:
+                    printer.cur_file = None
+                    printer.cur_file_display = None
+                    file_edit = None
+                    display_information = None
                     in_conversation = True
 
                 # New line handling
