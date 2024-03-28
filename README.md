@@ -7,7 +7,7 @@
 # 🧙‍♂️ Mentat ⚡
 
 > _It is by will alone I set my mind in motion_
-> 
+>
 > The Mentat Mantra
 
 The Mentats of Dune combine human creativity with computer-like processing - and now you can too.
@@ -25,9 +25,10 @@ Want help understanding a new codebase? Need to add a new feature? Refactor exis
 https://github.com/AbanteAI/mentat/assets/128252497/35b027a9-d639-452c-a53c-ef019a645719
 
 See more videos on [Twitter](https://twitter.com/bio_bootloader/status/1683906735248125955) or YouTube:
-- [Intro (2 min - same video as above)](https://www.youtube.com/watch?v=lODjaWclwpY)
-- [Explaining and editing Llama2.c (3 min)](https://www.youtube.com/watch?v=qSyTWMFOjPs)
-- [More Mentat features (4 min)](https://www.youtube.com/watch?v=YJLDIqq8k2A)
+
+-   [Intro (2 min - same video as above)](https://www.youtube.com/watch?v=lODjaWclwpY)
+-   [Explaining and editing Llama2.c (3 min)](https://www.youtube.com/watch?v=qSyTWMFOjPs)
+-   [More Mentat features (4 min)](https://www.youtube.com/watch?v=YJLDIqq8k2A)
 
 # ⚙️ Setup
 
@@ -46,8 +47,9 @@ source .venv/bin/activate
 Note that you'll have to have activated the virtual environment to run mentat if you install it there.
 
 There are then 3 install methods. The first two will just let you run it:
-- PyPI: `python -m pip install mentat`
-- Github: `python -m pip install git+https://github.com/AbanteAI/mentat.git`
+
+-   PyPI: `python -m pip install mentat`
+-   Github: `python -m pip install git+https://github.com/AbanteAI/mentat.git`
 
 The third option is useful if you'd also like to modify Mentat's code, as well as run it:
 
@@ -88,10 +90,9 @@ Mentat uses [Textual](https://textual.textualize.io/). On MacOS, Textual may not
 We welcome contributions! To coordinate, make sure to join the Discord server: [![Discord Follow](https://dcbadge.vercel.app/api/server/XbPdxAMJte?style=flat)](https://discord.gg/zbvd9qx9Pb)
 
 The goal for Mentat is to become the best way to write code. Some big improvements coming up are:
-- improved user interface and options (VSCode and other editor integrations, etc)
-- use with LLMs other than GPT-4
-- seamlessly work with codebases much larger than LLM context limits, without requiring users to filter files manually
-- improved edit quality
+
+-   seamlessly work with codebases much larger than LLM context limits, without requiring users to filter files manually
+-   improved edit quality
 
 If this is something you'd like to work on, jump right in! And if you want to join the team to work on this full time, message [@bio_bootloader](https://twitter.com/bio_bootloader) on twitter.
 

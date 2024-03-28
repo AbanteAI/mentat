@@ -2,11 +2,12 @@
     "name": "mentat",
     "displayName": "Mentat",
     "description": "Mentat - The AI Coding Assistant",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "private": true,
     "publisher": "AbanteAI",
     "license": "Apache-2.0",
-    "repository": "https://github.com/AbanteAI/mentat/mentat-vscode",
+    "repository": "https://github.com/AbanteAI/mentat",
+    "icon": "assets/icon.png",
     "engines": {
         "vscode": "^1.74.0"
     },
