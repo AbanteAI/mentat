@@ -66,6 +66,7 @@ class ContentContainer(Static):
             ),
             PatchedDropdown(self.stream, self.suggester),
         )
+        self.add_content("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")
         self.add_content("What can I do for you?\n", color="blue")
 
     @on(Input.Submitted)

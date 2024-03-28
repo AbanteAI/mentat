@@ -26,6 +26,9 @@ const dark_theme: { [id: string]: string } = {
     warning: "yellow",
 };
 
+/**
+ * Renders a small piece of content with a single style/color/filepath
+ */
 function ContentPiece({ contentPiece }: { contentPiece: MessageContent }) {
     return (
         <span
@@ -43,6 +46,9 @@ function ContentPiece({ contentPiece }: { contentPiece: MessageContent }) {
     );
 }
 
+/**
+ * Renders an edit fileblock
+ */
 function FileBlock({
     contentPieces,
     activeEdits,
@@ -159,6 +165,9 @@ type Props = {
 };
 
 // TODO: Memoize this component if we need the performace increase. Will need to wrap prop functions in useCallback.
+/**
+ * Renders an entire message from either the user or mentat
+ */
 export default function ChatMessage(props: Props) {
     const sourceIcon =
         props.message.source === "user" ? (

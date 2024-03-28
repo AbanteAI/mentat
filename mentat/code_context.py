@@ -255,7 +255,8 @@ class CodeContext:
                 cwd=session_context.cwd,
                 exclude_patterns=abs_exclude_patterns,
             )
-        except PathValidationError:
+        except PathValidationError as e:
+            session_context.stream.send(str(e), style="error")
             return set()
 
         return self.include_features(code_features)
@@ -355,7 +356,8 @@ class CodeContext:
                     excluded_paths.update(self._exclude_directory(validated_path))
                 case PathType.GLOB:
                     excluded_paths.update(self._exclude_glob(validated_path))
-        except PathValidationError:
+        except PathValidationError as e:
+            session_context.stream.send(str(e), style="error")
             pass
 
         return excluded_paths
