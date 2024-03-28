@@ -24,10 +24,10 @@ export function excludeResource(...args: any[]) {
     server.sendStreamMessage(filePath, "exclude");
 }
 
-export function eraseChatHistory(
+export function clearChatbox(
     webviewProvider: WebviewProvider
 ): (...args: any[]) => void {
     return (...args: any[]) => {
-        webviewProvider.sendMessage(null, "vscode:eraseChatHistory");
+        webviewProvider.sendMessage(null, "vscode:clearChatbox");
     };
 }

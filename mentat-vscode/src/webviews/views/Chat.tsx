@@ -220,7 +220,7 @@ export default function Chat() {
                         setWorkspaceRoot(message.extra.workspaceRoot);
                         break;
                     }
-                    case "eraseChatHistory": {
+                    case "clearChatbox": {
                         setMessages([]);
                         setActiveEdits([]);
                         break;

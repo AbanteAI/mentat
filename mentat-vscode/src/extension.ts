@@ -1,11 +1,7 @@
 import WebviewProvider from "lib/WebviewProvider";
 import * as vscode from "vscode";
 import * as os from "os";
-import {
-    eraseChatHistory,
-    excludeResource,
-    includeResource,
-} from "utils/commands";
+import { clearChatbox, excludeResource, includeResource } from "utils/commands";
 import { ContextUpdateData, StreamMessage } from "types";
 import path from "path";
 import { server } from "utils/server";
@@ -130,8 +126,8 @@ async function activateClient(context: vscode.ExtensionContext) {
         );
         context.subscriptions.push(
             vscode.commands.registerCommand(
-                "mentat.eraseChatHistory",
-                eraseChatHistory(chatWebviewProvider)
+                "mentat.clearChatbox",
+                clearChatbox(chatWebviewProvider)
             )
         );
 
