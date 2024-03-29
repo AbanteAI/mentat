@@ -197,7 +197,7 @@ test_sample = {
         ' hashlib.sha1(data.encode("utf-8")).hexdigest()\n+\n+\n async def'
         " run_subprocess_async(*args: str) -> str:\n"
     ),
-    "FAIL_TO_PASS": "[]",
+    "FAIL_TO_PASS": "",
     "version": "0.3.0",
 }
 
@@ -407,7 +407,7 @@ async def test_sampler_integration(temp_testbed, mock_session_context, mock_call
     await client.call_mentat("test_url")
     await client.call_mentat("test_title")
     await client.call_mentat("test_description")
-    await client.call_mentat("test_test_command")
+    await client.call_mentat("")
     await client.call_mentat("q")
     await client.shutdown()
 

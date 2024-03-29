@@ -37,12 +37,21 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
             test_executable = get_test_executable(Path(repo.working_dir))
         except SampleError as e:
             print(f"Error setting up virtual environment: {e}")
-            test_executable = None
+            print(f"Using default python executable instead.")
+    if test_executable is None:
+        test_executable = Path(sys.executable)
 
-    repo.git.reset("--hard")
-    repo.git.checkout(sample.merge_base)
+    if sample.environment_setup_commit and sample.merge_base:
+        # SWE-Bench samples have a setup commit and a merge base.
+        repo.git.reset("--hard")
+        repo.git.checkout(sample.merge_base)
+    else:
+        # Mentat Samples have an active diff set in setup_repo that needs to be preserved.
+        pass
+
     # Make a commit from the pre-edited state (should match diff_active)
-    commit_active = None  # get_active_snapshot_commit(repo) # TODO: This throws an error in some benchmarks: sqlfluff..
+    commit_active = get_active_snapshot_commit(repo)  # TODO: This throws an error in some benchmarks: sqlfluff..
+
     # Pre-validation took place here
 
     # Run sample in PythonClient
