@@ -42,7 +42,7 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
     repo.git.reset("--hard")
     repo.git.checkout(sample.merge_base)
     # Make a commit from the pre-edited state (should match diff_active)
-    commit_active = None #get_active_snapshot_commit(repo) # TODO: This throws an error in some benchmarks: sqlfluff..
+    commit_active = None  # get_active_snapshot_commit(repo) # TODO: This throws an error in some benchmarks: sqlfluff..
     # Pre-validation took place here
 
     # Run sample in PythonClient
@@ -119,18 +119,15 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
 test_requirements_for_repo = {
     "pvlib-python": [
         "setuptools",
-        "pytest", 
-        "pytest-cov", 
+        "pytest",
+        "pytest-cov",
         "pytest-mock",
-        "requests-mock", 
-        "pytest-timeout", 
+        "requests-mock",
+        "pytest-timeout",
         "pytest-rerunfailures",
-        "pytest-remotedata"
+        "pytest-remotedata",
     ],
-    "pydicom": [
-        "setuptools",
-        "pytest"
-    ],
+    "pydicom": ["setuptools", "pytest"],
     "sqlfluff": [
         "setuptools",
         "pytest",
@@ -170,7 +167,7 @@ test_requirements_for_repo = {
 
 def get_test_executable(cwd: Path) -> Path:
     """Rebuild every time with the latest setup."""
-    
+
     venv_dir = cwd / ".venv"
     repo_name = cwd.name
 
@@ -182,20 +179,24 @@ def get_test_executable(cwd: Path) -> Path:
 
     # Install as a pip module
     try:
-        output = subprocess.run([venv_dir / "bin" / "pip", "install", "-e", "."], check=True, cwd=cwd, capture_output=True)
+        output = subprocess.run(
+            [venv_dir / "bin" / "pip", "install", "-e", "."], check=True, cwd=cwd, capture_output=True
+        )
         if output.returncode != 0:
             raise SampleError(f"Error installing sample as a pip module: {output.stderr}")
     except Exception as e:
         raise SampleError(f"Error installing sample as a pip module: {e}")
-    
+
     # Requirements are hard-coded by repo
     if repo_name not in test_requirements_for_repo:
         raise SampleError(f"No requirements found for repo '{repo_name}'")
     requirements = test_requirements_for_repo[repo_name]
-    
+
     # Install them all with pip
     try:
-        output = subprocess.run([venv_dir / "bin" / "pip", "install", *list(requirements)], check=True, cwd=cwd, capture_output=True)
+        output = subprocess.run(
+            [venv_dir / "bin" / "pip", "install", *list(requirements)], check=True, cwd=cwd, capture_output=True
+        )
         if output.returncode != 0:
             raise SampleError(f"Error installing requirements: {output.stderr}")
     except Exception as e:
@@ -207,10 +208,10 @@ def get_test_executable(cwd: Path) -> Path:
 def get_test_result(test: str, cwd: Path, test_executable: Path) -> tuple[bool, str]:
     passed, error = False, ""
     command = [str(test_executable), "-m", "pytest"]
-    if '[' in test:
+    if "[" in test:
         # Some tests include parameters, like "..is_valid[3.1415]".
         # Running '-k' over the whole suite is very slow.
-        path, params = test.split('[', 1)
+        path, params = test.split("[", 1)
         params = params[:-1]  # Remove trailing ']'
         command += [path, "-k", params]
     else:
@@ -224,12 +225,11 @@ def get_test_result(test: str, cwd: Path, test_executable: Path) -> tuple[bool, 
         )
         if (output.returncode != 0 and output.stderr) or not output.stdout:
             raise SampleError(f"Test command failed: {output.stderr}")
-        
+
         # Starting from the end, find the first line that contains "passed" or "failed"
         lines = output.stdout.splitlines()
         result_line = next(
-            line for line in reversed(lines) 
-            if any(key in line for key in {"passed", "failed", "skipped"})
+            line for line in reversed(lines) if any(key in line for key in {"passed", "failed", "skipped"})
         )
         _passed = "passed" in result_line or "skipped" in result_line
         _failed = "failed" in result_line
@@ -262,7 +262,7 @@ def validate_test_fields(sample: Sample) -> dict[str, Any]:
     )
     cwd = Path(repo.working_dir)
     test_executable = get_test_executable(cwd)
-        
+
     repo.git.checkout(sample.merge_base)
 
     # Run the PASS_TO_PASS test, expected to PASS
@@ -285,12 +285,10 @@ def validate_test_fields(sample: Sample) -> dict[str, Any]:
                 elif error:
                     raise SampleError(error)
             except SampleError as e:
-                test_results["PASS_TO_PASS"]["errors"].append(
-                    {"test": test, "error": str(e)}
-                )
+                test_results["PASS_TO_PASS"]["errors"].append({"test": test, "error": str(e)})
     print("PASS_TO_PASS results: ", test_results["PASS_TO_PASS"])
 
-    # Apply test patch 
+    # Apply test patch
     if sample.test_patch:
         print("Applying test patch...")
         apply_diff_to_repo(sample.test_patch, repo)
@@ -308,9 +306,7 @@ def validate_test_fields(sample: Sample) -> dict[str, Any]:
                 elif error:
                     raise SampleError(error)
             except SampleError as e:
-                test_results["FAIL_TO_PASS_PRE"]["errors"].append(
-                    {"test": test, "error": str(e)}
-                )
+                test_results["FAIL_TO_PASS_PRE"]["errors"].append({"test": test, "error": str(e)})
     print("FAIL_TO_PASS_PRE results: ", test_results["FAIL_TO_PASS_PRE"])
 
     # Apply golden patch
@@ -331,9 +327,7 @@ def validate_test_fields(sample: Sample) -> dict[str, Any]:
                 elif error:
                     raise SampleError(error)
             except SampleError as e:
-                test_results["FAIL_TO_PASS_POST"]["errors"].append(
-                    {"test": test, "error": str(e)}
-                )
+                test_results["FAIL_TO_PASS_POST"]["errors"].append({"test": test, "error": str(e)})
     print("FAIL_TO_PASS_POST results: ", test_results["FAIL_TO_PASS_POST"])
 
     return test_results

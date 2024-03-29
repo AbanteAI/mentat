@@ -12,10 +12,10 @@ from benchmarks.run_sample import validate_test_fields
 
 SWE_BENCH_SAMPLES_DIR = Path(__file__).parent / "benchmarks" / "swe_bench_samples"
 SWE_VALIDATION_RESULTS_PATH = (
-    Path(__file__).parent.parent.parent / 
-    "summoning-the-shoggoth" / 
-    "swe_bench" / 
-    "swe_bench_validation_results_2024-03-29.json"
+    Path(__file__).parent.parent.parent
+    / "summoning-the-shoggoth"
+    / "swe_bench"
+    / "swe_bench_validation_results_2024-03-29.json"
 )
 
 
@@ -49,19 +49,18 @@ def get_swe_samples(split: str = "dev", max_benchmarks: int | None = None) -> li
         print(f"Sample validation results not found at {SWE_VALIDATION_RESULTS_PATH}.")
         print("Validating SWE samples...")
         print("\033[93m" + "Warning: This will take a couple hours." + "\033[0m")
-        # This takes a couple hours. 
+        # This takes a couple hours.
         validate_swe_samples()
     with open(SWE_VALIDATION_RESULTS_PATH, "r") as f:
         swe_validation_results = json.load(f)
     for sample in samples:
         results = swe_validation_results.get(sample.title)
         pass_to_pass = (
-            "PASS_TO_PASS" in results and
-            results["PASS_TO_PASS"]["passed"] == results["PASS_TO_PASS"]["total"]
+            "PASS_TO_PASS" in results and results["PASS_TO_PASS"]["passed"] == results["PASS_TO_PASS"]["total"]
         )
         fail_to_pass_post = (
-            "FAIL_TO_PASS_POST" in results and
-            results["FAIL_TO_PASS_POST"]["passed"] == results["FAIL_TO_PASS_POST"]["total"]
+            "FAIL_TO_PASS_POST" in results
+            and results["FAIL_TO_PASS_POST"]["passed"] == results["FAIL_TO_PASS_POST"]["total"]
         )
         if pass_to_pass and fail_to_pass_post:
             valid_samples.append(sample)

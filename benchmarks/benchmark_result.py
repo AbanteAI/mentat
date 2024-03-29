@@ -38,7 +38,6 @@ class BenchmarkResult:
     referenced_format: Optional[bool] = attr.ib(default=None, metadata={"aggregation": "percent"})
     test_eval_results: Optional[dict] = attr.ib(default=None, metadata={"display": "json"})
     test_eval_passed: Optional[bool] = attr.ib(default=None, metadata={"aggregation": "percent"})
-    
 
     def display_color(self) -> str:
         if self.passed is None:

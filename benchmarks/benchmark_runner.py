@@ -281,7 +281,7 @@ def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1,
     total_cost = 0.0
     for i, benchmark in enumerate(benchmarks):
         if max_benchmarks and i >= max_benchmarks:
-            break   
+            break
         # Run benchmark.run() with timeout
         try:
             result = asyncio.run(benchmark.run(retries=retries))
