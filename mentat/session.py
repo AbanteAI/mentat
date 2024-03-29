@@ -169,7 +169,7 @@ class Session:
         if session_context.config.auto_context_tokens > 0:
             ensure_ctags_installed()
 
-        session_context.llm_api_handler.initialize_client()
+        await session_context.llm_api_handler.initialize_client()
         check_model()
 
         need_user_request = True

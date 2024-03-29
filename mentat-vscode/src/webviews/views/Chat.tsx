@@ -20,7 +20,8 @@ const MESSAGE_LIMIT = 100;
 
 export default function Chat() {
     // We have to use null instead of undefined everywhere here because vscode.setState serializes into json, so getState turns undefined into null
-    const [messages, setMessages] = useState<(Message | null)[]>([]);
+    const [previousMessages, setPreviousMessages] = useState<Message[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [inputRequestId, setInputRequestId] = useState<string | null>(null);
     const [sessionActive, setSessionActive] = useState<boolean>(true);
     const [textAreaValue, setTextAreaValue] = useState<string>("");
@@ -30,25 +31,14 @@ export default function Chat() {
     const [contextUpdataData, setContextUpdateData] =
         useState<ContextUpdateData>();
 
+    const [loaded, setLoaded] = useState<boolean>(false);
+
     const chatLogRef = useRef<HTMLDivElement>(null);
 
     // TODO: Rarely, if you move fast during model output, some bugs can occur when reloading webview view;
     // figure out why and fix it (easiest to see if you turn off retainContextWhenHidden). Once fixed, turn off retainContextWhenHidden permanently.
 
-    // Whenever you add more state, make certain to update both of these effects!!!
     useEffect(() => {
-        const state: any = vscode.getState();
-        if (state) {
-            setMessages(state.messages);
-            setInputRequestId(state.inputRequestId);
-            setSessionActive(state.sessionActive);
-            setTextAreaValue(state.textAreaValue);
-            setInterruptable(state.interruptable);
-            setActiveEdits(state.activeEdits);
-            setWorkspaceRoot(state.workspaceRoot);
-            setContextUpdateData(state.contextUpdataData);
-        }
-
         window.addEventListener("message", handleServerMessage);
         // If we send messages before the webview loads and we add the listener, they get thrown out,
         // so we have to signal when we're loaded and can recieve the stored messages.
@@ -57,19 +47,24 @@ export default function Chat() {
             window.removeEventListener("message", handleServerMessage);
         };
     }, []);
+    // Whenever you add more state, make certain to update this effect and the continuingSession message receiver!
     useEffect(() => {
-        const state = {
-            messages,
-            inputRequestId,
-            sessionActive,
-            textAreaValue,
-            interruptable,
-            activeEdits,
-            workspaceRoot,
-            contextUpdataData,
-        };
-        vscode.setState(state);
+        if (loaded) {
+            const state = {
+                previousMessages,
+                messages,
+                inputRequestId,
+                sessionActive,
+                textAreaValue,
+                interruptable,
+                activeEdits,
+                workspaceRoot,
+                contextUpdataData,
+            };
+            vscode.setState(state);
+        }
     }, [
+        previousMessages,
         messages,
         inputRequestId,
         sessionActive,
@@ -94,9 +89,9 @@ export default function Chat() {
         source: "user" | "mentat"
     ) {
         setMessages((prevMessages) => {
-            // If the last message was from the same source, merge the messages
+            // If the last 2 messages were both from mentat, merge the messages
             const lastMessage = prevMessages.at(-1);
-            if (source === lastMessage?.source) {
+            if (source === "mentat" && lastMessage?.source === "mentat") {
                 const { text: lastText, ...lastAttributes } =
                     lastMessage.content.at(-1) ?? {
                         text: "",
@@ -204,20 +199,52 @@ export default function Chat() {
                 const subchannel = message.channel.split(":").at(1);
                 switch (subchannel) {
                     case "newSession": {
-                        setMessages((prevMessages) => {
-                            if (
-                                prevMessages.length > 0 &&
-                                prevMessages.at(-1) !== null
-                            ) {
-                                return [...prevMessages, null];
-                            } else {
-                                return [...prevMessages];
-                            }
-                        });
-                        setActiveEdits([]);
-                        setSessionActive(true);
-                        setInterruptable(false);
+                        const state: any = vscode.getState();
+                        const statePreviousMessages: Message[] =
+                            state.previousMessages ?? [];
+                        const stateMessages: Message[] = state.messages ?? [];
+                        if (
+                            stateMessages.some(
+                                (message) => message.source == "user"
+                            )
+                        ) {
+                            setPreviousMessages([
+                                ...statePreviousMessages,
+                                ...stateMessages,
+                            ]);
+                        } else {
+                            setPreviousMessages(statePreviousMessages);
+                        }
+
+                        setMessages([
+                            {
+                                content: [
+                                    {
+                                        text: "What can I do for you?\n",
+                                        style: "info",
+                                    },
+                                ],
+                                source: "mentat",
+                            },
+                        ]);
                         setWorkspaceRoot(message.extra.workspaceRoot);
+                        setLoaded(true);
+                        break;
+                    }
+                    case "continuingSession": {
+                        const state: any = vscode.getState();
+                        if (state) {
+                            setPreviousMessages(state.previousMessages);
+                            setMessages(state.messages);
+                            setInputRequestId(state.inputRequestId);
+                            setSessionActive(state.sessionActive);
+                            setTextAreaValue(state.textAreaValue);
+                            setInterruptable(state.interruptable);
+                            setActiveEdits(state.activeEdits);
+                            setWorkspaceRoot(state.workspaceRoot);
+                            setContextUpdateData(state.contextUpdataData);
+                        }
+                        setLoaded(true);
                         break;
                     }
                     case "clearChatbox": {
@@ -266,29 +293,30 @@ export default function Chat() {
     }
 
     // Using index as key should be fine since we never insert, delete, or re-order chat messages
-    const startingMessage: Message = {
-        content: [{ text: "What can I do for you?", style: "info" }],
-        source: "mentat",
-    };
-    const chatMessageElements = [startingMessage, ...messages].map(
+    const previousMessageElements = previousMessages.map(
         (message, index, arr) => (
             <React.Fragment key={index}>
-                {message === null ? (
-                    <div className="border-solid border-b border-[var(--vscode-panel-border)]"></div>
-                ) : (
-                    <ChatMessage
-                        message={message}
-                        activeEdits={
-                            index === arr.length - 1 ? activeEdits : []
-                        }
-                        onAccept={onAccept}
-                        onDecline={onDecline}
-                        onPreview={onPreview}
-                    ></ChatMessage>
-                )}
+                <ChatMessage
+                    message={message}
+                    activeEdits={[]}
+                    onAccept={onAccept}
+                    onDecline={onDecline}
+                    onPreview={onPreview}
+                ></ChatMessage>
             </React.Fragment>
         )
     );
+    const chatMessageElements = messages.map((message, index, arr) => (
+        <React.Fragment key={index}>
+            <ChatMessage
+                message={message}
+                activeEdits={index === arr.length - 1 ? activeEdits : []}
+                onAccept={onAccept}
+                onDecline={onDecline}
+                onPreview={onPreview}
+            ></ChatMessage>
+        </React.Fragment>
+    ));
     return (
         <WorkspaceRootContext.Provider value={workspaceRoot}>
             <div
@@ -303,6 +331,15 @@ export default function Chat() {
                         ref={chatLogRef}
                         className="flex flex-col gap-2 overflow-y-scroll"
                     >
+                        {previousMessageElements}
+                        {previousMessages.length > 0 && (
+                            <fieldset className="w-full border-t-2">
+                                <legend className="mx-auto px-1">
+                                    Conversation above this point not included
+                                    in chat context
+                                </legend>
+                            </fieldset>
+                        )}
                         {chatMessageElements}
                     </div>
                     {!sessionActive && (

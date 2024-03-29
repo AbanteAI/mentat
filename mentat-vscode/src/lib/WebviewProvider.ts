@@ -22,12 +22,10 @@ function getUri(webview: Webview, extensionUri: Uri, pathList: string[]) {
 class WebviewProvider implements vscode.WebviewViewProvider {
     private extensionUri: vscode.Uri;
     private view?: vscode.WebviewView;
+    private loaded: boolean = false;
 
     constructor(extensionUri: vscode.Uri, private workspaceRoot: string) {
         this.extensionUri = extensionUri;
-        this.sendMessage(null, "vscode:newSession", {
-            workspaceRoot: workspaceRoot,
-        });
     }
 
     private backlog: StreamMessage[] = [];
@@ -113,6 +111,15 @@ class WebviewProvider implements vscode.WebviewViewProvider {
                 switch (message.channel) {
                     case "vscode:webviewLoaded": {
                         // All messages we get before user first opens view have to be sent once the webview is loaded.
+                        if (!this.loaded) {
+                            this.loaded = true;
+                            this.sendMessage(null, "vscode:newSession", {
+                                workspaceRoot: this.workspaceRoot,
+                            });
+                        } else {
+                            this.sendMessage(null, "vscode:continuingSession");
+                        }
+
                         for (const streamMessage of this.backlog) {
                             this.postMessage(streamMessage);
                         }

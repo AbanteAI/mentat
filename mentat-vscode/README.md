@@ -1,90 +1,60 @@
-# Mentat VSCode Extension
+[![Twitter Follow](https://img.shields.io/twitter/follow/AbanteAi?style=social)](https://twitter.com/AbanteAi)
+[![Discord Follow](https://dcbadge.vercel.app/api/server/XbPdxAMJte?style=flat)](https://discord.gg/zbvd9qx9Pb)
+[![Documentation Status](https://readthedocs.org/projects/mentat-ai/badge/?version=latest)](https://docs.mentat.ai/en/latest/?badge=latest)
+[![Stable Version](https://img.shields.io/pypi/v/mentat?color=blue)](https://pypi.org/project/mentat/)
+[![License](https://img.shields.io/pypi/l/mentat.svg)](https://github.com/AbanteAI/mentat/blob/main/LICENSE)
 
-## Local development setup
+# 🧙‍♂️ Mentat ⚡
 
-These instructions will run through the workflow of running the project locally and
-(optionally) using the VSCode debugger for the extension and the webviews.
+> _It is by will alone I set my mind in motion_
+>
+> The Mentat Mantra
 
-### Prerequisites
+The Mentats of Dune combine human creativity with computer-like processing - and now you can too.
 
--   VSCode
--   Node v18.16.0
+---
 
-### Steps
+Mentat is the AI tool that assists you with any coding task, right from your command line.
 
-1. Install the project
+Unlike Copilot, Mentat coordinates edits across multiple locations and files. And unlike ChatGPT, Mentat already has the context of your project - no copy and pasting required!
 
-```shell
-npm install
-```
+Want help understanding a new codebase? Need to add a new feature? Refactor existing code? Mentat can do it!
 
-2. Build the project (if you are getting the error `Cannot find module extension.js...` you probably need to run this!)
+# 🍿 Example Videos (🔊 on!)
 
-```shell
-npm run build
-```
+https://github.com/AbanteAI/mentat/assets/128252497/35b027a9-d639-452c-a53c-ef019a645719
 
-3. If you want to test changes to Mentat on a branch, you need to egg install (`pip install -e path/to/repo`)
-   your branch of mentat into a venv at `~/.mentat/.venv`; otherwise, the extension will automatically pip install mentat for you.
+See more videos on [Twitter](https://twitter.com/bio_bootloader/status/1683906735248125955) or YouTube:
 
-**Without the VSCode Debugger**
+-   [Intro (2 min - same video as above)](https://www.youtube.com/watch?v=lODjaWclwpY)
+-   [Explaining and editing Llama2.c (3 min)](https://www.youtube.com/watch?v=qSyTWMFOjPs)
+-   [More Mentat features (4 min)](https://www.youtube.com/watch?v=YJLDIqq8k2A)
 
-If you want to just open VSCode with the extension running (without the VSCode
-Debugger), use:
+### Add your OpenAI API Key
 
-```shell
-npm run vscode
-```
+There are a few options to provide Mentat with your OpenAI API key:
 
-At this point the extension is running and you should see the Mentat logo attached to
-the sidebar. You don't have to follow the rest of the setup instructions. Congrats!
+1. Create a `.env` file with the line `OPENAI_API_KEY=<your-api-key>` in your workspace or in `~/.mentat/.env`
+2. Run `export OPENAI_API_KEY=<your key here>` prior to starting VSCode
+3. Place the previous command in your `.bashrc` or `.zshrc` to export your key on every terminal startup
 
-**With the VSCode Debugger**
+If you want to use a models through Azure, Ollama or other service see [this doc](https://docs.mentat.ai/en/latest/user/alternative_models.html) for details.
 
-If you want to open VSCode with the javascript debugger active and debug the running
-extension, use:
+# 🚀 Usage
 
-```shell
-code .
-```
+Right click the files you would like Mentat to read and edit and click 'Mentat: Include File'. Mentat will add them to context, so be careful not to exceed the GPT-4 token context limit. To add multiple files at once, you can also add directories. When a directory is provided, Mentat will add all the contained files, except for ones ignored in your `.gitignore`.
 
-3. Start the "Run Extension" launch configuration.
+For more information on commands, configuration or using other models see [the documentation](https://docs.mentat.ai/en/latest/user/guides.html).
 
-Press "f5" or navigate to the "Run and Debug" menu on the sidebar click the green arrow
-at the top of the menu. The "Run Extension" launch configuration should be selected.
+# 👩‍💻 Roadmap and Contributing
 
-If everything runs correctly you should see:
+We welcome contributions! To coordinate, make sure to join the Discord server: [![Discord Follow](https://dcbadge.vercel.app/api/server/XbPdxAMJte?style=flat)](https://discord.gg/zbvd9qx9Pb)
 
--   a second VSCode window opened with the Mentat extension logo in the sidebar
--   the VSCode debugger active and attached in the original VSCode window
--   two "[watch] build finished" log messages in the terminal (one for the extension and
-    one for the webview)
+The goal for Mentat is to become the best way to write code. Some big improvements coming up are:
 
-4. Click on the Mentat extension menu on the sidebar
+-   seamlessly work with codebases much larger than LLM context limits, without requiring users to filter files manually
+-   improved edit quality
 
-The extension will be built correctly if the sidebar is populated with the extension UI.
+If this is something you'd like to work on, jump right in! And if you want to join the team to work on this full time, message [@bio_bootloader](https://twitter.com/bio_bootloader) on twitter.
 
-At this point in the **second** VSCode window (the one with the extension running) you
-can load the webview debug tools. Open the command shortcut menu ("\<cmd\> + \<shift\> +
-P" for macos) and type "Developer: Open Webview Developer Tools".
-
-With the Webview Developer Tools panel active, Typescript files used in the webview can
-be opened with the file browser menu ("\<cmd\> + P" for macos) and breakpoints can be
-set as if you were setting breakpoints in a browser.
-
-The extension and webviews will be rebuilt automatically on save, however to see your
-changes you need to refresh the VSCode window running the extension manually ("\<cmd\> +
-R" for macos).
-
-## Code structure
-
-We use prettier as our linter. The extension code is broken up into 2 main sections:
-
--   The extension. This is all the code need to mount/unstop the extension, interact with
-    VSCode resources, and run any background processes managed by VSCode.
--   The webview. This is all all the React code thats rendered and injected into VSCode
-    "webviews".
-
-## Publishing
-
-TODO
+To find something specific to work on, take a look at [open issues](https://github.com/AbanteAI/mentat/issues).
