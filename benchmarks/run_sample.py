@@ -37,7 +37,7 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
             test_executable = get_test_executable(Path(repo.working_dir))
         except SampleError as e:
             print(f"Error setting up virtual environment: {e}")
-            print(f"Using default python executable instead.")
+            print("Using default python executable instead.")
     if test_executable is None:
         test_executable = Path(sys.executable)
 
@@ -246,7 +246,7 @@ def get_test_result(test: str, cwd: Path, test_executable: Path) -> tuple[bool, 
             raise SampleError(f"Could not determine test result from line: {result_line}")
         passed = _passed
         if _failed:
-            raise SampleError(f"Test failed:\n" + "\n".join(lines))
+            raise SampleError("Test failed:\n" + "\n".join(lines))
     except (SampleError, StopIteration, Exception) as e:
         error = str(e)
     return passed, error
