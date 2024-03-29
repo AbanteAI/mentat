@@ -2,11 +2,12 @@
     "name": "mentat",
     "displayName": "Mentat",
     "description": "Mentat - The AI Coding Assistant",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "private": true,
     "publisher": "AbanteAI",
     "license": "Apache-2.0",
-    "repository": "https://github.com/AbanteAI/mentat/mentat-vscode",
+    "repository": "https://github.com/AbanteAI/mentat",
+    "icon": "assets/icon.png",
     "engines": {
         "vscode": "^1.74.0"
     },
@@ -49,7 +50,56 @@
         },
         "configuration": {
             "title": "Mentat",
-            "properties": {}
+            "properties": {
+                "mentat.model": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "The LLM model for Mentat to use."
+                },
+                "mentat.embedding-model": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "The LLM model for Mentat to use with embeddings."
+                },
+                "mentat.temperature": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "The temperature for the model Mentat uses."
+                },
+                "mentat.maximum-context": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "The maximum number of lines of context to include in the prompt. It is inferred automatically for openai models but you can still set it to save costs. If not set for non-openai models, it defaults to 4096."
+                },
+                "mentat.token-buffer": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "The amount of tokens to always be reserved as a buffer for user and model messages."
+                },
+                "mentat.auto-context-tokens": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "Automatically selects code files for every request to include in context. Adds this many tokens to context each request."
+                }
+            }
         },
         "commands": [
             {
@@ -71,6 +121,10 @@
                 "command": "mentat.excludeFolder",
                 "title": "Mentat: Exclude Folder",
                 "enablement": "explorerResourceIsFolder && resourcePath in mentat.includedFolders"
+            },
+            {
+                "command": "mentat.clearChatbox",
+                "title": "Mentat: Clear Chatbox"
             }
         ],
         "menus": {
@@ -95,6 +149,24 @@
                     "command": "mentat.excludeFolder",
                     "group": "8_mentat"
                 }
+            ],
+            "editor/title/context": [
+                {
+                    "when": "resourcePath not in mentat.includedFiles",
+                    "command": "mentat.includeFile",
+                    "group": "8_mentat"
+                },
+                {
+                    "when": "resourcePath in mentat.includedFiles",
+                    "command": "mentat.excludeFile",
+                    "group": "8_mentat"
+                }
+            ],
+            "webview/context": [
+                {
+                    "command": "mentat.clearChatbox",
+                    "when": "webviewId == 'mentat-webview'"
+                }
             ]
         }
     },
@@ -111,6 +183,7 @@
         "vscode:vsce": "npm run vscode:prepublish && vsce package -o mentat.vsix"
     },
     "devDependencies": {
+        "@types/lodash": "^4.14.202",
         "@types/node": "20.8.3",
         "@types/react": "18.2.25",
         "@types/react-dom": "18.2.11",
@@ -128,6 +201,7 @@
         "typescript": "5.2.2"
     },
     "dependencies": {
+        "lodash": "^4.17.21",
         "react-markdown": "^9.0.1",
         "uuid": "^9.0.1"
     }

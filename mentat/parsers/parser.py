@@ -17,8 +17,7 @@ from mentat.llm_api_handler import chunk_to_lines
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
-    change_delimiter,
-    get_file_name,
+    get_file_name_display,
     get_later_lines,
     get_previous_lines,
     get_removed_lines,
@@ -79,7 +78,6 @@ class Parser(ABC):
         in_special_lines = False
         in_code_lines = False
         in_conversation = True
-        printed_delimiter = False
         rename_map = dict[Path, Path]()
         interrupted = False
         async for chunk in response:
@@ -88,7 +86,7 @@ class Parser(ABC):
                 printer.shutdown_printer()
                 if printer_task is not None:
                     await printer_task
-                stream.send("\n\nInterrupted by user. Using the response up to this point.")
+                stream.send("\nInterrupted by user. Using the response up to this point.")
                 break
 
             for content in chunk_to_lines(chunk):
@@ -132,6 +130,10 @@ class Parser(ABC):
                 # If we print non code lines, we want to reprint the file name of the next change,
                 # even if it's the same file as the last change
                 if not in_code_lines and not in_special_lines and line_printed:
+                    printer.cur_file = None
+                    printer.cur_file_display = None
+                    file_edit = None
+                    display_information = None
                     in_conversation = True
 
                 # New line handling
@@ -160,6 +162,11 @@ class Parser(ABC):
 
                     if in_special_lines and self._ends_special(cur_line.strip()):
                         previous_file = None if file_edit is None else file_edit.file_path
+                        previous_file_had_edits = (
+                            False
+                            if file_edit is None
+                            else file_edit.replacements or file_edit.is_creation or file_edit.is_deletion
+                        )
 
                         try:
                             (
@@ -186,15 +193,22 @@ class Parser(ABC):
                                 [file_edit for file_edit in file_edits.values()],
                             )
 
-                        in_special_lines = False
-                        prev_block = cur_block
-                        cur_block = ""
-
                         # Rename map handling
                         if file_edit.rename_file_path is not None:
                             rename_map[file_edit.rename_file_path] = file_edit.file_path
                         if file_edit.file_path in rename_map:
                             file_edit.file_path = session_context.cwd / rename_map[file_edit.file_path]
+
+                        # Add a delimiter directly before a new file edit if it's the same file as before
+                        # This way, we get delimiters between every edit but not before or after the whole thing.
+                        if previous_file == file_edit.file_path and previous_file_had_edits:
+                            printer.add_delimiter()
+
+                        printer.cur_file = str(file_edit.file_path)
+                        printer.cur_file_display = get_file_name_display(display_information)
+                        in_special_lines = False
+                        prev_block = cur_block
+                        cur_block = ""
 
                         # New file_edit creation and merging
                         if file_edit.file_path not in file_edits:
@@ -208,24 +222,15 @@ class Parser(ABC):
                             cur_file_edit.replacements.extend(file_edit.replacements)
                             file_edit = cur_file_edit
 
-                        # Print file header
+                        # Send empty string to start filename block; needed in case it's a rename,
+                        # in which case this is all that will be sent from this fileedit)
                         if (
                             in_conversation
                             or display_information.file_action_type == FileActionType.RenameFile
                             or (file_edit.file_path != previous_file)
                         ):
                             in_conversation = False
-                            printer.add_string(get_file_name(display_information))
-                            if in_code_lines or display_information.removed_block:
-                                printed_delimiter = True
-                                printer.add_string(change_delimiter)
-                            else:
-                                printed_delimiter = False
-                        elif not printed_delimiter:
-                            # We have to have this so that putting a change like an insert after a rename
-                            # still has a change delimiter
-                            printer.add_string(change_delimiter)
-                            printed_delimiter = True
+                            printer.add_string("", end="", allow_empty=True)
 
                         # Print previous lines, removed block, and possibly later lines
                         if in_code_lines or display_information.removed_block:
@@ -233,11 +238,10 @@ class Parser(ABC):
                             printer.add_string(get_removed_lines(display_information))
                             if not in_code_lines:
                                 printer.add_string(get_later_lines(display_information))
-                                printer.add_string(change_delimiter)
                     elif in_code_lines and self._ends_code(cur_line.strip()):
                         # Adding code lines to previous file_edit and printing later lines
                         if display_information is not None and file_edit is not None:
-                            to_display = self._add_code_block(
+                            self._add_code_block(
                                 code_file_manager,
                                 rename_map,
                                 prev_block,
@@ -246,10 +250,6 @@ class Parser(ABC):
                                 file_edit,
                             )
                             printer.add_string(get_later_lines(display_information))
-                            printer.add_string(change_delimiter)
-                            printer.add_string(to_display)
-                        else:
-                            printer.add_string(change_delimiter)
 
                         in_code_lines = False
                         prev_block = cur_block
@@ -259,7 +259,7 @@ class Parser(ABC):
         else:
             # If the model doesn't close out the code lines, we might as well do it for it
             if in_code_lines and display_information is not None and file_edit is not None:
-                to_display = self._add_code_block(
+                self._add_code_block(
                     code_file_manager,
                     rename_map,
                     prev_block,
@@ -268,8 +268,6 @@ class Parser(ABC):
                     file_edit,
                 )
                 printer.add_string(get_later_lines(display_information))
-                printer.add_string(change_delimiter)
-                printer.add_string(to_display)
 
             # Only finish printing if we don't quit from ctrl-c
             printer.wrap_it_up()
@@ -296,7 +294,7 @@ class Parser(ABC):
             abs_path,
             abs_path,
         )
-        return code_file_manager.file_lines.get(path, [])
+        return code_file_manager.file_lines.get(path, []).copy()
 
     # These methods aren't abstract, since most parsers will use this implementation, but can be overriden easily
     def provide_line_numbers(self) -> bool:
@@ -373,10 +371,9 @@ class Parser(ABC):
         code_block: str,
         display_information: DisplayInformation,
         file_edit: FileEdit,
-    ) -> FormattedString:
+    ) -> None:
         """
         Using the special block, code block and display_information, edits the FileEdit to add the new code block.
-        Can return a message to print after this change is finished.
         """
         raise NotImplementedError()
 

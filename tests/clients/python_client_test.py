@@ -82,6 +82,6 @@ async def test_graceful_failure_on_session_exit(temp_testbed):
     python_client = PythonClient()
     await python_client.startup()
 
-    python_client.get_conversation().display_token_count = MagicMock(side_effect=Exception("test"))
+    python_client.session.ctx.llm_api_handler.initialize_client = MagicMock(side_effect=Exception("test"))
     with pytest.raises(Exception, match="Session failed"):
         await python_client.call_mentat("Conversation")

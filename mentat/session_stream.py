@@ -32,7 +32,8 @@ class SessionStream:
 
     Channels and their expected behavior (starred channels are sent by the client):
 
-    default: Any data sent to the client over this channel should be displayed. Valid kwargs: color, style
+    default: Any data sent to the client over this channel should be displayed.
+    Valid kwargs: color, style, filepath, filepath_display, delimiter
 
     *session_exit: Sent by the client, suggesting that the session should exit whenever possible.
     client_exit: Sent by the server, client should shut down when received.
@@ -42,6 +43,17 @@ class SessionStream:
 
     input_request: Used to request input from the client (data unused). Valid kwargs: command_autocomplete
     *input_request:<message_id>: Sent by the client. The channel the response to an input_request is sent over.
+
+    model_file_edits: Once the model fully completes its response, sends a list of the file edits. Schema:
+    [
+        {
+            "file_path": "/absolute/path/to/file",
+            "new_file_path": "/absolute/path/to/renamed_file", # May be null
+            "type": "edit" | "creation" | "deletion",
+            "new_content": "The new file text after edits are applied"
+        },
+        ...
+    ]
 
     edits_complete: A boolean sent when edits have been completed. True if any edits were accepted.
 
@@ -61,14 +73,15 @@ class SessionStream:
         "diff_context_display": "The display for the diff context",
         "auto_context_tokens": The number of auto context tokens,
         "features": ["List of user included features"],
-        "auto_features": ["List of auto included features"],
         "git_diff_paths": ["List of all paths with git diffs; used to color the changed included features"],
         "total_tokens": Total tokens in context,
+        "maximum_tokens": Maximum tokens allowed in context,
         "total_cost": Total cost so far
     }
 
     *include: Sent by the client. Gives a path to include in context.
     *exclude: Sent by the client. Gives a path to exclude from context.
+    *clear_conversation: Sent by the client. Clears the conversation history (but not the context).
     """
 
     def __init__(self):

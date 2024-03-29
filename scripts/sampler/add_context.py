@@ -31,8 +31,7 @@ async def add_context(sample, extra_tokens: int = 5000) -> Sample:
     ctx.config.auto_context_tokens = extra_tokens
     _ = await ctx.code_context.get_code_message(prompt_tokens=0, prompt=sample.message_prompt)
     included_features = list(f for fs in ctx.code_context.include_files.values() for f in fs)
-    auto_features = ctx.code_context.auto_features
-    all_features = get_consolidated_feature_refs(included_features + auto_features)
+    all_features = get_consolidated_feature_refs(included_features)
     await python_client.shutdown()
 
     new_sample = Sample(**attr.asdict(sample))

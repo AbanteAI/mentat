@@ -6,7 +6,6 @@ from typing_extensions import override
 from mentat.code_file_manager import CodeFileManager
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
-    change_delimiter,
     get_file_action_type,
     highlight_text,
 )
@@ -48,7 +47,7 @@ class UnifiedDiffParser(Parser):
         cur_block: str,
     ) -> FormattedString:
         if cur_line == UnifiedDiffDelimiter.MidChange.value:
-            return change_delimiter + "\n"
+            return [("", {"delimiter": True}), ("\n", {})]
         elif cur_line.startswith("+"):
             return (content, {"color": "green"})
         elif cur_line.startswith("-"):
@@ -130,7 +129,7 @@ class UnifiedDiffParser(Parser):
         code_block: str,
         display_information: DisplayInformation,
         file_edit: FileEdit,
-    ) -> FormattedString:
+    ):
         file_lines = self._get_file_lines(code_file_manager, rename_map, file_edit.file_path).copy()
 
         # First, we split by the symbols that separate changes.
@@ -151,7 +150,7 @@ class UnifiedDiffParser(Parser):
                     # Remove empty lines; hopefully the model always puts a space for context lines
                     line and not line.startswith("+") and not line.startswith("-") and not line.startswith(" ")
                 ):
-                    return "Error: Invalid diff format given. Discarding this change."
+                    return
                 cur_lines.append(line)
         if cur_lines:
             changes.append(cur_lines)
@@ -174,10 +173,7 @@ class UnifiedDiffParser(Parser):
 
             start_index = matching_index(file_lines, search_lines)
             if start_index == -1:
-                return (
-                    "Error: Original lines not found. Discarding this change.",
-                    {"color": "red"},
-                )
+                return
 
             # Matching lines checks for matches that are missing whitespace only lines;
             # this will cause errors with line numbering if we don't add those lines into the change lines
@@ -220,4 +216,3 @@ class UnifiedDiffParser(Parser):
                 replacements.append(Replacement(cur_start, cur_index, cur_additions))
 
         file_edit.replacements.extend(replacements)
-        return ""
