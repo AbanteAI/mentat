@@ -45,12 +45,13 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
         # SWE-Bench samples have a setup commit and a merge base.
         repo.git.reset("--hard")
         repo.git.checkout(sample.merge_base)
+        commit_active = sample.merge_base
     else:
         # Mentat Samples have an active diff set in setup_repo that needs to be preserved.
         pass
+        commit_active = get_active_snapshot_commit(repo)  # TODO: This throws an error in some benchmarks: sqlfluff..
 
     # Make a commit from the pre-edited state (should match diff_active)
-    commit_active = get_active_snapshot_commit(repo)  # TODO: This throws an error in some benchmarks: sqlfluff..
 
     # Pre-validation took place here
 
