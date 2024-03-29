@@ -248,7 +248,18 @@ export default function Chat() {
                         break;
                     }
                     case "clearChatbox": {
-                        setMessages([]);
+                        setPreviousMessages([]);
+                        setMessages([
+                            {
+                                content: [
+                                    {
+                                        text: "What can I do for you?\n",
+                                        style: "info",
+                                    },
+                                ],
+                                source: "mentat",
+                            },
+                        ]);
                         setActiveEdits([]);
                         break;
                     }
