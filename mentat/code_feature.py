@@ -119,6 +119,9 @@ class CodeFeature:
         If standalone is true, will include the filename at top and extra newline at the end.
         If feature contains entire file, will add inline diff annotations; otherwise, will append them to the end.
         """
+        if not self.path.exists() or self.path.is_dir():
+            return []
+
         session_context = SESSION_CONTEXT.get()
         code_file_manager = session_context.code_file_manager
         parser = session_context.config.parser

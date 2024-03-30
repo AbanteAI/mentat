@@ -87,7 +87,12 @@ async def get_feature_similarity_scores(
 
     max_model_tokens = model_context_size(config.embedding_model)
     if max_model_tokens is None:
-        raise MentatError(f"Missing model context size for {embedding_model}.")
+        stream.send(
+            f"Warning: Could not determine context size for model {config.embedding_model}."
+            " Using default value of 8192.",
+            style="warning",
+        )
+        max_model_tokens = 8192
 
     # Initialize DB
     collection = Collection(embedding_model)
@@ -139,7 +144,7 @@ async def get_feature_similarity_scores(
         )
 
     # Get similarity scores
-    stream.send(None, channel="loading")
+    stream.send(None, channel="loading", terminate=True)
     _checksums = list(set(checksums))
     scores = collection.query(prompt, _checksums)
     return [scores.get(f.get_checksum(), 0) for f in features]

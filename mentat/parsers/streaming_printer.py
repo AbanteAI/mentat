@@ -1,6 +1,6 @@
 import asyncio
 from collections import deque
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Literal, Tuple
 
 from mentat.session_context import SESSION_CONTEXT
 
@@ -26,11 +26,14 @@ class StreamingPrinter:
         self.strings_to_print: deque[Tuple[str, Dict[str, Any]]] = deque()
         self.finishing = False
         self.shutdown = False
+        self.cur_file: str | None = None
+        self.cur_file_display: Tuple[str, Literal["edit", "creation", "deletion", "rename"]] | None = None
 
     def add_string(
         self,
         formatted_string: FormattedString,
         end: str = "\n",
+        allow_empty: bool = False,
     ):
         if self.finishing:
             return
@@ -38,7 +41,8 @@ class StreamingPrinter:
         if isinstance(formatted_string, List):
             for string in formatted_string:
                 self.add_string(string, end="")
-            self.strings_to_print.extend((char, {}) for char in end)
+            if end and (allow_empty or any(string[0] for string in formatted_string)):
+                self.add_string(end, end="")
             return
         if isinstance(formatted_string, str):
             string = formatted_string
@@ -47,11 +51,19 @@ class StreamingPrinter:
             string = formatted_string[0]
             styles = formatted_string[1]
 
-        if len(string) == 0:
+        styles["filepath"] = self.cur_file
+        styles["filepath_display"] = list(self.cur_file_display) if self.cur_file_display else None
+        if not string:
+            if allow_empty:
+                self.strings_to_print.append(("", styles))
             return
 
         self.strings_to_print.extend((char, styles) for char in string)
-        self.strings_to_print.extend((char, {}) for char in end)
+        if end:
+            self.add_string(end, end="")
+
+    def add_delimiter(self):
+        self.add_string(("", {"delimiter": True}), end="", allow_empty=True)
 
     def sleep_time(self) -> float:
         max_finish_time = 1.0

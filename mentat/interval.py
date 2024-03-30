@@ -66,7 +66,6 @@ class Interval:
 
     @staticmethod
     def from_string(interval_string: str) -> Interval:
-        print("interval_string:", interval_string)
         try:
             interval_parts = interval_string.split("-")
         except ValueError:

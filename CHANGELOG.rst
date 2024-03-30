@@ -3,6 +3,13 @@ Changelog
 
 In this changelog focus on user facing highlights and stick to the format. This information will be used to motivate users to upgrade or after upgrading to inform them of features that might otherwise not be very discoverable.
 
+`1.0.11 <https://pypi.org/project/mentat/1.0.11/>`__
+--------------------------------------------------
+
+- Added /save and /load command to save and load context selections
+- Changed format to fit Anthropic models
+- Other bug fixes
+
 `1.0.10 <https://pypi.org/project/mentat/1.0.10/>`__
 --------------------------------------------------
 

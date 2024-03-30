@@ -34,10 +34,10 @@ class ContextStreamMessage(TypedDict):
     diff_context_display: Optional[str]
     auto_context_tokens: int
     features: List[str]
-    auto_features: List[str]
     git_diff_paths: List[str]
     git_untracked_paths: List[str]
     total_tokens: int
+    maximum_tokens: int
     total_cost: float
 
 
@@ -58,7 +58,6 @@ class CodeContext:
 
         self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
-        self.auto_features: List[CodeFeature] = []
 
     async def refresh_context_display(self):
         """
@@ -71,7 +70,6 @@ class CodeContext:
         features = get_consolidated_feature_refs(
             [feature for file_features in self.include_files.values() for feature in file_features]
         )
-        auto_features = get_consolidated_feature_refs(self.auto_features)
         git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
         git_untracked_paths = [str(p) for p in self.diff_context.untracked_files()]
 
@@ -84,10 +82,10 @@ class CodeContext:
             diff_context_display=diff_context_display,
             auto_context_tokens=ctx.config.auto_context_tokens,
             features=features,
-            auto_features=auto_features,
             git_diff_paths=git_diff_paths,
             git_untracked_paths=git_untracked_paths,
             total_tokens=total_tokens,
+            maximum_tokens=get_max_tokens(),
             total_cost=total_cost,
         )
         ctx.stream.send(data, channel="context_update")
@@ -125,13 +123,14 @@ class CodeContext:
 
         code_message += ["Code Files:\n"]
 
-        # Calculate user included features token size
-        include_features = [feature for file_features in self.include_files.values() for feature in file_features]
-
         # Get auto included features
         if config.auto_context_tokens > 0 and prompt:
             meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
-            include_files_message = get_code_message_from_features(include_features)
+
+            # Calculate user included features token size
+            include_files_message = get_code_message_from_features(
+                [feature for file_features in self.include_files.values() for feature in file_features]
+            )
             include_files_tokens = count_tokens("\n".join(include_files_message), model, full_message=False)
 
             tokens_used = prompt_tokens + meta_tokens + include_files_tokens
@@ -140,15 +139,16 @@ class CodeContext:
                 config.auto_context_tokens,
             )
             features = self.get_all_features()
-            feature_filter = DefaultFilter(
-                auto_tokens,
-                prompt,
-                expected_edits,
-            )
-            self.auto_features = list(set(self.auto_features) | set(await feature_filter.filter(features)))
+            feature_filter = DefaultFilter(auto_tokens, prompt, expected_edits)
+            self.include_features(await feature_filter.filter(features))
 
-        # Merge include file features and auto features and add to code message
-        code_message += get_code_message_from_features(include_features + self.auto_features)
+            # TODO: We want to show the auto included features immediately, but refreshing the context display
+            # also refreshes the token count per message, which calls this function again causing an infinite loop.
+            # To fix this, we should completely separate the token count per message from the context display message
+            # await self.refresh_context_display()
+
+        include_features = [feature for file_features in self.include_files.values() for feature in file_features]
+        code_message += get_code_message_from_features(include_features)
 
         return "\n".join(code_message)
 
@@ -183,12 +183,6 @@ class CodeContext:
                 all_features += _split_features
 
         return sorted(all_features, key=lambda f: f.path)
-
-    def clear_auto_context(self):
-        """
-        Clears all auto-features added to the conversation so far.
-        """
-        self._auto_features = []
 
     def include_features(self, code_features: Iterable[CodeFeature]):
         """
@@ -364,6 +358,7 @@ class CodeContext:
                     excluded_paths.update(self._exclude_glob(validated_path))
         except PathValidationError as e:
             session_context.stream.send(str(e), style="error")
+            pass
 
         return excluded_paths
 
