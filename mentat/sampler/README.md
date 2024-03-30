@@ -12,23 +12,28 @@ In any github-connected repo:
 ## `Sample` API
 A `Sample` captures interactions between a developer and any LLM Coding Assistant. It consists of a starting codebase, a user command, and the expected LLM response - text, a git diff, or both. It can also include a list of paths/line-numbers to be included with the prompt, diffs to setup the git environment, and more:
 
-| Field            | Req | Type                   | Description |
-|------------------|-----|------------------------|-------------|
-| title            |     | `str`                  | plaintext by creator |
-| description      |     | `str`                  | plaintext by creator |
-| id               |     | `uuid`                 |  |
-| parent_id        |     | `uuid`                 | id of sample immediately before this |
-| repo             | *   | `str`                  | a url to download the code |
-| merge_base       | *   | `str`                  | the latest permanent commit |
-| diff_merge_base  |     | `str`                  | between merge_base and latest commit |
-| diff_active      |     | `str`                  | between latest commit and active (pre-edit) code |
-| args             |     | `list[str]`            | list of `<relative_path>[:<start_line>-<end_line>]` |
-| message_history  |     | `list[dict[str, str]]` | list of prior user and assistant messages |
-| message_prompt   | *   | `str`                  | the sample task |
-| message_edit     |     | `str`                  | plaintext response returned for sample edit |
-| diff_edit        | *   | `str`                  | between starting (diff_head) and ending code. |
-| test_command     |     | `str`                  | discrete pass/fail, e.g. ‘pytest -k diff_active’ |
-| version          |     | `str`                  | current Sample API version |
+| Field                     | Req | Type                   | Description |
+|---------------------------|-----|------------------------|-------------|
+| title                     |     | `str`                  | plaintext by creator |
+| description               |     | `str`                  | plaintext by creator |
+| id                        |     | `uuid`                 |  |
+| parent_id                 |     | `uuid`                 | id of sample immediately before this |
+| repo                      | *   | `str`                  | a url to download the code |
+| environment_setup_commit  |     | `str`                  | commit hash to use for environment setup and installation |
+| merge_base                | *   | `str`                  | the latest permanent commit |
+| diff_merge_base           |     | `str`                  | between merge_base and latest commit |
+| diff_active               |     | `str`                  | between latest commit and active (pre-edit) code |
+| context                   |     | `list[str]`            | list of `<relative_path>[:<start_line>-<end_line>]` |
+| message_history           |     | `list[dict[str, str]]` | list of prior user and assistant messages |
+| message_prompt            | *   | `str`                  | the sample task |
+| hint_text                 |     | `str`                  | extra information, e.g. github issue comments
+| message_edit              |     | `str`                  | plaintext response returned for sample edit |
+| diff_edit                 | *   | `str`                  | between starting (diff_head) and ending code. |
+| test_patch                |     | `str`                  | A patch to files used to evaluate the samples
+| test_command              |     | `str`                  | discrete pass/fail, e.g. ‘pytest -k diff_active’ |
+| PASS_TO_PASS              |     | `str`                  | discrete pass/fail, expected to pass
+
+| version                   |     | `str`                  | current Sample API version |
 
 Notes:
 - All diffs and code changes follow standard git-diff format (`diff --git a/new_filename...`)

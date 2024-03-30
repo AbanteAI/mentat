@@ -16,6 +16,7 @@ from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.benchmark_result import BenchmarkResult
 from benchmarks.benchmark_run import BenchmarkRun
 from benchmarks.run_sample import run_sample
+from benchmarks.swe_bench_runner import SWE_BENCH_SAMPLES_DIR, get_swe_samples
 from mentat.config import Config
 from mentat.git_handler import get_git_diff, get_mentat_branch, get_mentat_hexsha
 from mentat.llm_api_handler import model_context_size, prompt_tokens
@@ -314,6 +315,15 @@ def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1)
 if __name__ == "__main__":
     parser = common_benchmark_parser()
     args = parser.parse_args()
+    if args.swe_bench:
+        if args.swe_bench not in {"dev", "train", "test"}:
+            print("Invalid SWE-Bench split.")
+            exit(1)
+        # Download and save SWE benchmarks as Samples
+        samples = get_swe_samples(args.swe_bench, args.max_benchmarks)
+        sample_titles = [sample.title for sample in samples]
+        args.benchmarks = sample_titles
+        args.directory = SWE_BENCH_SAMPLES_DIR / args.swe_bench
     run_benchmarks(
         args.benchmarks,
         args.directory,

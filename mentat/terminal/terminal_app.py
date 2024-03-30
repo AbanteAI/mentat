@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 css_path = Path("textual/terminal_app.tcss")
 history_file_location = mentat_dir_path / "prompt_history"
 
+change_delimiter = "=" * 60
+
 
 class ContentContainer(Static):
     BINDINGS = [
@@ -64,6 +66,8 @@ class ContentContainer(Static):
             ),
             PatchedDropdown(self.stream, self.suggester),
         )
+        self.add_content("Type 'q' or use Ctrl-C to quit at any time.\n", color="cyan")
+        self.add_content("What can I do for you?\n", color="blue")
 
     @on(Input.Submitted)
     def on_user_input(self, event: Input.Submitted):
@@ -109,7 +113,7 @@ class ContentContainer(Static):
             self.loading_bar.remove()
             self.loading_bar = None
 
-    def add_content(self, new_content: str, color: str | None):
+    def add_content(self, new_content: str, color: str | None = None):
         new_content = escape(new_content)
         lines = [f"[{color}]{line}[/{color}]" if color else line for line in new_content.split("\n")]
         for line in lines[:-1]:
@@ -185,14 +189,12 @@ class ContextContainer(Static):
         diff_context_display: Optional[str],
         auto_context_tokens: int,
         features: List[str],
-        auto_features: List[str],
         git_diff_paths: Set[Path],
         git_untracked_paths: Set[Path],
         total_tokens: int,
         total_cost: float,
     ):
         feature_tree = self._build_tree_widget(features, cwd, git_diff_paths, git_untracked_paths)
-        auto_feature_tree = self._build_tree_widget(auto_features, cwd, git_diff_paths, git_untracked_paths)
 
         context_header = ""
         context_header += "[blue bold]Code Context:[/blue bold]"
@@ -214,9 +216,6 @@ class ContextContainer(Static):
         self.mount(Static(context_header))
         if features:
             self.mount(feature_tree)
-        if auto_features:
-            self.mount(Static("Auto-Included Features:"))
-            self.mount(auto_feature_tree)
 
 
 css_resource = fetch_resource(css_path)
@@ -232,28 +231,52 @@ class TerminalApp(App[None]):
     def __init__(self, client: TerminalClient, **kwargs: Any):
         self.client = client
         self.command_autocomplete = False
+        self.last_filepath = None
         super().__init__(**kwargs)
 
     @override
     def compose(self) -> ComposeResult:
         self.dark = self.client.config.theme == "dark"
         self.theme = themes[self.client.config.theme]
-        yield ContentContainer(self.client.session.stream, self.theme)
+        self.content_container = ContentContainer(self.client.session.stream, self.theme)
+        yield self.content_container
         yield ContextContainer()
 
     def display_stream_message(self, message: StreamMessage):
         end = "\n"
         color = None
-        if message.extra:
-            if isinstance(message.extra.get("end"), str):
-                end = message.extra["end"]
-            if isinstance(message.extra.get("color"), str):
-                color = message.extra["color"]
-            if isinstance(message.extra.get("style"), str):
-                style = message.extra["style"]
-                color = self.theme[style]
-
         content_container = self.query_one(ContentContainer)
+
+        if isinstance(message.extra.get("end"), str):
+            end = message.extra["end"]
+        if isinstance(message.extra.get("color"), str):
+            color = message.extra["color"]
+        if isinstance(message.extra.get("style"), str):
+            style = message.extra["style"]
+            color = self.theme[style]
+        if message.extra.get("delimiter", False):
+            content_container.add_content(f"{change_delimiter}\n")
+        filepath = message.extra.get("filepath")
+        if filepath != self.last_filepath:
+            if self.last_filepath:
+                content_container.add_content(f"{change_delimiter}\n\n")
+            if filepath:
+                filepath_display, filepath_display_type = message.extra.get("filepath_display", filepath)
+                content_container.add_content(
+                    f"{filepath_display}\n",
+                    color=(
+                        "bright_green"
+                        if filepath_display_type == "creation"
+                        else (
+                            "bright_red"
+                            if filepath_display_type == "deletion"
+                            else ("yellow" if filepath_display_type == "rename" else "bright_blue")
+                        )
+                    ),
+                )
+                content_container.add_content(f"{change_delimiter}\n")
+            self.last_filepath = filepath
+
         content = str(message.data) + end
         content_container.add_content(content, color)
 
@@ -270,7 +293,6 @@ class TerminalApp(App[None]):
         diff_context_display: Optional[str],
         auto_context_tokens: int,
         features: List[str],
-        auto_features: List[str],
         git_diff_paths: Set[Path],
         git_untracked_paths: Set[Path],
         total_tokens: int,
@@ -282,7 +304,6 @@ class TerminalApp(App[None]):
             diff_context_display,
             auto_context_tokens,
             features,
-            auto_features,
             git_diff_paths,
             git_untracked_paths,
             total_tokens,

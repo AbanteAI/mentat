@@ -28,6 +28,7 @@ from mentat.ctags import ensure_ctags_installed
 from mentat.errors import MentatError, ReturnToUser, SessionExit, UserError
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
+from mentat.parsers.file_edit import FileEdit
 from mentat.revisor.revisor import revise_edits
 from mentat.sampler.sampler import Sampler
 from mentat.sentry import sentry_init
@@ -55,6 +56,8 @@ class Session:
         diff: Optional[str] = None,
         pr_diff: Optional[str] = None,
         config: Config = Config(),
+        # Set to false for clients that apply the edits themselves (like vscode)
+        apply_edits: bool = True,
     ):
         # All errors thrown here need to be caught here
         self.stopped = Event()
@@ -119,6 +122,8 @@ class Session:
         if config.sampler:
             sampler.set_active_diff()
 
+        self.apply_edits = apply_edits
+
     def _create_task(self, coro: Coroutine[None, None, Any]):
         """Utility method for running a Task in the background"""
 
@@ -130,6 +135,27 @@ class Session:
         self._tasks.add(task)
 
         return task
+
+    def send_file_edits(self, file_edits: List[FileEdit]):
+        ctx = SESSION_CONTEXT.get()
+        ctx.stream.send(
+            [
+                {
+                    "file_path": str(file_edit.file_path),
+                    "new_file_path": (None if not file_edit.rename_file_path else str(file_edit.rename_file_path)),
+                    "type": (
+                        "creation" if file_edit.is_creation else ("deletion" if file_edit.is_deletion else "edit")
+                    ),
+                    "new_content": "\n".join(
+                        file_edit.get_updated_file_lines(
+                            ctx.code_file_manager.file_lines.get(file_edit.file_path, []).copy()
+                        )
+                    ),
+                }
+                for file_edit in file_edits
+            ],
+            channel="model_file_edits",
+        )
 
     async def _main(self):
         session_context = SESSION_CONTEXT.get()
@@ -144,11 +170,8 @@ class Session:
             ensure_ctags_installed()
 
         session_context.llm_api_handler.initialize_client()
-
         check_model()
-        await conversation.display_token_count()
 
-        stream.send("Type 'q' or use Ctrl-C to quit at any time.")
         need_user_request = True
         while True:
             await code_context.refresh_context_display()
@@ -162,7 +185,6 @@ class Session:
                             "Use /undo to undo all changes from agent mode since last" " input.",
                             style="success",
                         )
-                    stream.send("\nWhat can I do for you?", style="input")
                     message = await collect_input_with_commands()
                     if message.data.strip() == "":
                         continue
@@ -176,17 +198,20 @@ class Session:
                     if session_context.config.revisor:
                         await revise_edits(file_edits)
 
-                    if not agent_handler.agent_enabled:
-                        file_edits, need_user_request = await get_user_feedback_on_edits(file_edits)
-
                     if session_context.config.sampler:
                         session_context.sampler.set_active_diff()
 
-                    applied_edits = await code_file_manager.write_changes_to_files(file_edits)
-                    stream.send(
-                        "Changes applied." if applied_edits else "No changes applied.",
-                        style="input",
-                    )
+                    self.send_file_edits(file_edits)
+                    if self.apply_edits:
+                        if not agent_handler.agent_enabled:
+                            file_edits, need_user_request = await get_user_feedback_on_edits(file_edits)
+                        applied_edits = await code_file_manager.write_changes_to_files(file_edits)
+                        stream.send(
+                            ("Changes applied." if applied_edits else "No changes applied."),
+                            style="input",
+                        )
+                    else:
+                        need_user_request = True
 
                     if agent_handler.agent_enabled:
                         if parsed_llm_response.interrupted:
@@ -240,6 +265,12 @@ class Session:
             ctx.code_context.exclude(message.data)
             await ctx.code_context.refresh_context_display()
 
+    async def listen_for_clear_conversation(self):
+        ctx = SESSION_CONTEXT.get()
+
+        async for _ in self.stream.listen(channel="clear_conversation"):
+            ctx.conversation.clear_messages()
+
     ### lifecycle
 
     def start(self):
@@ -279,6 +310,7 @@ class Session:
         self._create_task(self.listen_for_completion_requests())
         self._create_task(self.listen_for_include())
         self._create_task(self.listen_for_exclude())
+        self._create_task(self.listen_for_clear_conversation())
 
     async def _stop(self):
         if self.stopped.is_set():
@@ -286,11 +318,9 @@ class Session:
         self.stopped.set()
 
         session_context = SESSION_CONTEXT.get()
-        cost_tracker = session_context.cost_tracker
         vision_manager = session_context.vision_manager
 
         vision_manager.close()
-        cost_tracker.display_total_cost()
         logging.shutdown()
 
         for task in self._tasks:
