@@ -42,7 +42,7 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
-from spice import APIConnectionError, AuthenticationError, Spice, SpiceResponse
+from spice import APIConnectionError, AuthenticationError, Spice, SpiceEmbeddings, SpiceResponse
 
 from mentat.errors import MentatError, ReturnToUser, UserError
 from mentat.session_context import SESSION_CONTEXT
@@ -336,15 +336,9 @@ class LlmApiHandler:
         azure_key = os.getenv("AZURE_OPENAI_KEY")
         azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 
-        # ChromaDB requires a sync function for embeddings
         if azure_endpoint and azure_key:
             ctx.stream.send("Using Azure OpenAI client.", style="warning")
             self.async_client = AsyncAzureOpenAI(
-                api_key=azure_key,
-                api_version="2023-12-01-preview",
-                azure_endpoint=azure_endpoint,
-            )
-            self.sync_client = AzureOpenAI(
                 api_key=azure_key,
                 api_version="2023-12-01-preview",
                 azure_endpoint=azure_endpoint,
@@ -359,9 +353,15 @@ class LlmApiHandler:
                 # If they set the base_url but not the key, they probably don't need a key, but the client requires one
                 key = "fake_key"
             self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
-            self.sync_client = OpenAI(api_key=key, base_url=base_url)
 
         self.spice_client = Spice()
+
+        azure_key = os.getenv("AZURE_OPENAI_KEY")
+        if os.getenv("AZURE_OPENAI_KEY") is not None:
+            embedding_provider = "azure"
+        else:
+            embedding_provider = "openai"
+        self.spice_embedding_client = SpiceEmbeddings(provider=embedding_provider)
 
         try:
             self.async_client.models.list()  # Test the key
@@ -409,9 +409,7 @@ class LlmApiHandler:
 
     @api_guard
     def call_embedding_api(self, input_texts: list[str], model: str = "text-embedding-ada-002") -> Embeddings:
-        embeddings = self.sync_client.embeddings.create(input=input_texts, model=model).data
-        sorted_embeddings = sorted(embeddings, key=lambda e: e.index)
-        return [result.embedding for result in sorted_embeddings]
+        return self.spice_embedding_client.get_embeddings(input_texts, model)
 
     @api_guard
     async def call_whisper_api(self, audio_path: Path) -> str:
