@@ -25,11 +25,9 @@ import sentry_sdk
 import tiktoken
 from dotenv import load_dotenv
 from openai import (
-    APIConnectionError,
     AsyncAzureOpenAI,
     AsyncOpenAI,
     AsyncStream,
-    AuthenticationError,
     AzureOpenAI,
     OpenAI,
 )
@@ -44,7 +42,7 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
-from spice import Spice, SpiceResponse
+from spice import APIConnectionError, AuthenticationError, Spice, SpiceResponse
 
 from mentat.errors import MentatError, ReturnToUser, UserError
 from mentat.session_context import SESSION_CONTEXT
