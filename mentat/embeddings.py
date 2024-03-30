@@ -89,7 +89,7 @@ async def get_feature_similarity_scores(
     if max_model_tokens is None:
         stream.send(
             f"Warning: Could not determine context size for model {config.embedding_model}."
-            " Using default value of 2048.",
+            " Using default value of 8192.",
             style="warning",
         )
         max_model_tokens = 8192
