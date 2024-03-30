@@ -223,7 +223,7 @@ class Benchmark:
                     family=formatted_title,
                 )
                 try:
-                    sample_result = await run_sample(sample)
+                    sample_result = await run_sample(sample, config=self.config)
                     result.cost = sample_result["cost"]
                     result.tokens = sample_result["tokens"]
                     result.transcript = sample_result["transcript"]

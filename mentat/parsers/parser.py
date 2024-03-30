@@ -383,3 +383,6 @@ class Parser(ABC):
         parsed_response = await self.stream_and_parse_llm_response(async_iter_response)
         self._silence_printer = False
         return parsed_response
+
+    def file_edits_to_llm_message(self, parsedLLMResponse: ParsedLLMResponse) -> str:
+        raise NotImplementedError()

@@ -5,21 +5,22 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from git import Repo
 import tqdm
 
 from mentat import Mentat
+from mentat.config import Config
 from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.git_parser import GitParser
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import get_active_snapshot_commit, setup_repo, apply_diff_to_repo
 from mentat.session_context import SESSION_CONTEXT
-from mentat.utils import convert_string_to_asynciter
 
 
-async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str, Any]:
-    """Run a sample using Mentat and return the resulting diff"""
-
+def setup_sample(
+    sample: Sample, cwd: Path | str | None, skip_test_exec: bool = False
+) -> tuple[Repo, Path, str, str | None]:
     setup_commit = sample.environment_setup_commit or sample.merge_base
     repo = setup_repo(
         url=sample.repo,
@@ -31,35 +32,40 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
     cwd = Path(repo.working_dir)
 
     test_executable = None
-    if sample.FAIL_TO_PASS:
+    if not skip_test_exec and (sample.FAIL_TO_PASS or sample.PASS_TO_PASS):
         # If there's an environment_setup_commit, this is what it's needed for.
         try:
             test_executable = get_test_executable(Path(repo.working_dir))
         except SampleError as e:
             print(f"Error setting up virtual environment: {e}")
             print("Using default python executable instead.")
-    if test_executable is None:
-        test_executable = Path(sys.executable)
+    if not test_executable:
+        test_executable = sys.executable
 
     if sample.environment_setup_commit and sample.merge_base:
-        # SWE-Bench samples have a setup commit and a merge base.
+        # SWE-Bench samples have an environmental_setup_commit (above),
+        # then a merge_base to checkout.
         repo.git.reset("--hard")
         repo.git.checkout(sample.merge_base)
         commit_active = sample.merge_base
     else:
-        # Mentat Samples have an active diff set in setup_repo that needs to be preserved.
-        pass
-        commit_active = get_active_snapshot_commit(repo)  # TODO: This throws an error in some benchmarks: sqlfluff..
+        # Mentat Samples have an active diff which was set in setup_repo,
+        # so here create a snapshot commit (to generate diff_edit against later)
+        commit_active = get_active_snapshot_commit(repo)
 
-    # Make a commit from the pre-edited state (should match diff_active)
+    return repo, cwd, test_executable, commit_active
 
-    # Pre-validation took place here
+
+async def run_sample(sample: Sample, cwd: Path | str | None = None, config: Config | None = None) -> dict[str, Any]:
+    """Run a sample using Mentat and return the resulting diff"""
+
+    repo, cwd, test_executable, commit_active = setup_sample(sample, cwd)
 
     # Run sample in PythonClient
     paths = list[Path]()
     for a in sample.context:
         paths.append(Path(a))
-    mentat = Mentat(cwd=cwd, paths=paths)
+    mentat = Mentat(cwd=cwd, paths=paths, config=config or Config())
     await mentat.startup()
     session_context = SESSION_CONTEXT.get()
     conversation = session_context.conversation
@@ -68,8 +74,7 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
         if msg["role"] == "user":
             conversation.add_user_message(msg["content"])
         elif msg["role"] == "assistant":
-            generator = convert_string_to_asynciter(msg["content"], 100)
-            parsed_llm_response = await GitParser().stream_and_parse_llm_response(generator)
+            parsed_llm_response = GitParser().parse_llm_response(msg["content"])
             content = session_context.config.parser.file_edits_to_llm_message(parsed_llm_response)
             conversation.add_model_message(content, [], parsed_llm_response)
         else:
@@ -91,8 +96,6 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None) -> dict[str,
     if sample.test_patch:
         apply_diff_to_repo(sample.test_patch, repo)
     if sample.FAIL_TO_PASS:
-        if test_executable is None:
-            raise SampleError("No test executable found")
         tests = json.loads(sample.FAIL_TO_PASS)
         total = len(tests)
         passed = 0
@@ -175,7 +178,7 @@ test_requirements_for_repo = {
 }
 
 
-def get_test_executable(cwd: Path) -> Path:
+def get_test_executable(cwd: Path) -> str:
     """Rebuild every time with the latest setup."""
 
     venv_dir = cwd / ".venv"
@@ -212,12 +215,12 @@ def get_test_executable(cwd: Path) -> Path:
     except Exception as e:
         raise SampleError(f"Error installing requirements: {e}")
 
-    return venv_dir / "bin" / "python"
+    return str(venv_dir / "bin" / "python")
 
 
-def get_test_result(test: str, cwd: Path, test_executable: Path) -> tuple[bool, str]:
+def get_test_result(test: str, cwd: Path, test_executable: str) -> tuple[bool, str]:
     passed, error = False, ""
-    command = [str(test_executable), "-m", "pytest"]
+    command = [test_executable, "-m", "pytest"]
     if "[" in test:
         # Some tests include parameters, like "..is_valid[3.1415]".
         # Running '-k' over the whole suite is very slow.
@@ -263,17 +266,7 @@ def validate_test_fields(sample: Sample) -> dict[str, Any]:
     if not sample.FAIL_TO_PASS and not sample.PASS_TO_PASS:
         return test_results
 
-    setup_commit = sample.environment_setup_commit or sample.merge_base
-    repo = setup_repo(
-        url=sample.repo,
-        commit=setup_commit,
-        diff_merge_base=sample.diff_merge_base,
-        diff_active=sample.diff_active,
-    )
-    cwd = Path(repo.working_dir)
-    test_executable = get_test_executable(cwd)
-
-    repo.git.checkout(sample.merge_base)
+    repo, cwd, test_executable, _ = setup_sample(sample, None)
 
     # Run the PASS_TO_PASS test, expected to PASS
     if sample.PASS_TO_PASS:
