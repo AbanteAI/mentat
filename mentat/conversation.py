@@ -205,8 +205,9 @@ class Conversation:
             file_edit.previous_file_lines = code_file_manager.file_lines.get(file_edit.file_path, []).copy()
 
         # TODO: this is janky come up with better solution
-        # sleep so that if the stream was interrupted the Spice async generator will run it's finally block,
-        # logging the last API call
+        # if the stream was interrupted, then the finally block in the response.stream() async generator
+        # will wait for an opportunity to run. This sleep call gives it that opportunity.
+        # the finally block runs the logging callback
         await asyncio.sleep(0.01)
         cost_tracker.display_last_api_call()
 
