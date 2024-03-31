@@ -362,11 +362,6 @@ class LlmApiHandler:
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
 
-            # TODO: handle this for gpt-4-vision-preview in spice?
-            # OpenAI's API is bugged; when gpt-4-vision-preview is used, including the response format
-            # at all returns a 400 error. Additionally, gpt-4-vision-preview has a max response of 30 tokens by default.
-            # Until this is fixed, we have to use this workaround.
-
             response = await self.spice_client.call_llm(
                 model=model,
                 messages=messages,
