@@ -327,47 +327,17 @@ class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
     def initialize_client(self):
-        ctx = SESSION_CONTEXT.get()
-
         if not load_dotenv(mentat_dir_path / ".env"):
             load_dotenv()
-        key = os.getenv("OPENAI_API_KEY")
-        base_url = os.getenv("OPENAI_API_BASE")
-        azure_key = os.getenv("AZURE_OPENAI_KEY")
-        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 
-        if azure_endpoint and azure_key:
-            ctx.stream.send("Using Azure OpenAI client.", style="warning")
-            self.async_client = AsyncAzureOpenAI(
-                api_key=azure_key,
-                api_version="2023-12-01-preview",
-                azure_endpoint=azure_endpoint,
-            )
-        else:
-            if not key:
-                if not base_url:
-                    raise UserError(
-                        "No OpenAI api key detected.\nEither place your key into a .env"
-                        " file or export it as an environment variable."
-                    )
-                # If they set the base_url but not the key, they probably don't need a key, but the client requires one
-                key = "fake_key"
-            self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
-
-        self.spice_client = Spice()
-
-        azure_key = os.getenv("AZURE_OPENAI_KEY")
         if os.getenv("AZURE_OPENAI_KEY") is not None:
             embedding_and_whisper_provider = "azure"
         else:
             embedding_and_whisper_provider = "openai"
+
+        self.spice_client = Spice()
         self.spice_embedding_client = SpiceEmbeddings(provider=embedding_and_whisper_provider)
         self.spice_whisper_client = SpiceWhisper(provider=embedding_and_whisper_provider)
-
-        try:
-            self.async_client.models.list()  # Test the key
-        except AuthenticationError as e:
-            raise UserError(f"API gave an Authentication Error:\n{e}")
 
     @api_guard
     async def call_llm_api(
