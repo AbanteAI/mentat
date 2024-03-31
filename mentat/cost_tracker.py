@@ -49,6 +49,14 @@ class CostTracker:
         costs_logger.info(speed_and_cost_string)
         self.last_api_call = speed_and_cost_string
 
+    def log_embedding_call_stats(self, tokens, model, total_time):
+        cost = model_price_per_1000_tokens(model)[0]
+        call_cost = (tokens / 1000) * cost
+        self.total_cost += call_cost
+        costs_logger = logging.getLogger("costs")
+        costs_logger.info(f"Cost: ${call_cost:.2f}")
+        self.last_api_call = f"Embedding call time and cost: {total_time:.2f}s, ${call_cost:.2f}"
+
     def display_last_api_call(self):
         """
         Used so that places that call the llm can print the api call stats after they finish printing everything else.
