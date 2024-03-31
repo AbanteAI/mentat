@@ -42,7 +42,7 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
-from spice import APIConnectionError, AuthenticationError, Spice, SpiceEmbeddings, SpiceResponse
+from spice import APIConnectionError, AuthenticationError, Spice, SpiceEmbeddings, SpiceResponse, SpiceWhisper
 
 from mentat.errors import MentatError, ReturnToUser, UserError
 from mentat.session_context import SESSION_CONTEXT
@@ -358,10 +358,11 @@ class LlmApiHandler:
 
         azure_key = os.getenv("AZURE_OPENAI_KEY")
         if os.getenv("AZURE_OPENAI_KEY") is not None:
-            embedding_provider = "azure"
+            embedding_and_whisper_provider = "azure"
         else:
-            embedding_provider = "openai"
-        self.spice_embedding_client = SpiceEmbeddings(provider=embedding_provider)
+            embedding_and_whisper_provider = "openai"
+        self.spice_embedding_client = SpiceEmbeddings(provider=embedding_and_whisper_provider)
+        self.spice_whisper_client = SpiceWhisper(provider=embedding_and_whisper_provider)
 
         try:
             self.async_client.models.list()  # Test the key
@@ -413,9 +414,4 @@ class LlmApiHandler:
 
     @api_guard
     async def call_whisper_api(self, audio_path: Path) -> str:
-        audio_file = open(audio_path, "rb")
-        transcript = await self.async_client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file,
-        )
-        return transcript.text
+        return await self.spice_whisper_client.get_whisper_transcription(audio_path)
