@@ -1,12 +1,9 @@
 import logging
 from dataclasses import dataclass
-from timeit import default_timer
-from typing import AsyncIterator, Optional
 
-from openai.types.chat import ChatCompletionChunk
 from spice import SpiceResponse
 
-from mentat.llm_api_handler import count_tokens, model_price_per_1000_tokens
+from mentat.llm_api_handler import model_price_per_1000_tokens
 from mentat.session_context import SESSION_CONTEXT
 
 
@@ -21,8 +18,6 @@ class CostTracker:
         self,
         response: SpiceResponse,
     ) -> None:
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
         decimal_places = 2
 
         model = response.call_args.model

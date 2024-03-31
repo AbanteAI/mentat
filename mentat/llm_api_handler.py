@@ -10,31 +10,19 @@ from timeit import default_timer
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterator,
     Callable,
     Dict,
     List,
-    Literal,
     Optional,
     cast,
-    overload,
 )
 
 import attr
 import sentry_sdk
 import tiktoken
 from dotenv import load_dotenv
-from openai import (
-    AsyncAzureOpenAI,
-    AsyncOpenAI,
-    AsyncStream,
-    AzureOpenAI,
-    OpenAI,
-)
 from openai.types.chat import (
-    ChatCompletion,
     ChatCompletionAssistantMessageParam,
-    ChatCompletionChunk,
     ChatCompletionContentPartParam,
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
@@ -42,9 +30,9 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
-from spice import APIConnectionError, AuthenticationError, Spice, SpiceEmbeddings, SpiceResponse, SpiceWhisper
+from spice import APIConnectionError, Spice, SpiceEmbeddings, SpiceResponse, SpiceWhisper
 
-from mentat.errors import MentatError, ReturnToUser, UserError
+from mentat.errors import MentatError, ReturnToUser
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -358,7 +346,6 @@ class LlmApiHandler:
         tokens = prompt_tokens(messages, model)
         raise_if_context_exceeds_max(tokens)
 
-        start_time = default_timer()
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
 
