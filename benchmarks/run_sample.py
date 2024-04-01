@@ -110,7 +110,7 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None, config: Conf
             "passed": passed,
             "total": total,
             "passed_percent": passed / total * 100,
-            "errors": errors,
+            # "errors": errors,  # Too big, but useful for debugging
         }
         test_passed = passed == total
 

@@ -20,7 +20,7 @@ def _score(predicted: set[Path], expected: set[Path]) -> dict[str, Any]:
     false_negatives = expected.difference(predicted)
     precision = len(true_positives) / (len(true_positives) + len(false_positives))
     recall = len(true_positives) / (len(true_positives) + len(false_negatives))
-    return {"precision": precision, "recall": recall}
+    return {"precision": precision, "recall": recall, "n_true": len(expected)}
 
 
 async def run_auto_context_benchmark(

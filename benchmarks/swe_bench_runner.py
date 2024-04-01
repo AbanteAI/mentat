@@ -1,3 +1,9 @@
+"""
+NOTE: Not all of the Samples are valid with our current implementation. The list of 
+valid samples is saved in the `summoning-the-shoggoth` repo for now. Running this file
+directly from the command line will run the full validation script and overwrite the
+results there (takes a few hours).
+"""
 import argparse
 import json
 import os
@@ -20,7 +26,10 @@ SWE_VALIDATION_RESULTS_PATH = (
 
 
 def download_swe_benchmarks(split: str = "dev") -> list[dict[str, str]]:
-    """3 splits are available: dev (225), test (2.29k), and train (19k)."""
+    """Get raw SWE-Bench json samples from huggingface
+
+    3 splits are available: dev (225), test (2.29k), and train (19k).
+    """
     dataset: DatasetDict = load_dataset("princeton-nlp/SWE-bench", split=split)  # type: ignore
     dataset: list[dict[str, str]] = [dict(benchmark) for benchmark in dataset]
     return dataset
@@ -72,7 +81,8 @@ def get_swe_samples(split: str = "dev", max_benchmarks: int | None = None) -> li
     return samples
 
 
-def validate_swe_samples(targets: list[str] | None = None) -> None:
+def validate_swe_samples(targets: list[str] | None = None, refresh: bool = True) -> None:
+    """Setup each sample and run its validation tests."""
     cwd = Path.cwd()
     samples = get_swe_samples()
 
@@ -89,12 +99,16 @@ def validate_swe_samples(targets: list[str] | None = None) -> None:
 
         if targets and not any(b in sample.title for b in targets):
             continue
-        # if sample.title in results:
-        #     continue
+        if not refresh and sample.title in results:
+            continue
         try:
             print(80 * "*" + f"\nValidating {sample.id}...")
             test_results = validate_test_fields(sample)
-            percentages = _results_to_percentages(test_results)
+            percentages = dict[str, float]()
+            for category, result in test_results.items():
+                _passed, _total = result.get("passed", 0), result.get("total", 0)
+                percentage = 0 if _total == 0 else _passed / _total * 100
+                percentages[category] = percentage
             for category, percent in percentages.items():
                 expected = 0 if "_PRE" in category else 100
                 print(f"{category}: {percent:.2f}% (expected {expected}%)")
@@ -107,19 +121,10 @@ def validate_swe_samples(targets: list[str] | None = None) -> None:
                 json.dump(results, f, indent=4)
 
 
-def _results_to_percentages(test_results: dict[str, Any]) -> dict[str, float]:
-    percentages = dict[str, float]()
-    for category, result in test_results.items():
-        _passed, _total = result.get("passed", 0), result.get("total", 0)
-        percentage = 0 if _total == 0 else _passed / _total * 100
-        percentages[category] = percentage
-    return percentages
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("targets", nargs="*")
+    parser.add_argument("--refresh", "-r", action="store_true")
     parsed_args = parser.parse_args()
-    targets = [str(arg) for arg in parsed_args.targets]
 
-    validate_swe_samples(targets)
+    validate_swe_samples(targets=[str(arg) for arg in parsed_args.targets], refresh=parsed_args.refresh)
