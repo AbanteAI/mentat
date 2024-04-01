@@ -30,7 +30,7 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
-from spice import APIConnectionError, Spice, SpiceEmbeddings, SpiceResponse, SpiceWhisper
+from spice import APIConnectionError, Spice, SpiceEmbeddings, SpiceError, SpiceResponse, SpiceWhisper
 
 from mentat.errors import MentatError, ReturnToUser
 from mentat.session_context import SESSION_CONTEXT
@@ -69,6 +69,8 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
                 return await func(*args, **kwargs)
             except APIConnectionError:
                 raise MentatError("API connection error: please check your internet connection and" " try again.")
+            except SpiceError as e:
+                raise MentatError(f"API error: {e}")
 
         return async_wrapper
     else:
@@ -79,6 +81,8 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
                 return func(*args, **kwargs)
             except APIConnectionError:
                 raise MentatError("API connection error: please check your internet connection and" " try again.")
+            except SpiceError as e:
+                raise MentatError(f"API error: {e}")
 
         return sync_wrapper
 
