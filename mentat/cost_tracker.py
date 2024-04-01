@@ -26,8 +26,8 @@ class CostTracker:
         total_time = response.total_time
 
         speed_and_cost_string = ""
-        self.total_tokens += input_tokens + output_tokens
-        if output_tokens > 0 and total_time is not None:
+        self.total_tokens += response.total_tokens
+        if output_tokens > 0:
             tokens_per_second = output_tokens / total_time
             speed_and_cost_string += f"Speed: {tokens_per_second:.{decimal_places}f} tkns/s"
         cost = model_price_per_1000_tokens(model)
@@ -44,8 +44,13 @@ class CostTracker:
         costs_logger.info(speed_and_cost_string)
         self.last_api_call = speed_and_cost_string
 
-    def log_embedding_call_stats(self, tokens, model, total_time):
-        cost = model_price_per_1000_tokens(model)[0]
+    def log_embedding_call_stats(self, tokens: int, model: str, total_time: float):
+        cost = model_price_per_1000_tokens(model)
+        # TODO: handle unknown models better / port to spice
+        if cost is None:
+            return
+
+        cost = cost[0]
         call_cost = (tokens / 1000) * cost
         self.total_cost += call_cost
         costs_logger = logging.getLogger("costs")

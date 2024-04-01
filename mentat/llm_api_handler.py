@@ -6,7 +6,6 @@ import os
 import sys
 from inspect import iscoroutinefunction
 from pathlib import Path
-from timeit import default_timer
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -350,15 +349,24 @@ class LlmApiHandler:
         tokens = prompt_tokens(messages, model)
         raise_if_context_exceeds_max(tokens)
 
+        # TODO: make spice message format and use across codebase consistently
+        _messages = [
+            {"role": cast(str, message["role"]), "content": cast(str, message["content"])} for message in messages
+        ]
+        if "type" in response_format and response_format["type"] == "json_object":
+            _response_format = {"type": "json_object"}
+        else:
+            _response_format = {"type": "text"}
+
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
 
             response = await self.spice_client.call_llm(
                 model=model,
-                messages=messages,
+                messages=_messages,
                 stream=stream,
                 temperature=config.temperature,
-                response_format=response_format,
+                response_format=_response_format,
                 logging_callback=cost_tracker.log_api_call_stats,
             )
 
