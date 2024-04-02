@@ -74,7 +74,11 @@ class Server {
                 message: "Mentat: Creating Python environment...",
             });
             const createVenvCommand = `${pythonCommand} -m venv ${venvPath}`;
-            await aexec(createVenvCommand);
+            try {
+                await aexec(createVenvCommand);
+            } catch (error) {
+                throw new Error(`Error creating Python venv: ${error}`);
+            }
         }
         const binFolder = path.join(
             venvPath,
@@ -98,9 +102,13 @@ class Server {
         }
         if (mentatVersion !== MENTAT_VERSION) {
             progress.report({ message: "Mentat: Installing..." });
-            await aexec(
-                `${pythonLocation} -m pip install mentat==${MENTAT_VERSION}`
-            );
+            try {
+                await aexec(
+                    `${pythonLocation} -m pip install mentat==${MENTAT_VERSION}`
+                );
+            } catch (error) {
+                throw new Error(`Error installing Mentat: ${error}`);
+            }
             console.log("Installed Mentat");
         }
 
