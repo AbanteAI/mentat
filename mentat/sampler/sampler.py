@@ -1,3 +1,4 @@
+import json
 import subprocess
 from pathlib import Path
 from uuid import uuid4
@@ -200,7 +201,7 @@ class Sampler:
             message_edit=message_edit,
             context=list(context),
             diff_edit=diff_edit,
-            test_command=test_command,
+            FAIL_TO_PASS=json.dumps([test_command]),
         )
 
         # Save the hexsha and id

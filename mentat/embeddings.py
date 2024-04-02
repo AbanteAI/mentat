@@ -10,7 +10,7 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
 from mentat.utils import mentat_dir_path
 
-EMBEDDINGS_API_BATCH_SIZE = 2048
+EMBEDDINGS_API_BATCH_SIZE = 1536
 
 client = chromadb.PersistentClient(path=str(mentat_dir_path / "chroma"))
 
@@ -64,7 +64,7 @@ class Collection:
         results = self._collection.query(  # type: ignore
             query_texts=[prompt],
             where={"active": True},
-            n_results=len(checksums) + 1,
+            n_results=len(checksums),
         )
         self._collection.update(  # type: ignore
             ids=checksums,
@@ -99,6 +99,7 @@ async def get_feature_similarity_scores(
 
     # Identify which items need embeddings.
     checksums: list[str] = [f.get_checksum() for f in features]
+    ignored_checksums = set[str]()
     tokens: list[int] = await count_feature_tokens(features, embedding_model)
     embed_texts = list[str]()
     embed_checksums = list[str]()
@@ -110,6 +111,7 @@ async def get_feature_similarity_scores(
                 f" maximum of {max_model_tokens} for model {config.embedding_model}."
                 " Skipping."
             )
+            ignored_checksums.add(checksum)
             continue
         if not collection.exists(checksum) and checksum not in embed_checksums:
             embed_texts.append("\n".join(feature.get_code_message()))
@@ -145,6 +147,7 @@ async def get_feature_similarity_scores(
 
     # Get similarity scores
     stream.send(None, channel="loading", terminate=True)
-    _checksums = list(set(checksums))
+    _checksums = list(c for c in set(checksums) if c not in ignored_checksums)
     scores = collection.query(prompt, _checksums)
+
     return [scores.get(f.get_checksum(), 0) for f in features]
