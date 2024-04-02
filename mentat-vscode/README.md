@@ -32,12 +32,7 @@ See more videos on [Twitter](https://twitter.com/bio_bootloader/status/168390673
 
 ### Add your OpenAI API Key
 
-There are a few options to provide Mentat with your OpenAI API key:
-
-1. Create a `.env` file with the line `OPENAI_API_KEY=<your-api-key>` in your workspace or in `~/.mentat/.env`
-2. Run `export OPENAI_API_KEY=<your key here>` prior to starting VSCode
-3. Place the previous command in your `.bashrc` or `.zshrc` to export your key on every terminal startup
-
+Create a `.env` file with the line `OPENAI_API_KEY=<your-api-key>` in your workspace or in `~/.mentat/.env`.
 If you want to use a models through Azure, Ollama or other service see [this doc](https://docs.mentat.ai/en/latest/user/alternative_models.html) for details.
 
 # 🚀 Usage
