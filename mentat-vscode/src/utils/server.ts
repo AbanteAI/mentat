@@ -104,7 +104,8 @@ class Server {
             progress.report({ message: "Mentat: Installing..." });
             try {
                 await aexec(
-                    `${pythonLocation} -m pip install mentat==${MENTAT_VERSION}`
+                    `${pythonLocation} -m pip install mentat==${MENTAT_VERSION}`,
+                    { env: { ...process.env, HNSWLIB_NO_NATIVE: "1" } }
                 );
             } catch (error) {
                 throw new Error(`Error installing Mentat: ${error}`);
@@ -160,6 +161,8 @@ class Server {
         return serverProcess;
     }
 
+    private curMessage: string = "";
+
     public async startServer(workspaceRoot: string) {
         if (this.binFolder === undefined) {
             this.binFolder = await vscode.window.withProgress(
@@ -179,7 +182,13 @@ class Server {
         );
         this.serverProcess.stdio[4]?.on("data", (rawOutput: Buffer) => {
             const output = rawOutput.toString("utf-8");
-            for (const serializedMessage of output.trim().split("\n")) {
+            this.curMessage += output;
+            if (!this.curMessage.endsWith("\n")) {
+                return;
+            }
+            for (const serializedMessage of this.curMessage
+                .trim()
+                .split("\n")) {
                 try {
                     const message: StreamMessage = JSON.parse(
                         serializedMessage.trim()
@@ -189,6 +198,7 @@ class Server {
                     console.error("Error reading StreamMessage:", error);
                 }
             }
+            this.curMessage = "";
         });
         this.clearBacklog();
     }
