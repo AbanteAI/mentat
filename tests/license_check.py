@@ -22,7 +22,6 @@ accepted_licenses = [
     "Mozilla Public License 2.0 (MPL 2.0)",
     "Python Software Foundation License",
     "Apache 2.0",
-    "Apache-2.0",
     "BSD 3-Clause",
     "3-Clause BSD License",
     "ISC License (ISCL)",
