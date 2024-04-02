@@ -29,4 +29,4 @@ typing_extensions==4.8.0
 tqdm==4.66.1
 webdriver_manager==4.0.1
 watchfiles==0.21.0
-spiceai==0.1.6
+spiceai==0.1.7
