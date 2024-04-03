@@ -311,7 +311,7 @@ def raise_if_context_exceeds_max(tokens: int):
             " some files from context or `/clear` to reset the conversation",
             style="error",
         )
-        raise ReturnToUser()
+        # raise ReturnToUser()
 
 
 class LlmApiHandler:
