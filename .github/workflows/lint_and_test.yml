@@ -9,6 +9,7 @@ on: [push, pull_request]
 jobs:
   ruff:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v3
       - name: install reqs
@@ -27,6 +28,8 @@ jobs:
 
   build:
     runs-on: ${{ matrix.os }}
+    # Set timeout to 20 minutes for Windows due to longer build times, otherwise 10 minutes
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 20 || 10 }}
 
     strategy:
       fail-fast: false
@@ -73,6 +76,7 @@ jobs:
 
   license-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v3

@@ -60,4 +60,4 @@ class LoadCommand(Command, command_name="load"):
     @override
     @classmethod
     def help_message(cls) -> str:
-        return "Loads a context file. Loaded context adds to existing context, it does not" " replace it."
+        return "Loads a context file. Loaded context adds to existing context, it does not replace it."

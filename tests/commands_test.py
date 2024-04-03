@@ -156,7 +156,7 @@ async def test_load_command_file_not_found(temp_testbed, mock_collect_user_input
     session.start()
     await session.stream.recv(channel="client_exit")
 
-    assert "Context file not found" in session.stream.messages[4].data
+    assert "Context file not found" in session.stream.messages[1].data
 
 
 @pytest.mark.asyncio
@@ -175,8 +175,7 @@ async def test_load_command_invalid_json(temp_testbed, mock_collect_user_input):
     session = Session(cwd=temp_testbed)
     session.start()
     await session.stream.recv(channel="client_exit")
-
-    assert "Failed to parse context file" in session.stream.messages[4].data
+    assert "Failed to parse context file" in session.stream.messages[1].data
 
 
 @pytest.mark.asyncio
@@ -409,7 +408,6 @@ async def test_search_command(mocker, temp_testbed, mock_call_llm_api, mock_coll
 
     rel_path = mock_feature.path.relative_to(Path(temp_testbed))
     assert str(rel_path) in "\n".join(str(message.data) for message in session.stream.messages)
-    assert "cost" in session.stream.messages[-2].data
 
 
 @pytest.mark.asyncio

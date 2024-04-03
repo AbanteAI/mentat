@@ -1,3 +1,4 @@
+import json
 import re
 from pathlib import Path
 from textwrap import dedent
@@ -93,7 +94,7 @@ async def test_sample_from_context(
     assert sample.context == ["multifile_calculator/operations.py"]
     assert sample.diff_edit == ""
     assert sample.id != ""
-    assert sample.test_command == "test_test_command"
+    assert sample.FAIL_TO_PASS == json.dumps(["test_test_command"])
     assert sample.version == __version__
 
 
@@ -170,8 +171,8 @@ async def test_sample_command(temp_testbed, mock_collect_user_input, mock_call_l
     assert "+# forty two" in edits[0]
     assert "test_file.py" in edits[1]
     assert "+# forty two" in edits[1]
-    assert sample.test_command == "test_test_command"
-    assert sample.version == "0.2.0"
+    assert sample.FAIL_TO_PASS == json.dumps(["test_test_command"])
+    assert sample.version == "0.3.0"
 
 
 test_sample = {
@@ -196,8 +197,8 @@ test_sample = {
         ' hashlib.sha1(data.encode("utf-8")).hexdigest()\n+\n+\n async def'
         " run_subprocess_async(*args: str) -> str:\n"
     ),
-    "test_command": "",
-    "version": "0.1.0",
+    "FAIL_TO_PASS": "",
+    "version": "0.3.0",
 }
 
 
@@ -407,7 +408,7 @@ async def test_sampler_integration(temp_testbed, mock_session_context, mock_call
     await client.call_mentat("test_url")
     await client.call_mentat("test_title")
     await client.call_mentat("test_description")
-    await client.call_mentat("test_test_command")
+    await client.call_mentat("")
     await client.call_mentat("q")
     await client.shutdown()
 

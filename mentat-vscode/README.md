@@ -24,8 +24,8 @@ npm install
 npm run build
 ```
 
-3. If you want to test changes to Mentat on a branch, you need to egg install (`pip install -3 path/to/repo`)
-   your branch of mentat into a venv at `~/mentat/.venv`; otherwise, the extension will automatically pip install mentat for you.
+3. If you want to test changes to Mentat on a branch, you need to egg install (`pip install -e path/to/repo`)
+   your branch of mentat into a venv at `~/.mentat/.venv`; otherwise, the extension will automatically pip install mentat for you.
 
 **Without the VSCode Debugger**
 

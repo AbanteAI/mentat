@@ -15,7 +15,9 @@ from openai.types.chat.completion_create_params import ResponseFormat
 from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.benchmark_result import BenchmarkResult
 from benchmarks.benchmark_run import BenchmarkRun
+from benchmarks.context_benchmark import run_auto_context_benchmark
 from benchmarks.run_sample import run_sample
+from benchmarks.swe_bench_runner import SWE_BENCH_SAMPLES_DIR, get_swe_samples
 from mentat.config import Config
 from mentat.git_handler import get_git_diff, get_mentat_branch, get_mentat_hexsha
 from mentat.llm_api_handler import model_context_size, prompt_tokens
@@ -201,11 +203,12 @@ class Benchmark:
         return output
 
     @classmethod
-    def from_sample(cls, path_to_sample: Path) -> Benchmark:
+    def from_sample(cls, path_to_sample: Path, config: Config | None = None) -> Benchmark:
         sample = Sample.load(path_to_sample)
         return cls(
             title=sample.title,
             description=sample.description,
+            config=config or Config(),
             samples=[sample],
         )
 
@@ -222,10 +225,17 @@ class Benchmark:
                     family=formatted_title,
                 )
                 try:
-                    sample_result = await run_sample(sample)
+                    if sample.context and self.config.auto_context_tokens:
+                        score = await run_auto_context_benchmark(sample, self.config, include_context=False)
+                        result.context_results = {**score, "auto_context_tokens": self.config.auto_context_tokens}
+                        result.context_precision = score["precision"]
+                        result.context_recall = score["recall"]
+                    sample_result = await run_sample(sample, config=self.config)
                     result.cost = sample_result["cost"]
                     result.tokens = sample_result["tokens"]
                     result.transcript = sample_result["transcript"]
+                    result.test_eval_results = sample_result["test_eval_results"]
+                    result.test_eval_passed = sample_result["test_eval_passed"]
                     if self.verify is not None:
                         result.verify = self.verify()
 
@@ -250,7 +260,13 @@ def benchmark_listed(title, benchmarks):
     return False
 
 
-def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1):
+def run_benchmarks(
+    user_benchmarks: list[str],
+    directory: str,
+    retries: int = 1,
+    max_benchmarks: int | None = None,
+    auto_context_tokens: int = 0,
+):
     # Load benchmarks
     dir_path = Path(directory).resolve()
     assert dir_path.exists(), f"Invalid directory: {directory}"
@@ -262,7 +278,8 @@ def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1)
             if file.endswith(".py"):
                 benchmark = Benchmark.from_module(path, "benchmark")
             elif file.endswith(".json"):
-                benchmark = Benchmark.from_sample(path)
+                config = Config(auto_context_tokens=auto_context_tokens)
+                benchmark = Benchmark.from_sample(path, config)
             else:
                 continue
 
@@ -276,7 +293,9 @@ def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1)
     results_cache = dir_path / f"benchmark_results_cache_{uuid4()}.jsonl"
     results_cache.touch()
     total_cost = 0.0
-    for benchmark in benchmarks:
+    for i, benchmark in enumerate(benchmarks):
+        if max_benchmarks and i >= max_benchmarks:
+            break
         # Run benchmark.run() with timeout
         try:
             result = asyncio.run(benchmark.run(retries=retries))
@@ -314,8 +333,19 @@ def run_benchmarks(user_benchmarks: list[str], directory: str, retries: int = 1)
 if __name__ == "__main__":
     parser = common_benchmark_parser()
     args = parser.parse_args()
+    if args.swe_bench:
+        if args.swe_bench not in {"dev", "train", "test"}:
+            print("Invalid SWE-Bench split.")
+            exit(1)
+        # Download and save SWE benchmarks as Samples
+        samples = get_swe_samples(args.swe_bench, args.max_benchmarks)
+        sample_titles = [sample.title for sample in samples]
+        args.benchmarks = sample_titles
+        args.directory = SWE_BENCH_SAMPLES_DIR / args.swe_bench
     run_benchmarks(
         args.benchmarks,
         args.directory,
         args.retries,
+        args.max_benchmarks,
+        args.auto_context_tokens,
     )

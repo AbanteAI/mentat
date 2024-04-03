@@ -1,19 +1,24 @@
-import { ChildProcessWithoutNullStreams, exec } from "child_process";
+import { ChildProcess, exec } from "child_process";
 import { spawn } from "child_process";
 import EventEmitter from "events";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as semver from "semver";
+import { Writable } from "stream";
 import { StreamMessage } from "types";
 import * as util from "util";
 import { v4 } from "uuid";
 import * as vscode from "vscode";
+
+// IMPORTANT: This MUST be updated with the vscode extension to ensure that the right mentat version is installed!
+const MENTAT_VERSION = "1.0.11";
+
 const aexec = util.promisify(exec);
 
 class Server {
     private binFolder: string | undefined = undefined;
-    private serverProcess: ChildProcessWithoutNullStreams | undefined;
+    private serverProcess: ChildProcess | undefined;
     public messageEmitter: EventEmitter = new EventEmitter();
     private backlog: StreamMessage[] = [];
 
@@ -77,35 +82,70 @@ class Server {
         );
         const pythonLocation = path.join(binFolder, "python");
 
-        // TODO: Auto update mentat if wrong version
-        const { stdout } = await aexec(`${pythonLocation} -m pip show mentat`);
-        const mentatVersion = stdout
-            .split("\n")
-            .at(1)
-            ?.split("Version: ")
-            ?.at(1);
-        if (mentatVersion === undefined) {
+        var mentatVersion;
+        try {
+            const { stdout } = await aexec(
+                `${pythonLocation} -m pip show mentat`
+            );
+            mentatVersion = stdout
+                .split("\n")
+                .at(1)
+                ?.split("Version: ")
+                ?.at(1)
+                ?.trim();
+        } catch (error) {
+            mentatVersion = null;
+        }
+        if (mentatVersion !== MENTAT_VERSION) {
             progress.report({ message: "Mentat: Installing..." });
-            await aexec(`${pythonLocation} -m pip install mentat`);
+            await aexec(
+                `${pythonLocation} -m pip install mentat==${MENTAT_VERSION}`
+            );
             console.log("Installed Mentat");
         }
 
         return binFolder;
     }
 
+    private collectConfigOptions(): string[] {
+        const configuration = vscode.workspace.getConfiguration("mentat");
+        const optionNames = [
+            "model",
+            "embedding-model",
+            "temperature",
+            "maximum-context",
+            "token-buffer",
+            "auto-context-tokens",
+        ];
+        const configOptions: string[] = [];
+        for (const optionName of optionNames) {
+            const configValue = configuration.get(optionName);
+            if (configValue !== undefined && configValue !== null) {
+                configOptions.push(`--${optionName}=${configValue.toString()}`);
+            }
+        }
+
+        return configOptions;
+    }
+
     private async startMentat(workspaceRoot: string, binFolder: string) {
         const mentatExecutable: string = path.join(binFolder, "mentat-server");
 
-        // TODO: Pass config options to mentat here
-        // TODO: I don't think this will work on Windows (check to make sure)
-        const serverProcess = spawn(mentatExecutable, [workspaceRoot]);
-        serverProcess.stdout.setEncoding("utf-8");
-        serverProcess.stdout.on("data", (data: any) => {
-            // console.log(`Server Output: ${data}`);
-        });
-        serverProcess.stderr.on("data", (data: any) => {
-            console.error(`Server Error: ${data}`);
-        });
+        const serverProcess = spawn(
+            mentatExecutable,
+            [workspaceRoot, ...this.collectConfigOptions()],
+            { stdio: [null, null, null, "pipe", "pipe"] }
+        );
+        if (serverProcess.stdout) {
+            serverProcess.stdout.on("data", (data: any) => {
+                console.log(`Server Output: ${data}`);
+            });
+        }
+        if (serverProcess.stderr) {
+            serverProcess.stderr.on("data", (data: any) => {
+                console.error(`Server Error: ${data}`);
+            });
+        }
         serverProcess.on("close", (code: number) => {
             console.log(`Server exited with code ${code}`);
         });
@@ -129,7 +169,8 @@ class Server {
             workspaceRoot,
             this.binFolder
         );
-        this.serverProcess.stdout.on("data", (output: string) => {
+        this.serverProcess.stdio[4]?.on("data", (rawOutput: Buffer) => {
+            const output = rawOutput.toString("utf-8");
             for (const serializedMessage of output.trim().split("\n")) {
                 try {
                     const message: StreamMessage = JSON.parse(
@@ -141,6 +182,7 @@ class Server {
                 }
             }
         });
+        this.clearBacklog();
     }
 
     public closeServer() {
@@ -167,17 +209,28 @@ class Server {
         this.sendMessage(message);
     }
 
+    private writeMessage(message: StreamMessage) {
+        // @ts-ignore
+        const pipe: Writable = this.serverProcess!.stdio[3]!;
+        pipe.write(JSON.stringify(message) + "\n");
+    }
+
+    private clearBacklog() {
+        if (this.serverProcess === undefined) {
+            return;
+        }
+        for (const message of this.backlog) {
+            this.writeMessage(message);
+        }
+        this.backlog = [];
+    }
+
     public sendMessage(message: StreamMessage) {
         if (this.serverProcess === undefined) {
             this.backlog.push(message);
         } else {
-            for (const streamMessage of this.backlog) {
-                this.serverProcess.stdin.write(
-                    JSON.stringify(streamMessage) + "\n"
-                );
-            }
-            this.backlog = [];
-            this.serverProcess.stdin.write(JSON.stringify(message) + "\n");
+            this.clearBacklog();
+            this.writeMessage(message);
         }
     }
 }

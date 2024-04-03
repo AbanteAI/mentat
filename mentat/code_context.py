@@ -27,10 +27,10 @@ class ContextStreamMessage(TypedDict):
     diff_context_display: Optional[str]
     auto_context_tokens: int
     features: List[str]
-    auto_features: List[str]
     git_diff_paths: List[str]
     git_untracked_paths: List[str]
     total_tokens: int
+    maximum_tokens: int
     total_cost: float
 
 
@@ -57,7 +57,6 @@ class CodeContext:
 
         self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
-        self.auto_features: List[CodeFeature] = []
 
     async def refresh_context_display(self):
         """
@@ -70,7 +69,6 @@ class CodeContext:
         features = get_consolidated_feature_refs(
             [feature for file_features in self.include_files.values() for feature in file_features]
         )
-        auto_features = get_consolidated_feature_refs(self.auto_features)
         git_diff_paths = [str(p) for p in self.diff_context.diff_files()]
         git_untracked_paths = [str(p) for p in self.diff_context.untracked_files()]
 
@@ -83,10 +81,10 @@ class CodeContext:
             diff_context_display=diff_context_display,
             auto_context_tokens=ctx.config.auto_context_tokens,
             features=features,
-            auto_features=auto_features,
             git_diff_paths=git_diff_paths,
             git_untracked_paths=git_untracked_paths,
             total_tokens=total_tokens,
+            maximum_tokens=get_max_tokens(),
             total_cost=total_cost,
         )
         ctx.stream.send(data, channel="context_update")
@@ -110,20 +108,16 @@ class CodeContext:
         cwd = session_context.cwd
         code_file_manager = session_context.code_file_manager
 
-        # Setup code message metadata
-        code_message = list[str]()
-
-        # Since there is no way of knowing when the git diff changes,
-        # we just refresh the cache every time get_code_message is called
+        # Setup the header (Mentat-specific, before ragdaemon context)
+        header_lines = list[str]()
         self.diff_context.refresh()
         if self.diff_context.diff_files():
-            code_message += [f"Diff References: {self.diff_context.name}\n"]
+            header_lines += [f"Diff References: {self.diff_context.name}\n"]
+        header_lines += ["Code Files:\n\n"]
 
-        code_message += ["Code Files:\n\n"]
-
+        # Setup a ContextBuilder from Mentat's include_files / diff_context
         await self.daemon.update()
         context_builder = self.daemon.get_context("", max_tokens=0)
-
         diff_nodes: list[str] = [
             node
             for node, data in self.daemon.graph.nodes(data=True)  # pyright: ignore
@@ -146,8 +140,10 @@ class CodeContext:
             for diff in diffs_for_path:
                 context_builder.add_diff(diff)
 
+        # If auto-context, replace the context_builder with a new one
         if config.auto_context_tokens > 0 and prompt:
-            meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
+            meta_tokens = count_tokens("\n".join(header_lines), model, full_message=True)
+            
             include_files_message = context_builder.render()
             include_files_tokens = count_tokens(include_files_message, model, full_message=False)
 
@@ -158,25 +154,26 @@ class CodeContext:
             )
             context_builder = self.daemon.get_context(
                 query=prompt,
-                context_builder=context_builder,
+                context_builder=context_builder,  # Pass include_files / diff_context to ragdaemon
                 max_tokens=get_max_tokens(),
                 auto_tokens=auto_tokens,
             )
             for ref in context_builder.to_refs():
-                path, interval = split_intervals_from_path(Path(ref))
-                intervals = parse_intervals(interval)
-                for _interval in intervals:
-                    self.auto_features.append(CodeFeature(cwd / path, _interval))
+                path, interval_str = split_intervals_from_path(Path(ref))
+                intervals = parse_intervals(interval_str)
+                for interval in intervals:
+                    feature = CodeFeature(cwd / path, interval)
+                    self.include_features([feature])  # Save ragdaemon context back to include_files
 
-            self.auto_features = list(set(self.auto_features))
-
+        # The context message is rendered by ragdaemon (ContextBuilder.render())                
         context_message = context_builder.render()
         for relative_path in context_builder.context.keys():
             path = Path(cwd / relative_path).resolve()
-            with open(path, "r") as file:
-                lines = file.read().split("\n")
-                code_file_manager.file_lines[path] = lines
-        return "\n".join(code_message) + context_message
+            if path not in code_file_manager.file_lines:
+                with open(path, "r") as file:  # Used by code_file_manager to validate file_edits
+                    lines = file.read().split("\n")
+                    code_file_manager.file_lines[path] = lines
+        return "\n".join(header_lines) + context_message
 
     def get_all_features(
         self,
@@ -200,12 +197,6 @@ class CodeContext:
             for _interval in intervals:
                 all_features.append(CodeFeature(cwd / path, _interval))
         return all_features
-
-    def clear_auto_context(self):
-        """
-        Clears all auto-features added to the conversation so far.
-        """
-        self._auto_features = []
 
     def include_features(self, code_features: Iterable[CodeFeature]):
         """
@@ -381,6 +372,7 @@ class CodeContext:
                     excluded_paths.update(self._exclude_glob(validated_path))
         except PathValidationError as e:
             session_context.stream.send(str(e), style="error")
+            pass
 
         return excluded_paths
 

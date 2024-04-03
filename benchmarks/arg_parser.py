@@ -64,5 +64,19 @@ def common_benchmark_parser():
         action="store_true",
         help="Evaluate the baseline for the benchmark",
     )
+    parser.add_argument(
+        "--swe_bench",
+        nargs="?",
+        const="dev",
+        default=None,
+        type=str,
+        help="Fetch or load SWE-bench examples from split: dev (default), train or test.",
+    )
+    parser.add_argument(
+        "--auto_context_tokens",
+        default=0,
+        type=int,
+        help="Include auto-selected tokens in benchmark runs and evaluate precision/recall",
+    )
 
     return parser

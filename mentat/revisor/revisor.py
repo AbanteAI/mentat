@@ -10,11 +10,7 @@ from openai.types.chat import (
 
 from mentat.errors import MentatError
 from mentat.llm_api_handler import prompt_tokens
-from mentat.parsers.change_display_helper import (
-    change_delimiter,
-    get_lexer,
-    highlight_text,
-)
+from mentat.parsers.change_display_helper import get_lexer, highlight_text
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.git_parser import GitParser
 from mentat.parsers.streaming_printer import FormattedString, send_formatted_string
@@ -119,10 +115,10 @@ async def revise_edit(file_edit: FileEdit):
                 raise MentatError("Invalid Diff")
         if diff_diff:
             ctx.stream.send("Revision diff:", style="info")
-            ctx.stream.send(change_delimiter)
+            ctx.stream.send("", delimiter=True)
             for line in diff_diff:
                 send_formatted_string(line)
-            ctx.stream.send(change_delimiter)
+            ctx.stream.send("", delimiter=True)
         ctx.cost_tracker.display_last_api_call()
 
 

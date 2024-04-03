@@ -105,7 +105,7 @@ class LLMFeatureFilter(FeatureFilter):
             model,
             default_timer() - start_time,
         )
-        stream.send(None, channel="loading")
+        stream.send(None, channel="loading", terminate=True)
 
         # Parse response into features
         try:

@@ -9,7 +9,6 @@ from mentat.errors import HistoryError, MentatError
 from mentat.parsers.change_display_helper import (
     DisplayInformation,
     FileActionType,
-    change_delimiter,
     display_full_change,
 )
 from mentat.session_context import SESSION_CONTEXT
@@ -150,9 +149,7 @@ class FileEdit:
                     style="warning",
                 )
                 return False
-            file_features_in_context = [
-                f for f in code_context.auto_features if f.path == self.file_path
-            ] + code_context.include_files.get(self.file_path, [])
+            file_features_in_context = code_context.include_files.get(self.file_path, [])
             if not file_features_in_context or not all(
                 any(f.interval.contains(i) for f in file_features_in_context)
                 for r in self.replacements
@@ -188,7 +185,7 @@ class FileEdit:
                 return False
             file_lines = []
         else:
-            file_lines = code_file_manager.file_lines[self.file_path]
+            file_lines = code_file_manager.file_lines[self.file_path].copy()
 
         if self.is_deletion:
             self._display_deletion(file_lines)
@@ -210,17 +207,6 @@ class FileEdit:
 
         return self.is_creation or self.is_deletion or (self.rename_file_path is not None) or len(self.replacements) > 0
 
-    def _print_resolution(self, first: Replacement, second: Replacement):
-        session_context = SESSION_CONTEXT.get()
-        stream = session_context.stream
-
-        stream.send("Change overlap detected, auto-merged back to back changes:\n")
-        stream.send(get_relative_path(self.file_path, session_context.cwd))
-        stream.send(change_delimiter)
-        for line in first.new_lines + second.new_lines:
-            stream.send("+ " + line, style="success")
-        stream.send(change_delimiter)
-
     def resolve_conflicts(self):
         self.replacements.sort(reverse=True)
         for index, replacement in enumerate(self.replacements):
@@ -229,15 +215,13 @@ class FileEdit:
                     # Overlap conflict
                     other.ending_line = replacement.starting_line
                     other.starting_line = min(other.starting_line, other.ending_line)
-                    self._print_resolution(other, replacement)
                 elif (
                     other.ending_line == other.starting_line
                     and replacement.ending_line == replacement.starting_line
                     and replacement.starting_line == other.starting_line
                 ):
-                    # Insertion conflict
-                    # This will be a bit wonky if there are more than 2 insertion conflicts on the same line
-                    self._print_resolution(replacement, other)
+                    # Insertion conflict (nothing to do)
+                    pass
 
     def get_updated_file_lines(self, file_lines: list[str]):
         self.replacements.sort(reverse=True)
