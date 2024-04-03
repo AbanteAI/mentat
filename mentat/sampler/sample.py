@@ -29,7 +29,7 @@ class Sample:
     context: list[str] = attr.field(default=[])  # type: ignore
     diff_edit: str = attr.field(default="")
     test_patch: str = attr.field(default="")
-    test_command: str = attr.field(default="")
+    FAIL_TO_PASS: str = attr.field(default="")
     PASS_TO_PASS: str = attr.field(default="")
     version: str = attr.field(default=__version__)
 
@@ -51,8 +51,14 @@ class Sample:
                 kwargs["environment_setup_commit"] = ""
                 kwargs["hint_text"] = ""
                 kwargs["test_patch"] = ""
+                if "test_command" in kwargs:
+                    kwargs["FAIL_TO_PASS"] = json.dumps([kwargs["test_command"]])
+                    del kwargs["test_command"]
+                else:
+                    kwargs["FAIL_TO_PASS"] = ""
                 kwargs["PASS_TO_PASS"] = ""
                 kwargs["version"] = "0.3.0"
+                _version = kwargs["version"]
             if _version != __version__:
                 raise SampleError(
                     f"Warning: sample version ({_version}) does not match current" f" version ({__version__})."
@@ -101,10 +107,6 @@ class Sample:
             context=edited_files,
             diff_edit=patch,
             test_patch=benchmark.get("test_patch", ""),
-            test_command=(
-                "" if not benchmark.get("FAIL_TO_PASS") else "pytest " + " ".join(json.loads(benchmark["FAIL_TO_PASS"]))
-            ),
-            PASS_TO_PASS=(
-                "" if not benchmark.get("PASS_TO_PASS") else "pytest " + " ".join(json.loads(benchmark["PASS_TO_PASS"]))
-            ),
+            FAIL_TO_PASS=benchmark.get("FAIL_TO_PASS", ""),
+            PASS_TO_PASS=benchmark.get("PASS_TO_PASS", ""),
         )

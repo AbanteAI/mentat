@@ -30,9 +30,8 @@ A `Sample` captures interactions between a developer and any LLM Coding Assistan
 | message_edit              |     | `str`                  | plaintext response returned for sample edit |
 | diff_edit                 | *   | `str`                  | between starting (diff_head) and ending code. |
 | test_patch                |     | `str`                  | A patch to files used to evaluate the samples
-| test_command              |     | `str`                  | discrete pass/fail, e.g. ‘pytest -k diff_active’ |
-| PASS_TO_PASS              |     | `str`                  | discrete pass/fail, expected to pass
-
+| FAIL_TO_PASS              |     | `str`                  | A json list of test commands resolved by diff_edit |
+| PASS_TO_PASS              |     | `str`                  | A json list of test commands that pass before and after |
 | version                   |     | `str`                  | current Sample API version |
 
 Notes:

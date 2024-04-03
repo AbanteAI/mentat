@@ -174,12 +174,12 @@ async def count_feature_tokens(features: list[CodeFeature], model: str) -> list[
     """Return the number of tokens in each feature."""
     sem = asyncio.Semaphore(10)
 
-    async def _count_tokens(feature: CodeFeature) -> int:
+    feature_tokens = list[int]()
+    for feature in features:
         async with sem:
-            return feature.count_tokens(model)
-
-    tasks = [_count_tokens(f) for f in features]
-    return await asyncio.gather(*tasks)
+            tokens = feature.count_tokens(model)
+            feature_tokens.append(tokens)
+    return feature_tokens
 
 
 def _get_code_message_from_intervals(features: list[CodeFeature]) -> list[str]:

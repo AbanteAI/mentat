@@ -317,8 +317,12 @@ def raise_if_context_exceeds_max(tokens: int):
 class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
-    def initialize_client(self):
-        if not load_dotenv(mentat_dir_path / ".env"):
+    async def initialize_client(self):
+        from mentat.session_input import collect_user_input
+
+        ctx = SESSION_CONTEXT.get()
+
+        if not load_dotenv(mentat_dir_path / ".env") and not load_dotenv(ctx.cwd / ".env"):
             load_dotenv()
 
         if os.getenv("AZURE_OPENAI_KEY") is not None:

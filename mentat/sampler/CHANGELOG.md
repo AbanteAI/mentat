@@ -3,7 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [2024-03-22]: Add fields to cover content of SWE-Bench
-Fields in common are left with their current name. Missing fields (*) are added.
+Fields in common are left with their current name and missing fields (*) are added
+with one exception: test_command is changed to "FAIL_TO_PASS", which is just a 
+json list of test commands.
 
 Sampler             SWE-Bench
 - title        

@@ -36,6 +36,11 @@ class BenchmarkResult:
     missing_functionality: Optional[bool] = attr.ib(default=None, metadata={"aggregation": "percent"})
     extra_functionality: Optional[bool] = attr.ib(default=None, metadata={"aggregation": "percent"})
     referenced_format: Optional[bool] = attr.ib(default=None, metadata={"aggregation": "percent"})
+    test_eval_results: Optional[dict] = attr.ib(default=None, metadata={"display": "json"})
+    test_eval_passed: Optional[bool] = attr.ib(default=None, metadata={"aggregation": "percent"})
+    context_results: Optional[dict] = attr.ib(default=None, metadata={"display": "json"})
+    context_precision: Optional[float] = attr.ib(default=None, metadata={"aggregation": "average"})
+    context_recall: Optional[float] = attr.ib(default=None, metadata={"aggregation": "average"})
 
     def display_color(self) -> str:
         if self.passed is None:
