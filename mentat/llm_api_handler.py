@@ -327,15 +327,19 @@ def raise_if_context_exceeds_max(tokens: int):
 class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
-    def initialize_client(self):
+    async def initialize_client(self):
+        from mentat.session_input import collect_user_input
+
         ctx = SESSION_CONTEXT.get()
 
-        if not load_dotenv(mentat_dir_path / ".env"):
+        if not load_dotenv(mentat_dir_path / ".env") and not load_dotenv(ctx.cwd / ".env"):
             load_dotenv()
         key = os.getenv("OPENAI_API_KEY")
         base_url = os.getenv("OPENAI_API_BASE")
         azure_key = os.getenv("AZURE_OPENAI_KEY")
         azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+
+        user_input_key = False
 
         # ChromaDB requires a sync function for embeddings
         if azure_endpoint and azure_key:
@@ -353,19 +357,27 @@ class LlmApiHandler:
         else:
             if not key:
                 if not base_url:
-                    raise UserError(
-                        "No OpenAI api key detected.\nEither place your key into a .env"
-                        " file or export it as an environment variable."
+                    ctx.stream.send(
+                        "No OpenAI api key detected. To avoid entering your api key on startup, create a .env file in"
+                        " ~/.mentat/.env or in your workspace root.",
+                        style="warning",
                     )
+                    ctx.stream.send("Enter your api key:", style="info")
+                    key = (await collect_user_input(log_input=False)).data
+                    user_input_key = True
                 # If they set the base_url but not the key, they probably don't need a key, but the client requires one
-                key = "fake_key"
+                else:
+                    key = "fake_key"
             self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
             self.sync_client = OpenAI(api_key=key, base_url=base_url)
 
         try:
-            self.async_client.models.list()  # Test the key
+            self.sync_client.models.list()  # Test the key
         except AuthenticationError as e:
             raise UserError(f"API gave an Authentication Error:\n{e}")
+
+        if user_input_key:
+            ctx.stream.send("API key authenticated.", style="info")
 
     @overload
     async def call_llm_api(

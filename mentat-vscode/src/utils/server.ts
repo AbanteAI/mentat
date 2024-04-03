@@ -74,7 +74,11 @@ class Server {
                 message: "Mentat: Creating Python environment...",
             });
             const createVenvCommand = `${pythonCommand} -m venv ${venvPath}`;
-            await aexec(createVenvCommand);
+            try {
+                await aexec(createVenvCommand);
+            } catch (error) {
+                throw new Error(`Error creating Python venv: ${error}`);
+            }
         }
         const binFolder = path.join(
             venvPath,
@@ -98,9 +102,14 @@ class Server {
         }
         if (mentatVersion !== MENTAT_VERSION) {
             progress.report({ message: "Mentat: Installing..." });
-            await aexec(
-                `${pythonLocation} -m pip install mentat==${MENTAT_VERSION}`
-            );
+            try {
+                await aexec(
+                    `${pythonLocation} -m pip install mentat==${MENTAT_VERSION}`,
+                    { env: { ...process.env, HNSWLIB_NO_NATIVE: "1" } }
+                );
+            } catch (error) {
+                throw new Error(`Error installing Mentat: ${error}`);
+            }
             console.log("Installed Mentat");
         }
 
@@ -152,6 +161,8 @@ class Server {
         return serverProcess;
     }
 
+    private curMessage: string = "";
+
     public async startServer(workspaceRoot: string) {
         if (this.binFolder === undefined) {
             this.binFolder = await vscode.window.withProgress(
@@ -171,7 +182,13 @@ class Server {
         );
         this.serverProcess.stdio[4]?.on("data", (rawOutput: Buffer) => {
             const output = rawOutput.toString("utf-8");
-            for (const serializedMessage of output.trim().split("\n")) {
+            this.curMessage += output;
+            if (!this.curMessage.endsWith("\n")) {
+                return;
+            }
+            for (const serializedMessage of this.curMessage
+                .trim()
+                .split("\n")) {
                 try {
                     const message: StreamMessage = JSON.parse(
                         serializedMessage.trim()
@@ -181,6 +198,7 @@ class Server {
                     console.error("Error reading StreamMessage:", error);
                 }
             }
+            this.curMessage = "";
         });
         this.clearBacklog();
     }
