@@ -7,7 +7,7 @@ from typing import Any
 
 from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.run_sample import setup_sample
-from benchmarks.swe_bench_runner import get_swe_samples, SWE_BENCH_SAMPLES_DIR
+from benchmarks.swe_bench_runner import SWE_BENCH_SAMPLES_DIR, get_swe_samples
 from mentat import Mentat
 from mentat.config import Config
 from mentat.sampler.sample import Sample

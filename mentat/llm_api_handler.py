@@ -318,7 +318,6 @@ class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
     async def initialize_client(self):
-        from mentat.session_input import collect_user_input
 
         ctx = SESSION_CONTEXT.get()
 

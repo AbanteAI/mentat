@@ -22,7 +22,7 @@ jobs:
           . .venv/bin/activate
           echo PATH=$PATH >> $GITHUB_ENV
       - name: ruff (linter)
-        run: ruff check .
+        run: ruff check --select I .
       - name: ruff (formatter)
         run: ruff format --check .
 

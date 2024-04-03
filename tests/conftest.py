@@ -4,16 +4,11 @@ import shutil
 import stat
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
-from openai.types.chat.chat_completion import Choice
-from openai.types.chat.chat_completion_chunk import Choice as AsyncChoice
-from openai.types.chat.chat_completion_chunk import ChoiceDelta
 
 from mentat import config
 from mentat.agent_handler import AgentHandler
