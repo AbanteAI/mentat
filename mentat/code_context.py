@@ -143,7 +143,7 @@ class CodeContext:
         # If auto-context, replace the context_builder with a new one
         if config.auto_context_tokens > 0 and prompt:
             meta_tokens = count_tokens("\n".join(header_lines), model, full_message=True)
-            
+
             include_files_message = context_builder.render()
             include_files_tokens = count_tokens(include_files_message, model, full_message=False)
 
@@ -165,7 +165,7 @@ class CodeContext:
                     feature = CodeFeature(cwd / path, interval)
                     self.include_features([feature])  # Save ragdaemon context back to include_files
 
-        # The context message is rendered by ragdaemon (ContextBuilder.render())                
+        # The context message is rendered by ragdaemon (ContextBuilder.render())
         context_message = context_builder.render()
         for relative_path in context_builder.context.keys():
             path = Path(cwd / relative_path).resolve()

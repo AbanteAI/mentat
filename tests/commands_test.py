@@ -177,6 +177,7 @@ async def test_load_command_invalid_json(temp_testbed, mock_collect_user_input):
     await session.stream.recv(channel="client_exit")
     assert any("Failed to parse context file" in m.data for m in session.stream.messages)
 
+
 @pytest.mark.asyncio
 async def test_undo_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
     temp_file_name = "temp.py"
