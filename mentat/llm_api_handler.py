@@ -318,7 +318,6 @@ class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
     async def initialize_client(self):
-
         ctx = SESSION_CONTEXT.get()
 
         if not load_dotenv(mentat_dir_path / ".env") and not load_dotenv(ctx.cwd / ".env"):
