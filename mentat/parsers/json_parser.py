@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import AsyncIterator, Dict
 
 from jsonschema import ValidationError, validate
-from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.completion_create_params import ResponseFormat
 from typing_extensions import override
 
@@ -94,7 +93,7 @@ class JsonParser(Parser):
         return 0
 
     @override
-    async def stream_and_parse_llm_response(self, response: AsyncIterator[ChatCompletionChunk]) -> ParsedLLMResponse:
+    async def stream_and_parse_llm_response(self, response: AsyncIterator[str]) -> ParsedLLMResponse:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
 

@@ -6,37 +6,22 @@ import os
 import sys
 from inspect import iscoroutinefunction
 from pathlib import Path
-from timeit import default_timer
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterator,
     Callable,
     Dict,
     List,
-    Literal,
     Optional,
     cast,
-    overload,
 )
 
 import attr
 import sentry_sdk
 import tiktoken
 from dotenv import load_dotenv
-from openai import (
-    APIConnectionError,
-    AsyncAzureOpenAI,
-    AsyncOpenAI,
-    AsyncStream,
-    AuthenticationError,
-    AzureOpenAI,
-    OpenAI,
-)
 from openai.types.chat import (
-    ChatCompletion,
     ChatCompletionAssistantMessageParam,
-    ChatCompletionChunk,
     ChatCompletionContentPartParam,
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
@@ -44,8 +29,9 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
+from spice import APIConnectionError, Spice, SpiceEmbeddings, SpiceError, SpiceResponse, SpiceWhisper
 
-from mentat.errors import MentatError, ReturnToUser, UserError
+from mentat.errors import MentatError, ReturnToUser
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
@@ -82,6 +68,8 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
                 return await func(*args, **kwargs)
             except APIConnectionError:
                 raise MentatError("API connection error: please check your internet connection and" " try again.")
+            except SpiceError as e:
+                raise MentatError(f"API error: {e}")
 
         return async_wrapper
     else:
@@ -92,16 +80,15 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
                 return func(*args, **kwargs)
             except APIConnectionError:
                 raise MentatError("API connection error: please check your internet connection and" " try again.")
+            except SpiceError as e:
+                raise MentatError(f"API error: {e}")
 
         return sync_wrapper
 
 
 # Ensures that each chunk will have at most one newline character
-def chunk_to_lines(chunk: ChatCompletionChunk) -> list[str]:
-    content = None
-    if len(chunk.choices) > 0:
-        content = chunk.choices[0].delta.content
-    return ("" if content is None else content).splitlines(keepends=True)
+def chunk_to_lines(content: str) -> list[str]:
+    return content.splitlines(keepends=True)
 
 
 def get_encoding_for_model(model: str) -> tiktoken.Encoding:
@@ -264,6 +251,9 @@ known_models = ModelsIndex(
         "gpt-3.5-turbo-16k-0613": Model("gpt-3.5-turbo-16k-0613", 16385, 0.003, 0.004),
         "gpt-3.5-turbo-0301": Model("gpt-3.5-turbo-0301", 4096, 0.0015, 0.002),
         "text-embedding-ada-002": Model("text-embedding-ada-002", 8191, 0.0001, 0, embedding_model=True),
+        "claude-3-opus-20240229": Model("claude-3-opus-20240229", 200000, 0.015, 0.075),
+        "claude-3-sonnet-20240229": Model("claude-3-sonnet-20240229", 200000, 0.003, 0.015),
+        "claude-3-haiku-20240307": Model("claude-3-haiku-20240307", 200000, 0.00025, 0.00125),
     }
 )
 
@@ -328,76 +318,19 @@ class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
     async def initialize_client(self):
-        from mentat.session_input import collect_user_input
-
         ctx = SESSION_CONTEXT.get()
 
         if not load_dotenv(mentat_dir_path / ".env") and not load_dotenv(ctx.cwd / ".env"):
             load_dotenv()
-        key = os.getenv("OPENAI_API_KEY")
-        base_url = os.getenv("OPENAI_API_BASE")
-        azure_key = os.getenv("AZURE_OPENAI_KEY")
-        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 
-        user_input_key = False
-
-        # ChromaDB requires a sync function for embeddings
-        if azure_endpoint and azure_key:
-            ctx.stream.send("Using Azure OpenAI client.", style="warning")
-            self.async_client = AsyncAzureOpenAI(
-                api_key=azure_key,
-                api_version="2023-12-01-preview",
-                azure_endpoint=azure_endpoint,
-            )
-            self.sync_client = AzureOpenAI(
-                api_key=azure_key,
-                api_version="2023-12-01-preview",
-                azure_endpoint=azure_endpoint,
-            )
+        if os.getenv("AZURE_OPENAI_KEY") is not None:
+            embedding_and_whisper_provider = "azure"
         else:
-            if not key:
-                if not base_url:
-                    ctx.stream.send(
-                        "No OpenAI api key detected. To avoid entering your api key on startup, create a .env file in"
-                        " ~/.mentat/.env or in your workspace root.",
-                        style="warning",
-                    )
-                    ctx.stream.send("Enter your api key:", style="info")
-                    key = (await collect_user_input(log_input=False)).data
-                    user_input_key = True
-                # If they set the base_url but not the key, they probably don't need a key, but the client requires one
-                else:
-                    key = "fake_key"
-            self.async_client = AsyncOpenAI(api_key=key, base_url=base_url)
-            self.sync_client = OpenAI(api_key=key, base_url=base_url)
+            embedding_and_whisper_provider = "openai"
 
-        try:
-            self.sync_client.models.list()  # Test the key
-        except AuthenticationError as e:
-            raise UserError(f"API gave an Authentication Error:\n{e}")
-
-        if user_input_key:
-            ctx.stream.send("API key authenticated.", style="info")
-
-    @overload
-    async def call_llm_api(
-        self,
-        messages: list[ChatCompletionMessageParam],
-        model: str,
-        stream: Literal[True],
-        response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> AsyncIterator[ChatCompletionChunk]:
-        ...
-
-    @overload
-    async def call_llm_api(
-        self,
-        messages: list[ChatCompletionMessageParam],
-        model: str,
-        stream: Literal[False],
-        response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> ChatCompletion:
-        ...
+        self.spice_client = Spice()
+        self.spice_embedding_client = SpiceEmbeddings(provider=embedding_and_whisper_provider)
+        self.spice_whisper_client = SpiceWhisper(provider=embedding_and_whisper_provider)
 
     @api_guard
     async def call_llm_api(
@@ -406,7 +339,7 @@ class LlmApiHandler:
         model: str,
         stream: bool,
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> ChatCompletion | AsyncIterator[ChatCompletionChunk]:
+    ) -> SpiceResponse:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         cost_tracker = session_context.cost_tracker
@@ -418,69 +351,33 @@ class LlmApiHandler:
         tokens = prompt_tokens(messages, model)
         raise_if_context_exceeds_max(tokens)
 
-        start_time = default_timer()
+        # TODO: make spice message format and use across codebase consistently
+        _messages = [
+            {"role": cast(str, message["role"]), "content": cast(str, message["content"])} for message in messages
+        ]
+        if "type" in response_format and response_format["type"] == "json_object":
+            _response_format = {"type": "json_object"}
+        else:
+            _response_format = {"type": "text"}
+
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
-            # OpenAI's API is bugged; when gpt-4-vision-preview is used, including the response format
-            # at all returns a 400 error. Additionally, gpt-4-vision-preview has a max response of 30 tokens by default.
-            # Until this is fixed, we have to use this workaround.
-            if model == "gpt-4-vision-preview":
-                response = await self.async_client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=config.temperature,
-                    stream=stream,
-                    max_tokens=4096,
-                )
-            else:
-                # This makes it slightly easier when using the litellm proxy or models outside of OpenAI
-                if response_format["type"] == "text":
-                    response = await self.async_client.chat.completions.create(
-                        model=model,
-                        messages=messages,
-                        temperature=config.temperature,
-                        stream=stream,
-                        max_tokens=4096,
-                    )
-                else:
-                    response = await self.async_client.chat.completions.create(
-                        model=model,
-                        messages=messages,
-                        temperature=config.temperature,
-                        stream=stream,
-                        response_format=response_format,
-                        max_tokens=4096,
-                    )
 
-        # We have to cast response since pyright isn't smart enough to connect
-        # the dots between stream and the overloaded create function
-        if not stream:
-            time_elapsed = default_timer() - start_time
-            response_tokens = count_tokens(
-                cast(ChatCompletion, response).choices[0].message.content or "",
-                model,
-                full_message=False,
-            )
-            cost_tracker.log_api_call_stats(tokens, response_tokens, model, time_elapsed)
-        else:
-            cost_tracker.last_api_call = ""
-            response = cost_tracker.response_logger_wrapper(
-                tokens, cast(AsyncStream[ChatCompletionChunk], response), model
+            response = await self.spice_client.call_llm(
+                model=model,
+                messages=_messages,
+                stream=stream,
+                temperature=config.temperature,
+                response_format=_response_format,
+                logging_callback=cost_tracker.log_api_call_stats,
             )
 
         return response
 
     @api_guard
     def call_embedding_api(self, input_texts: list[str], model: str = "text-embedding-ada-002") -> Embeddings:
-        embeddings = self.sync_client.embeddings.create(input=input_texts, model=model).data
-        sorted_embeddings = sorted(embeddings, key=lambda e: e.index)
-        return [result.embedding for result in sorted_embeddings]
+        return self.spice_embedding_client.get_embeddings(input_texts, model)
 
     @api_guard
     async def call_whisper_api(self, audio_path: Path) -> str:
-        audio_file = open(audio_path, "rb")
-        transcript = await self.async_client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file,
-        )
-        return transcript.text
+        return await self.spice_whisper_client.get_whisper_transcription(audio_path)

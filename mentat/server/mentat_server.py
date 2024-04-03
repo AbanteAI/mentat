@@ -1,8 +1,8 @@
 import argparse
 import asyncio
-from io import TextIOWrapper
 import logging
 from asyncio import CancelledError, Event
+from io import TextIOWrapper
 from pathlib import Path
 
 from mentat.config import Config

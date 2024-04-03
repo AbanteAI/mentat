@@ -3,7 +3,19 @@
 🦙 Alternative Models
 =====================
 
-Azure
+Anthropic's Claude 3
+---------
+To use Anthropic models, provide the :code:`ANTHROPIC_API_KEY` environment variable instead of :code:`OPENAI_API_KEY`, and set the model `claude-3-opus-20240229` in the :code:`.mentat_config.json` file:
+
+.. code-block:: bash
+
+   # in ~/.mentat/.env
+   ANTHROPIC_API_KEY=sk-*************
+
+   # In ~/.mentat/.mentat_config.json
+   { "model": "claude-3-opus-20240229" }
+
+OpenAI models on Azure
 -----
 
 To use the Azure API, provide the :code:`AZURE_OPENAI_ENDPOINT` (:code:`https://<your-instance-name>.openai.azure.com/`) and :code:`AZURE_OPENAI_KEY` environment variables instead of :code:`OPENAI_API_KEY`.
@@ -13,31 +25,24 @@ In addition, Mentat uses the :code:`gpt-4-1106-preview` model by default. When u
 .. warning::
     Due to changes in the OpenAI Python SDK, you can no longer use :code:`OPENAI_API_BASE` to access the Azure API with Mentat.
 
-Anthropic
+Using Other Models
 ---------
 
-Mentat uses the OpenAI SDK to retrieve chat completions. This means that setting the `OPENAI_API_BASE` environment variable is enough to use any model that has the same response schema as OpenAI. To use models with different response schemas, we recommend setting up a litellm proxy as described `here <https://docs.litellm.ai/docs/proxy/quick_start>`__ and pointing `OPENAI_API_BASE` to the proxy. For example with anthropic:
+Mentat uses the OpenAI SDK to retrieve chat completions. This means that setting the `OPENAI_API_BASE` environment variable is enough to use any model that has the same response schema as OpenAI. To use models with different response schemas, we recommend setting up a litellm proxy as described `here <https://docs.litellm.ai/docs/proxy/quick_start>`__ and pointing `OPENAI_API_BASE` to the proxy. For example:
 
 .. code-block:: bash
 
     pip install 'litellm[proxy]'
-    export ANTHROPIC_API_KEY=sk-*************
-    litellm --model claude-3-opus-2024-0229 --drop_params
+    litellm --model huggingface/bigcode/starcoder --drop_params
     # Should see: Uvicorn running on http://0.0.0.0:8000
 
 .. code-block:: bash
 
     # In ~/.mentat/.env
     OPENAI_API_BASE=http://localhost:8000
-    # In ~/.mentat/.mentat_config.json
-    { "model": "claude" }
     # or
     export OPENAI_API_BASE=http://localhost:8000
-    mentat
 
-.. note::
-
-   Anthropic has slightly different requirements for system messages so you must set your model to a string with "claude" in it. Other than that it isn't important as the exact model is set by the litellm proxy server flag.
 
 🦙 Local Models
 ---------------
