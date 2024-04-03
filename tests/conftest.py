@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -101,43 +101,19 @@ def mock_call_llm_api(mocker):
     completion_mock = mocker.patch.object(LlmApiHandler, "call_llm_api")
 
     def wrap_unstreamed_string(value):
-        timestamp = int(time.time())
-        return ChatCompletion(
-            id="test-id",
-            choices=[
-                Choice(
-                    finish_reason="stop",
-                    index=0,
-                    message=ChatCompletionMessage(
-                        content=value,
-                        role="assistant",
-                    ),
-                )
-            ],
-            created=timestamp,
-            model="test-model",
-            object="chat.completion",
-        )
+        mock_spice_response = MagicMock()
+        mock_spice_response.text = value
 
     def wrap_streamed_strings(values):
         async def _async_generator():
-            timestamp = int(time.time())
             for value in values:
-                yield ChatCompletionChunk(
-                    id="test-id",
-                    choices=[
-                        AsyncChoice(
-                            delta=ChoiceDelta(content=value, role="assistant"),
-                            finish_reason=None,
-                            index=0,
-                        )
-                    ],
-                    created=timestamp,
-                    model="test-model",
-                    object="chat.completion.chunk",
-                )
+                yield value
 
-        return _async_generator()
+        mock_spice_response = MagicMock()
+        mock_spice_response.stream = _async_generator
+        mock_spice_response.text = "".join(values)
+
+        return mock_spice_response
 
     def set_streamed_values(values):
         completion_mock.return_value = wrap_streamed_strings(values)
