@@ -104,6 +104,8 @@ def mock_call_llm_api(mocker):
         mock_spice_response = MagicMock()
         mock_spice_response.text = value
 
+        return mock_spice_response
+
     def wrap_streamed_strings(values):
         async def _async_generator():
             for value in values:
