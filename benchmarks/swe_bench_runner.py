@@ -10,11 +10,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-from datasets import load_dataset, DatasetDict  # type: ignore
+from datasets import DatasetDict, load_dataset  # type: ignore
 
-from mentat.sampler.sample import Sample
 from benchmarks.run_sample import validate_test_fields
-
+from mentat.sampler.sample import Sample
 
 SWE_BENCH_SAMPLES_DIR = Path(__file__).parent / "benchmarks" / "swe_bench_samples"
 SWE_VALIDATION_RESULTS_PATH = (

@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from timeit import default_timer
 from typing import Optional, Set
 
 from openai.types.chat import (
@@ -16,7 +15,7 @@ from mentat.errors import ModelError, PathValidationError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.include_files import get_code_features_for_path
-from mentat.llm_api_handler import count_tokens, model_context_size, prompt_tokens
+from mentat.llm_api_handler import count_tokens, model_context_size
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
@@ -41,7 +40,6 @@ class LLMFeatureFilter(FeatureFilter):
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
-        cost_tracker = session_context.cost_tracker
         llm_api_handler = session_context.llm_api_handler
 
         stream.send(None, channel="loading")
@@ -89,22 +87,13 @@ class LLMFeatureFilter(FeatureFilter):
             )
         )
         selected_refs = list[Path]()
-        start_time = default_timer()
         llm_response = await llm_api_handler.call_llm_api(
             messages=messages,
             model=model,
             stream=False,
             response_format=ResponseFormat(type="json_object"),
         )
-        message = (llm_response.choices[0].message.content) or ""
-        tokens = prompt_tokens(messages, model)
-        response_tokens = count_tokens(message, model, full_message=True)
-        cost_tracker.log_api_call_stats(
-            tokens,
-            response_tokens,
-            model,
-            default_timer() - start_time,
-        )
+        message = llm_response.text
         stream.send(None, channel="loading", terminate=True)
 
         # Parse response into features

@@ -67,7 +67,7 @@ async def revise_edit(file_edit: FileEdit):
         style="info",
     )
     response = await ctx.llm_api_handler.call_llm_api(messages, model=ctx.config.model, stream=False)
-    message = response.choices[0].message.content or ""
+    message = response.text
     messages.append(ChatCompletionAssistantMessageParam(content=message, role="assistant"))
     ctx.conversation.add_transcript_message(
         ModelMessage(message=message, prior_messages=messages, message_type="revisor")

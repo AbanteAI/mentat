@@ -5,8 +5,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from git import Repo
 import tqdm
+from git import Repo
 
 from mentat import Mentat
 from mentat.config import Config
@@ -14,7 +14,7 @@ from mentat.errors import SampleError
 from mentat.git_handler import get_git_diff
 from mentat.parsers.git_parser import GitParser
 from mentat.sampler.sample import Sample
-from mentat.sampler.utils import get_active_snapshot_commit, setup_repo, apply_diff_to_repo
+from mentat.sampler.utils import apply_diff_to_repo, get_active_snapshot_commit, setup_repo
 from mentat.session_context import SESSION_CONTEXT
 
 

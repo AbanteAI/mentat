@@ -30,3 +30,4 @@ tqdm>=4.66.1
 webdriver_manager==4.0.1
 watchfiles==0.21.0
 ragdaemon @ git+https://github.com/AbanteAI/ragdaemon@main
+spiceai==0.1.7

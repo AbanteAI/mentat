@@ -3,6 +3,12 @@ Changelog
 
 In this changelog focus on user facing highlights and stick to the format. This information will be used to motivate users to upgrade or after upgrading to inform them of features that might otherwise not be very discoverable.
 
+`1.0.12 <https://pypi.org/project/mentat/1.0.12/>`__
+--------------------------------------------------
+
+- Added helpful message when no api key found
+- Fixed errors relating to embedding models
+
 `1.0.11 <https://pypi.org/project/mentat/1.0.11/>`__
 --------------------------------------------------
 

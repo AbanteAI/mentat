@@ -8,26 +8,21 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import StreamMessage
 
 
-async def _get_input_request(**kwargs: Any) -> StreamMessage:
+async def _get_input_request(log_input: bool, **kwargs: Any) -> StreamMessage:
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
 
     message = stream.send("", channel="input_request", **kwargs)
     response = await stream.recv(f"input_request:{message.id}")
-    logging.debug(f"User Input: {response.data}")
+    if log_input:
+        logging.debug(f"User Input: {response.data}")
+    else:
+        logging.debug("User Input: ****")
     return response
 
 
-async def collect_user_input(command_autocomplete: bool = False) -> StreamMessage:
-    """
-    Listens for user input on a new channel
-
-    send a message requesting user to send a response
-    create a new broadcast channel that listens for the input
-    close the channel after receiving the input
-    """
-
-    response = await _get_input_request(command_autocomplete=command_autocomplete)
+async def collect_user_input(command_autocomplete: bool = False, log_input: bool = True) -> StreamMessage:
+    response = await _get_input_request(log_input=log_input, command_autocomplete=command_autocomplete)
     # Quit on q
     if isinstance(response.data, str) and response.data.strip() == "q":
         raise SessionExit

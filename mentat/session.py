@@ -164,7 +164,7 @@ class Session:
         code_file_manager = session_context.code_file_manager
         agent_handler = session_context.agent_handler
 
-        session_context.llm_api_handler.initialize_client()
+        await session_context.llm_api_handler.initialize_client()
 
         await code_context.daemon.update()
 
