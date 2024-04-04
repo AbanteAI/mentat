@@ -3,6 +3,12 @@ Changelog
 
 In this changelog focus on user facing highlights and stick to the format. This information will be used to motivate users to upgrade or after upgrading to inform them of features that might otherwise not be very discoverable.
 
+`1.0.13 <https://pypi.org/project/mentat/1.0.13/>`__
+--------------------------------------------------
+
+- Claude 3 support
+- All Anthropic models can now be used without requiring a LiteLLM proxy
+
 `1.0.12 <https://pypi.org/project/mentat/1.0.12/>`__
 --------------------------------------------------
 
