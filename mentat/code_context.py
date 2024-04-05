@@ -51,6 +51,7 @@ class CodeContext:
 
         annotators: dict[str, dict[str, Any]] = {
             "hierarchy": {"ignore_patterns": [str(p) for p in self.ignore_patterns]},
+            "chunker_line": {"lines_per_chunk": 50},
             "diff": {"diff": self.diff_context.target},
         }
         self.daemon: Daemon = Daemon(cwd=cwd, annotators=annotators, verbose=False)
