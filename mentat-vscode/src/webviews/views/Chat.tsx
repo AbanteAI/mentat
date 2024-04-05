@@ -199,13 +199,14 @@ export default function Chat() {
                 const subchannel = message.channel.split(":").at(1);
                 switch (subchannel) {
                     case "newSession": {
+                        setLoaded(true);
                         const state: any = vscode.getState();
                         const statePreviousMessages: Message[] =
                             state.previousMessages ?? [];
                         const stateMessages: Message[] = state.messages ?? [];
                         if (
                             stateMessages.some(
-                                (message) => message.source == "user"
+                                (message) => message.source === "user"
                             )
                         ) {
                             setPreviousMessages([
@@ -228,23 +229,22 @@ export default function Chat() {
                             },
                         ]);
                         setWorkspaceRoot(message.extra.workspaceRoot);
-                        setLoaded(true);
                         break;
                     }
                     case "continuingSession": {
+                        setLoaded(true);
                         const state: any = vscode.getState();
                         if (state) {
-                            setPreviousMessages(state.previousMessages);
-                            setMessages(state.messages);
-                            setInputRequestId(state.inputRequestId);
-                            setSessionActive(state.sessionActive);
-                            setTextAreaValue(state.textAreaValue);
-                            setInterruptable(state.interruptable);
-                            setActiveEdits(state.activeEdits);
-                            setWorkspaceRoot(state.workspaceRoot);
-                            setContextUpdateData(state.contextUpdataData);
+                            setPreviousMessages(state.previousMessages ?? []);
+                            setMessages(state.messages ?? []);
+                            setInputRequestId(state.inputRequestId ?? null);
+                            setSessionActive(state.sessionActive ?? true);
+                            setTextAreaValue(state.textAreaValue ?? "");
+                            setInterruptable(state.interruptable ?? false);
+                            setActiveEdits(state.activeEdits ?? []);
+                            setWorkspaceRoot(state.workspaceRoot ?? "");
+                            setContextUpdateData(state.contextUpdataData ?? {});
                         }
-                        setLoaded(true);
                         break;
                     }
                     case "clearChatbox": {
