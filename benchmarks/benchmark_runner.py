@@ -8,9 +8,11 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import List
 from uuid import uuid4
 
 from openai.types.chat.completion_create_params import ResponseFormat
+from spice import SpiceMessage
 
 from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.benchmark_result import BenchmarkResult
@@ -43,7 +45,7 @@ def git_diff_from_comparison_commit(sample: Sample, comparison_commit: str) -> s
 
 async def grade(to_grade, prompt, model="gpt-4-1106-preview"):
     try:
-        messages = [
+        messages: List[SpiceMessage] = [
             {"role": "system", "content": prompt},
             {"role": "user", "content": to_grade},
         ]
