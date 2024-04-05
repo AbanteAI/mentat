@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+from spice import SpiceResponse
+from spice.spice import SpiceCallArgs
 
 from mentat import config
 from mentat.agent_handler import AgentHandler
@@ -96,20 +98,26 @@ def mock_call_llm_api(mocker):
     completion_mock = mocker.patch.object(LlmApiHandler, "call_llm_api")
 
     def wrap_unstreamed_string(value):
-        mock_spice_response = MagicMock()
-        mock_spice_response.text = value
-
-        return mock_spice_response
+        return SpiceResponse(SpiceCallArgs("gpt-3.5-turbo", [], False), value, 1, 0, 0, True)
 
     def wrap_streamed_strings(values):
-        async def _async_generator():
-            for value in values:
-                yield value
+        class MockStreamingSpiceResponse:
+            def __init__(self):
+                self.cur_value = 0
 
-        mock_spice_response = MagicMock()
-        mock_spice_response.stream = _async_generator
-        mock_spice_response.text = "".join(values)
+            def __aiter__(self):
+                return self
 
+            async def __anext__(self):
+                if self.cur_value >= len(values):
+                    raise StopAsyncIteration
+                self.cur_value += 1
+                return values[self.cur_value - 1]
+
+            def current_response(self):
+                return SpiceResponse(SpiceCallArgs("gpt-3.5-turbo", [], True), "".join(values), 1, 0, 0, True)
+
+        mock_spice_response = MockStreamingSpiceResponse()
         return mock_spice_response
 
     def set_streamed_values(values):

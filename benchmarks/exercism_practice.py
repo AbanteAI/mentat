@@ -6,10 +6,10 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 from typing import List
-from spice import SpiceMessage
 
 import tqdm
 from openai import BadRequestError
+from spice import SpiceMessage
 
 from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.benchmark_result import BenchmarkResult
