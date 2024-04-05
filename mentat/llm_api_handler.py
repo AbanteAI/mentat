@@ -353,7 +353,8 @@ class LlmApiHandler:
 
         # TODO: make spice message format and use across codebase consistently
         _messages = [
-            {"role": cast(str, message["role"]), "content": cast(str, message["content"])} for message in messages
+            {"role": cast(str, message["role"]), "content": cast(str, message["content"])}  # type: ignore
+            for message in messages
         ]
         if "type" in response_format and response_format["type"] == "json_object":
             _response_format = {"type": "json_object"}
