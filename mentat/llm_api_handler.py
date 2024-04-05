@@ -38,7 +38,6 @@ from spice.providers import OPEN_AI
 
 from mentat.errors import MentatError, ReturnToUser
 from mentat.session_context import SESSION_CONTEXT
-from mentat.session_input import collect_user_input
 from mentat.utils import mentat_dir_path
 
 TOKEN_COUNT_WARNING = 32000
@@ -334,6 +333,8 @@ class LlmApiHandler:
         try:
             self.spice.load_provider(OPEN_AI)
         except NoAPIKeyError:
+            from mentat.session_input import collect_user_input
+
             ctx.stream.send(
                 "No OpenAI api key detected. To avoid entering your api key on startup, create a .env file in"
                 " ~/.mentat/.env or in your workspace root.",
