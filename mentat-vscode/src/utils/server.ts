@@ -12,7 +12,7 @@ import { v4 } from "uuid";
 import * as vscode from "vscode";
 
 // IMPORTANT: This MUST be updated with the vscode extension to ensure that the right mentat version is installed!
-const MENTAT_VERSION = "1.0.12";
+const MENTAT_VERSION = "1.0.14";
 
 const aexec = util.promisify(exec);
 
