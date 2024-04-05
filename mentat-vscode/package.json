@@ -2,7 +2,7 @@
     "name": "mentat",
     "displayName": "Mentat",
     "description": "Mentat - The AI Coding Assistant",
-    "version": "0.0.4",
+    "version": "0.0.6",
     "private": true,
     "publisher": "AbanteAI",
     "license": "Apache-2.0",
