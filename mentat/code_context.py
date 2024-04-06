@@ -19,7 +19,7 @@ from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import count_tokens, get_max_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
-from mentat.utils import get_relative_path
+from mentat.utils import get_relative_path, mentat_dir_path
 
 
 class ContextStreamMessage(TypedDict):
@@ -32,6 +32,10 @@ class ContextStreamMessage(TypedDict):
     total_tokens: int
     maximum_tokens: int
     total_cost: float
+
+
+graphs_dir = mentat_dir_path / "ragdaemon"
+graphs_dir.mkdir(exist_ok=True)
 
 
 class CodeContext:
@@ -55,8 +59,11 @@ class CodeContext:
         self.ignore_files: Set[Path] = set()
 
     async def refresh_daemon(self):
+        """Call before interacting with context to ensure daemon is up to date."""
         if not hasattr(self, "daemon"):
+            # Daemon is initialized after setup because it needs the embedding_provider.
             ctx = SESSION_CONTEXT.get()
+            config = ctx.config
             cwd = ctx.cwd
             llm_api_handler = ctx.llm_api_handler
 
@@ -66,7 +73,15 @@ class CodeContext:
                 "diff": {"diff": self.diff_context.target},
             }
             embedding_provider = llm_api_handler.embedding_provider
-            self.daemon = Daemon(cwd=cwd, annotators=annotators, verbose=False, embedding_provider=embedding_provider)
+            embedding_model = config.embedding_model
+            self.daemon = Daemon(
+                cwd=cwd, 
+                annotators=annotators, 
+                verbose=False, 
+                embedding_model=embedding_model,
+                embedding_provider=embedding_provider,
+                graph_path=graphs_dir / f"ragdaemon-{cwd.name}.json",
+            )
         await self.daemon.update()
 
     async def refresh_context_display(self):
