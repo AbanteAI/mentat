@@ -198,17 +198,13 @@ class Conversation:
 
         stream.send("Streaming...\n")
         async with stream.interrupt_catcher(parser.shutdown):
-            parsed_llm_response = await parser.stream_and_parse_llm_response(add_newline(response.stream()))
+            parsed_llm_response = await parser.stream_and_parse_llm_response(add_newline(response))
 
         # Sampler and History require previous_file_lines
         for file_edit in parsed_llm_response.file_edits:
             file_edit.previous_file_lines = code_file_manager.file_lines.get(file_edit.file_path, []).copy()
 
-        # TODO: this is janky come up with better solution
-        # if the stream was interrupted, then the finally block in the response.stream() async generator
-        # will wait for an opportunity to run. This sleep call gives it that opportunity.
-        # the finally block runs the logging callback
-        await asyncio.sleep(0.01)
+        cost_tracker.log_api_call_stats(response.current_response())
         cost_tracker.display_last_api_call()
 
         messages.append(

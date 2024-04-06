@@ -18,7 +18,7 @@ class MentatServer:
     def __init__(self, cwd: Path, config: Config) -> None:
         self.cwd = cwd
         self.stopped = Event()
-        self.session = Session(self.cwd, config=config, apply_edits=False)
+        self.session = Session(self.cwd, config=config, apply_edits=False, show_update=False)
 
     async def _client_listener(self):
         with open(3) as fd_input:

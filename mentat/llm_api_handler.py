@@ -7,12 +7,15 @@ import sys
 from inspect import iscoroutinefunction
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
     List,
+    Literal,
     Optional,
     cast,
+    overload,
 )
 
 import attr
@@ -28,13 +31,20 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
-from spice import APIConnectionError, Spice, SpiceError, SpiceResponse, SpiceWhisper
+from spice import APIConnectionError, Spice, SpiceError, SpiceMessage, SpiceResponse, StreamingSpiceResponse
+from spice.errors import NoAPIKeyError
+from spice.models import WHISPER_1
+from spice.providers import OPEN_AI
 
 from mentat.errors import MentatError, ReturnToUser
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
 TOKEN_COUNT_WARNING = 32000
+
+if TYPE_CHECKING:
+    # This import is slow
+    from chromadb.api.types import Embeddings
 
 
 def is_test_environment():
@@ -132,7 +142,7 @@ def normalize_messages_for_anthropic(
     delimiter = "\n" + "-" * 80 + "\n"
     for message in replace_non_leading_systems:
         if message["role"] == current_role:
-            current_content += delimiter + str(message["content"])  # type: ignore
+            current_content += delimiter + str(message["content"])
         else:
             if current_role == "user":
                 concatenate_adjacent.append(ChatCompletionUserMessageParam(role=current_role, content=current_content))
@@ -145,7 +155,7 @@ def normalize_messages_for_anthropic(
                     ChatCompletionAssistantMessageParam(role=current_role, content=current_content)
                 )
             current_role = message["role"]
-            current_content = str(message["content"])  # type: ignore
+            current_content = str(message["content"])
 
     if current_role == "user":
         concatenate_adjacent.append(ChatCompletionUserMessageParam(role=current_role, content=current_content))
@@ -312,66 +322,89 @@ def raise_if_context_exceeds_max(tokens: int):
 class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
-    embedding_provider: str | None = None
-
     async def initialize_client(self):
         ctx = SESSION_CONTEXT.get()
 
         if not load_dotenv(mentat_dir_path / ".env") and not load_dotenv(ctx.cwd / ".env"):
             load_dotenv()
 
-        if os.getenv("AZURE_OPENAI_KEY") is not None:
-            embedding_and_whisper_provider = "azure"
-        else:
-            embedding_and_whisper_provider = "openai"
+        self.spice = Spice()
 
-        self.spice_client = Spice()
-        self.embedding_provider = embedding_and_whisper_provider  # Passed to ragdaemon
-        self.spice_whisper_client = SpiceWhisper(provider=embedding_and_whisper_provider)
+        try:
+            self.spice.load_provider(OPEN_AI)
+        except NoAPIKeyError:
+            from mentat.session_input import collect_user_input
+
+            ctx.stream.send(
+                "No OpenAI api key detected. To avoid entering your api key on startup, create a .env file in"
+                " ~/.mentat/.env or in your workspace root.",
+                style="warning",
+            )
+            ctx.stream.send("Enter your api key:", style="info")
+            key = (await collect_user_input(log_input=False)).data
+            os.environ["OPENAI_API_KEY"] = key
+
+    @overload
+    async def call_llm_api(
+        self,
+        messages: List[SpiceMessage],
+        model: str,
+        stream: Literal[False],
+        response_format: ResponseFormat = ResponseFormat(type="text"),
+    ) -> SpiceResponse:
+        ...
+
+    @overload
+    async def call_llm_api(
+        self,
+        messages: List[SpiceMessage],
+        model: str,
+        stream: Literal[True],
+        response_format: ResponseFormat = ResponseFormat(type="text"),
+    ) -> StreamingSpiceResponse:
+        ...
 
     @api_guard
     async def call_llm_api(
         self,
-        messages: list[ChatCompletionMessageParam],
+        messages: List[SpiceMessage],
         model: str,
         stream: bool,
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> SpiceResponse:
+    ) -> SpiceResponse | StreamingSpiceResponse:
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
         cost_tracker = session_context.cost_tracker
-
-        if "claude" in config.model:
-            messages = normalize_messages_for_anthropic(messages)
 
         # Confirm that model has enough tokens remaining.
         tokens = prompt_tokens(messages, model)
         raise_if_context_exceeds_max(tokens)
 
-        # TODO: make spice message format and use across codebase consistently
-        _messages = [
-            {"role": cast(str, message["role"]), "content": cast(str, message["content"])}  # type: ignore
-            for message in messages
-        ]
-        if "type" in response_format and response_format["type"] == "json_object":
-            _response_format = {"type": "json_object"}
-        else:
-            _response_format = {"type": "text"}
-
         with sentry_sdk.start_span(description="LLM Call") as span:
             span.set_tag("model", model)
 
-            response = await self.spice_client.call_llm(
-                model=model,
-                messages=_messages,
-                stream=stream,
-                temperature=config.temperature,
-                response_format=_response_format,
-                logging_callback=cost_tracker.log_api_call_stats,
-            )
+            if not stream:
+                response = await self.spice.get_response(
+                    model=model,
+                    messages=messages,
+                    temperature=config.temperature,
+                    response_format=response_format,  # pyright: ignore
+                )
+                cost_tracker.log_api_call_stats(response)
+            else:
+                response = await self.spice.stream_response(
+                    model=model,
+                    messages=messages,
+                    temperature=config.temperature,
+                    response_format=response_format,  # pyright: ignore
+                )
 
         return response
 
     @api_guard
+    def call_embedding_api(self, input_texts: list[str], model: str = "text-embedding-ada-002") -> Embeddings:
+        return self.spice.get_embeddings_sync(input_texts, model)  # pyright: ignore
+
+    @api_guard
     async def call_whisper_api(self, audio_path: Path) -> str:
-        return await self.spice_whisper_client.get_whisper_transcription(audio_path)
+        return await self.spice.get_transcription(audio_path, model=WHISPER_1)

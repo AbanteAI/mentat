@@ -57,6 +57,7 @@ class Session:
         config: Config = Config(),
         # Set to false for clients that apply the edits themselves (like vscode)
         apply_edits: bool = True,
+        show_update: bool = True,
     ):
         # All errors thrown here need to be caught here
         self.stopped = Event()
@@ -111,7 +112,8 @@ class Session:
         self.error = None
 
         # Functions that require session_context
-        check_version()
+        if show_update:
+            check_version()
         config.send_errors_to_stream()
         for path in paths:
             code_context.include(path, exclude_patterns=exclude_paths)

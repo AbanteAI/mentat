@@ -5,9 +5,11 @@ import os
 from datetime import datetime
 from functools import partial
 from pathlib import Path
+from typing import List
 
 import tqdm
 from openai import BadRequestError
+from spice import SpiceMessage
 
 from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.benchmark_result import BenchmarkResult
@@ -56,7 +58,7 @@ async def failure_analysis(exercise_runner, language):
     test_results = exercise_runner.read_test_results()
 
     final_message = f"All instructions:\n{instructions}\nCode to review:\n{code}\nTest" f" results:\n{test_results}"
-    messages = [
+    messages: List[SpiceMessage] = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": final_message},
     ]
