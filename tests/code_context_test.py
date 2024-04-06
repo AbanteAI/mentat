@@ -211,7 +211,7 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
         mock_session_context.stream,
         temp_testbed,
     )
-    await code_context.daemon.update()
+    await code_context.refresh_daemon()
     code_context.include("file_1.py")
     mock_session_context.config.auto_context_tokens = 8000
     filter_mock = AsyncMock(side_effect=lambda features: features)

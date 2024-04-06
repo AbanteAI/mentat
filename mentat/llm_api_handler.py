@@ -317,6 +317,8 @@ def raise_if_context_exceeds_max(tokens: int):
 class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
+    embedding_provider: str | None = None
+
     async def initialize_client(self):
         ctx = SESSION_CONTEXT.get()
 
@@ -329,7 +331,7 @@ class LlmApiHandler:
             embedding_and_whisper_provider = "openai"
 
         self.spice_client = Spice()
-        self.spice_embedding_client = SpiceEmbeddings(provider=embedding_and_whisper_provider)
+        self.embedding_provider = embedding_and_whisper_provider  # Passed to ragdaemon
         self.spice_whisper_client = SpiceWhisper(provider=embedding_and_whisper_provider)
 
     @api_guard
@@ -374,10 +376,6 @@ class LlmApiHandler:
             )
 
         return response
-
-    @api_guard
-    def call_embedding_api(self, input_texts: list[str], model: str = "text-embedding-ada-002") -> Embeddings:
-        return self.spice_embedding_client.get_embeddings(input_texts, model)
 
     @api_guard
     async def call_whisper_api(self, audio_path: Path) -> str:

@@ -35,6 +35,8 @@ class ContextStreamMessage(TypedDict):
 
 
 class CodeContext:
+    daemon: Daemon
+
     def __init__(
         self,
         stream: SessionStream,
@@ -49,15 +51,23 @@ class CodeContext:
 
         self.diff_context = DiffContext(stream, cwd, self.diff, self.pr_diff)
 
-        annotators: dict[str, dict[str, Any]] = {
-            "hierarchy": {"ignore_patterns": [str(p) for p in self.ignore_patterns]},
-            "chunker_line": {"lines_per_chunk": 50},
-            "diff": {"diff": self.diff_context.target},
-        }
-        self.daemon: Daemon = Daemon(cwd=cwd, annotators=annotators, verbose=False)
-
         self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
+
+    async def refresh_daemon(self):
+        if not hasattr(self, "daemon"):
+            ctx = SESSION_CONTEXT.get()
+            cwd = ctx.cwd
+            llm_api_handler = ctx.llm_api_handler
+
+            annotators: dict[str, dict[str, Any]] = {
+                "hierarchy": {"ignore_patterns": [str(p) for p in self.ignore_patterns]},
+                "chunker_line": {"lines_per_chunk": 50},
+                "diff": {"diff": self.diff_context.target},
+            }
+            embedding_provider = llm_api_handler.embedding_provider
+            self.daemon = Daemon(cwd=cwd, annotators=annotators, verbose=False, embedding_provider=embedding_provider)
+        await self.daemon.update()
 
     async def refresh_context_display(self):
         """
@@ -117,7 +127,7 @@ class CodeContext:
         header_lines += ["Code Files:\n\n"]
 
         # Setup a ContextBuilder from Mentat's include_files / diff_context
-        await self.daemon.update()
+        await self.refresh_daemon()
         context_builder = self.daemon.get_context("", max_tokens=0)
         diff_nodes: list[str] = [
             node
@@ -211,7 +221,7 @@ class CodeContext:
             else:
                 code_feature_not_included = True
                 for included_code_feature in self.include_files[code_feature.path]:
-                    # Intervals can still overlap if user includes intervals different than what ctags breaks up,
+                    # Intervals can still overlap if user includes intervals different than what chunker breaks up,
                     # but we merge when making code message and don't duplicate lines
                     if (
                         included_code_feature.interval == code_feature.interval

@@ -166,7 +166,7 @@ class Session:
 
         await session_context.llm_api_handler.initialize_client()
 
-        await code_context.daemon.update()
+        await code_context.refresh_daemon()
 
         check_model()
 
