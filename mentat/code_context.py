@@ -75,9 +75,9 @@ class CodeContext:
             embedding_provider = llm_api_handler.embedding_provider
             embedding_model = config.embedding_model
             self.daemon = Daemon(
-                cwd=cwd, 
-                annotators=annotators, 
-                verbose=False, 
+                cwd=cwd,
+                annotators=annotators,
+                verbose=False,
                 embedding_model=embedding_model,
                 embedding_provider=embedding_provider,
                 graph_path=graphs_dir / f"ragdaemon-{cwd.name}.json",

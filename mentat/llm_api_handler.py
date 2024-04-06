@@ -7,7 +7,6 @@ import sys
 from inspect import iscoroutinefunction
 from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -29,17 +28,13 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
-from spice import APIConnectionError, Spice, SpiceEmbeddings, SpiceError, SpiceResponse, SpiceWhisper
+from spice import APIConnectionError, Spice, SpiceError, SpiceResponse, SpiceWhisper
 
 from mentat.errors import MentatError, ReturnToUser
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import mentat_dir_path
 
 TOKEN_COUNT_WARNING = 32000
-
-if TYPE_CHECKING:
-    # This import is slow
-    from chromadb.api.types import Embeddings
 
 
 def is_test_environment():
