@@ -1,5 +1,3 @@
-from textwrap import dedent
-
 from mentat.code_feature import CodeFeature, get_consolidated_feature_refs
 from mentat.interval import Interval
 

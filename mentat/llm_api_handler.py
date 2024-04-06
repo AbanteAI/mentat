@@ -142,7 +142,7 @@ def normalize_messages_for_anthropic(
     delimiter = "\n" + "-" * 80 + "\n"
     for message in replace_non_leading_systems:
         if message["role"] == current_role:
-            current_content += delimiter + str(message["content"])
+            current_content += delimiter + str(message["content"])  # type: ignore
         else:
             if current_role == "user":
                 concatenate_adjacent.append(ChatCompletionUserMessageParam(role=current_role, content=current_content))
@@ -155,7 +155,7 @@ def normalize_messages_for_anthropic(
                     ChatCompletionAssistantMessageParam(role=current_role, content=current_content)
                 )
             current_role = message["role"]
-            current_content = str(message["content"])
+            current_content = str(message["content"])  # type: ignore
 
     if current_role == "user":
         concatenate_adjacent.append(ChatCompletionUserMessageParam(role=current_role, content=current_content))
