@@ -237,19 +237,8 @@ def add_permissions(func, path, exc_info):
     if not os.access(path, os.W_OK):
         os.chmod(path, stat.S_IWUSR)
         func(path)
-    # Retry deletion with a delay
-    retries = 2
-    delay = 1
-    for attempt in range(retries):
-        try:
-            func(path)
-            break
-        except PermissionError:
-            if attempt < retries - 1:
-                time.sleep(delay)
-            else:
-                raise
-
+    else:
+        raise
 
 @pytest.fixture(autouse=True)
 def temp_testbed(mocker, monkeypatch, get_marks):
