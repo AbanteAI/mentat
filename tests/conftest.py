@@ -240,6 +240,7 @@ def add_permissions(func, path, exc_info):
     else:
         raise
 
+
 @pytest.fixture(autouse=True)
 def temp_testbed(mocker, monkeypatch, get_marks):
     # Allow us to run tests from any directory
