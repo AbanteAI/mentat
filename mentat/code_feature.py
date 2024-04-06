@@ -8,7 +8,6 @@ from typing import Optional
 
 import attr
 
-from mentat.ctags import get_ctag_lines_and_names
 from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
@@ -18,56 +17,6 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
 
 MIN_INTERVAL_LINES = 10
-
-
-def split_file_into_intervals(
-    feature: CodeFeature,
-    min_lines: int | None = None,
-) -> list[CodeFeature]:
-    min_lines = min_lines or MIN_INTERVAL_LINES
-    session_context = SESSION_CONTEXT.get()
-    code_file_manager = session_context.code_file_manager
-    n_lines = len(code_file_manager.read_file(feature.path))
-
-    lines_and_names = get_ctag_lines_and_names(session_context.cwd.joinpath(feature.path))
-
-    if len(lines_and_names) == 0:
-        return [feature]
-
-    lines, names = map(list, zip(*sorted(lines_and_names)))
-    lines[0] = 1  # first interval covers from start of file
-    draft_named_intervals = [(name, start, end) for name, start, end in zip(names, lines, lines[1:] + [n_lines])]
-
-    def length(interval: tuple[str, int, int]):
-        return interval[2] - interval[1]
-
-    def merge_intervals(int1: tuple[str, int, int], int2: tuple[str, int, int]):
-        return (f"{int1[0]},{int2[0]}", int1[1], int2[2])
-
-    named_intervals = [draft_named_intervals[0]]
-    for next_interval in draft_named_intervals[1:]:
-        last_interval = named_intervals[-1]
-        if length(last_interval) < min_lines:
-            named_intervals[-1] = merge_intervals(last_interval, next_interval)
-        elif length(next_interval) < min_lines and next_interval == draft_named_intervals[-1]:
-            # this is the last interval it's too short, so merge it with previous
-            named_intervals[-1] = merge_intervals(last_interval, next_interval)
-        else:
-            named_intervals.append(next_interval)
-
-    if len(named_intervals) <= 1:
-        return [feature]
-
-    # Create and return separate features for each interval
-    _features = list[CodeFeature]()
-    for name, start, end in named_intervals:
-        _feature = CodeFeature(
-            feature.path,
-            interval=Interval(start, end),
-            name=name,
-        )
-        _features.append(_feature)
-    return _features
 
 
 @attr.define(frozen=True)

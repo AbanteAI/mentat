@@ -8,7 +8,6 @@ import pytest
 
 from mentat.code_context import CodeContext
 from mentat.config import Config
-from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
 from mentat.interval import Interval
@@ -214,8 +213,6 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     await code_context.refresh_daemon()
     code_context.include("file_1.py")
     mock_session_context.config.auto_context_tokens = 8000
-    filter_mock = AsyncMock(side_effect=lambda features: features)
-    mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
 
     code_message = await code_context.get_code_message(0, prompt="prompt")
     assert count_tokens(code_message, "gpt-4", full_message=True) == 95  # Code
@@ -257,7 +254,7 @@ async def test_get_all_features(temp_testbed, mock_session_context):
         mock_session_context.stream,
         temp_testbed,
     )
-    await mock_code_context.daemon.update()
+    await mock_code_context.refresh_daemon()
 
     # Test without include_files
     features = mock_code_context.get_all_features()

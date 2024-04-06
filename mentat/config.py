@@ -126,21 +126,6 @@ class Config:
         converter=int,
         validator=validators.ge(0),  # pyright: ignore
     )
-    llm_feature_filter: int = attr.field(  # pyright: ignore
-        default=0,
-        metadata={
-            "description": (
-                "Send this many tokens of auto-context-selected code files to an LLM"
-                " along with the user_prompt to post-select only files which are"
-                " relevant to the task. Post-files will then be sent to the LLM again"
-                " to respond to the user's prompt."
-            ),
-            "abbreviation": "l",
-            "const": 5000,
-        },
-        converter=int,
-        validator=validators.ge(0),  # pyright: ignore
-    )
 
     # Sample specific settings
     sample_repo: str | None = attr.field(

@@ -139,17 +139,6 @@ def mock_call_llm_api(mocker):
     return completion_mock
 
 
-@pytest.fixture(scope="function")
-def mock_call_embedding_api(mocker):
-    embedding_mock = mocker.patch.object(LlmApiHandler, "call_embedding_api")
-
-    def set_embedding_values(value):
-        embedding_mock.return_value = value
-
-    embedding_mock.set_embedding_values = set_embedding_values
-    return embedding_mock
-
-
 ### Auto-used fixtures
 
 
