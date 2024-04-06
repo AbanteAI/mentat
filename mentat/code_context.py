@@ -63,7 +63,6 @@ class CodeContext:
         if not hasattr(self, "daemon"):
             # Daemon is initialized after setup because it needs the embedding_provider.
             ctx = SESSION_CONTEXT.get()
-            config = ctx.config
             cwd = ctx.cwd
             llm_api_handler = ctx.llm_api_handler
 
@@ -72,15 +71,12 @@ class CodeContext:
                 "chunker_line": {"lines_per_chunk": 50},
                 "diff": {"diff": self.diff_context.target},
             }
-            embedding_provider = llm_api_handler.embedding_provider
-            embedding_model = config.embedding_model
             self.daemon = Daemon(
                 cwd=cwd,
                 annotators=annotators,
                 verbose=False,
-                embedding_model=embedding_model,
-                embedding_provider=embedding_provider,
                 graph_path=graphs_dir / f"ragdaemon-{cwd.name}.json",
+                spice_client=getattr(llm_api_handler, "spice_client", None),
             )
         await self.daemon.update()
 
