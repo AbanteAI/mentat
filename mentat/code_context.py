@@ -35,7 +35,7 @@ class ContextStreamMessage(TypedDict):
 
 
 graphs_dir = mentat_dir_path / "ragdaemon"
-graphs_dir.mkdir(exist_ok=True)
+graphs_dir.mkdir(parents=True, exist_ok=True)
 
 
 class CodeContext:
