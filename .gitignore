@@ -15,4 +15,3 @@ benchmark_repos
 docs/build
 .DS_Store
 benchmarks/benchmarks/swe_bench_samples
-**/*.ragdaemon
