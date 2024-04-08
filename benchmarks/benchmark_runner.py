@@ -228,7 +228,7 @@ class Benchmark:
                 )
                 try:
                     if sample.context and self.config.auto_context_tokens:
-                        score = await run_auto_context_benchmark(sample, self.config, include_context=False)
+                        score = await run_auto_context_benchmark(sample, self.config)
                         result.context_results = {**score, "auto_context_tokens": self.config.auto_context_tokens}
                         result.context_precision = score["precision"]
                         result.context_recall = score["recall"]
