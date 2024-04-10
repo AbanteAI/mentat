@@ -12,6 +12,7 @@ from .help import HelpCommand
 from .include import IncludeCommand
 from .load import LoadCommand
 from .redo import RedoCommand
+from .paste import PasteCommand
 from .run import RunCommand
 from .sample import SampleCommand
 from .save import SaveCommand
