@@ -349,6 +349,7 @@ class LlmApiHandler:
         self,
         messages: List[SpiceMessage],
         model: str,
+        provider: Optional[str],
         stream: Literal[False],
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> SpiceResponse:
@@ -359,6 +360,7 @@ class LlmApiHandler:
         self,
         messages: List[SpiceMessage],
         model: str,
+        provider: Optional[str],
         stream: Literal[True],
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> StreamingSpiceResponse:
@@ -369,6 +371,7 @@ class LlmApiHandler:
         self,
         messages: List[SpiceMessage],
         model: str,
+        provider: Optional[str],
         stream: bool,
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> SpiceResponse | StreamingSpiceResponse:
@@ -386,6 +389,7 @@ class LlmApiHandler:
             if not stream:
                 response = await self.spice.get_response(
                     model=model,
+                    provider=provider,
                     messages=messages,
                     temperature=config.temperature,
                     response_format=response_format,  # pyright: ignore
@@ -394,6 +398,7 @@ class LlmApiHandler:
             else:
                 response = await self.spice.stream_response(
                     model=model,
+                    provider=provider,
                     messages=messages,
                     temperature=config.temperature,
                     response_format=response_format,  # pyright: ignore
@@ -403,7 +408,8 @@ class LlmApiHandler:
 
     @api_guard
     def call_embedding_api(self, input_texts: list[str], model: str = "text-embedding-ada-002") -> Embeddings:
-        return self.spice.get_embeddings_sync(input_texts, model)  # pyright: ignore
+        ctx = SESSION_CONTEXT.get()
+        return self.spice.get_embeddings_sync(input_texts, model, provider=ctx.config.embedding_provider)  # pyright: ignore
 
     @api_guard
     async def call_whisper_api(self, audio_path: Path) -> str:
