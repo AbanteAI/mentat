@@ -409,6 +409,8 @@ class CodeContext:
         all_nodes_sorted = self.daemon.search(query, max_results)
         all_features_sorted = list[tuple[CodeFeature, float]]()
         for node in all_nodes_sorted:
+            if node.get("type") not in {"file", "chunk"}:
+                continue
             distance = node["distance"]
             path, interval = split_intervals_from_path(Path(node["ref"]))
             intervals = parse_intervals(interval)
