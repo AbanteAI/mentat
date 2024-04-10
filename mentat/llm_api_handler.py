@@ -31,8 +31,8 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
-from spice import APIConnectionError, Spice, SpiceMessage, SpiceResponse, StreamingSpiceResponse
-from spice.errors import NoAPIKeyError
+from spice import Spice, SpiceMessage, SpiceResponse, StreamingSpiceResponse
+from spice.errors import APIConnectionError, NoAPIKeyError
 from spice.models import WHISPER_1
 from spice.providers import OPEN_AI
 from spice.spice import InvalidModelError
@@ -399,7 +399,7 @@ class LlmApiHandler:
                     provider=provider,
                     messages=messages,
                     temperature=config.temperature,
-                    response_format=response_format,  # pyright: ignore
+                    response_format=response_format,
                 )
                 cost_tracker.log_api_call_stats(response)
             else:
@@ -408,7 +408,7 @@ class LlmApiHandler:
                     provider=provider,
                     messages=messages,
                     temperature=config.temperature,
-                    response_format=response_format,  # pyright: ignore
+                    response_format=response_format,
                 )
 
         return response
