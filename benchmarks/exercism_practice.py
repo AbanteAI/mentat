@@ -65,7 +65,7 @@ async def failure_analysis(exercise_runner, language):
     response = ""
     try:
         llm_api_handler = SESSION_CONTEXT.get().llm_api_handler
-        llm_grade = await llm_api_handler.call_llm_api(messages, model, False)
+        llm_grade = await llm_api_handler.call_llm_api(messages, model, None, False)
         response = llm_grade.text
     except BadRequestError:
         response = "Unable to analyze test case\nreason: too many tokens to analyze"

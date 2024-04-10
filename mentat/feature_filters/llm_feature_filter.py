@@ -90,6 +90,7 @@ class LLMFeatureFilter(FeatureFilter):
         llm_response = await llm_api_handler.call_llm_api(
             messages=messages,
             model=model,
+            provider=config.feature_selection_provider,
             stream=False,
             response_format=ResponseFormat(type="json_object"),
         )

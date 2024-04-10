@@ -69,7 +69,7 @@ There are a few options to provide Mentat with your OpenAI API key:
 2. Run `export OPENAI_API_KEY=<your key here>` prior to running Mentat
 3. Place the previous command in your `.bashrc` or `.zshrc` to export your key on every terminal startup
 
-If you want to use a models through Azure, Ollama or other service see [this doc](https://docs.mentat.ai/en/latest/user/alternative_models.html) for details.
+If you want to use a models through Azure, Ollama or other services see [this doc](https://docs.mentat.ai/en/latest/user/alternative_models.html) for details.
 
 # 🚀 Usage
 
