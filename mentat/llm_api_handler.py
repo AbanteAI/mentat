@@ -31,10 +31,11 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
-from spice import APIConnectionError, Spice, SpiceError, SpiceMessage, SpiceResponse, StreamingSpiceResponse
+from spice import APIConnectionError, Spice, SpiceMessage, SpiceResponse, StreamingSpiceResponse
 from spice.errors import NoAPIKeyError
 from spice.models import WHISPER_1
 from spice.providers import OPEN_AI
+from spice.spice import InvalidModelError
 
 from mentat.errors import MentatError, ReturnToUser
 from mentat.session_context import SESSION_CONTEXT
@@ -72,9 +73,12 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
             try:
                 return await func(*args, **kwargs)
             except APIConnectionError:
-                raise MentatError("API connection error: please check your internet connection and" " try again.")
-            except SpiceError as e:
-                raise MentatError(f"API error: {e}")
+                raise MentatError("API connection error: please check your internet connection and try again.")
+            except InvalidModelError:
+                SESSION_CONTEXT.get().stream.send(
+                    "Unknown model. Use /config provider <provider> and try again.", style="error"
+                )
+                raise ReturnToUser()
 
         return async_wrapper
     else:
@@ -84,9 +88,12 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
             try:
                 return func(*args, **kwargs)
             except APIConnectionError:
-                raise MentatError("API connection error: please check your internet connection and" " try again.")
-            except SpiceError as e:
-                raise MentatError(f"API error: {e}")
+                raise MentatError("API connection error: please check your internet connection and try again.")
+            except InvalidModelError:
+                SESSION_CONTEXT.get().stream.send(
+                    "Unknown model. Use /config provider <provider> and try again.", style="error"
+                )
+                raise ReturnToUser()
 
         return sync_wrapper
 

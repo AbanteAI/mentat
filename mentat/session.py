@@ -227,6 +227,7 @@ class Session:
                 stream.send(None, channel="client_exit")
                 break
             except ReturnToUser:
+                stream.send(None, channel="loading", terminate=True)
                 need_user_request = True
                 continue
             except (
