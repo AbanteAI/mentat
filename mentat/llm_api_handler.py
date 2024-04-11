@@ -230,7 +230,7 @@ class LlmApiHandler:
 
         display = f"Speed: {response.characters_per_second:.2f} char/s"
         if response.cost is not None:
-            display = f" | Cost: ${response.cost / 100:.2f}"
+            display += f" | Cost: ${response.cost / 100:.2f}"
 
         costs_logger = logging.getLogger("costs")
         costs_logger.info(display)

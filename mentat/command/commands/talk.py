@@ -78,7 +78,10 @@ class TalkCommand(Command, command_name="talk"):
             response = await ctx.llm_api_handler.call_whisper_api(recorder.file)
             ctx.stream.send(response.text, channel="default_prompt")
             if response.cost:
-                ctx.stream.send(f"Whisper audio length and cost: {response.input_length}s, ${response.cost / 100:.2f}")
+                ctx.stream.send(
+                    f"Whisper audio length and cost: {response.input_length:.2f}s, ${response.cost / 100:.2f}",
+                    style="info",
+                )
 
     @override
     @classmethod
