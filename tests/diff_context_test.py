@@ -123,7 +123,6 @@ async def test_diff_context_relative(temp_testbed, git_history, mock_session_con
     assert diff_context.diff_files() == [abs_path]
 
 
-
 @pytest.mark.asyncio
 async def test_diff_context_pr(temp_testbed, git_history, mock_session_context):
     abs_path = Path(temp_testbed) / "multifile_calculator" / "operations.py"
