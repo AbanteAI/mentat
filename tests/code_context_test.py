@@ -12,7 +12,6 @@ from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
 from mentat.interval import Interval
-from mentat.llm_api_handler import count_tokens
 from tests.conftest import run_git_command
 
 
@@ -211,7 +210,7 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
 
     async def _count_max_tokens_where(tokens_used: int) -> int:
         code_message = await code_context.get_code_message(tokens_used, prompt="prompt")
-        return count_tokens(code_message, "gpt-4", full_message=True)
+        return mock_session_context.llm_api_handler.spice.count_tokens(code_message, "gpt-4", is_message=True)
 
     assert await _count_max_tokens_where(0) == 89  # Code
 

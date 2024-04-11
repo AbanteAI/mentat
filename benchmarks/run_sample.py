@@ -69,7 +69,6 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None, config: Conf
     await mentat.startup()
     session_context = SESSION_CONTEXT.get()
     conversation = session_context.conversation
-    cost_tracker = session_context.cost_tracker
     for msg in sample.message_history:
         if msg["role"] == "user":
             conversation.add_user_message(msg["content"])
@@ -118,8 +117,8 @@ async def run_sample(sample: Sample, cwd: Path | str | None = None, config: Conf
         "id": sample.id,
         "message_eval": message_eval,
         "diff_eval": diff_eval,
-        "cost": cost_tracker.total_cost,
-        "tokens": cost_tracker.total_tokens,
+        "cost": session_context.llm_api_handler.spice.total_cost / 100,
+        "tokens": None,
         "transcript": {
             "id": sample.id,
             "messages": transcript_messages,

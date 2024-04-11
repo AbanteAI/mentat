@@ -15,7 +15,6 @@ from benchmarks.context_benchmark import MockStream, select_features_for_benchma
 from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
-from mentat.llm_api import CostTracker, count_tokens
 from mentat.parsers.git_parser import GitParser
 from mentat.sampler.utils import clone_repo
 from mentat.session_context import SESSION_CONTEXT, SessionContext
@@ -126,7 +125,7 @@ async def translate_commits_to_transcripts(repo, count=10):
             # Necessary for CodeContext to work
             repo.git.checkout(commit.parents[0].hexsha)
             shown = subprocess.check_output(["git", "show", sha, "-m", "--first-parent"]).decode("utf-8")
-            if count_tokens(shown, "gpt-4") > 6000:
+            if session_context.llm_api_handler.spice.count_tokens(shown, "gpt-4") > 6000:
                 print("Skipping because too long")
                 continue
 
@@ -219,7 +218,6 @@ if __name__ == "__main__":
     code_context = CodeContext(stream, os.getcwd())
     session_context = SessionContext(
         stream,
-        CostTracker(),
         Path.cwd(),
         config,
         code_context,

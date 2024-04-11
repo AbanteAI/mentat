@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 
-from mentat.llm_api import count_tokens, model_context_size
+from spice.spice import get_model_from_name
 
 
 def select_transcripts(
@@ -33,7 +33,7 @@ def select_transcripts(
             continue
         if skip_config and info["configuration"]:
             continue
-        if count_tokens(json.dumps(info["mocked_conversation"]), model) > model_context_size(model):
+        if count_tokens(json.dumps(info["mocked_conversation"]), model) > get_model_from_name(model).context_length:
             continue
         transcripts.append(info["mocked_conversation"])
 

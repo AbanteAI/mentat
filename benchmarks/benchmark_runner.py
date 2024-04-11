@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from openai.types.chat.completion_create_params import ResponseFormat
 from spice import SpiceMessage
+from spice.spice import get_model_from_name
 
 from benchmarks.arg_parser import common_benchmark_parser
 from benchmarks.benchmark_result import BenchmarkResult
@@ -22,7 +23,6 @@ from benchmarks.run_sample import run_sample
 from benchmarks.swe_bench_runner import SWE_BENCH_SAMPLES_DIR, get_swe_samples
 from mentat.config import Config
 from mentat.git_handler import get_git_diff, get_mentat_branch, get_mentat_hexsha
-from mentat.llm_api_handler import model_context_size, prompt_tokens
 from mentat.sampler.sample import Sample
 from mentat.sampler.utils import setup_repo
 from mentat.session_context import SESSION_CONTEXT
@@ -45,12 +45,13 @@ def git_diff_from_comparison_commit(sample: Sample, comparison_commit: str) -> s
 
 async def grade(to_grade, prompt, model="gpt-4-1106-preview"):
     try:
+        llm_api_handler = SESSION_CONTEXT.get().llm_api_handler
         messages: List[SpiceMessage] = [
             {"role": "system", "content": prompt},
             {"role": "user", "content": to_grade},
         ]
-        tokens = prompt_tokens(messages, model)
-        max_tokens = model_context_size(model) - 1000  # Response buffer
+        tokens = llm_api_handler.spice.count_prompt_tokens(messages, model)
+        max_tokens = get_model_from_name(model).context_length - 1000  # Response buffer
         if tokens > max_tokens:
             print("Prompt too long! Truncating... (this may affect results)")
             tokens_to_remove = tokens - max_tokens
@@ -58,7 +59,6 @@ async def grade(to_grade, prompt, model="gpt-4-1106-preview"):
             chars_to_remove = int(chars_per_token * tokens_to_remove)
             messages[1]["content"] = messages[1]["content"][:-chars_to_remove]
 
-        llm_api_handler = SESSION_CONTEXT.get().llm_api_handler
         llm_grade = await llm_api_handler.call_llm_api(messages, model, None, False, ResponseFormat(type="json_object"))
         content = llm_grade.text
         return json.loads(content)

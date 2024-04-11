@@ -180,8 +180,6 @@ def mock_session_context(temp_testbed):
     """
     stream = SessionStream()
 
-    cost_tracker = CostTracker()
-
     config = Config()
 
     llm_api_handler = LlmApiHandler()
@@ -203,7 +201,6 @@ def mock_session_context(temp_testbed):
         Path.cwd(),
         stream,
         llm_api_handler,
-        cost_tracker,
         config,
         code_context,
         code_file_manager,
