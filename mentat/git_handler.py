@@ -133,8 +133,9 @@ def get_diff_for_file(target: str, path: Path) -> str:
     session_context = SESSION_CONTEXT.get()
 
     try:
+        args = target.split(" ") if target else []
         diff_content = subprocess.check_output(
-            ["git", "diff", "-U0", f"{target}", "--", path],
+            ["git", "diff", "-U0", *args, "--", path],
             cwd=session_context.cwd,
             text=True,
             stderr=subprocess.DEVNULL,
@@ -167,14 +168,16 @@ def get_files_in_diff(target: str) -> list[Path]:
     session_context = SESSION_CONTEXT.get()
 
     try:
+        args = target.split(" ") if target else []
         diff_content = subprocess.check_output(
-            ["git", "diff", "--name-only", f"{target}", "--"],
+            ["git", "diff", "--name-only", *args, "--"],
             cwd=session_context.cwd,
             text=True,
             stderr=subprocess.DEVNULL,
         ).strip()
         if diff_content:
-            return [Path(path) for path in diff_content.split("\n")]
+            paths = [Path(path) for path in diff_content.split("\n") if path]
+            return paths
         else:
             return []
     except subprocess.CalledProcessError:

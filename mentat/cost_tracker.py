@@ -44,9 +44,10 @@ class CostTracker:
         costs_logger.info(speed_and_cost_string)
         self.last_api_call = speed_and_cost_string
 
+    # TODO Grant: Functionality moved to ragdaemon. Move all cost tracking to Spice?
     def log_embedding_call_stats(self, tokens: int, model: str, total_time: float):
         cost = model_price_per_1000_tokens(model)
-        # TODO: handle unknown models better / port to spice
+        # TODO Scott: handle unknown models better / port to spice
         if cost is None:
             return
 

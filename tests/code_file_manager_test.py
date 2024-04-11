@@ -20,9 +20,10 @@ async def test_posix_paths(mock_session_context):
     mock_session_context.code_context.include(file_path)
 
     code_message = await mock_session_context.code_context.get_code_message(0)
-    assert dir_name + "/" + file_name in code_message.split("\n")
+    assert any(line.startswith(dir_name + "/" + file_name) for line in code_message.split("\n"))
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_partial_files(mocker, mock_session_context):
     dir_name = "dir"
@@ -50,15 +51,17 @@ async def test_partial_files(mocker, mock_session_context):
         """\
             Code Files:
 
-            dir/file.txt
+            dir/file.txt (user-included)
             1:I am a file
             ...
             3:third
             4:fourth
+            ...
             """
     )
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_run_from_subdirectory(
     temp_testbed,
@@ -121,6 +124,7 @@ async def test_run_from_subdirectory(
     assert echo_output[0].strip() == "# Hello"
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_run_from_superdirectory(
     temp_testbed,
@@ -185,6 +189,7 @@ async def test_run_from_superdirectory(
     assert echo_output[0].strip() == "# Hello"
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_change_after_creation(
     mock_collect_user_input,
