@@ -66,7 +66,9 @@ async def revise_edit(file_edit: FileEdit):
         "\nRevising edits for file" f" {get_relative_path(file_edit.file_path, ctx.cwd)}...",
         style="info",
     )
-    response = await ctx.llm_api_handler.call_llm_api(messages, model=ctx.config.model, stream=False)
+    response = await ctx.llm_api_handler.call_llm_api(
+        messages, model=ctx.config.model, provider=ctx.config.provider, stream=False
+    )
     message = response.text
     messages.append(ChatCompletionAssistantMessageParam(content=message, role="assistant"))
     ctx.conversation.add_transcript_message(

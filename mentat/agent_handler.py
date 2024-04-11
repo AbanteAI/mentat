@@ -47,7 +47,7 @@ class AgentHandler:
             ),
         ]
         model = ctx.config.model
-        response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
+        response = await ctx.llm_api_handler.call_llm_api(messages, model, ctx.config.provider, False)
         content = response.text
 
         paths = [Path(path) for path in content.strip().split("\n") if Path(path).exists()]
@@ -81,7 +81,7 @@ class AgentHandler:
 
         try:
             # TODO: Should this even be a separate call or should we collect commands in the edit call?
-            response = await ctx.llm_api_handler.call_llm_api(messages, model, False)
+            response = await ctx.llm_api_handler.call_llm_api(messages, model, ctx.config.provider, False)
             ctx.cost_tracker.display_last_api_call()
         except BadRequestError as e:
             ctx.stream.send(f"Error accessing OpenAI API: {e.message}", style="error")

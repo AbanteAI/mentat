@@ -177,6 +177,7 @@ class Conversation:
         response = await llm_api_handler.call_llm_api(
             messages,
             config.model,
+            config.provider,
             stream=True,
             response_format=parser.response_format(),
         )

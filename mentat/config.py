@@ -4,6 +4,7 @@ import json
 from argparse import ArgumentParser, Namespace
 from json import JSONDecodeError
 from pathlib import Path
+from typing import Optional
 
 import attr
 from attr import converters, validators
@@ -38,9 +39,13 @@ class Config:
         default="gpt-4-0125-preview",
         metadata={"auto_completions": list(known_models.keys())},
     )
+    provider: Optional[str] = attr.field(default=None, metadata={"auto_completions": ["openai", "anthropic", "azure"]})
     embedding_model: str = attr.field(
         default="text-embedding-ada-002",
         metadata={"auto_completions": [model.name for model in known_models.values() if model.embedding_model]},
+    )
+    embedding_provider: Optional[str] = attr.field(
+        default=None, metadata={"auto_completions": ["openai", "anthropic", "azure"]}
     )
     temperature: float = attr.field(default=0.2, converter=float, validator=[validators.le(1), validators.ge(0)])
 

@@ -31,10 +31,11 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from PIL import Image
-from spice import APIConnectionError, Spice, SpiceError, SpiceMessage, SpiceResponse, StreamingSpiceResponse
+from spice import APIConnectionError, Spice, SpiceMessage, SpiceResponse, StreamingSpiceResponse
 from spice.errors import NoAPIKeyError
 from spice.models import WHISPER_1
 from spice.providers import OPEN_AI
+from spice.spice import InvalidModelError
 
 from mentat.errors import MentatError, ReturnToUser
 from mentat.session_context import SESSION_CONTEXT
@@ -72,9 +73,12 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
             try:
                 return await func(*args, **kwargs)
             except APIConnectionError:
-                raise MentatError("API connection error: please check your internet connection and" " try again.")
-            except SpiceError as e:
-                raise MentatError(f"API error: {e}")
+                raise MentatError("API connection error: please check your internet connection and try again.")
+            except InvalidModelError:
+                SESSION_CONTEXT.get().stream.send(
+                    "Unknown model. Use /config provider <provider> and try again.", style="error"
+                )
+                raise ReturnToUser()
 
         return async_wrapper
     else:
@@ -84,9 +88,12 @@ def api_guard(func: Callable[..., Any]) -> Callable[..., Any]:
             try:
                 return func(*args, **kwargs)
             except APIConnectionError:
-                raise MentatError("API connection error: please check your internet connection and" " try again.")
-            except SpiceError as e:
-                raise MentatError(f"API error: {e}")
+                raise MentatError("API connection error: please check your internet connection and try again.")
+            except InvalidModelError:
+                SESSION_CONTEXT.get().stream.send(
+                    "Unknown model. Use /config provider <provider> and try again.", style="error"
+                )
+                raise ReturnToUser()
 
         return sync_wrapper
 
@@ -349,6 +356,7 @@ class LlmApiHandler:
         self,
         messages: List[SpiceMessage],
         model: str,
+        provider: Optional[str],
         stream: Literal[False],
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> SpiceResponse:
@@ -359,6 +367,7 @@ class LlmApiHandler:
         self,
         messages: List[SpiceMessage],
         model: str,
+        provider: Optional[str],
         stream: Literal[True],
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> StreamingSpiceResponse:
@@ -369,6 +378,7 @@ class LlmApiHandler:
         self,
         messages: List[SpiceMessage],
         model: str,
+        provider: Optional[str],
         stream: bool,
         response_format: ResponseFormat = ResponseFormat(type="text"),
     ) -> SpiceResponse | StreamingSpiceResponse:
@@ -386,6 +396,7 @@ class LlmApiHandler:
             if not stream:
                 response = await self.spice.get_response(
                     model=model,
+                    provider=provider,
                     messages=messages,
                     temperature=config.temperature,
                     response_format=response_format,  # pyright: ignore
@@ -394,6 +405,7 @@ class LlmApiHandler:
             else:
                 response = await self.spice.stream_response(
                     model=model,
+                    provider=provider,
                     messages=messages,
                     temperature=config.temperature,
                     response_format=response_format,  # pyright: ignore
@@ -403,7 +415,8 @@ class LlmApiHandler:
 
     @api_guard
     def call_embedding_api(self, input_texts: list[str], model: str = "text-embedding-ada-002") -> Embeddings:
-        return self.spice.get_embeddings_sync(input_texts, model)  # pyright: ignore
+        ctx = SESSION_CONTEXT.get()
+        return self.spice.get_embeddings_sync(input_texts, model, provider=ctx.config.embedding_provider)  # pyright: ignore
 
     @api_guard
     async def call_whisper_api(self, audio_path: Path) -> str:

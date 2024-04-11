@@ -59,7 +59,7 @@ async def grade(to_grade, prompt, model="gpt-4-1106-preview"):
             messages[1]["content"] = messages[1]["content"][:-chars_to_remove]
 
         llm_api_handler = SESSION_CONTEXT.get().llm_api_handler
-        llm_grade = await llm_api_handler.call_llm_api(messages, model, False, ResponseFormat(type="json_object"))
+        llm_grade = await llm_api_handler.call_llm_api(messages, model, None, False, ResponseFormat(type="json_object"))
         content = llm_grade.text
         return json.loads(content)
     except Exception as e:
