@@ -90,7 +90,7 @@ class CodeFileManager:
 
             if file_edit.is_creation:
                 if file_edit.file_path.exists():
-                    raise MentatError(f"Model attempted to create file {file_edit.file_path} which" " already exists")
+                    raise MentatError(f"Model attempted to create file {file_edit.file_path} which already exists")
                 self.create_file(file_edit.file_path)
             elif not file_edit.file_path.exists():
                 raise MentatError(f"Attempted to edit non-existent file {file_edit.file_path}")

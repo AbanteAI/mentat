@@ -33,7 +33,7 @@ class DefaultFilter(FeatureFilter):
                     features
                 )
             except (ModelError, ReturnToUser):
-                ctx.stream.send("Feature-selection LLM response invalid. Using TruncateFilter" " instead.")
+                ctx.stream.send("Feature-selection LLM response invalid. Using TruncateFilter instead.")
                 features = await TruncateFilter(self.max_tokens, ctx.config.model).filter(features)
         else:
             features = await TruncateFilter(self.max_tokens, ctx.config.model).filter(features)

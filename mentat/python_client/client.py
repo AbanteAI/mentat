@@ -133,7 +133,3 @@ class PythonClient:
     def get_conversation(self):
         """Returns the current conversation context from the session."""
         return self.session.ctx.conversation
-
-    def get_cost_tracker(self):
-        """Returns the cost tracker from the session context."""
-        return self.session.ctx.cost_tracker

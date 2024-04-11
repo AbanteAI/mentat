@@ -112,7 +112,7 @@ async def remove_context(sample) -> Sample:
 
     # Ask user to review and accept/reject
     print("Generated reason:", message)
-    print("Press ENTER to accept, 's' to skip this sample, or type a new reason to" " reject.")
+    print("Press ENTER to accept, 's' to skip this sample, or type a new reason to reject.")
     response = input()
     if response:
         if response.lower() == "s":

@@ -19,7 +19,6 @@ from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config, config_file_name
 from mentat.conversation import Conversation
-from mentat.cost_tracker import CostTracker
 from mentat.llm_api_handler import LlmApiHandler
 from mentat.parsers.streaming_printer import StreamingPrinter
 from mentat.sampler.sampler import Sampler

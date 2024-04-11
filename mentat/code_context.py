@@ -24,7 +24,7 @@ from mentat.include_files import (
     validate_and_format_path,
 )
 from mentat.interval import parse_intervals, split_intervals_from_path
-from mentat.llm_api_handler import count_tokens, get_max_tokens
+from mentat.llm_api_handler import get_max_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
@@ -75,7 +75,7 @@ class CodeContext:
 
         total_tokens = await ctx.conversation.count_tokens(include_code_message=True)
 
-        total_cost = ctx.cost_tracker.total_cost
+        total_cost = ctx.llm_api_handler.spice.total_cost
 
         data = ContextStreamMessage(
             cwd=str(ctx.cwd),
@@ -105,6 +105,7 @@ class CodeContext:
         """
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
+        llm_api_handler = session_context.llm_api_handler
         model = config.model
 
         # Setup code message metadata
@@ -125,13 +126,15 @@ class CodeContext:
 
         # Get auto included features
         if config.auto_context_tokens > 0 and prompt:
-            meta_tokens = count_tokens("\n".join(code_message), model, full_message=True)
+            meta_tokens = llm_api_handler.spice.count_tokens("\n".join(code_message), model, is_message=True)
 
             # Calculate user included features token size
             include_files_message = get_code_message_from_features(
                 [feature for file_features in self.include_files.values() for feature in file_features]
             )
-            include_files_tokens = count_tokens("\n".join(include_files_message), model, full_message=False)
+            include_files_tokens = llm_api_handler.spice.count_tokens(
+                "\n".join(include_files_message), model, is_message=False
+            )
 
             tokens_used = prompt_tokens + meta_tokens + include_files_tokens
             auto_tokens = min(

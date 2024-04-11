@@ -19,12 +19,12 @@ class ScreenshotCommand(Command, command_name="screenshot"):
         model = config.model
 
         if "gpt" in model:
-            if "vision" not in model:
+            if not ("vision" in model or ("gpt-4-turbo" in model and "preview" not in model)):
                 stream.send(
-                    "Using a version of gpt that doesn't support images. Changing to" " gpt-4-vision-preview",
+                    "Using a version of gpt that doesn't support images. Changing to gpt-4-turbo",
                     style="warning",
                 )
-                config.model = "gpt-4-vision-preview"
+                config.model = "gpt-4-turbo"
         else:
             stream.send(
                 "Can't determine if this model supports vision. Attempting anyway.",

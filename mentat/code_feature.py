@@ -13,7 +13,6 @@ from mentat.diff_context import annotate_file_message, parse_diff
 from mentat.errors import MentatError
 from mentat.git_handler import get_diff_for_file
 from mentat.interval import INTERVAL_FILE_END, Interval
-from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
 
@@ -166,8 +165,10 @@ class CodeFeature:
         return code_file_manager.get_file_checksum(self.path, self.interval)
 
     def count_tokens(self, model: str) -> int:
+        ctx = SESSION_CONTEXT.get()
+
         code_message = self.get_code_message()
-        return count_tokens("\n".join(code_message), model, full_message=False)
+        return ctx.llm_api_handler.spice.count_tokens("\n".join(code_message), model, is_message=False)
 
 
 async def count_feature_tokens(features: list[CodeFeature], model: str) -> list[int]:

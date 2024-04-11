@@ -81,6 +81,6 @@ def check_model():
         )
         if "gpt-3.5" not in model and "claude-3" not in model:
             ctx.stream.send(
-                "Warning: Mentat does not know how to calculate costs or context" " size for this model.",
+                "Warning: Mentat does not know how to calculate costs or context size for this model.",
                 style="warning",
             )

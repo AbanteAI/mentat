@@ -9,13 +9,13 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 from openai.types.chat.completion_create_params import ResponseFormat
+from spice.spice import get_model_from_name
 
 from mentat.code_feature import CodeFeature, get_code_message_from_features
 from mentat.errors import ModelError, PathValidationError, UserError
 from mentat.feature_filters.feature_filter import FeatureFilter
 from mentat.feature_filters.truncate_filter import TruncateFilter
 from mentat.include_files import get_code_features_for_path
-from mentat.llm_api_handler import count_tokens, model_context_size
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 
@@ -46,15 +46,19 @@ class LLMFeatureFilter(FeatureFilter):
 
         # Preselect as many features as fit in the context window
         model = config.feature_selection_model
-        context_size = model_context_size(model)
+        context_size = get_model_from_name(model).context_length
         if context_size is None:
             raise UserError("Unknown context size for feature selection model: " f"{config.feature_selection_model}")
         context_size = min(context_size, config.llm_feature_filter)
         system_prompt = read_prompt(self.feature_selection_prompt_path)
-        system_prompt_tokens = count_tokens(system_prompt, config.feature_selection_model, full_message=True)
-        user_prompt_tokens = count_tokens(self.user_prompt, model, full_message=True)
+        system_prompt_tokens = llm_api_handler.spice.count_tokens(
+            system_prompt, config.feature_selection_model, is_message=True
+        )
+        user_prompt_tokens = llm_api_handler.spice.count_tokens(self.user_prompt, model, is_message=True)
         expected_edits_tokens = (
-            0 if not self.expected_edits else count_tokens("\n".join(self.expected_edits), model, full_message=True)
+            0
+            if not self.expected_edits
+            else llm_api_handler.spice.count_tokens("\n".join(self.expected_edits), model, is_message=True)
         )
         preselect_max_tokens = (
             context_size - system_prompt_tokens - user_prompt_tokens - expected_edits_tokens - config.token_buffer

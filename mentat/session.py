@@ -23,7 +23,6 @@ from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
-from mentat.cost_tracker import CostTracker
 from mentat.ctags import ensure_ctags_installed
 from mentat.errors import MentatError, ReturnToUser, SessionExit, UserError
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
@@ -78,8 +77,6 @@ class Session:
         self.stream = stream
         self.stream.start()
 
-        cost_tracker = CostTracker()
-
         code_context = CodeContext(stream, cwd, diff, pr_diff, ignore_paths)
 
         code_file_manager = CodeFileManager()
@@ -98,7 +95,6 @@ class Session:
             cwd,
             stream,
             llm_api_handler,
-            cost_tracker,
             config,
             code_context,
             code_file_manager,
@@ -184,7 +180,7 @@ class Session:
                     if agent_handler.agent_enabled:
                         code_file_manager.history.push_edits()
                         stream.send(
-                            "Use /undo to undo all changes from agent mode since last" " input.",
+                            "Use /undo to undo all changes from agent mode since last input.",
                             style="success",
                         )
                     message = await collect_input_with_commands()

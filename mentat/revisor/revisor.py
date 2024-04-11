@@ -9,7 +9,6 @@ from openai.types.chat import (
 )
 
 from mentat.errors import MentatError
-from mentat.llm_api_handler import prompt_tokens
 from mentat.parsers.change_display_helper import get_lexer, highlight_text
 from mentat.parsers.file_edit import FileEdit
 from mentat.parsers.git_parser import GitParser
@@ -59,7 +58,9 @@ async def revise_edit(file_edit: FileEdit):
         user_message,
         ChatCompletionSystemMessageParam(content=f"Diff:\n{diff}", role="system"),
     ]
-    code_message = await ctx.code_context.get_code_message(prompt_tokens(messages, ctx.config.model))
+    code_message = await ctx.code_context.get_code_message(
+        ctx.llm_api_handler.spice.count_prompt_tokens(messages, ctx.config.model)
+    )
     messages.insert(1, ChatCompletionSystemMessageParam(content=code_message, role="system"))
 
     ctx.stream.send(
@@ -121,7 +122,7 @@ async def revise_edit(file_edit: FileEdit):
             for line in diff_diff:
                 send_formatted_string(line)
             ctx.stream.send("", delimiter=True)
-        ctx.cost_tracker.display_last_api_call()
+        ctx.llm_api_handler.display_cost_stats(response)
 
 
 async def revise_edits(file_edits: List[FileEdit]):

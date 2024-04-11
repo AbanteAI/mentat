@@ -187,7 +187,7 @@ test_sample = {
     "message_history": [],
     "message_prompt": "Add a sha1 function to utils.py",
     "message_edit": (
-        "I will add a new sha1 function to the `utils.py` file.\n\nSteps:\n1." " Add the sha1 function to `utils.py`."
+        "I will add a new sha1 function to the `utils.py` file.\n\nSteps:\n1. Add the sha1 function to `utils.py`."
     ),
     "context": ["mentat/utils.py"],
     "diff_edit": (

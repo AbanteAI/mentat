@@ -149,7 +149,7 @@ async def main():
             )
 
     if args.validate:
-        print(f"{sum([log['is_valid'] for log in logs])}/{len(logs)} samples passed" " validation.")
+        print(f"{sum([log['is_valid'] for log in logs])}/{len(logs)} samples passed validation.")
     elif args.finetune:
         # Dump all logs into a .jsonl file
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")

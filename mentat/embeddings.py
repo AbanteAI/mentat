@@ -1,11 +1,12 @@
+import logging
 from timeit import default_timer
 
 import chromadb
 from chromadb.api.types import Embeddable, EmbeddingFunction, Embeddings
+from spice.spice import get_model_from_name
 
 from mentat.code_feature import CodeFeature, count_feature_tokens
 from mentat.errors import MentatError
-from mentat.llm_api_handler import model_context_size, model_price_per_1000_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no
 from mentat.utils import mentat_dir_path
@@ -31,7 +32,7 @@ class MentatEmbeddingFunction(EmbeddingFunction[Embeddable]):
                 (batch + 1) * EMBEDDINGS_API_BATCH_SIZE,
             )
             response = llm_api_handler.call_embedding_api(input[i_start:i_end], config.embedding_model)
-            output += response
+            output += response.embeddings
         return output
 
 
@@ -82,14 +83,12 @@ async def get_feature_similarity_scores(
     session_context = SESSION_CONTEXT.get()
     stream = session_context.stream
     config = session_context.config
-    cost_tracker = session_context.cost_tracker
     embedding_model = session_context.config.embedding_model
 
-    max_model_tokens = model_context_size(config.embedding_model)
+    max_model_tokens = get_model_from_name(embedding_model).context_length
     if max_model_tokens is None:
         stream.send(
-            f"Warning: Could not determine context size for model {config.embedding_model}."
-            " Using default value of 8192.",
+            f"Warning: Could not determine context size for model {embedding_model}. Using default value of 8192.",
             style="warning",
         )
         max_model_tokens = 8192
@@ -119,16 +118,16 @@ async def get_feature_similarity_scores(
             embed_tokens.append(token)
 
     # If it costs more than $1, get confirmation from user.
-    cost = model_price_per_1000_tokens(embedding_model)
+    cost = get_model_from_name(embedding_model).input_cost
     if cost is None:
         stream.send(
             "Warning: Could not determine cost of embeddings. Continuing anyway.",
             style="warning",
         )
     else:
-        expected_cost = (sum(embed_tokens) / 1000) * cost[0]
-        if expected_cost > 1.0:
-            stream.send(f"Embedding {sum(embed_tokens)} tokens will cost ${cost[0]:.2f}." " Continue anyway?")
+        expected_cost = (sum(embed_tokens) * cost) / 1_000_000 / 100
+        if expected_cost > 1:
+            stream.send(f"Embedding {sum(embed_tokens)} tokens will cost ${expected_cost:.2f}. Continue anyway?")
             if not await ask_yes_no(default_yes=True):
                 stream.send("Ignoring embeddings for now.")
                 return [0.0 for _ in checksums]
@@ -138,12 +137,15 @@ async def get_feature_similarity_scores(
         start_time = default_timer()
         stream.send(None, channel="loading")
         collection.add(embed_checksums, embed_texts)
-        cost_tracker.log_embedding_call_stats(
-            sum(embed_tokens),
-            embedding_model,
-            default_timer() - start_time,
-        )
-        cost_tracker.display_last_api_call()
+        total_time = default_timer() - start_time
+
+        if cost is not None:
+            call_cost = (sum(embed_tokens) * cost) / 1_000_000 / 100
+
+            costs_logger = logging.getLogger("costs")
+            costs_logger.info(f"Cost: ${call_cost:.2f}")
+
+            stream.send(f"Embedding call time and cost: {total_time:.2f}s, ${call_cost:.2f}", style="info")
 
     # Get similarity scores
     stream.send(None, channel="loading", terminate=True)

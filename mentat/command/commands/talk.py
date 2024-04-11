@@ -75,9 +75,10 @@ class TalkCommand(Command, command_name="talk"):
                 await recorder.record()
             ctx.stream.send("Processing audio with whisper...")
             await asyncio.sleep(0.01)
-            transcript = await ctx.llm_api_handler.call_whisper_api(recorder.file)
-            ctx.stream.send(transcript, channel="default_prompt")
-            ctx.cost_tracker.log_whisper_call_stats(recorder.recording_time)
+            response = await ctx.llm_api_handler.call_whisper_api(recorder.file)
+            ctx.stream.send(response.text, channel="default_prompt")
+            if response.cost:
+                ctx.stream.send(f"Whisper audio length and cost: {response.input_length}s, ${response.cost / 100:.2f}")
 
     @override
     @classmethod

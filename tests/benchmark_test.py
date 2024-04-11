@@ -43,7 +43,7 @@ async def test_calculator_add_power(mock_collect_user_input):
     calculator_path = "scripts/calculator.py"
     results = await edit_file_and_run(
         mock_collect_user_input,
-        prompts=["Add power as a possible operation, raising the first arg to the power of" " the second"],
+        prompts=["Add power as a possible operation, raising the first arg to the power of the second"],
         context_file_paths=[calculator_path],
         main_file_path=calculator_path,
         argument_lists=[["power", "15", "3"]],
