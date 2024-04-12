@@ -2,19 +2,18 @@ import os
 from pathlib import Path
 from textwrap import dedent
 from unittest import TestCase
-from unittest.mock import AsyncMock
 
 import pytest
 
 from mentat.code_context import CodeContext
 from mentat.config import Config
-from mentat.feature_filters.default_filter import DefaultFilter
 from mentat.git_handler import get_non_gitignored_files
 from mentat.include_files import is_file_text_encoded
 from mentat.interval import Interval
 from tests.conftest import run_git_command
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_path_gitignoring(temp_testbed, mock_code_context):
     gitignore_path = ".gitignore"
@@ -47,6 +46,7 @@ async def test_path_gitignoring(temp_testbed, mock_code_context):
     case.assertListEqual(sorted(expected_file_paths), sorted(file_paths))
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_bracket_file(temp_testbed, mock_code_context):
     file_path_1 = Path("[file].tsx")
@@ -69,6 +69,7 @@ async def test_bracket_file(temp_testbed, mock_code_context):
     case.assertListEqual(sorted(expected_file_paths), sorted(file_paths))
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_config_glob_exclude(mocker, temp_testbed, mock_code_context):
     # Makes sure glob exclude config works
@@ -95,6 +96,7 @@ async def test_config_glob_exclude(mocker, temp_testbed, mock_code_context):
     assert Path(temp_testbed / directly_added_glob_excluded_path) in mock_code_context.include_files
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_glob_include(temp_testbed, mock_code_context):
     # Make sure glob include works
@@ -120,6 +122,7 @@ async def test_glob_include(temp_testbed, mock_code_context):
     assert os.path.join(temp_testbed, glob_include_path2) in file_paths
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_cli_glob_exclude(temp_testbed, mock_code_context):
     # Make sure cli glob exclude works and overrides regular include
@@ -140,6 +143,7 @@ async def test_cli_glob_exclude(temp_testbed, mock_code_context):
     assert os.path.join(temp_testbed, glob_exclude_path) not in file_paths
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_text_encoding_checking(temp_testbed, mock_session_context):
     # Makes sure we don't include non text encoded files, and we quit if user gives us one
@@ -168,6 +172,7 @@ async def test_text_encoding_checking(temp_testbed, mock_session_context):
     assert not code_context.include_files
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 @pytest.mark.clear_testbed
 async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
@@ -201,22 +206,40 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
 
     code_context = CodeContext(
         mock_session_context.stream,
-        mock_session_context.code_context.diff_context.git_root,
+        temp_testbed,
     )
+    await code_context.refresh_daemon()
     code_context.include("file_1.py")
     mock_session_context.config.auto_context_tokens = 8000
-    filter_mock = AsyncMock(side_effect=lambda features: features)
-    mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
 
-    async def _count_max_tokens_where(tokens_used: int) -> int:
-        code_message = await code_context.get_code_message(tokens_used, prompt="prompt")
-        return mock_session_context.llm_api_handler.spice.count_tokens(code_message, "gpt-4", is_message=True)
+    code_message = await code_context.get_code_message(0, prompt="prompt")
+    assert mock_session_context.llm_api_handler.spice.count_tokens(code_message, "gpt-4", is_message=True) == 95  # Code
+    assert (
+        code_message
+        == """\
+Code Files:
 
-    assert await _count_max_tokens_where(0) == 89  # Code
+file_1.py (search-result, user-included)
+1:def func_1(x, y):
+2:    return x + y
+3:
+4:def func_2():
+5:    return 3
+
+file_2.py (search-result)
+1:def func_3(a, b, c):
+2:    return a * b ** c
+3:
+4:def func_4(string):
+5:    print(string)
+"""
+    )
 
 
+@pytest.mark.ragdaemon
+@pytest.mark.asyncio
 @pytest.mark.clear_testbed
-def test_get_all_features(temp_testbed, mock_code_context):
+async def test_get_all_features(temp_testbed, mock_session_context):
     # Create a sample file
     path1 = Path(temp_testbed) / "sample_path1.py"
     path2 = Path(temp_testbed) / "sample_path2.py"
@@ -224,6 +247,12 @@ def test_get_all_features(temp_testbed, mock_code_context):
         file1.write("def sample_function():\n    pass\n")
     with open(path2, "w") as file2:
         file2.write("def sample_function():\n    pass\n")
+
+    mock_code_context = CodeContext(
+        mock_session_context.stream,
+        temp_testbed,
+    )
+    await mock_code_context.refresh_daemon()
 
     # Test without include_files
     features = mock_code_context.get_all_features()
@@ -244,12 +273,11 @@ def test_get_all_features(temp_testbed, mock_code_context):
     assert feature2b.interval.whole_file()
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_context):
     mock_session_context.config.auto_context_tokens = 8000
     mocker.patch.object(Config, "maximum_context", new=7000)
-    filter_mock = AsyncMock(side_effect=lambda features: features)
-    mocker.patch.object(DefaultFilter, "filter", side_effect=filter_mock)
     code_context = CodeContext(
         mock_session_context.stream,
         temp_testbed,
@@ -260,6 +288,8 @@ async def test_get_code_message_ignore(mocker, temp_testbed, mock_session_contex
     # Iterate through all files in temp_testbed; if they're not in the ignore
     # list, they should be in the code message.
     for file in get_non_gitignored_files(temp_testbed):
+        if str(file).startswith(".ragdaemon"):
+            continue
         abs_path = temp_testbed / file
         rel_path = abs_path.relative_to(temp_testbed).as_posix()
         if not is_file_text_encoded(abs_path) or "scripts" in rel_path or rel_path.endswith(".txt"):

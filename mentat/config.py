@@ -41,13 +41,6 @@ class Config:
         metadata={"auto_completions": [model.name for model in models if isinstance(model, TextModel)]},
     )
     provider: Optional[str] = attr.field(default=None, metadata={"auto_completions": ["openai", "anthropic", "azure"]})
-    feature_selection_model: str = attr.field(
-        default="gpt-4-1106-preview",
-        metadata={"auto_completions": [model.name for model in models if isinstance(model, TextModel)]},
-    )
-    feature_selection_provider: Optional[str] = attr.field(
-        default=None, metadata={"auto_completions": ["openai", "anthropic", "azure"]}
-    )
     embedding_model: str = attr.field(
         default="text-embedding-ada-002",
         metadata={"auto_completions": [model.name for model in models if isinstance(model, EmbeddingModel)]},
@@ -130,21 +123,6 @@ class Config:
                 " context. Adds this many tokens to context each request."
             ),
             "abbreviation": "a",
-            "const": 5000,
-        },
-        converter=int,
-        validator=validators.ge(0),  # pyright: ignore
-    )
-    llm_feature_filter: int = attr.field(  # pyright: ignore
-        default=0,
-        metadata={
-            "description": (
-                "Send this many tokens of auto-context-selected code files to an LLM"
-                " along with the user_prompt to post-select only files which are"
-                " relevant to the task. Post-files will then be sent to the LLM again"
-                " to respond to the user's prompt."
-            ),
-            "abbreviation": "l",
             "const": 5000,
         },
         converter=int,

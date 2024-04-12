@@ -101,6 +101,7 @@ async def test_save_command(temp_testbed, mock_collect_user_input):
     assert [str(calculator_script_path)] in (saved_code_context.values())
 
 
+@pytest.mark.ragdaemon  # Required to count loaded context tokens
 @pytest.mark.asyncio
 async def test_load_command_success(temp_testbed, mock_collect_user_input):
     scripts_dir = Path(temp_testbed) / "scripts"
@@ -155,7 +156,7 @@ async def test_load_command_file_not_found(temp_testbed, mock_collect_user_input
     session.start()
     await session.stream.recv(channel="client_exit")
 
-    assert "Context file not found" in session.stream.messages[1].data
+    assert any("Context file not found" in m.data for m in session.stream.messages)
 
 
 @pytest.mark.asyncio
@@ -174,7 +175,7 @@ async def test_load_command_invalid_json(temp_testbed, mock_collect_user_input):
     session = Session(cwd=temp_testbed)
     session.start()
     await session.stream.recv(channel="client_exit")
-    assert "Failed to parse context file" in session.stream.messages[1].data
+    assert any("Failed to parse context file" in m.data for m in session.stream.messages)
 
 
 @pytest.mark.asyncio
@@ -363,6 +364,7 @@ async def test_undo_all_command(temp_testbed, mock_collect_user_input, mock_call
     assert content == expected_content
 
 
+@pytest.mark.ragdaemon
 @pytest.mark.asyncio
 async def test_clear_command(temp_testbed, mock_collect_user_input, mock_call_llm_api):
     mock_collect_user_input.set_stream_messages(

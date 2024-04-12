@@ -39,26 +39,6 @@ If you want to use the whisper transcription on an OS besides macOS or Windows y
 
   sudo apt-get install libportaudio2
 
-In order to use auto context you will need to install ctags:
-
-Windows:
-
-.. code-block:: bash
-
-  choco install universal-ctags
-
-macOS:
-
-.. code-block:: bash
-
-  brew install universal-ctags
-
-Ubuntu:
-
-.. code-block:: bash
-
-  sudo apt install universal-ctags
-
 Basic Usage
 -----------
 

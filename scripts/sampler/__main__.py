@@ -10,10 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from add_context import add_context
 from finetune import generate_finetune
-from remove_context import remove_context
-from spice import Spice
 from validate import validate_sample
 
 from mentat.sampler.sample import Sample
@@ -50,13 +47,6 @@ async def main():
         help="Validate samples conform to spec",
     )
     parser.add_argument("--finetune", "-f", action="store_true", help="Generate fine-tuning examples")
-    parser.add_argument("--add-context", "-a", action="store_true", help="Add extra context to samples")
-    parser.add_argument(
-        "--remove-context",
-        "-r",
-        action="store_true",
-        help="Remove context from samples",
-    )
     args = parser.parse_args()
     sample_files = []
     if args.sample_ids:
@@ -81,11 +71,6 @@ async def main():
         except Exception as e:
             warn(f"Error loading sample {sample_file}: {e}")
             continue
-        if (args.add_context or args.remove_context) and (
-            "[ADDED CONTEXT]" in sample.title or "[REMOVED CONTEXT]" in sample.title
-        ):
-            warn(f"Skipping {sample.id[:8]}: has already been modified.")
-            continue
         if args.validate:
             is_valid, reason = await validate_sample(sample)
             status = "\033[92mPASSED\033[0m" if is_valid else f"\033[91mFAILED: {reason}\033[0m"
@@ -104,26 +89,6 @@ async def main():
                 logs.append(example)
             except Exception as e:
                 warn(f"Error generating finetune example for sample {sample.id[:8]}: {e}")
-        elif args.add_context:
-            try:
-                new_sample = await add_context(sample)
-                sample_file = SAMPLES_DIR / f"sample_{new_sample.id}.json"
-                new_sample.save(sample_file)
-                print(f"Generated new sample with extra context: {sample_file}")
-                logs.append({"id": new_sample.id, "prototype_id": sample.id})
-            except Exception as e:
-                warn(f"Error adding extra context to sample {sample.id[:8]}: {e}")
-        elif args.remove_context:
-            if not sample.context or len(sample.context) == 1:
-                warn(f"Skipping {sample.id[:8]}: no context to remove.")
-                continue
-            try:
-                new_sample = await remove_context(sample)
-                new_sample.save(SAMPLES_DIR / f"sample_{new_sample.id}.json")
-                print(f"Generated new sample with context removed: {sample_file}")
-                logs.append({"id": new_sample.id, "prototype_id": sample.id})
-            except Exception as e:
-                warn(f"Error removing context from sample {sample.id[:8]}: {e}")
         else:
             print(f"Running sample {sample.id[:8]}")
             print(f"  Prompt: {sample.message_prompt}")
@@ -161,10 +126,6 @@ async def main():
                 del log["tokens"]
                 f.write(json.dumps(log) + "\n")
         print(f"{len(logs)} fine-tuning examples ({tokens} tokens) saved to {fname}.")
-    elif args.add_context:
-        print(f"{len(logs)} samples with extra context generated.")
-    elif args.remove_context:
-        print(f"{len(logs)} samples with context removed generated.")
 
 
 if __name__ == "__main__":

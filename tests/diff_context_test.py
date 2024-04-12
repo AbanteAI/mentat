@@ -67,23 +67,14 @@ def test_diff_context_default(temp_testbed, git_history, mock_session_context):
         mock_session_context.stream,
         temp_testbed,
     )
-    assert diff_context.target == "HEAD"
-    assert diff_context.name == "HEAD (last commit)"
+    assert diff_context.target == ""
+    assert diff_context.name == "index (last commit)"
     assert diff_context.diff_files() == []
 
     # DiffContext.files (property): return git-tracked files with active changes
     _update_ops(temp_testbed, "commit5")
     diff_context._diff_files = None  # This is usually cached
     assert diff_context.diff_files() == [abs_path]
-
-    # DiffContext.annotate_file_message(): modify file_message with diff
-    file_message = _get_file_message(abs_path)
-    annotated_message = diff_context.annotate_file_message(abs_path, file_message)
-    expected = file_message[:-1] + [
-        "14:-    return commit3",
-        "14:+    return commit5",
-    ]
-    assert annotated_message == expected
 
 
 @pytest.mark.asyncio
@@ -101,14 +92,6 @@ async def test_diff_context_commit(temp_testbed, git_history, mock_session_conte
     assert diff_context.name == f"{last_commit[:8]}: add testbed"
     assert diff_context.diff_files() == [abs_path]
 
-    file_message = _get_file_message(abs_path)
-    annotated_message = diff_context.annotate_file_message(abs_path, file_message)
-    expected = file_message[:-1] + [
-        "14:-    return a / b",
-        "14:+    return commit3",
-    ]
-    assert annotated_message == expected
-
 
 @pytest.mark.asyncio
 async def test_diff_context_branch(temp_testbed, git_history, mock_session_context):
@@ -124,14 +107,6 @@ async def test_diff_context_branch(temp_testbed, git_history, mock_session_conte
     assert diff_context.name.endswith(": commit4")
     assert diff_context.diff_files() == [abs_path]
 
-    file_message = _get_file_message(abs_path)
-    annotated_message = diff_context.annotate_file_message(abs_path, file_message)
-    expected = file_message[:-1] + [
-        "14:-    return commit4",
-        "14:+    return commit3",
-    ]
-    assert annotated_message == expected
-
 
 @pytest.mark.asyncio
 async def test_diff_context_relative(temp_testbed, git_history, mock_session_context):
@@ -146,14 +121,6 @@ async def test_diff_context_relative(temp_testbed, git_history, mock_session_con
     assert diff_context.name.startswith("HEAD~2: ")
     assert diff_context.name.endswith(": add testbed")
     assert diff_context.diff_files() == [abs_path]
-
-    file_message = _get_file_message(abs_path)
-    annotated_message = diff_context.annotate_file_message(abs_path, file_message)
-    expected = file_message[:-1] + [
-        "14:-    return a / b",
-        "14:+    return commit3",
-    ]
-    assert annotated_message == expected
 
 
 @pytest.mark.asyncio

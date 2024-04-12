@@ -1,35 +1,5 @@
-from textwrap import dedent
-
-from mentat.code_feature import (
-    CodeFeature,
-    get_consolidated_feature_refs,
-    split_file_into_intervals,
-)
+from mentat.code_feature import CodeFeature, get_consolidated_feature_refs
 from mentat.interval import Interval
-
-
-def test_split_file_into_intervals(temp_testbed, mock_session_context):
-    with open("file_1.py", "w") as f:
-        f.write(
-            dedent(
-                """\
-            def func_1(x, y):
-                return x + y
-            
-            def func_2():
-                return 3
-            """
-            )
-        )
-    code_feature = CodeFeature(mock_session_context.cwd / "file_1.py")
-    interval_features = split_file_into_intervals(code_feature, 1)
-
-    assert len(interval_features) == 2
-
-    interval_1 = interval_features[0].interval
-    interval_2 = interval_features[1].interval
-    assert (interval_1.start, interval_1.end) == (1, 4)
-    assert (interval_2.start, interval_2.end) == (4, 6)
 
 
 def test_ref_method(temp_testbed):

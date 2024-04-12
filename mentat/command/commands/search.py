@@ -2,6 +2,7 @@ from typing import List, Set
 
 from typing_extensions import override
 
+from mentat.code_feature import count_feature_tokens
 from mentat.command.command import Command, CommandArgument
 from mentat.errors import UserError
 from mentat.session_context import SESSION_CONTEXT
@@ -60,7 +61,7 @@ class SearchCommand(Command, command_name="search"):
             file_interval = feature.interval_string()
             stream.send(file_interval, color="bright_cyan", end="")
 
-            tokens = feature.count_tokens(config.model)
+            tokens = count_feature_tokens(feature, config.model)
             cumulative_tokens += tokens
             tokens_str = f"  ({tokens} tokens)"
             stream.send(tokens_str, color="yellow")

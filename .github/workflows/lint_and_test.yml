@@ -43,15 +43,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "16"
-      - name: Install universal-ctags (Ubuntu)
-        if: runner.os == 'Linux'
-        run: sudo apt update && sudo apt install universal-ctags
-      - name: Install universal-ctags (OSX)
-        if: runner.os == 'macOS'
-        run: brew update && brew install universal-ctags
-      - name: Install universal-ctags (Windows)
-        if: runner.os == 'Windows'
-        run: choco install universal-ctags
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:

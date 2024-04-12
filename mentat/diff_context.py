@@ -2,9 +2,6 @@ import subprocess
 from pathlib import Path
 from typing import List, Literal, Optional
 
-import attr
-
-from mentat.errors import MentatError
 from mentat.git_handler import (
     check_head_exists,
     get_diff_for_file,
@@ -13,84 +10,14 @@ from mentat.git_handler import (
     get_treeish_metadata,
     get_untracked_files,
 )
-from mentat.interval import Interval
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 
 
-@attr.define(frozen=True)
-class DiffAnnotation(Interval):
-    start: int | float = attr.field()
-    message: List[str] = attr.field()
-    end: int | float = attr.field(
-        default=attr.Factory(
-            lambda self: self.start + sum(bool(line.startswith("-")) for line in self.message),
-            takes_self=True,
-        )
-    )
-
-
-def parse_diff(diff: str) -> list[DiffAnnotation]:
-    """Parse diff into a list of annotations."""
-    annotations: list[DiffAnnotation] = []
-    active_annotation: Optional[DiffAnnotation] = None
-    lines = diff.splitlines()
-    for line in lines:
-        if line.startswith(("---", "+++", "//", "diff", "index")):
-            continue
-        elif line.startswith("@@"):
-            if active_annotation:
-                annotations.append(active_annotation)
-            _new_index = line.split(" ")[2]
-            if "," in _new_index:
-                new_start = _new_index[1:].split(",")[0]
-            else:
-                new_start = _new_index[1:]
-            active_annotation = DiffAnnotation(start=int(new_start), message=[])
-        elif line.startswith(("+", "-")):
-            if not active_annotation:
-                raise MentatError("Invalid diff")
-            active_annotation.message.append(line)
-    if active_annotation:
-        annotations.append(active_annotation)
-    annotations.sort(key=lambda a: a.start)
-    return annotations
-
-
-def annotate_file_message(code_message: list[str], annotations: list[DiffAnnotation]) -> list[str]:
-    """Return the code_message with annotations inserted."""
-    active_index = 0
-    annotated_message: list[str] = []
-    for annotation in annotations:
-        # Fill-in lines between annotations
-        if active_index < annotation.start:
-            unaffected_lines = code_message[active_index : annotation.start]
-            annotated_message += unaffected_lines
-        active_index = annotation.start
-        if annotation.start == 0:
-            # Make sure the PATH stays on line 1
-            annotated_message.append(code_message[0])
-            active_index += 1
-        i_minus = None
-        for line in annotation.message:
-            sign = line[0]
-            if sign == "+":
-                # Add '+' lines in place of code_message lines
-                annotated_message.append(f"{active_index}:{line}")
-                active_index += 1
-                i_minus = None
-            elif sign == "-":
-                # Insert '-' lines at the point they were removed
-                i_minus = 0 if i_minus is None else i_minus
-                annotated_message.append(f"{annotation.start + i_minus}:{line}")
-                i_minus += 1
-    if active_index < len(code_message):
-        annotated_message += code_message[active_index:]
-
-    return annotated_message
-
-
 class DiffContext:
+    target: str = ""
+    name: str = "index (last commit)"
+
     def __init__(
         self,
         stream: SessionStream,
@@ -114,8 +41,6 @@ class DiffContext:
 
         target = diff or pr_diff
         if not target:
-            self.target = "HEAD"
-            self.name = "HEAD (last commit)"
             return
 
         name = ""
@@ -123,13 +48,11 @@ class DiffContext:
         if treeish_type is None:
             stream.send(f"Invalid treeish: {target}", style="failure")
             stream.send("Disabling diff and pr-diff.", style="warning")
-            self.target = "HEAD"
-            self.name = "HEAD (last commit)"
             return
 
         if treeish_type == "branch":
             name += f"Branch {target}: "
-        elif treeish_type == "relative":
+        elif treeish_type in {"relative"}:
             name += f"{target}: "
 
         if pr_diff:
@@ -141,15 +64,18 @@ class DiffContext:
                     f"Cannot identify merge base between HEAD and {pr_diff}. Disabling pr-diff.",
                     style="warning",
                 )
-                self.target = "HEAD"
-                self.name = "HEAD (last commit)"
                 return
 
-        meta = get_treeish_metadata(self.git_root, target)
-        name += f'{meta["hexsha"][:8]}: {meta["summary"]}'
-        if target == "HEAD":
-            name = "HEAD (last commit)"
+        def _get_treeish_metadata(git_root: Path, _target: str):
+            meta = get_treeish_metadata(git_root, _target)
+            return f'{meta["hexsha"][:8]}: {meta["summary"]}'
 
+        if not target:
+            return
+        elif treeish_type == "compare":
+            name += "Comparing " + ", ".join(_get_treeish_metadata(self.git_root, part) for part in target.split(" "))
+        else:
+            name += _get_treeish_metadata(self.git_root, target)
         self.target = target
         self.name = name
 
@@ -182,12 +108,6 @@ class DiffContext:
             self._diff_files = [(ctx.cwd / f).resolve() for f in get_files_in_diff(self.target)]
             self._untracked_files = [(ctx.cwd / f).resolve() for f in get_untracked_files(ctx.cwd)]
 
-    def get_annotations(self, rel_path: Path) -> list[DiffAnnotation]:
-        if not self.git_root:
-            return []
-        diff = get_diff_for_file(self.target, rel_path)
-        return parse_diff(diff)
-
     def get_display_context(self) -> Optional[str]:
         if not self.git_root:
             return None
@@ -202,15 +122,8 @@ class DiffContext:
             num_lines += len([line for line in diff_lines if line.startswith(("+ ", "- "))])
         return f" {self.name} | {num_files} files | {num_lines} lines"
 
-    def annotate_file_message(self, rel_path: Path, file_message: list[str]) -> list[str]:
-        """Return file_message annotated with active diff."""
-        if not self.git_root:
-            return []
-        annotations = self.get_annotations(rel_path)
-        return annotate_file_message(file_message, annotations)
 
-
-TreeishType = Literal["commit", "branch", "relative"]
+TreeishType = Literal["commit", "branch", "relative", "compare"]
 
 
 def _git_command(git_root: Path, *args: str) -> str | None:
@@ -221,6 +134,13 @@ def _git_command(git_root: Path, *args: str) -> str | None:
 
 
 def _get_treeish_type(git_root: Path, treeish: str) -> TreeishType | None:
+    if " " in treeish:
+        parts = treeish.split(" ")
+        types = [_get_treeish_type(git_root, part) for part in parts]
+        if not all(types):
+            return None
+        return "compare"
+
     object_type = _git_command(git_root, "cat-file", "-t", treeish)
 
     if not object_type:

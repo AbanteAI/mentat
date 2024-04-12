@@ -23,7 +23,6 @@ from mentat.code_edit_feedback import get_user_feedback_on_edits
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config
 from mentat.conversation import Conversation
-from mentat.ctags import ensure_ctags_installed
 from mentat.errors import MentatError, ReturnToUser, SessionExit, UserError
 from mentat.llm_api_handler import LlmApiHandler, is_test_environment
 from mentat.logging_config import setup_logging
@@ -163,11 +162,11 @@ class Session:
         code_file_manager = session_context.code_file_manager
         agent_handler = session_context.agent_handler
 
-        # check early for ctags so we can fail fast
-        if session_context.config.auto_context_tokens > 0:
-            ensure_ctags_installed()
-
         await session_context.llm_api_handler.initialize_client()
+
+        print("Scanning codebase for updates...")
+        await code_context.refresh_daemon()
+
         check_model()
 
         need_user_request = True

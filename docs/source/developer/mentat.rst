@@ -8,7 +8,6 @@ Subpackages
    :maxdepth: 4
 
    mentat.command
-   mentat.feature_filters
    mentat.parsers
    mentat.prompts
    mentat.python_client
@@ -98,14 +97,6 @@ mentat.conversation module
    :undoc-members:
    :show-inheritance:
 
-mentat.ctags module
--------------------
-
-.. automodule:: mentat.ctags
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 mentat.diff\_context module
 ---------------------------
 
@@ -118,14 +109,6 @@ mentat.edit\_history module
 ---------------------------
 
 .. automodule:: mentat.edit_history
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mentat.embeddings module
-------------------------
-
-.. automodule:: mentat.embeddings
    :members:
    :undoc-members:
    :show-inheritance:
