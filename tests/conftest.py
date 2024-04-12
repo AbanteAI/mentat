@@ -296,3 +296,8 @@ def mock_user_config(mocker):
 @pytest.fixture(autouse=True)
 def mock_sleep_time(mocker):
     mocker.patch.object(StreamingPrinter, "sleep_time", new=lambda self: 0)
+
+
+@pytest.fixture(autouse=True)
+def mock_api_key():
+    os.environ["OPENAI_API_KEY"] = "fake_testing_key"
