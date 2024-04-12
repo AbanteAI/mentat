@@ -76,7 +76,7 @@ class CodeContext:
                 annotators=annotators,
                 verbose=False,
                 graph_path=graphs_dir / f"ragdaemon-{cwd.name}.json",
-                spice_client=getattr(llm_api_handler, "spice_client", None),
+                spice_client=llm_api_handler.spice,
             )
         await self.daemon.update()
 
@@ -210,10 +210,10 @@ class CodeContext:
         cwd = session_context.cwd
 
         all_features = list[CodeFeature]()
-        for _, data in self.daemon.graph.nodes(data=True):  # pyright: ignore
-            if data is None or "type" not in data or "ref" not in data or data["type"] not in {"file", "chunk"}:
+        for _, data in self.daemon.graph.nodes(data=True):  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            if data is None or "type" not in data or "ref" not in data or data["type"] not in {"file", "chunk"}:  # pyright: ignore[reportUnnecessaryComparison]
                 continue
-            path, interval = split_intervals_from_path(data["ref"])  # pyright: ignore
+            path, interval = split_intervals_from_path(data["ref"])
             intervals = parse_intervals(interval)
             if not intervals:
                 all_features.append(CodeFeature(cwd / path))

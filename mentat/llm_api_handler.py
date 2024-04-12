@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 from openai.types.chat.completion_create_params import ResponseFormat
 from spice import EmbeddingResponse, Spice, SpiceMessage, SpiceResponse, StreamingSpiceResponse, TranscriptionResponse
 from spice.errors import APIConnectionError, NoAPIKeyError
-from spice.models import WHISPER_1
+from spice.models import TEXT_EMBEDDING_ADA_002, WHISPER_1
 from spice.providers import OPEN_AI
 from spice.spice import UnknownModelError, get_model_from_name
 
@@ -134,7 +134,8 @@ class LlmApiHandler:
     """Used for any functions that require calling the external LLM API"""
 
     def __init__(self):
-        self.spice = Spice()
+        # Ragdaemon accesses the default_embeddings_model and assumes it isn't None, so we have to set it for now. TODO: Remove this
+        self.spice = Spice(default_embeddings_model=TEXT_EMBEDDING_ADA_002)
 
     async def initialize_client(self):
         ctx = SESSION_CONTEXT.get()
