@@ -227,7 +227,7 @@ def get_parser():
         "-g",
         nargs="*",
         default=[],
-        help=("List of file paths, directory paths, or glob patterns to ignore in" " auto-context"),
+        help=("List of file paths, directory paths, or glob patterns to ignore in auto-context"),
     )
     parser.add_argument(
         "--diff",

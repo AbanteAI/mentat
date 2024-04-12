@@ -437,7 +437,7 @@ async def test_screenshot_command(mocker):
     stream = session_context.stream
     conversation = session_context.conversation
 
-    assert config.model != "gpt-4-vision-preview"
+    assert config.model != "gpt-4-turbo"
 
     mock_vision_manager.screenshot.return_value = "fake_image_data"
 
@@ -445,7 +445,7 @@ async def test_screenshot_command(mocker):
     await screenshot_command.apply("fake_path")
 
     mock_vision_manager.screenshot.assert_called_once_with("fake_path")
-    assert config.model == "gpt-4-vision-preview"
+    assert config.model == "gpt-4-turbo"
     assert stream.messages[-1].data == "Screenshot taken for: fake_path."
     assert conversation._messages[-1] == {
         "role": "user",

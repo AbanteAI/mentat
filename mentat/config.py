@@ -8,9 +8,10 @@ from typing import Optional
 
 import attr
 from attr import converters, validators
+from spice.models import TextModel, models
+from spice.spice import EmbeddingModel
 
 from mentat.git_handler import get_git_root_for_path
-from mentat.llm_api_handler import known_models
 from mentat.parsers.parser import Parser
 from mentat.parsers.parser_map import parser_map
 from mentat.session_context import SESSION_CONTEXT
@@ -37,12 +38,12 @@ class Config:
     # Model specific settings
     model: str = attr.field(
         default="gpt-4-0125-preview",
-        metadata={"auto_completions": list(known_models.keys())},
+        metadata={"auto_completions": [model.name for model in models if isinstance(model, TextModel)]},
     )
     provider: Optional[str] = attr.field(default=None, metadata={"auto_completions": ["openai", "anthropic", "azure"]})
     embedding_model: str = attr.field(
         default="text-embedding-ada-002",
-        metadata={"auto_completions": [model.name for model in known_models.values() if model.embedding_model]},
+        metadata={"auto_completions": [model.name for model in models if isinstance(model, EmbeddingModel)]},
     )
     embedding_provider: Optional[str] = attr.field(
         default=None, metadata={"auto_completions": ["openai", "anthropic", "azure"]}
@@ -64,14 +65,14 @@ class Config:
     token_buffer: int = attr.field(
         default=1000,
         metadata={
-            "description": ("The amount of tokens to always be reserved as a buffer for user and" " model messages."),
+            "description": ("The amount of tokens to always be reserved as a buffer for user and model messages."),
         },
     )
     parser: Parser = attr.field(  # pyright: ignore
         default="block",
         metadata={
             "description": (
-                "The format for the LLM to write code in. You probably don't want to" " mess with this setting."
+                "The format for the LLM to write code in. You probably don't want to mess with this setting."
             ),
             "auto_completions": list(parser_map.keys()),
         },
@@ -213,7 +214,7 @@ class Config:
                 try:
                     config = json.load(config_file)
                 except JSONDecodeError:
-                    self.error(f"Warning: Config {path} contains invalid json; ignoring user" " configuration file")
+                    self.error(f"Warning: Config {path} contains invalid json; ignoring user configuration file")
                     return
             for field in config:
                 if hasattr(self, field):

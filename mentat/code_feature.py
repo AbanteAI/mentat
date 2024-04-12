@@ -9,7 +9,6 @@ from ragdaemon.utils import get_document
 
 from mentat.errors import MentatError
 from mentat.interval import INTERVAL_FILE_END, Interval
-from mentat.llm_api_handler import count_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import get_relative_path
 
@@ -61,10 +60,12 @@ class CodeFeature:
 
 
 def count_feature_tokens(feature: CodeFeature, model: str) -> int:
-    cwd = SESSION_CONTEXT.get().cwd
+    ctx = SESSION_CONTEXT.get()
+
+    cwd = ctx.cwd
     ref = feature.__str__(cwd)
     document = get_document(ref, cwd)
-    return count_tokens(document, model, full_message=False)
+    return ctx.llm_api_handler.spice.count_tokens(document, model, is_message=False)
 
 
 def get_consolidated_feature_refs(features: list[CodeFeature]) -> list[str]:

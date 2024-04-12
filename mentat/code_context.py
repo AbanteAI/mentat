@@ -16,7 +16,7 @@ from mentat.include_files import (
     validate_and_format_path,
 )
 from mentat.interval import parse_intervals, split_intervals_from_path
-from mentat.llm_api_handler import count_tokens, get_max_tokens
+from mentat.llm_api_handler import get_max_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import get_relative_path, mentat_dir_path
@@ -60,6 +60,7 @@ class CodeContext:
 
     async def refresh_daemon(self):
         """Call before interacting with context to ensure daemon is up to date."""
+
         if not hasattr(self, "daemon"):
             # Daemon is initialized after setup because it needs the embedding_provider.
             ctx = SESSION_CONTEXT.get()
@@ -76,7 +77,9 @@ class CodeContext:
                 annotators=annotators,
                 verbose=False,
                 graph_path=graphs_dir / f"ragdaemon-{cwd.name}.json",
-                spice_client=getattr(llm_api_handler, "spice_client", None),
+                spice_client=llm_api_handler.spice,
+                model=ctx.config.embedding_model,
+                provider=ctx.config.embedding_provider,
             )
         await self.daemon.update()
 
@@ -96,7 +99,7 @@ class CodeContext:
 
         total_tokens = await ctx.conversation.count_tokens(include_code_message=True)
 
-        total_cost = ctx.cost_tracker.total_cost
+        total_cost = ctx.llm_api_handler.spice.total_cost
 
         data = ContextStreamMessage(
             cwd=str(ctx.cwd),
@@ -126,6 +129,7 @@ class CodeContext:
         """
         session_context = SESSION_CONTEXT.get()
         config = session_context.config
+        llm_api_handler = session_context.llm_api_handler
         model = config.model
         cwd = session_context.cwd
         code_file_manager = session_context.code_file_manager
@@ -164,10 +168,10 @@ class CodeContext:
 
         # If auto-context, replace the context_builder with a new one
         if config.auto_context_tokens > 0 and prompt:
-            meta_tokens = count_tokens("\n".join(header_lines), model, full_message=True)
+            meta_tokens = llm_api_handler.spice.count_tokens("\n".join(header_lines), model, is_message=True)
 
             include_files_message = context_builder.render()
-            include_files_tokens = count_tokens(include_files_message, model, full_message=False)
+            include_files_tokens = llm_api_handler.spice.count_tokens(include_files_message, model, is_message=False)
 
             tokens_used = prompt_tokens + meta_tokens + include_files_tokens
             auto_tokens = min(
@@ -209,10 +213,10 @@ class CodeContext:
         cwd = session_context.cwd
 
         all_features = list[CodeFeature]()
-        for _, data in self.daemon.graph.nodes(data=True):  # pyright: ignore
-            if data is None or "type" not in data or "ref" not in data or data["type"] not in {"file", "chunk"}:
+        for _, data in self.daemon.graph.nodes(data=True):  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            if data is None or "type" not in data or "ref" not in data or data["type"] not in {"file", "chunk"}:  # pyright: ignore[reportUnnecessaryComparison]
                 continue
-            path, interval = split_intervals_from_path(data["ref"])  # pyright: ignore
+            path, interval = split_intervals_from_path(data["ref"])
             intervals = parse_intervals(interval)
             if not intervals:
                 all_features.append(CodeFeature(cwd / path))

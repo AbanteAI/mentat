@@ -78,7 +78,7 @@ class InvalidCommand(Command, command_name=None):
         stream = session_context.stream
 
         stream.send(
-            f"{self.invalid_name} is not a valid command. Use /help to see a list of" " all valid commands",
+            f"{self.invalid_name} is not a valid command. Use /help to see a list of all valid commands",
             style="warning",
         )
 

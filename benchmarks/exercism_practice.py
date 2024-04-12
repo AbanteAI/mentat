@@ -114,13 +114,12 @@ async def run_exercise(problem_dir, language="python", max_iterations=2):
     messages = client.get_conversation().literal_messages
     await client.shutdown()
     passed = exercise_runner.passed()
-    cost_tracker = SESSION_CONTEXT.get().cost_tracker
     result = BenchmarkResult(
         iterations=iterations,
         passed=passed,
         name=exercise_runner.name,
-        tokens=cost_tracker.total_tokens,
-        cost=cost_tracker.total_cost,
+        tokens=None,
+        cost=SESSION_CONTEXT.get().llm_api_handler.spice.total_cost / 100,
         transcript={"id": problem_dir, "messages": messages},
     )
     if had_error:

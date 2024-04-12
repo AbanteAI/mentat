@@ -13,7 +13,6 @@ from typing import Any
 from finetune import generate_finetune
 from validate import validate_sample
 
-from mentat.llm_api_handler import count_tokens, prompt_tokens
 from mentat.sampler.sample import Sample
 from mentat.utils import mentat_dir_path
 
@@ -80,11 +79,11 @@ async def main():
         elif args.finetune:
             try:
                 example = await generate_finetune(sample)
-                # Toktoken only includes encoding for openAI models, so this isn't always correct
+                spice = Spice()
                 if "messages" in example:
-                    tokens = prompt_tokens(example["messages"], "gpt-4")
+                    tokens = spice.count_prompt_tokens(example["messages"], "gpt-4")
                 elif "text" in example:
-                    tokens = count_tokens(example["text"], "gpt-4", full_message=False)
+                    tokens = spice.count_tokens(example["text"], "gpt-4", is_message=False)
                 example["tokens"] = tokens
                 print("Generated finetune example" f" {sample.id[:8]} ({example['tokens']} tokens)")
                 logs.append(example)
@@ -115,7 +114,7 @@ async def main():
             )
 
     if args.validate:
-        print(f"{sum([log['is_valid'] for log in logs])}/{len(logs)} samples passed" " validation.")
+        print(f"{sum([log['is_valid'] for log in logs])}/{len(logs)} samples passed validation.")
     elif args.finetune:
         # Dump all logs into a .jsonl file
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")

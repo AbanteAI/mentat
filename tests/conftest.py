@@ -19,7 +19,6 @@ from mentat.code_context import CodeContext
 from mentat.code_file_manager import CodeFileManager
 from mentat.config import Config, config_file_name
 from mentat.conversation import Conversation
-from mentat.cost_tracker import CostTracker
 from mentat.llm_api_handler import LlmApiHandler
 from mentat.parsers.streaming_printer import StreamingPrinter
 from mentat.sampler.sampler import Sampler
@@ -171,8 +170,6 @@ def mock_session_context(temp_testbed):
     """
     stream = SessionStream()
 
-    cost_tracker = CostTracker()
-
     config = Config()
 
     llm_api_handler = LlmApiHandler()
@@ -194,7 +191,6 @@ def mock_session_context(temp_testbed):
         Path.cwd(),
         stream,
         llm_api_handler,
-        cost_tracker,
         config,
         code_context,
         code_file_manager,
@@ -300,3 +296,8 @@ def mock_user_config(mocker):
 @pytest.fixture(autouse=True)
 def mock_sleep_time(mocker):
     mocker.patch.object(StreamingPrinter, "sleep_time", new=lambda self: 0)
+
+
+@pytest.fixture(autouse=True)
+def mock_api_key():
+    os.environ["OPENAI_API_KEY"] = "fake_testing_key"

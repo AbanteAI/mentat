@@ -28,7 +28,7 @@ class ConfigCommand(Command, command_name="config"):
                     value = args[1]
                     if attr.fields_dict(type(config))[setting].metadata.get("no_midsession_change"):
                         stream.send(
-                            f"Cannot change {setting} mid-session. Please restart" " Mentat to change this setting.",
+                            f"Cannot change {setting} mid-session. Please restart Mentat to change this setting.",
                             style="warning",
                         )
                         return

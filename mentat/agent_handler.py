@@ -57,11 +57,11 @@ class AgentHandler:
             self.agent_file_message += f"{path}\n\n{file_contents}"
 
         ctx.stream.send(
-            "The model has chosen these files to help it determine how to test its" " changes:",
+            "The model has chosen these files to help it determine how to test its changes:",
             style="info",
         )
         ctx.stream.send("\n".join(str(path) for path in paths))
-        ctx.cost_tracker.display_last_api_call()
+        ctx.llm_api_handler.display_cost_stats(response)
 
         messages.append(ChatCompletionAssistantMessageParam(role="assistant", content=content))
         ctx.conversation.add_transcript_message(
@@ -82,7 +82,7 @@ class AgentHandler:
         try:
             # TODO: Should this even be a separate call or should we collect commands in the edit call?
             response = await ctx.llm_api_handler.call_llm_api(messages, model, ctx.config.provider, False)
-            ctx.cost_tracker.display_last_api_call()
+            ctx.llm_api_handler.display_cost_stats(response)
         except BadRequestError as e:
             ctx.stream.send(f"Error accessing OpenAI API: {e.message}", style="error")
             return []
@@ -113,7 +113,7 @@ class AgentHandler:
         run_commands = await ask_yes_no(default_yes=True)
         if not run_commands:
             ctx.stream.send(
-                "Enter a new-line separated list of commands to run, or nothing to" " return control to the user:",
+                "Enter a new-line separated list of commands to run, or nothing to return control to the user:",
                 style="info",
             )
             commands: list[str] = (await collect_user_input()).data.strip().splitlines()

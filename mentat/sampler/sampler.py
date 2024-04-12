@@ -96,7 +96,7 @@ class Sampler:
                 ).strip()
             except subprocess.CalledProcessError:
                 pass
-            stream.send(f"Found repo URL: {remote_url}. Press 'ENTER' to accept, or enter a new" " URL.")
+            stream.send(f"Found repo URL: {remote_url}. Press 'ENTER' to accept, or enter a new URL.")
             response = (await collect_user_input()).data.strip()
             if response == "y":
                 repo = remote_url

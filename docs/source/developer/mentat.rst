@@ -97,14 +97,6 @@ mentat.conversation module
    :undoc-members:
    :show-inheritance:
 
-mentat.cost\_tracker module
----------------------------
-
-.. automodule:: mentat.cost_tracker
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 mentat.diff\_context module
 ---------------------------
 

@@ -33,7 +33,7 @@ class DiffContext:
             # TODO: Once broadcast queue's unread messages and/or config is moved to client,
             # determine if this should quit or not
             stream.send(
-                "Cannot specify more than one type of diff. Disabling diff and" " pr-diff.",
+                "Cannot specify more than one type of diff. Disabling diff and pr-diff.",
                 style="warning",
             )
             diff = None
@@ -61,7 +61,7 @@ class DiffContext:
             if not target:
                 # TODO: Same as above todo
                 stream.send(
-                    f"Cannot identify merge base between HEAD and {pr_diff}. Disabling" " pr-diff.",
+                    f"Cannot identify merge base between HEAD and {pr_diff}. Disabling pr-diff.",
                     style="warning",
                 )
                 return

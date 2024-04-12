@@ -129,8 +129,8 @@ class AutoCompleter:
         lex.whitespace_split = True
         for _ in range(num_words - 1):
             lex.get_token()
-        remaining = list(lex.instream)
-        return 0 if not remaining else -len(remaining[0])
+        remaining = list(lex.instream)  # pyright: ignore
+        return 0 if not remaining else -len(remaining[0])  # pyright: ignore
 
     def _command_argument_completion(self, buffer: str) -> List[Completion]:
         if any(buffer.startswith(space) for space in whitespace):
@@ -177,7 +177,7 @@ class AutoCompleter:
         try:
             lexer = cast(Lexer, guess_lexer_for_filename(file_path, file_content))
         except ClassNotFound:
-            self._file_completions[file_path] = FileCompletion(datetime.utcnow(), set())
+            self._file_completions[file_path] = FileCompletion(datetime.now(), set())
             return
 
         tokens = list(lexer.get_tokens(file_content))
@@ -188,7 +188,7 @@ class AutoCompleter:
             if len(token_value) <= 1:
                 continue
             filtered_tokens.add(token_value)
-        self._file_completions[file_path] = FileCompletion(datetime.utcnow(), filtered_tokens)
+        self._file_completions[file_path] = FileCompletion(datetime.now(), filtered_tokens)
 
     def _refresh_all_file_completions(self):
         ctx = SESSION_CONTEXT.get()
@@ -205,7 +205,7 @@ class AutoCompleter:
             if file_path not in self._file_completions:
                 self._refresh_file_completion(file_path)
             else:
-                modified_at = datetime.utcfromtimestamp(os.path.getmtime(file_path))
+                modified_at = datetime.fromtimestamp(os.path.getmtime(file_path))
                 if self._file_completions[file_path].last_updated < modified_at:
                     self._refresh_file_completion(file_path)
 
@@ -216,13 +216,10 @@ class AutoCompleter:
             self._all_file_completions.add(str(rel_path))
             self._all_file_completions.update(file_completion.syntax_fragments)
 
-        self._last_refresh_at = datetime.utcnow()
+        self._last_refresh_at = datetime.now()
 
     def get_file_completions(self, buffer: str) -> List[Completion]:
-        if (
-            self._last_refresh_at is None
-            or (datetime.utcnow() - self._last_refresh_at).seconds > SECONDS_BETWEEN_REFRESH
-        ):
+        if self._last_refresh_at is None or (datetime.now() - self._last_refresh_at).seconds > SECONDS_BETWEEN_REFRESH:
             self._refresh_all_file_completions()
 
         if not buffer or buffer[-1] == " ":

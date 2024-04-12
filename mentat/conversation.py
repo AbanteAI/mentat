@@ -17,9 +17,7 @@ from openai.types.chat import (
 
 from mentat.llm_api_handler import (
     TOKEN_COUNT_WARNING,
-    count_tokens,
     get_max_tokens,
-    prompt_tokens,
     raise_if_context_exceeds_max,
 )
 from mentat.parsers.file_edit import FileEdit
@@ -91,9 +89,11 @@ class Conversation:
         system_prompt: Optional[list[ChatCompletionMessageParam]] = None,
         include_code_message: bool = False,
     ) -> int:
+        ctx = SESSION_CONTEXT.get()
+
         _messages = await self.get_messages(system_prompt=system_prompt, include_code_message=include_code_message)
-        model = SESSION_CONTEXT.get().config.model
-        return prompt_tokens(_messages, model)
+        model = ctx.config.model
+        return ctx.llm_api_handler.spice.count_prompt_tokens(_messages, model)
 
     async def get_messages(
         self,
@@ -126,7 +126,7 @@ class Conversation:
 
         if include_code_message:
             code_message = await ctx.code_context.get_code_message(
-                prompt_tokens(_messages, ctx.config.model),
+                ctx.llm_api_handler.spice.count_prompt_tokens(_messages, ctx.config.model),
                 prompt=(
                     prompt  # Prompt can be image as well as text
                     if isinstance(prompt, str)
@@ -168,7 +168,6 @@ class Conversation:
         config = session_context.config
         parser = config.parser
         llm_api_handler = session_context.llm_api_handler
-        cost_tracker = session_context.cost_tracker
 
         stream.send(
             None,
@@ -187,7 +186,7 @@ class Conversation:
             terminate=True,
         )
 
-        num_prompt_tokens = prompt_tokens(messages, config.model)
+        num_prompt_tokens = llm_api_handler.spice.count_prompt_tokens(messages, config.model)
         stream.send(f"Total token count: {num_prompt_tokens}", style="info")
         if num_prompt_tokens > TOKEN_COUNT_WARNING:
             stream.send(
@@ -205,8 +204,7 @@ class Conversation:
         for file_edit in parsed_llm_response.file_edits:
             file_edit.previous_file_lines = code_file_manager.file_lines.get(file_edit.file_path, []).copy()
 
-        cost_tracker.log_api_call_stats(response.current_response())
-        cost_tracker.display_last_api_call()
+        llm_api_handler.display_cost_stats(response.current_response())
 
         messages.append(
             ChatCompletionAssistantMessageParam(role="assistant", content=parsed_llm_response.full_response)
@@ -219,9 +217,10 @@ class Conversation:
         session_context = SESSION_CONTEXT.get()
         stream = session_context.stream
         config = session_context.config
+        llm_api_handler = session_context.llm_api_handler
 
         messages_snapshot = await self.get_messages(include_code_message=True)
-        tokens_used = prompt_tokens(messages_snapshot, config.model)
+        tokens_used = llm_api_handler.spice.count_prompt_tokens(messages_snapshot, config.model)
         raise_if_context_exceeds_max(tokens_used)
 
         try:
@@ -238,7 +237,9 @@ class Conversation:
 
     async def remaining_context(self) -> int | None:
         ctx = SESSION_CONTEXT.get()
-        return get_max_tokens() - prompt_tokens(await self.get_messages(), ctx.config.model)
+        return get_max_tokens() - ctx.llm_api_handler.spice.count_prompt_tokens(
+            await self.get_messages(), ctx.config.model
+        )
 
     async def can_add_to_context(self, message: str) -> bool:
         """
@@ -250,7 +251,9 @@ class Conversation:
         remaining_context = await self.remaining_context()
         return (
             remaining_context is not None
-            and remaining_context - count_tokens(message, ctx.config.model, full_message=True) - ctx.config.token_buffer
+            and remaining_context
+            - ctx.llm_api_handler.spice.count_tokens(message, ctx.config.model, is_message=True)
+            - ctx.config.token_buffer
             > 0
         )
 
@@ -297,7 +300,7 @@ class Conversation:
             return True
         else:
             ctx.stream.send(
-                "Not enough tokens remaining in model's context to add command output" " to model context.",
+                "Not enough tokens remaining in model's context to add command output to model context.",
                 style="error",
             )
             return False
