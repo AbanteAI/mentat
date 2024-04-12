@@ -60,6 +60,7 @@ class CodeContext:
 
     async def refresh_daemon(self):
         """Call before interacting with context to ensure daemon is up to date."""
+
         if not hasattr(self, "daemon"):
             # Daemon is initialized after setup because it needs the embedding_provider.
             ctx = SESSION_CONTEXT.get()
@@ -77,6 +78,8 @@ class CodeContext:
                 verbose=False,
                 graph_path=graphs_dir / f"ragdaemon-{cwd.name}.json",
                 spice_client=llm_api_handler.spice,
+                model=ctx.config.embedding_model,
+                provider=ctx.config.embedding_provider,
             )
         await self.daemon.update()
 
