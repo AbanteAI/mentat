@@ -3,6 +3,11 @@ Changelog
 
 In this changelog focus on user facing highlights and stick to the format. This information will be used to motivate users to upgrade or after upgrading to inform them of features that might otherwise not be very discoverable.
 
+`1.0.16 <https://pypi.org/project/mentat/1.0.15/>`__
+--------------------------------------------------
+
+- Always use the latest patch-level versions of Spice and Ragdaemon
+
 `1.0.15 <https://pypi.org/project/mentat/1.0.15/>`__
 --------------------------------------------------
 
