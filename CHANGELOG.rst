@@ -3,7 +3,12 @@ Changelog
 
 In this changelog focus on user facing highlights and stick to the format. This information will be used to motivate users to upgrade or after upgrading to inform them of features that might otherwise not be very discoverable.
 
-`1.0.16 <https://pypi.org/project/mentat/1.0.15/>`__
+`1.0.17 <https://pypi.org/project/mentat/1.0.17/>`__
+--------------------------------------------------
+
+- Fix requirement conflict for numpy
+
+`1.0.16 <https://pypi.org/project/mentat/1.0.16/>`__
 --------------------------------------------------
 
 - Always use the latest patch-level versions of Spice and Ragdaemon
