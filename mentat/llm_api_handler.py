@@ -217,7 +217,7 @@ class LlmApiHandler:
         return response
 
     @api_guard
-    def call_embedding_api(self, input_texts: list[str], model: str = "text-embedding-ada-002") -> EmbeddingResponse:
+    def call_embedding_api(self, input_texts: list[str], model: str = "text-embedding-3-large") -> EmbeddingResponse:
         ctx = SESSION_CONTEXT.get()
         return self.spice.get_embeddings_sync(input_texts, model, provider=ctx.config.embedding_provider)
 

@@ -42,7 +42,7 @@ class Config:
     )
     provider: Optional[str] = attr.field(default=None, metadata={"auto_completions": ["openai", "anthropic", "azure"]})
     embedding_model: str = attr.field(
-        default="text-embedding-ada-002",
+        default="text-embedding-3-large",
         metadata={"auto_completions": [model.name for model in models if isinstance(model, EmbeddingModel)]},
     )
     embedding_provider: Optional[str] = attr.field(
