@@ -63,7 +63,7 @@ class CodeContext:
         """Call before interacting with context to ensure daemon is up to date."""
 
         if not hasattr(self, "daemon"):
-            # Daemon is initialized after setup because it needs the embedding_provider.            
+            # Daemon is initialized after setup because it needs the embedding_provider.
             ctx = SESSION_CONTEXT.get()
             cwd = ctx.cwd
             llm_api_handler = ctx.llm_api_handler
