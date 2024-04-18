@@ -423,10 +423,14 @@ class CodeContext:
                 continue
             distance = node["distance"]
             path, interval = split_intervals_from_path(Path(node["ref"]))
-            intervals = parse_intervals(interval)
-            for _interval in intervals:
-                feature = CodeFeature(cwd / path, _interval)
+            if not interval:
+                feature = CodeFeature(cwd / path)
                 all_features_sorted.append((feature, distance))
+            else:
+                intervals = parse_intervals(interval)
+                for _interval in intervals:
+                    feature = CodeFeature(cwd / path, _interval)
+                    all_features_sorted.append((feature, distance))
         if max_results is None:
             return all_features_sorted
         else:
