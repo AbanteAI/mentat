@@ -191,11 +191,15 @@ class CodeContext:
                 auto_tokens=auto_tokens,
             )
             for ref in context_builder.to_refs():
+                new_features = list[CodeFeature]()  # Save ragdaemon context back to include_files
                 path, interval_str = split_intervals_from_path(Path(ref))
-                intervals = parse_intervals(interval_str)
-                for interval in intervals:
-                    feature = CodeFeature(cwd / path, interval)
-                    self.include_features([feature])  # Save ragdaemon context back to include_files
+                if not interval_str:
+                    new_features.append(CodeFeature(cwd / path))
+                else:
+                    intervals = parse_intervals(interval_str)
+                    for interval in intervals:
+                        new_features.append(CodeFeature(cwd / path, interval))
+                self.include_features(new_features)
 
         # The context message is rendered by ragdaemon (ContextBuilder.render())
         context_message = context_builder.render()
