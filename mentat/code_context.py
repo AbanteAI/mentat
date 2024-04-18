@@ -8,6 +8,7 @@ from ragdaemon.daemon import Daemon
 from mentat.code_feature import CodeFeature, get_consolidated_feature_refs
 from mentat.diff_context import DiffContext
 from mentat.errors import PathValidationError
+from mentat.git_handler import get_git_root_for_path
 from mentat.include_files import (
     PathType,
     get_code_features_for_path,
@@ -62,10 +63,15 @@ class CodeContext:
         """Call before interacting with context to ensure daemon is up to date."""
 
         if not hasattr(self, "daemon"):
-            # Daemon is initialized after setup because it needs the embedding_provider.
+            # Daemon is initialized after setup because it needs the embedding_provider.            
             ctx = SESSION_CONTEXT.get()
             cwd = ctx.cwd
             llm_api_handler = ctx.llm_api_handler
+
+            # Use print because stream is not initialized yet
+            print("Scanning codebase for updates...")
+            if not get_git_root_for_path(cwd, raise_error=False):
+                print("\033[93mWarning: Not a git repository (this might take a while)\033[0m")
 
             annotators: dict[str, dict[str, Any]] = {
                 "hierarchy": {"ignore_patterns": [str(p) for p in self.ignore_patterns]},
