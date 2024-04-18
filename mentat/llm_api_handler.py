@@ -19,10 +19,9 @@ import sentry_sdk
 from dotenv import load_dotenv
 from openai.types.chat.completion_create_params import ResponseFormat
 from spice import EmbeddingResponse, Spice, SpiceMessage, SpiceResponse, StreamingSpiceResponse, TranscriptionResponse
-from spice.errors import APIConnectionError, NoAPIKeyError
+from spice.errors import APIConnectionError, AuthenticationError, InvalidProviderError, NoAPIKeyError
 from spice.models import WHISPER_1
-from spice.providers import OPEN_AI
-from spice.spice import UnknownModelError, get_model_from_name
+from spice.spice import UnknownModelError, get_model_from_name, get_provider_from_name
 
 from mentat.errors import MentatError, ReturnToUser
 from mentat.session_context import SESSION_CONTEXT
@@ -58,11 +57,18 @@ def api_guard(func: Callable[..., RetType]) -> Callable[..., RetType]:
             assert not is_test_environment(), "OpenAI call attempted in non-benchmark test environment!"
             try:
                 return await func(*args, **kwargs)
+            except AuthenticationError:
+                raise MentatError("Authentication error: Check your api key and try again.")
             except APIConnectionError:
-                raise MentatError("API connection error: please check your internet connection and try again.")
+                raise MentatError("API connection error: Check your internet connection and try again.")
             except UnknownModelError:
                 SESSION_CONTEXT.get().stream.send(
                     "Unknown model. Use /config provider <provider> and try again.", style="error"
+                )
+                raise ReturnToUser()
+            except InvalidProviderError:
+                SESSION_CONTEXT.get().stream.send(
+                    "Unknown provider. Use /config provider <provider> and try again.", style="error"
                 )
                 raise ReturnToUser()
 
@@ -73,11 +79,18 @@ def api_guard(func: Callable[..., RetType]) -> Callable[..., RetType]:
             assert not is_test_environment(), "OpenAI call attempted in non-benchmark test environment!"
             try:
                 return func(*args, **kwargs)
+            except AuthenticationError:
+                raise MentatError("Authentication error: Check your api key and try again.")
             except APIConnectionError:
-                raise MentatError("API connection error: please check your internet connection and try again.")
+                raise MentatError("API connection error: Check your internet connection and try again.")
             except UnknownModelError:
                 SESSION_CONTEXT.get().stream.send(
                     "Unknown model. Use /config provider <provider> and try again.", style="error"
+                )
+                raise ReturnToUser()
+            except InvalidProviderError:
+                SESSION_CONTEXT.get().stream.send(
+                    "Unknown provider. Use /config provider <provider> and try again.", style="error"
                 )
                 raise ReturnToUser()
 
@@ -142,19 +155,48 @@ class LlmApiHandler:
         if not load_dotenv(mentat_dir_path / ".env") and not load_dotenv(ctx.cwd / ".env"):
             load_dotenv()
 
-        try:
-            self.spice.load_provider(OPEN_AI)
-        except NoAPIKeyError:
-            from mentat.session_input import collect_user_input
+        provider = get_model_from_name(ctx.config.model).provider
+        if ctx.config.provider is not None:
+            try:
+                provider = get_provider_from_name(ctx.config.provider)
+            except InvalidProviderError:
+                ctx.stream.send(
+                    f"Unknown provider {ctx.config.provider}. Use /config provider <provider> to set your provider.",
+                    style="warning",
+                )
+        elif provider is None:
+            ctx.stream.send(f"Unknown model {ctx.config.model}. Use /config provider <provider> to set your provider.")
 
-            ctx.stream.send(
-                "No OpenAI api key detected. To avoid entering your api key on startup, create a .env file in"
-                " ~/.mentat/.env or in your workspace root.",
-                style="warning",
-            )
-            ctx.stream.send("Enter your api key:", style="info")
-            key = (await collect_user_input(log_input=False)).data
-            os.environ["OPENAI_API_KEY"] = key
+        if provider is not None:
+            try:
+                self.spice.load_provider(provider)
+            except NoAPIKeyError:
+                from mentat.session_input import collect_user_input
+
+                match provider.name:
+                    case "open_ai":
+                        env_variable = "OPENAI_API_KEY"
+                    case "anthropic":
+                        env_variable = "ANTHROPIC_API_KEY"
+                    case "azure":
+                        if os.getenv("AZURE_OPENAI_ENDPOINT") is None:
+                            raise MentatError(
+                                f"No AZURE_OPENAI_ENDPOINT detected. Create a .env file in ~/.mentat/.env or in your workspace root with your Azure endpoint."
+                            )
+                        env_variable = "AZURE_OPENAI_KEY"
+                    case _:
+                        raise MentatError(
+                            f"No api key detected for provider {provider.name}. Create a .env file in ~/.mentat/.env or in your workspace root with your api key"
+                        )
+
+                ctx.stream.send(
+                    f"No {provider.name} api key detected. To avoid entering your api key on startup, create a .env file in"
+                    " ~/.mentat/.env or in your workspace root.",
+                    style="warning",
+                )
+                ctx.stream.send("Enter your api key:", style="info")
+                key = (await collect_user_input(log_input=False)).data
+                os.environ[env_variable] = key
 
     @overload
     async def call_llm_api(
