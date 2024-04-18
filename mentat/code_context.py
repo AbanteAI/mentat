@@ -8,6 +8,7 @@ from ragdaemon.daemon import Daemon
 from mentat.code_feature import CodeFeature, get_consolidated_feature_refs
 from mentat.diff_context import DiffContext
 from mentat.errors import PathValidationError
+from mentat.git_handler import get_git_root_for_path
 from mentat.include_files import (
     PathType,
     get_code_features_for_path,
@@ -66,6 +67,11 @@ class CodeContext:
             ctx = SESSION_CONTEXT.get()
             cwd = ctx.cwd
             llm_api_handler = ctx.llm_api_handler
+
+            # Use print because stream is not initialized yet
+            print("Scanning codebase for updates...")
+            if not get_git_root_for_path(cwd, raise_error=False):
+                print("\033[93mWarning: Not a git repository (this might take a while)\033[0m")
 
             annotators: dict[str, dict[str, Any]] = {
                 "hierarchy": {"ignore_patterns": [str(p) for p in self.ignore_patterns]},
@@ -185,11 +191,15 @@ class CodeContext:
                 auto_tokens=auto_tokens,
             )
             for ref in context_builder.to_refs():
+                new_features = list[CodeFeature]()  # Save ragdaemon context back to include_files
                 path, interval_str = split_intervals_from_path(Path(ref))
-                intervals = parse_intervals(interval_str)
-                for interval in intervals:
-                    feature = CodeFeature(cwd / path, interval)
-                    self.include_features([feature])  # Save ragdaemon context back to include_files
+                if not interval_str:
+                    new_features.append(CodeFeature(cwd / path))
+                else:
+                    intervals = parse_intervals(interval_str)
+                    for interval in intervals:
+                        new_features.append(CodeFeature(cwd / path, interval))
+                self.include_features(new_features)
 
         # The context message is rendered by ragdaemon (ContextBuilder.render())
         context_message = context_builder.render()
@@ -417,10 +427,14 @@ class CodeContext:
                 continue
             distance = node["distance"]
             path, interval = split_intervals_from_path(Path(node["ref"]))
-            intervals = parse_intervals(interval)
-            for _interval in intervals:
-                feature = CodeFeature(cwd / path, _interval)
+            if not interval:
+                feature = CodeFeature(cwd / path)
                 all_features_sorted.append((feature, distance))
+            else:
+                intervals = parse_intervals(interval)
+                for _interval in intervals:
+                    feature = CodeFeature(cwd / path, _interval)
+                    all_features_sorted.append((feature, distance))
         if max_results is None:
             return all_features_sorted
         else:
