@@ -174,7 +174,7 @@ class LlmApiHandler:
                 from mentat.session_input import collect_user_input
 
                 match provider.name:
-                    case "open_ai":
+                    case "open_ai" | "openai":
                         env_variable = "OPENAI_API_KEY"
                     case "anthropic":
                         env_variable = "ANTHROPIC_API_KEY"
