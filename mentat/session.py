@@ -9,12 +9,7 @@ from uuid import uuid4
 
 import attr
 import sentry_sdk
-from openai import (
-    APITimeoutError,
-    BadRequestError,
-    PermissionDeniedError,
-    RateLimitError,
-)
+from spice.errors import APIConnectionError, APIError, AuthenticationError
 
 from mentat.agent_handler import AgentHandler
 from mentat.auto_completer import AutoCompleter
@@ -162,76 +157,74 @@ class Session:
         code_file_manager = session_context.code_file_manager
         agent_handler = session_context.agent_handler
 
-        await session_context.llm_api_handler.initialize_client()
+        try:
+            await session_context.llm_api_handler.initialize_client()
+            await code_context.refresh_daemon()
 
-        await code_context.refresh_daemon()
+            check_model()
 
-        check_model()
+            need_user_request = True
+            while True:
+                try:
+                    await code_context.refresh_context_display()
+                    if need_user_request:
+                        # Normally, the code_file_manager pushes the edits; but when agent mode is on, we want all
+                        # edits made between user input to be collected together.
+                        if agent_handler.agent_enabled:
+                            code_file_manager.history.push_edits()
+                            stream.send(
+                                "Use /undo to undo all changes from agent mode since last input.",
+                                style="success",
+                            )
+                        message = await collect_input_with_commands()
+                        if message.data.strip() == "":
+                            continue
+                        conversation.add_user_message(message.data)
 
-        need_user_request = True
-        while True:
-            await code_context.refresh_context_display()
-            try:
-                if need_user_request:
-                    # Normally, the code_file_manager pushes the edits; but when agent mode is on, we want all
-                    # edits made between user input to be collected together.
-                    if agent_handler.agent_enabled:
-                        code_file_manager.history.push_edits()
-                        stream.send(
-                            "Use /undo to undo all changes from agent mode since last input.",
-                            style="success",
-                        )
-                    message = await collect_input_with_commands()
-                    if message.data.strip() == "":
-                        continue
-                    conversation.add_user_message(message.data)
+                    parsed_llm_response = await conversation.get_model_response()
+                    file_edits = [file_edit for file_edit in parsed_llm_response.file_edits if file_edit.is_valid()]
+                    for file_edit in file_edits:
+                        file_edit.resolve_conflicts()
+                    if file_edits:
+                        if session_context.config.revisor:
+                            await revise_edits(file_edits)
 
-                parsed_llm_response = await conversation.get_model_response()
-                file_edits = [file_edit for file_edit in parsed_llm_response.file_edits if file_edit.is_valid()]
-                for file_edit in file_edits:
-                    file_edit.resolve_conflicts()
-                if file_edits:
-                    if session_context.config.revisor:
-                        await revise_edits(file_edits)
+                        if session_context.config.sampler:
+                            session_context.sampler.set_active_diff()
 
-                    if session_context.config.sampler:
-                        session_context.sampler.set_active_diff()
+                        self.send_file_edits(file_edits)
+                        if self.apply_edits:
+                            if not agent_handler.agent_enabled:
+                                file_edits, need_user_request = await get_user_feedback_on_edits(file_edits)
+                            applied_edits = await code_file_manager.write_changes_to_files(file_edits)
+                            stream.send(
+                                ("Changes applied." if applied_edits else "No changes applied."),
+                                style="input",
+                            )
+                        else:
+                            need_user_request = True
 
-                    self.send_file_edits(file_edits)
-                    if self.apply_edits:
-                        if not agent_handler.agent_enabled:
-                            file_edits, need_user_request = await get_user_feedback_on_edits(file_edits)
-                        applied_edits = await code_file_manager.write_changes_to_files(file_edits)
-                        stream.send(
-                            ("Changes applied." if applied_edits else "No changes applied."),
-                            style="input",
-                        )
+                        if agent_handler.agent_enabled:
+                            if parsed_llm_response.interrupted:
+                                need_user_request = True
+                            else:
+                                need_user_request = await agent_handler.add_agent_context()
                     else:
                         need_user_request = True
+                    stream.send(bool(file_edits), channel="edits_complete")
 
-                    if agent_handler.agent_enabled:
-                        if parsed_llm_response.interrupted:
-                            need_user_request = True
-                        else:
-                            need_user_request = await agent_handler.add_agent_context()
-                else:
+                except ReturnToUser:
+                    stream.send(None, channel="loading", terminate=True)
                     need_user_request = True
-                stream.send(bool(file_edits), channel="edits_complete")
-            except SessionExit:
-                stream.send(None, channel="client_exit")
-                break
-            except ReturnToUser:
-                stream.send(None, channel="loading", terminate=True)
-                need_user_request = True
-                continue
-            except (
-                APITimeoutError,
-                RateLimitError,
-                BadRequestError,
-                PermissionDeniedError,
-            ) as e:
-                stream.send(f"Error accessing OpenAI API: {e.message}", style="error")
-                break
+                    continue
+        except SessionExit:
+            stream.send(None, channel="client_exit")
+        except AuthenticationError:
+            raise MentatError("Authentication error: Check your api key and try again.")
+        except APIConnectionError:
+            raise MentatError("API connection error: Check your internet connection and try again.")
+        except APIError as e:
+            stream.send(f"Error accessing OpenAI API: {e}", style="error")
 
     async def listen_for_session_exit(self):
         await self.stream.recv(channel="session_exit")

@@ -59,7 +59,7 @@ async def revise_edit(file_edit: FileEdit):
         ChatCompletionSystemMessageParam(content=f"Diff:\n{diff}", role="system"),
     ]
     code_message = await ctx.code_context.get_code_message(
-        ctx.llm_api_handler.spice.count_prompt_tokens(messages, ctx.config.model)
+        ctx.llm_api_handler.spice.count_prompt_tokens(messages, ctx.config.model, ctx.config.provider)
     )
     messages.insert(1, ChatCompletionSystemMessageParam(content=code_message, role="system"))
 
