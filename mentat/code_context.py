@@ -17,7 +17,7 @@ from mentat.include_files import (
     validate_and_format_path,
 )
 from mentat.interval import parse_intervals, split_intervals_from_path
-from mentat.llm_api_handler import api_guard, get_max_tokens
+from mentat.llm_api_handler import get_max_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
 from mentat.utils import get_relative_path, mentat_dir_path
