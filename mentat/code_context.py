@@ -59,7 +59,6 @@ class CodeContext:
         self.include_files: Dict[Path, List[CodeFeature]] = {}
         self.ignore_files: Set[Path] = set()
 
-    @api_guard
     async def refresh_daemon(self):
         """Call before interacting with context to ensure daemon is up to date."""
 
