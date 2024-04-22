@@ -14,6 +14,7 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
+from spice.errors import InvalidProviderError, UnknownModelError
 
 from mentat.llm_api_handler import (
     TOKEN_COUNT_WARNING,
@@ -91,9 +92,11 @@ class Conversation:
     ) -> int:
         ctx = SESSION_CONTEXT.get()
 
-        _messages = await self.get_messages(system_prompt=system_prompt, include_code_message=include_code_message)
-        model = ctx.config.model
-        return ctx.llm_api_handler.spice.count_prompt_tokens(_messages, model)
+        try:
+            _messages = await self.get_messages(system_prompt=system_prompt, include_code_message=include_code_message)
+            return ctx.llm_api_handler.spice.count_prompt_tokens(_messages, ctx.config.model, ctx.config.provider)
+        except (UnknownModelError, InvalidProviderError):
+            return 0
 
     async def get_messages(
         self,
@@ -126,7 +129,7 @@ class Conversation:
 
         if include_code_message:
             code_message = await ctx.code_context.get_code_message(
-                ctx.llm_api_handler.spice.count_prompt_tokens(_messages, ctx.config.model),
+                ctx.llm_api_handler.spice.count_prompt_tokens(_messages, ctx.config.model, ctx.config.provider),
                 prompt=(
                     prompt  # Prompt can be image as well as text
                     if isinstance(prompt, str)
@@ -186,7 +189,7 @@ class Conversation:
             terminate=True,
         )
 
-        num_prompt_tokens = llm_api_handler.spice.count_prompt_tokens(messages, config.model)
+        num_prompt_tokens = llm_api_handler.spice.count_prompt_tokens(messages, config.model, config.provider)
         stream.send(f"Total token count: {num_prompt_tokens}", style="info")
         if num_prompt_tokens > TOKEN_COUNT_WARNING:
             stream.send(
@@ -220,7 +223,7 @@ class Conversation:
         llm_api_handler = session_context.llm_api_handler
 
         messages_snapshot = await self.get_messages(include_code_message=True)
-        tokens_used = llm_api_handler.spice.count_prompt_tokens(messages_snapshot, config.model)
+        tokens_used = llm_api_handler.spice.count_prompt_tokens(messages_snapshot, config.model, config.provider)
         raise_if_context_exceeds_max(tokens_used)
 
         try:
@@ -238,7 +241,7 @@ class Conversation:
     async def remaining_context(self) -> int | None:
         ctx = SESSION_CONTEXT.get()
         return get_max_tokens() - ctx.llm_api_handler.spice.count_prompt_tokens(
-            await self.get_messages(), ctx.config.model
+            await self.get_messages(), ctx.config.model, ctx.config.provider
         )
 
     async def can_add_to_context(self, message: str) -> bool:

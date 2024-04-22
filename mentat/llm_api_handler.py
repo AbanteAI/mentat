@@ -21,6 +21,7 @@ from openai.types.chat.completion_create_params import ResponseFormat
 from spice import EmbeddingResponse, Spice, SpiceMessage, SpiceResponse, StreamingSpiceResponse, TranscriptionResponse
 from spice.errors import APIConnectionError, AuthenticationError, InvalidProviderError, NoAPIKeyError
 from spice.models import WHISPER_1
+from spice.providers import OPEN_AI
 from spice.spice import UnknownModelError, get_model_from_name, get_provider_from_name
 
 from mentat.errors import MentatError, ReturnToUser
@@ -155,19 +156,27 @@ class LlmApiHandler:
         if not load_dotenv(mentat_dir_path / ".env") and not load_dotenv(ctx.cwd / ".env"):
             load_dotenv()
 
-        provider = get_model_from_name(ctx.config.model).provider
+        user_provider = get_model_from_name(ctx.config.model).provider
         if ctx.config.provider is not None:
             try:
-                provider = get_provider_from_name(ctx.config.provider)
+                user_provider = get_provider_from_name(ctx.config.provider)
             except InvalidProviderError:
                 ctx.stream.send(
                     f"Unknown provider {ctx.config.provider}. Use /config provider <provider> to set your provider.",
                     style="warning",
                 )
-        elif provider is None:
-            ctx.stream.send(f"Unknown model {ctx.config.model}. Use /config provider <provider> to set your provider.")
+        elif user_provider is None:
+            ctx.stream.send(
+                f"Unknown model {ctx.config.model}. Use /config provider <provider> to set your provider.",
+                style="warning",
+            )
 
-        if provider is not None:
+        # ragdaemon always needs an openai provider
+        providers = [OPEN_AI]
+        if user_provider is not None:
+            providers.append(user_provider)
+
+        for provider in providers:
             try:
                 self.spice.load_provider(provider)
             except NoAPIKeyError:
@@ -180,9 +189,16 @@ class LlmApiHandler:
                         env_variable = "ANTHROPIC_API_KEY"
                     case "azure":
                         if os.getenv("AZURE_OPENAI_ENDPOINT") is None:
-                            raise MentatError(
-                                f"No AZURE_OPENAI_ENDPOINT detected. Create a .env file in ~/.mentat/.env or in your workspace root with your Azure endpoint."
+                            ctx.stream.send(
+                                f"No Azure OpenAI endpoint detected. To avoid entering your endpoint on startup, create a .env file in"
+                                " ~/.mentat/.env or in your workspace root and set AZURE_OPENAI_ENDPOINT.",
+                                style="warning",
                             )
+                            ctx.stream.send("Enter your endpoint:", style="info")
+                            endpoint = (await collect_user_input(log_input=False)).data
+                            os.environ["AZURE_OPENAI_ENDPOINT"] = endpoint
+                        if os.getenv("AZURE_OPENAI_KEY") is not None:
+                            return
                         env_variable = "AZURE_OPENAI_KEY"
                     case _:
                         raise MentatError(
@@ -233,7 +249,7 @@ class LlmApiHandler:
         config = session_context.config
 
         # Confirm that model has enough tokens remaining
-        tokens = self.spice.count_prompt_tokens(messages, model)
+        tokens = self.spice.count_prompt_tokens(messages, model, provider)
         raise_if_context_exceeds_max(tokens)
 
         with sentry_sdk.start_span(description="LLM Call") as span:
