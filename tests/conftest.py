@@ -98,7 +98,7 @@ def mock_call_llm_api(mocker):
     completion_mock = mocker.patch.object(LlmApiHandler, "call_llm_api")
 
     def wrap_unstreamed_string(value):
-        return SpiceResponse(SpiceCallArgs("gpt-3.5-turbo", [], False), value, 1, 0, 0, True, 1, None)
+        return SpiceResponse(SpiceCallArgs("gpt-3.5-turbo", [], False), value, 1, 0, 0, True, 1)
 
     def wrap_streamed_strings(values):
         class MockStreamingSpiceResponse:
@@ -115,7 +115,7 @@ def mock_call_llm_api(mocker):
                 return values[self.cur_value - 1]
 
             def current_response(self):
-                return SpiceResponse(SpiceCallArgs("gpt-3.5-turbo", [], True), "".join(values), 1, 0, 0, True, 1, None)
+                return SpiceResponse(SpiceCallArgs("gpt-3.5-turbo", [], True), "".join(values), 1, 0, 0, True, 1)
 
         mock_spice_response = MockStreamingSpiceResponse()
         return mock_spice_response
