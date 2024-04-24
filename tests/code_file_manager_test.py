@@ -51,7 +51,7 @@ async def test_partial_files(mocker, mock_session_context):
         """\
             Code Files:
 
-            dir/file.txt (user-included)
+            dir/file.txt
             1:I am a file
             ...
             3:third
