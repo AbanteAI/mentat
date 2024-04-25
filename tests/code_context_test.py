@@ -213,20 +213,20 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     mock_session_context.config.auto_context_tokens = 8000
 
     code_message = await code_context.get_code_message(0, prompt="prompt")
-    assert mock_session_context.llm_api_handler.spice.count_tokens(code_message, "gpt-4", is_message=True) == 95  # Code
+    assert mock_session_context.llm_api_handler.spice.count_tokens(code_message, "gpt-4", is_message=True) == 85  # Code
     assert (
         code_message
         == """\
 Code Files:
 
-file_1.py (search-result, user-included)
+file_1.py
 1:def func_1(x, y):
 2:    return x + y
 3:
 4:def func_2():
 5:    return 3
 
-file_2.py (search-result)
+file_2.py
 1:def func_3(a, b, c):
 2:    return a * b ** c
 3:
