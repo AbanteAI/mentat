@@ -20,7 +20,7 @@ from mentat.interval import parse_intervals, split_intervals_from_path
 from mentat.llm_api_handler import get_max_tokens
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_stream import SessionStream
-from mentat.utils import get_relative_path, mentat_dir_path
+from mentat.utils import get_relative_path
 
 
 class ContextStreamMessage(TypedDict):
@@ -33,10 +33,6 @@ class ContextStreamMessage(TypedDict):
     total_tokens: int
     maximum_tokens: int
     total_cost: float
-
-
-graphs_dir = mentat_dir_path / "ragdaemon"
-graphs_dir.mkdir(parents=True, exist_ok=True)
 
 
 class CodeContext:
@@ -75,16 +71,14 @@ class CodeContext:
 
             annotators: dict[str, dict[str, Any]] = {
                 "hierarchy": {"ignore_patterns": [str(p) for p in self.ignore_patterns]},
-                "chunker_line": {"lines_per_chunk": 50},
+                "chunker": {},
                 "diff": {"diff": self.diff_context.target},
             }
             self.daemon = Daemon(
                 cwd=cwd,
                 annotators=annotators,
                 verbose=False,
-                graph_path=graphs_dir / f"ragdaemon-{cwd.name}.json",
                 spice_client=llm_api_handler.spice,
-                model=ctx.config.embedding_model,
                 provider=ctx.config.embedding_provider,
             )
         await self.daemon.update()

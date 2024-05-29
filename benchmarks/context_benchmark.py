@@ -38,7 +38,7 @@ async def run_auto_context_benchmark(sample: Sample, config: Config, cwd: Path |
         ignore_patterns = [cwd / ".venv"]
         annotators = {
             "hierarchy": {"ignore_patterns": ignore_patterns},
-            "chunker_line": {"lines_per_chunk": 100},
+            "chunker": {},
         }
         daemon = Daemon(cwd=cwd, annotators=annotators)
         await daemon.update()
@@ -61,7 +61,7 @@ def main(user_samples: list[str], directory: str):
     assert dir_path.exists(), f"Invalid directory: {directory}"
     print(f"Running benchmarks from {dir_path}")
     samples: list[Sample] = []
-    for root, dirs, files in os.walk(dir_path):
+    for root, _, files in os.walk(dir_path):
         for file in files:
             path = Path(root) / file
             if file.endswith(".json"):

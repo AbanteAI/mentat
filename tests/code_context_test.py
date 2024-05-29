@@ -213,7 +213,7 @@ async def test_max_auto_tokens(mocker, temp_testbed, mock_session_context):
     mock_session_context.config.auto_context_tokens = 8000
 
     code_message = await code_context.get_code_message(0, prompt="prompt")
-    assert mock_session_context.llm_api_handler.spice.count_tokens(code_message, "gpt-4", is_message=True) == 85  # Code
+    assert mock_session_context.llm_api_handler.spice.count_tokens(code_message, "gpt-4", is_message=True) == 89  # Code
     assert (
         code_message
         == """\
@@ -225,6 +225,7 @@ file_1.py
 3:
 4:def func_2():
 5:    return 3
+6:
 
 file_2.py
 1:def func_3(a, b, c):
@@ -232,6 +233,7 @@ file_2.py
 3:
 4:def func_4(string):
 5:    print(string)
+6:
 """
     )
 
@@ -256,7 +258,7 @@ async def test_get_all_features(temp_testbed, mock_session_context):
 
     # Test without include_files
     features = mock_code_context.get_all_features()
-    assert len(features) == 2
+    assert len(features) == 6
     feature1 = next(f for f in features if f.path == path1)
     feature2 = next(f for f in features if f.path == path2)
     for _f, _p in zip((feature1, feature2), (path1, path2)):
@@ -266,7 +268,7 @@ async def test_get_all_features(temp_testbed, mock_session_context):
     # Test with include_files argument matching one file
     mock_code_context.include(path1)
     features = mock_code_context.get_all_features(split_intervals=False)
-    assert len(features) == 2
+    assert len(features) == 6
     feature1b = next(f for f in features if f.path == path1)
     feature2b = next(f for f in features if f.path == path2)
     assert feature1b.interval.whole_file()
