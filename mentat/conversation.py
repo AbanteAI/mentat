@@ -14,8 +14,8 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
 )
-from spice.errors import InvalidProviderError, UnknownModelError
 from spice import StreamingSpiceResponse
+from spice.errors import InvalidProviderError, UnknownModelError
 
 from mentat.llm_api_handler import (
     TOKEN_COUNT_WARNING,
@@ -77,8 +77,9 @@ class Conversation:
         stats = ""
         if response is not None:
             stats = f"Speed: {response.current_response().characters_per_second:.2f} char/s"
-            if response.current_response().cost is not None:
-                stats += f" | Cost: ${response.current_response().cost / 100:.2f}"
+            cost = response.current_response().cost
+            if cost is not None:
+                stats += f" | Cost: ${cost / 100:.2f}"
 
         self.add_transcript_message(
             ModelMessage(
