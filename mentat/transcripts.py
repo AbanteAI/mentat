@@ -17,6 +17,7 @@ class UserMessage(TypedDict):
 class ModelMessage(TypedDict, total=False):
     message: str
     prior_messages: list[ChatCompletionMessageParam]
+    stats: str
 
     # Used to mark different types of messages; e.g., an agent message that isn't part of the regular conversation
     # NotRequired isn't available until 3.11, so we have to use total=False instead

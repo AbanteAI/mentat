@@ -31,7 +31,15 @@
             </a>
         </div>
         {% for message in transcript["messages"] %}
-        <div class="message {{'user' if message["prior_messages"] is none else 'assistant clickable'}} {{message["message_type"] if message["message_type"]}}">
+        <div class="message collapsed {{'user' if message["prior_messages"] is none else 'assistant clickable'}} {{message["message_type"] if message["message_type"]}}">
+            {% if message["prior_messages"] is not none %}
+                <div class="message-stats">
+                    <span>UUID: {{ transcript["id"] }}</span>
+                    {% if message.get("stats") %}
+                        | {{ message["stats"] }}
+                    {% endif %}
+                </div>
+            {% endif %}
             {{ display_message(message, "message") }}
             {% if message["prior_messages"] is not none %}
                 {% for seen_message in message["prior_messages"] %}
@@ -40,6 +48,7 @@
                 </div>
                 {% endfor %}
             {% endif %}
+            <div class="expand-button">▼ Show More</div>
         </div>
         {% endfor %}
     </div>
@@ -58,4 +67,32 @@
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const messages = document.querySelectorAll('.message');
+    
+    messages.forEach(message => {
+        // Check if content overflows
+        if (message.scrollHeight > message.clientHeight) {
+            message.classList.add('overflowing');
+        }
+        
+        const expandButton = message.querySelector('.expand-button');
+        if (expandButton) {
+            expandButton.addEventListener('click', function() {
+                if (message.classList.contains('collapsed')) {
+                    message.classList.remove('collapsed');
+                    message.classList.add('expanded');
+                    expandButton.textContent = '▲ Show Less';
+                } else {
+                    message.classList.remove('expanded');
+                    message.classList.add('collapsed');
+                    expandButton.textContent = '▼ Show More';
+                }
+            });
+        }
+    });
+});
+</script>
 {% endmacro %}

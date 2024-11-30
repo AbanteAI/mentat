@@ -44,10 +44,34 @@ pre {
     border: 1px solid black;
     border-radius: 16px;
     margin: 32px 24px;
-    overflow-y: auto;
+    overflow-y: hidden;
     overflow-x: auto;
-    max-height: 500px;
     text-align: left;
+    position: relative;
+}
+
+.message.expanded {
+    overflow-y: auto;
+}
+
+.message.collapsed {
+    max-height: 500px;
+}
+
+.message .expand-button {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    padding: 5px;
+    background: linear-gradient(transparent, rgba(255, 255, 255, 0.9));
+    cursor: pointer;
+}
+
+.message.collapsed.overflowing .expand-button {
+    display: block;
 }
 
 .system {
@@ -84,10 +108,20 @@ pre {
 
 .agent {
     background-color: rgb(255, 197, 197);
+    border-width: 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .revisor {
     background-color: rgb(243, 246, 196);
+}
+
+.message-stats {
+    font-size: 0.8em;
+    color: #666;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
 }
 
 .button-group {

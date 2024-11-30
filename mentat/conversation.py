@@ -72,7 +72,18 @@ class Conversation:
         parsed_llm_response: ParsedLLMResponse,
     ):
         """Used for actual model output messages"""
-        self.add_transcript_message(ModelMessage(message=message, prior_messages=messages_snapshot))
+        response = parsed_llm_response.llm_response
+        stats = f"Speed: {response.characters_per_second:.2f} char/s"
+        if response.cost is not None:
+            stats += f" | Cost: ${response.cost / 100:.2f}"
+
+        self.add_transcript_message(
+            ModelMessage(
+                message=message,
+                prior_messages=messages_snapshot,
+                stats=stats,
+            )
+        )
         self.add_message(
             MentatAssistantMessageParam(
                 parsed_llm_response=parsed_llm_response,
