@@ -15,6 +15,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 from spice.errors import InvalidProviderError, UnknownModelError
+from spice import StreamingSpiceResponse
 
 from mentat.llm_api_handler import (
     TOKEN_COUNT_WARNING,
@@ -70,12 +71,14 @@ class Conversation:
         message: str,
         messages_snapshot: list[ChatCompletionMessageParam],
         parsed_llm_response: ParsedLLMResponse,
+        response: Optional[StreamingSpiceResponse] = None,
     ):
         """Used for actual model output messages"""
-        response = parsed_llm_response.llm_response
-        stats = f"Speed: {response.characters_per_second:.2f} char/s"
-        if response.cost is not None:
-            stats += f" | Cost: ${response.cost / 100:.2f}"
+        stats = ""
+        if response is not None:
+            stats = f"Speed: {response.current_response().characters_per_second:.2f} char/s"
+            if response.current_response().cost is not None:
+                stats += f" | Cost: ${response.current_response().cost / 100:.2f}"
 
         self.add_transcript_message(
             ModelMessage(
@@ -223,7 +226,7 @@ class Conversation:
         messages.append(
             ChatCompletionAssistantMessageParam(role="assistant", content=parsed_llm_response.full_response)
         )
-        self.add_model_message(parsed_llm_response.full_response, messages, parsed_llm_response)
+        self.add_model_message(parsed_llm_response.full_response, messages, parsed_llm_response, response)
 
         return parsed_llm_response
 
