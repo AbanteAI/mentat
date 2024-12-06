@@ -7,8 +7,11 @@ from asyncio import Event
 from pathlib import Path
 from typing import AsyncIterator
 
+from typing import Union
+
 import attr
 from openai.types.chat.completion_create_params import ResponseFormat
+from pydantic import BaseModel
 
 from mentat.code_file_manager import CodeFileManager
 from mentat.errors import ModelError
@@ -27,12 +30,21 @@ from mentat.session_context import SESSION_CONTEXT
 from mentat.utils import convert_string_to_asynciter
 
 
-@attr.define
-class ParsedLLMResponse:
-    full_response: str = attr.field()
-    conversation: str = attr.field()
-    file_edits: list[FileEdit] = attr.field()
-    interrupted: bool = attr.field(default=False)
+class ParsedEdit(BaseModel):
+    """Represents a successful parse of an LLM response with edits"""
+    full_response: str
+    conversation: str
+    file_edits: list[FileEdit]
+    interrupted: bool = False
+
+
+class ParseError(BaseModel):
+    """Represents an error that occurred during parsing"""
+    error_message: str
+    partial_response: str = ""
+
+
+ParsedLLMResponse = Union[ParsedEdit, ParseError]
 
 
 class Parser(ABC):
@@ -186,10 +198,9 @@ class Parser(ABC):
                                 await printer_task
                             logging.debug("LLM Response:")
                             logging.debug(message)
-                            return ParsedLLMResponse(
-                                message,
-                                conversation,
-                                [file_edit for file_edit in file_edits.values()],
+                            return ParseError(
+                                error_message=str(e),
+                                partial_response=message,
                             )
 
                         # Rename map handling
@@ -275,11 +286,11 @@ class Parser(ABC):
 
         logging.debug("LLM Response:")
         logging.debug(message)
-        return ParsedLLMResponse(
-            message,
-            conversation,
-            [file_edit for file_edit in file_edits.values()],
-            interrupted,
+        return ParsedEdit(
+            full_response=message,
+            conversation=conversation,
+            file_edits=[file_edit for file_edit in file_edits.values()],
+            interrupted=interrupted,
         )
 
     # Ideally this would be called in this class instead of subclasses

@@ -22,14 +22,14 @@ from mentat.llm_api_handler import (
     raise_if_context_exceeds_max,
 )
 from mentat.parsers.file_edit import FileEdit
-from mentat.parsers.parser import ParsedLLMResponse
+from mentat.parsers.parser import ParsedLLMResponse, ParsedEdit, ParseError
 from mentat.session_context import SESSION_CONTEXT
 from mentat.transcripts import ModelMessage, TranscriptMessage, UserMessage
 from mentat.utils import add_newline
 
 
 class MentatAssistantMessageParam(ChatCompletionAssistantMessageParam):
-    parsed_llm_response: ParsedLLMResponse
+    parsed_llm_response: ParsedEdit  # Only successful parses should be stored in messages
 
 
 class Conversation:
@@ -72,6 +72,9 @@ class Conversation:
         parsed_llm_response: ParsedLLMResponse,
     ):
         """Used for actual model output messages"""
+        if isinstance(parsed_llm_response, ParseError):
+            raise ValueError("Cannot add error response to conversation messages")
+            
         self.add_transcript_message(ModelMessage(message=message, prior_messages=messages_snapshot))
         self.add_message(
             MentatAssistantMessageParam(
@@ -203,16 +206,17 @@ class Conversation:
         async with stream.interrupt_catcher(parser.shutdown):
             parsed_llm_response = await parser.stream_and_parse_llm_response(add_newline(response))
 
-        # Sampler and History require previous_file_lines
-        for file_edit in parsed_llm_response.file_edits:
-            file_edit.previous_file_lines = code_file_manager.file_lines.get(file_edit.file_path, []).copy()
-
         llm_api_handler.display_cost_stats(response.current_response())
 
-        messages.append(
-            ChatCompletionAssistantMessageParam(role="assistant", content=parsed_llm_response.full_response)
-        )
-        self.add_model_message(parsed_llm_response.full_response, messages, parsed_llm_response)
+        if isinstance(parsed_llm_response, ParsedEdit):
+            # Sampler and History require previous_file_lines
+            for file_edit in parsed_llm_response.file_edits:
+                file_edit.previous_file_lines = code_file_manager.file_lines.get(file_edit.file_path, []).copy()
+
+            messages.append(
+                ChatCompletionAssistantMessageParam(role="assistant", content=parsed_llm_response.full_response)
+            )
+            self.add_model_message(parsed_llm_response.full_response, messages, parsed_llm_response)
 
         return parsed_llm_response
 
@@ -235,7 +239,11 @@ class Conversation:
                 " different model.",
                 style="error",
             )
-            return ParsedLLMResponse("", "", list[FileEdit]())
+            return ParseError(error_message="Rate limit error from OpenAI servers")
+        
+        if isinstance(response, ParseError):
+            stream.send(f"Error in model response: {response.error_message}", style="error")
+        
         return response
 
     async def remaining_context(self) -> int | None:

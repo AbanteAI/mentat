@@ -9,6 +9,8 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
 )
 
+from mentat.parsers.parser import ParseError, ParsedEdit
+
 from mentat.prompts.prompts import read_prompt
 from mentat.session_context import SESSION_CONTEXT
 from mentat.session_input import ask_yes_no, collect_user_input
@@ -91,8 +93,12 @@ class AgentHandler:
 
         messages.append(ChatCompletionAssistantMessageParam(role="assistant", content=content))
         parsed_llm_response = await ctx.config.parser.parse_llm_response(content)
+        
+        if isinstance(parsed_llm_response, ParseError):
+            ctx.stream.send(f"Error parsing model response: {parsed_llm_response.error_message}", style="error")
+            return []
+            
         ctx.conversation.add_model_message(content, messages, parsed_llm_response)
-
         commands = content.strip().split("\n")
         return commands
 

@@ -127,10 +127,10 @@ class JsonParser(Parser):
         except JSONDecodeError:
             # Should never happen with OpenAI's response_format set to json
             stream.send("Error processing model response: Invalid JSON", style="error")
-            return ParsedLLMResponse(message, "", [])
+            return ParseError(error_message="Invalid JSON in model response", partial_response=message)
         except ValidationError:
             stream.send("Error processing model response: Invalid format given", style="error")
-            return ParsedLLMResponse(message, "", [])
+            return ParseError(error_message="Invalid format in model response", partial_response=message)
 
         file_edits: Dict[Path, FileEdit] = {}
         for obj in response_json["content"]:
