@@ -6,7 +6,7 @@ In this changelog focus on user facing highlights and stick to the format. This 
 `1.0.19 <https://pypi.org/project/mentat/1.0.19/>`__
 --------------------------------------------------
 
-- Added deprecation message for older Python versions
+- Added deprecation notice - this CLI tool is now archived and replaced by the new Mentat GitHub bot service
 
 `1.0.18 <https://pypi.org/project/mentat/1.0.18/>`__
 --------------------------------------------------
