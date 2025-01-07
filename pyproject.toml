@@ -1,6 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mentat"
+dynamic = ["version"]
+description = "AI coding assistant on your command line"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Abante AI", email = "contact@abante.ai" },
+]
+dependencies = [
+    # We'll dynamically read these from requirements.txt in the [tool.hatch.build.targets.wheel] section
+]
+
+[tool.hatch.version]
+path = "mentat/VERSION"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mentat", "benchmarks"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "setup.py"
+
+[project.scripts]
+mentat = "mentat.terminal.client:run_cli"
+mentat-server = "mentat.server.mentat_server:main"
+mentat-daemon = "mentat.daemon:main"
+
 [tool.ruff]
 line-length = 120
 
 [tool.pytest.ini_options]
 addopts = "--ignore=vscode/bundled --ignore=benchmarks/benchmark_repos --ignore=testbed/exercism-python"
-
