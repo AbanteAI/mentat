@@ -4,7 +4,7 @@ This repository contains an archived version of an old command-line tool that is
 
 ## Looking for Mentat?
 
-The name "Mentat" is now used by a different project - an AI-powered GitHub bot that helps with code reviews and issue resolution. If you're interested in using Mentat, please visit:
+The name "Mentat" is now used by a different project - an AI-powered GitHub bot that writes and reviews code. If you're interested in using Mentat, please visit:
 
 **[mentat.ai](https://mentat.ai)**
 
