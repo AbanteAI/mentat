@@ -222,8 +222,7 @@ class LlmApiHandler:
         provider: Optional[str],
         stream: Literal[False],
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> SpiceResponse:
-        ...
+    ) -> SpiceResponse: ...
 
     @overload
     async def call_llm_api(
@@ -233,8 +232,7 @@ class LlmApiHandler:
         provider: Optional[str],
         stream: Literal[True],
         response_format: ResponseFormat = ResponseFormat(type="text"),
-    ) -> StreamingSpiceResponse:
-        ...
+    ) -> StreamingSpiceResponse: ...
 
     @api_guard
     async def call_llm_api(

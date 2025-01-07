@@ -1,9 +1,10 @@
 """
-NOTE: Not all of the Samples are valid with our current implementation. The list of 
+NOTE: Not all of the Samples are valid with our current implementation. The list of
 valid samples is saved in the `summoning-the-shoggoth` repo for now. Running this file
 directly from the command line will run the full validation script and overwrite the
 results there (takes a few hours).
 """
+
 import argparse
 import json
 import os
