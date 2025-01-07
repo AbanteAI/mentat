@@ -17,8 +17,8 @@ dependencies = [
 ]
 
 [tool.hatch.version]
-source = "file"
 path = "mentat/VERSION"
+source = "plain-text"
 
 [tool.hatch.build.targets.wheel]
 packages = ["mentat", "benchmarks"]
