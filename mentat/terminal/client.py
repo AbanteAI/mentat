@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import sys
 from asyncio import Event
 from pathlib import Path
 from typing import Any, Coroutine, List, Set
@@ -251,26 +252,10 @@ def get_parser():
 
 
 def run_cli():
-    parser = get_parser()
-
-    args = parser.parse_args()
-
-    cwd = Path(args.cwd).expanduser().resolve()
-    paths = args.paths
-    exclude_paths = args.exclude
-    ignore_paths = args.ignore
-    diff = args.diff
-    pr_diff = args.pr_diff
-
-    config = Config.create(cwd, args)
-
-    terminal_client = TerminalClient(
-        cwd,
-        paths,
-        exclude_paths,
-        ignore_paths,
-        diff,
-        pr_diff,
-        config,
-    )
-    terminal_client.run()
+    print("\n⚠️  This version of Mentat is deprecated and no longer maintained ⚠️\n")
+    print("The name 'Mentat' is now used by a different project - an AI-powered GitHub bot")
+    print("that writes and reviews code.\n")
+    print("To use the current version of Mentat, please visit:")
+    print("https://mentat.ai\n")
+    print("For any questions, you can follow @AbanteAI on Twitter.")
+    sys.exit(1)
