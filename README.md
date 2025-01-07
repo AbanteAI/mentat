@@ -1,20 +1,20 @@
-[![Twitter Follow](https://img.shields.io/twitter/follow/AbanteAi?style=social)](https://twitter.com/AbanteAi)
-[![Discord Follow](https://dcbadge.vercel.app/api/server/XbPdxAMJte?style=flat)](https://discord.gg/zbvd9qx9Pb)
-[![Documentation Status](https://readthedocs.org/projects/mentat-ai/badge/?version=latest)](https://docs.mentat.ai/en/latest/?badge=latest)
-[![Stable Version](https://img.shields.io/pypi/v/mentat?color=blue)](https://pypi.org/project/mentat/)
-[![License](https://img.shields.io/pypi/l/mentat.svg)](https://github.com/AbanteAI/mentat/blob/main/LICENSE)
+# ⚠️ ARCHIVED PROJECT ⚠️
 
-# 🧙‍♂️ Mentat ⚡
+This repository contains an archived version of Mentat, which was an AI-powered command line tool for coding assistance. This project is no longer maintained or supported.
+
+## Important Note About the Current Mentat
+
+The name "Mentat" is now used by a different project - a GitHub bot that helps with code reviews and issue resolution. If you're looking for the current Mentat GitHub bot, this is not the correct repository. The Mentat bot is a proprietary service by AbanteAI and is not open source.
+
+---
+
+# Historical Information: Mentat CLI Tool
+
+This was a command-line tool that assisted with coding tasks using AI. Below is the historical documentation kept for reference:
 
 > _It is by will alone I set my mind in motion_
 >
 > The Mentat Mantra
-
-The Mentats of Dune combine human creativity with computer-like processing - and now you can too.
-
----
-
-Mentat is the AI tool that assists you with any coding task, right from your command line.
 
 Unlike Copilot, Mentat coordinates edits across multiple locations and files. And unlike ChatGPT, Mentat already has the context of your project - no copy and pasting required!
 
@@ -85,15 +85,8 @@ For more information on commands, configuration or using other models see [the d
 
 Mentat uses [Textual](https://textual.textualize.io/). On MacOS, Textual may not render the TUI correctly; if you run into this problem, use the fix [here](https://textual.textualize.io/FAQ/#why-doesnt-textual-look-good-on-macos).
 
-# 👩‍💻 Roadmap and Contributing
+# ℹ️ Project Status
 
-We welcome contributions! To coordinate, make sure to join the Discord server: [![Discord Follow](https://dcbadge.vercel.app/api/server/XbPdxAMJte?style=flat)](https://discord.gg/zbvd9qx9Pb)
+This project has been archived and is no longer maintained. The development team has moved on to other projects, including the current Mentat GitHub bot. We recommend looking for alternative active projects if you need a command-line AI coding assistant.
 
-The goal for Mentat is to become the best way to write code. Some big improvements coming up are:
-
--   seamlessly work with codebases much larger than LLM context limits, without requiring users to filter files manually
--   improved edit quality
-
-If this is something you'd like to work on, jump right in! And if you want to join the team to work on this full time, message [@bio_bootloader](https://twitter.com/bio_bootloader) on twitter.
-
-To find something specific to work on, take a look at [open issues](https://github.com/AbanteAI/mentat/issues).
+If you're interested in AbanteAI's current work, you can follow them on Twitter: [@AbanteAI](https://twitter.com/AbanteAi).
